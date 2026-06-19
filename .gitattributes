@@ -1,0 +1,13 @@
+# Normalizare line endings — LF în repo, indiferent de mașină (Windows/Linux/Mac)
+* text=auto eol=lf
+
+# Fișiere binare — fără conversie de line endings
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.woff  binary
+*.woff2 binary

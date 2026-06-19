@@ -1,0 +1,69 @@
+# === Dependențe ===
+node_modules/
+.pnpm-store/
+
+# === Build & output Next.js ===
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+# === Variabile de mediu / secrete (NICIODATĂ în git) ===
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+# .env.example SE comite (template fără valori reale) — vezi mai jos că NU e ignorat
+
+# === Vercel ===
+.vercel/
+
+# === Loguri & temporare ===
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.tmp-*
+*.tmp
+
+# === Teste ===
+coverage/
+playwright-report/
+test-results/
+playwright/.cache/
+.nyc_output/
+
+# === Lint / cache build ===
+.eslintcache
+.turbo/
+
+# === Certificate locale (https dev) ===
+*.pem
+*.local.key
+*.local.crt
+
+# === OS / editor ===
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+
+# === Claude Code: local & volatile (NU se comit) ===
+.claude/settings.local.json
+.claude/.loop-state
+.claude/scheduled_tasks.lock
+.claude/HUMAN_RUNS_TESTS
+
+# === Continuitate sesiune (local, nu cod de proiect) ===
+.remember/now.md
+.remember/tmp/
+.remember/logs/
+
+# === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
+# docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)
+# .claude/settings.json       -> hooks partajate (block-pii-log, lint-web)
+# .claude/hooks/*.js          -> hook-urile partajate
+# .env.example                -> template de env, fără valori reale
+# .remember/remember.md       -> handoff-ul „unde am rămas" (util la continuitate)
