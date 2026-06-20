@@ -5,7 +5,14 @@ import { drizzle } from "drizzle-orm/neon-http";
 
 import * as schema from "./schema";
 
-const sql = neon(process.env.DATABASE_URL!);
+// `next build` evaluează modulele (page-data collection) fără DATABASE_URL → un
+// `neon()` la top-level fără string ar arunca. Driverul Neon HTTP e lazy (se conectează
+// abia la prima interogare, care NU rulează la build), așa că un placeholder ca fallback
+// e sigur: la runtime DATABASE_URL real e mereu setat (Vercel env / .env.local).
+const connectionString =
+  process.env.DATABASE_URL ?? "postgresql://placeholder:placeholder@placeholder/placeholder";
+
+const sql = neon(connectionString);
 
 export const db = drizzle({ client: sql, schema, casing: "snake_case" });
 

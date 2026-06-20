@@ -13,9 +13,9 @@ de către cei care îl proiectează, îl execută sau îl trăiesc, fiecare cu *
 **Fază: validare de piață.** Obiectiv: cost cât mai aproape de **$0**, livrare rapidă, fundație curată care
 suportă creșterea fără rescriere. Lansare = **beta închis** (acces controlat), cu conținut seed pus de noi.
 
-> ⚠️ **Pre-scaffold.** Momentan repo-ul conține **planificarea** (docs + reguli de proiect). Codul aplicației
-> (Next.js) se generează în **Faza 0**. Secțiunile „Rulare locală" de mai jos descriu setup-ul **țintă**,
-> nu unul deja funcțional.
+> 🔨 **Faza 0 în desfășurare.** Scheletul Next.js + tooling-ul și schema DB (13 tabele + migrația `0000`)
+> sunt **gata și verzi**. Urmează **Auth.js v5** (magic link) + middleware deny-by-default. „Rulare locală"
+> de mai jos e funcțională pentru `dev`/`build`; `db:push` și magic link real cer credențiale (Neon + Resend).
 
 Întrebarea pe care MVP-ul o testează: *dacă pun în fața specialiștilor un detaliu bun, se aprinde dezbaterea pe roluri?*
 
@@ -62,7 +62,7 @@ npm install
 
 # 2. configurează variabilele de mediu (vezi .env.example)
 cp .env.example .env.local
-#    completează valorile (DATABASE_URL, AUTH_SECRET, RESEND_API_KEY, ...)
+#    completează valorile (DATABASE_URL, AUTH_SECRET, AUTH_RESEND_KEY, ADMIN_EMAILS, ...)
 
 # 3. aplică schema pe DB
 npm run db:push        # sau db:migrate
@@ -113,3 +113,5 @@ un singur autor (~fork+PR) · **Validare** = poziție (Aprob / Dezaprob cu justi
 ## Status
 
 🚧 **În construcție** — repo privat, beta închis. Proiect în fază de validare de piață.
+
+**Faza 0 (schelet):** ✅ schelet Next.js + tooling · ✅ schema DB (13 tabele) + migrația `0000` · ✅ CI verde (type-check + lint + build) · ⏳ **următorul:** Auth.js v5 magic link + middleware. Detaliu cu dată în [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
