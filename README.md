@@ -85,6 +85,7 @@ Variabilele de mediu necesare sunt documentate în **`.env.example`**. Secretele
 | [`docs/ADR.md`](docs/ADR.md) | Deciziile de arhitectură (formă scurtă): context → decizie → consecințe. |
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) | Proiectarea concretă a bazei de date (tabele, enum-uri, constrângeri, indici). |
 | [`docs/API.md`](docs/API.md) | Contractul API: inventarul endpoint-urilor + reguli enforce pe server. |
+| [`docs/SECURITATE.md`](docs/SECURITATE.md) | Document viu de securitate: matrice de protecție per endpoint + 13 categorii + porți per fază. |
 | [`docs/UX-ECRANE.md`](docs/UX-ECRANE.md) | Inventar de ecrane + flow-uri UX + stările obligatorii (empty/loading/error). |
 | [`docs/EMAILURI.md`](docs/EMAILURI.md) | Copy-ul emailurilor (magic link, invitație, notificări schiță). |
 | [`docs/PLAN-SEED.md`](docs/PLAN-SEED.md) | Planul de conținut seed pentru lansare = instrumentul de validare. |
