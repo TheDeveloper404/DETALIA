@@ -6,6 +6,20 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-20
 
+### Faza 0 — pasul 1: schelet Next.js + tooling (verde)
+- **Scaffold Next.js** generat cu `create-next-app` și integrat în repo (păstrând docs/`.github`/`CLAUDE.md`/`README`
+  existente): **Next 16.2.9 · React 19.2.4 · Tailwind v4 · ESLint 9 (flat) · TypeScript 5 strict**.
+- **Dependențe adăugate:** `drizzle-orm`, `@neondatabase/serverless`, `next-auth@beta` (v5), `@auth/drizzle-adapter`,
+  `zod`; dev: `drizzle-kit`, `dotenv`, `prettier`. (`vitest` se adaugă când scriem testele — Faza 1.)
+- **Scripturi `package.json`:** `dev/build/start/lint` + `typecheck` (tsc --noEmit) + `format` + `db:generate/push/migrate/studio`.
+  Astea **activează CI-ul** (`.github/workflows/ci.yml` nu mai trece „gol").
+- **ESLint:** exclus tooling-ul local din lint (`.claude/`, `.agents/`, `.remember/`). **Prettier:** `.prettierrc.json` + `.prettierignore`.
+- **Curățare boilerplate:** `app/page.tsx` = placeholder DETALIA (nu mai e pagina default Next); `layout.tsx`
+  metadata DETALIA + `lang="ro"`; SVG-urile default Next șterse din `public/`. `.env.example` aliniat la
+  **`AUTH_RESEND_KEY`** (convenția Auth.js v5, în loc de `RESEND_API_KEY`).
+- **Verificat verde:** `typecheck` ✓ · `build` (Turbopack) ✓ · `lint` ✓.
+- Încă NU: schema DB în cod, Auth.js, middleware, onboarding (pașii 2–5). Independente de credențiale.
+
 ### Document de securitate (nou) — evidență per-endpoint
 - **`docs/SECURITATE.md`** (nou) — document viu, construit ca **listă de bifat** ca să nu rămână rute neacoperite:
   matrice de protecție per endpoint (auth/rol/input/rate-limit/business/ownership-IDOR/test/status), model de
