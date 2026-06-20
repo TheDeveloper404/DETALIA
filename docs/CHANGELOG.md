@@ -6,6 +6,31 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-20
 
+### Fix: CI invalid de la primul commit (toate rulările roșii)
+- **Cauză:** `.github/workflows/ci.yml#L52` — pasul „Pre-scaffold" avea `run: echo "Pre-scaffold: ..."` inline;
+  `:` urmat de spațiu într-un scalar YAML neîncadrat = interpretat ca mapping → **fișier de workflow invalid**.
+  Efect: GitHub respinge workflow-ul la parsare (`startup_failure`, 0 jobs, 0s) și atașează eșecul fiecărui push
+  (dev + merge-uri pe main) — de aici toate 6 rulările roșii, „triggered via push" deși `on: pull_request`.
+- **Fix (soluția cea mai sigură):** scos colon-ul din mesajul echo (`Pre-scaffold -` în loc de `Pre-scaffold:`),
+  pe o singură linie inline. Block scalar `run: |` trecea js-yaml, dar linter-ul Red Hat din VS Code încă reclama
+  („Nested mappings are not allowed in compact mappings") → am ales forma fără colon, validă în ORICE parser.
+- **Validat:** `npx js-yaml ci.yml` → VALID; niciun alt `run:` inline cu colon-space în fișier.
+- Notă: era doar fișierul de workflow — codul/schema/scaffold neafectate; CI nici n-a apucat să verifice ceva.
+  Lecție: validez YAML-ul de workflow (js-yaml/actionlint) înainte să mă bazez pe el.
+
+### Faza 0 — pasul 2: schema DB în cod + migrații (verde)
+- **`db/schema.ts`** — schema Drizzle completă (13 tabele), sursa de adevăr a modelului (`SCHEMA.md` rămâne design doc):
+  - **Tabele Auth.js** (adapter Drizzle): `users` (extins cu `status`, `invited_by_id`, `created_at`), `accounts`,
+    `sessions`, `verification_tokens` — cu cheile TS exacte cerute de adapter (emailVerified, sessionToken, userId, providerAccountId).
+  - **Tabele de domeniu:** `roles`, `invitations`, `categories` (self-FK), `details`, `detail_resources`, `sketches`,
+    `validations`, `comments`, `notifications`. 8 enum-uri (user_status, role_main, verification_status, target_type,
+    validation_position, sketch_status, detail_resource_type, notification_type).
+  - Constrângeri cheie: **unică `(user_id, target_type, target_id)` pe `validations`**, FK indexate, `uuid gen_random_uuid()`,
+    `created_at`/`updated_at` (cu `$onUpdate`). `casing: "snake_case"` → coloane snake_case din chei camelCase.
+- **`db/index.ts`** — client Drizzle (Neon HTTP), `casing: snake_case`. **`drizzle.config.ts`** — dialect postgresql, out `db/migrations`.
+- **Migrație generată:** `db/migrations/0000_equal_alice.sql` (13 tabele, FK, indici, enum-uri). Verificat: snake_case + unique + gen_random_uuid().
+- **Verde:** `typecheck` ✓ · `db:generate` ✓ · `lint` ✓ · `build` ✓. Rămâne `db:push` pe Neon (cere `DATABASE_URL`).
+
 ### Faza 0 — pasul 1: schelet Next.js + tooling (verde)
 - **Scaffold Next.js** generat cu `create-next-app` și integrat în repo (păstrând docs/`.github`/`CLAUDE.md`/`README`
   existente): **Next 16.2.9 · React 19.2.4 · Tailwind v4 · ESLint 9 (flat) · TypeScript 5 strict**.
