@@ -6,6 +6,62 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-20
 
+### Faza 0 — pasul 5 (complet): cont admin/seed + authz admin
+- **Model admin (decizie):** NU există coloană `is_admin` — admin = user normal al cărui email e în allowlist-ul
+  **`ADMIN_EMAILS`** (env, separat prin virgulă), deny-by-default. Fără migrație, reversibil; un admin rămâne rând
+  în `users` (deci poate fi autor de detalii / `created_by_admin_id`).
+- **`lib/admin.ts`** — `isAdminEmail` · `isAdminSession` · `requireAdmin()` (guard pt rute/acțiuni admin, aruncă
+  `FORBIDDEN`; callerul decide 403 vs redirect).
+- **`db/seed.ts`** + script **`db:seed`** (tsx) — creează idempotent conturile din `ADMIN_EMAILS` (`onConflictDoNothing`
+  pe email). Încarcă `.env.local` apoi `.env`; guard pe `DATABASE_URL`; **fără PII în loguri** (doar numere). Rolul
+  acestor rânduri: autor pt detaliile seed + țintă pt FK admin, înainte de primul login (magic link leagă același rând).
+- **`.env.example`** — adăugat `ADMIN_EMAILS`. **+dep:** `tsx` (runner scripturi TS).
+- **Notă repo:** `drizzle.config.ts` încarcă `.env` (`dotenv/config`), dar `.env.example` documentează `.env.local`
+  — inconsistență; seed-ul încarcă ambele ca plasă. (De aliniat ulterior.)
+- **Verde:** `typecheck` ✓ · `lint` ✓ · `build` ✓. Seed verificat: rulează prin tsx, guard-ul DATABASE_URL oprește curat
+  (rularea reală cere credențiale Neon).
+
+### Faza 0 — pasul 4 (complet): onboarding rol + schelet invitație (HOLD)
+- **Arhitectură pe straturi (server/):** `domain/roles.ts` (roluri principale confirmate + subroluri DRAFT de reconfirmat;
+  validatori `isValidRoleMain`/`isValidSubRole`; fără import DB → safe în client) · `repos/rolesRepo.ts` (Drizzle) ·
+  `services/roleService.ts` (`declareRole`: un rol/user, subrol ∈ rol principal, enforce pe server + constrângere DB).
+- **UI onboarding:** `app/onboarding/page.tsx` (server, guard `auth()` → /login dacă nelogat, → / dacă are deja rol) +
+  `role-form.tsx` (client: select rol → subrolurile se filtrează; `useActionState` pt erori/pending) +
+  `actions.ts` (server action: ia userId din sesiune, deleagă la service, redirect / la succes).
+- **Schelet invitație (Poarta 1 = HOLD, NEcablat):** `repos/invitationsRepo.ts` + `services/invitationService.ts`
+  (`createInvitation` token criptografic `randomBytes(32).base64url` + TTL din `INVITATION_TTL_HOURS`; `validateInvitation`/
+  `consumeInvitation` one-time + expirare). NU e legat de signup — activarea invite-only e o decizie de produs deschisă.
+- **Verde:** `typecheck` ✓ · `lint` ✓ · `build` ✓ (`ƒ /onboarding` în rute).
+
+### Faza 0 — pasul 4 (început): pagina /login (magic link) + verificare runtime pas 3
+- **Smoke test pas 3 (runtime, fără credențiale):** `/api/auth/providers` → listează Resend ✓ · `/api/auth/csrf` → token ✓ ·
+  rută protejată → **302 → `/login?callbackUrl=...`** ✓ (deny-by-default confirmat). Cookie-uri `HttpOnly; SameSite=Lax`.
+- **`app/login/page.tsx`** — pagină de login passwordless: formular email → server action `signIn("resend", { email, redirectTo })`.
+  `AuthError` → redirect `/login?error=<type>` cu mesaje prietenoase (fără internals). `redirectTo` = `callbackUrl` din query.
+  Randare verificată live: status 200, formular + mesaj de eroare prezente.
+- **`lib/auth.ts`** — adăugat `pages: { signIn: "/login" }` (Auth.js folosește pagina noastră, nu cea default). `verifyRequest` rămâne pe default.
+- **Verde:** `typecheck` ✓ · `lint` ✓ · `build` ✓ (`ƒ /login` în rute).
+- ⏳ Rămâne din pas 4: onboarding rol (tabel `roles`) + schelet invitație (Poarta 1 = HOLD). Testarea trimiterii reale a
+  magic link-ului cere `AUTH_RESEND_KEY` + domeniu + `DATABASE_URL`.
+
+### Faza 0 — pasul 3: autentificare Auth.js v5 (magic link) + deny-by-default (verde)
+- **`lib/auth.ts`** — config central Auth.js v5: `DrizzleAdapter` (tabele mapate explicit:
+  users/accounts/sessions/verificationTokens) + provider **Resend** (magic link, `from` din `EMAIL_FROM`,
+  `maxAge` din `MAGIC_LINK_TTL_MINUTES`). Strategie sesiune **`database`** (folosim tabelul `sessions`),
+  `trustHost: true`. Callback `session` expune `user.id` (pentru authz pe server). Export `handlers/auth/signIn/signOut`.
+  - **Decizie:** fără split-config `auth.config.ts`+JWT — driverul Neon (HTTP/fetch) e edge-compatible,
+    deci configul complet rulează și în proxy. Mai simplu + folosim sesiuni DB.
+- **`app/api/auth/[...nextauth]/route.ts`** — re-exportă `GET/POST` din `handlers`.
+- **`proxy.ts`** (Next 16 înlocuiește `middleware.ts`) — **deny-by-default**: tot ce nu e public cere sesiune;
+  neautentificat pe rută protejată → redirect la `/login?callbackUrl=...`. Public: `/`, `/login`, `/api/auth/*`, assets.
+- **Fix latent `db/index.ts`:** clientul Neon se construia la import (`neon(DATABASE_URL!)`) → `next build`
+  (page-data collection) pica fără `DATABASE_URL`. Soluție: connection string cu **placeholder ca fallback**
+  (driver Neon HTTP e lazy — se conectează abia la prima interogare; la runtime DATABASE_URL real e mereu setat).
+  `db` rămâne instanță drizzle reală → `DrizzleAdapter` o detectează corect.
+- **Verde:** `typecheck` ✓ · `build` ✓ (`ƒ /api/auth/[...nextauth]`, Proxy activ) · `lint` ✓.
+- ⚠️ **Testare end-to-end a magic link-ului** cere `AUTH_RESEND_KEY` + domeniu verificat (de la Edi) + `DATABASE_URL`
+  pe Neon — structural complet, funcțional după credențiale.
+
 ### Fix: CI invalid de la primul commit (toate rulările roșii)
 - **Cauză:** `.github/workflows/ci.yml#L52` — pasul „Pre-scaffold" avea `run: echo "Pre-scaffold: ..."` inline;
   `:` urmat de spațiu într-un scalar YAML neîncadrat = interpretat ca mapping → **fișier de workflow invalid**.
