@@ -6,6 +6,14 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-20
 
+### Document de securitate (nou) — evidență per-endpoint
+- **`docs/SECURITATE.md`** (nou) — document viu, construit ca **listă de bifat** ca să nu rămână rute neacoperite:
+  matrice de protecție per endpoint (auth/rol/input/rate-limit/business/ownership-IDOR/test/status), model de
+  zone deny-by-default, mapare pe cele 13 categorii din `Audit_checklist`, riscuri specifice DETALIA (polimorfism,
+  ownership dublu pe schițe, poziție unică), poartă de securitate per fază. Regula: endpoint fără rând verde = neacoperit.
+- Capcanele clasice (authz uitată, IDOR, validare doar pe frontend, leak prin erori, enumerare) listate cu antidot.
+  README actualizat.
+
 ### Guardrails de proces — PR template, CI, hooks noi (înainte de scaffold)
 - **`.github/pull_request_template.md`** (nou, se comite) — checklist la fiecare PR: documentația la zi,
   build verde local, teste, securitate, business enforce pe server, branch = dev. Vizibil și pentru Edi.
