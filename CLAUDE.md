@@ -150,6 +150,14 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 - **Docs librării:** folosește **context7 MCP** înainte de a scrie cod cu Next.js / Auth.js / Drizzle /
   perfect-freehand (API-uri se schimbă des).
 
+### Guardrails de repo (active)
+- **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul
+  afectat + handoff. La PR, checklistul din `.github/pull_request_template.md` confirmă (docs, build, teste, securitate).
+- **`SCHEMA.md` / `API.md` = design docs; sursa de adevăr e CODUL.** La divergență câștigă codul; actualizează
+  docul sau marchează „verifică în cod".
+- **CI** (`.github/workflows/ci.yml`): type-check + lint + build pe fiecare PR (dev/main). Build verde ≠ teste verzi.
+- **Hooks locale** (`.claude/`, NU în repo — opțiunea A): `block-pii-log`, `block-secrets`, `block-push-main`, `lint-web`.
+
 ---
 
 ## Decizii confirmate de Edi (iunie 2026)

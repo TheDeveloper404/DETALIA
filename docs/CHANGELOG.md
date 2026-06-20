@@ -6,6 +6,18 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-20
 
+### Guardrails de proces — PR template, CI, hooks noi (înainte de scaffold)
+- **`.github/pull_request_template.md`** (nou, se comite) — checklist la fiecare PR: documentația la zi,
+  build verde local, teste, securitate, business enforce pe server, branch = dev. Vizibil și pentru Edi.
+- **`.github/workflows/ci.yml`** (nou, se comite) — CI pe PR (dev/main): type-check + lint + build. Guardat
+  pentru pre-scaffold (trece gol fără package.json; devine activ automat după Faza 0).
+- **Hooks noi (locale, `.claude/` rămâne gitignored — opțiunea A):**
+  - `block-push-main.js` — blochează push direct pe `main` prin tool-ul Bash.
+  - `block-secrets.js` — blochează scrierea de secrete reale în fișiere (permite .env locale + placeholdere .env.example).
+  - Înregistrate în `.claude/settings.json` lângă `block-pii-log` și `lint-web`.
+- **Regula „codul = sursa de adevăr"** marcată explicit în antetul `SCHEMA.md` și `API.md` (design docs;
+  la divergență câștigă codul; câmp „ultima verificare").
+
 ### Plan de execuție MVP (nou)
 - **`docs/PLAN-EXECUTIE.md`** (nou) — planul operațional: tabel de servicii terțe (cine setează ce, cost),
   faze 0/1/1.5/2 cu pași concreți + prerechizite + definiție de „gata" per fază, backlog, diagramă de
