@@ -70,13 +70,22 @@ DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
 - `Validation` și `Comment` sunt **polimorfice** (Detail SAU Sketch) → dezbaterea per schiță vine gratis.
 
 ### Acces & roluri
-- **Beta închis:** zero înregistrare publică. Cont = doar prin `Invitation` validă (token one-time, expirare).
-  Invitația dă **doar acces** — NU atribuie rolul.
+> **Două porți distincte, nu le confunda:** Poarta 1 = **accesul** (cine intră în platformă → invitația).
+> Poarta 2 = **credibilitatea** (cât „cântărești" odată intrat → rol declarat → verificat). Sunt independente.
+
+- **Poarta 1 — acces (beta închis pe invitație) — ÎN HOLD, de reconfirmat cu Edi:** plan actual = zero
+  înregistrare publică, cont = doar prin `Invitation` validă (token one-time, expirare). Invitația dă **doar
+  acces** — NU atribuie rolul. *Mecanismul rămâne în plan, dar e sub reevaluare (invite-only vs. deschidere
+  publică la lansare) — decizie de produs cu Edi. Nu finaliza signup gating până nu se confirmă.*
 - **Rolul e auto-declarat de user la signup** (categorie + subrol). Acces imediat după declarare → minimizează
   frecarea la primul contact. Rolul e **vizibil permanent** lângă nume.
-- **Verificarea rolului = flux separat în platformă** ("Verificare rol", după login). Odată verificat → **badge
-  cu steluță galbenă** lângă rol. În MVP **aprobarea verificării e manuală (admin/Edi)**; OAR/CUI auto = ulterior.
-  Greutatea interacțiunii e dată întâi de rol, apoi de faptul că rolul e verificat.
+- **Poarta 2 — verificare rolului = „pull, nu push":** flux separat în platformă ("Verificare rol", inițiat de
+  user), **opțional, fără blocare**. Rol neverificat = **funcțional 100%**. Nu stresăm pe nimeni: doar un
+  **nudge blând permanent** („Rolul tău nu e verificat → Verifică rolul"). Userii vin **singuri** să se
+  verifice, motivați de credibilitate (rol verificat „cântărește" mai mult în ochii cititorului). La verificare
+  le cerem niște date; **aprobarea e manuală (admin/Edi)** în MVP; OAR/CUI auto = ulterior. Odată verificat →
+  **badge cu steluță galbenă** lângă rol (poziția UI exactă — lângă rol și/sau avatar — se decide la implementare).
+  Fără scoring numeric: greutatea e dată de rol + faptul că e verificat, judecată de cititor.
 - **Upload de detalii OPRIT în v1** (seed-only, confirmat). Doar conturi admin/seed creează detalii.
   Deschiderea uploadului pentru useri = Val 2.
 
@@ -148,10 +157,14 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 - **Schiță asincronă GitHub-style** (o foaie = un autor, NU real-time) — confirmat. Schițarea = **feature obligatoriu în MVP**.
 - **Un singur rol per user** (nu roluri multiple).
 - **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin la invitație).
+- **Verificarea rolului = „pull, nu push"** — opțională, fără blocare, rol neverificat funcțional 100%, nudge
+  blând; userii vin singuri să se verifice, motivați de credibilitate. Fără scoring numeric.
 - Zone climatice/seismice = **listă fixă** cu opțiune „General" + atenționare când alegi General.
 - Notificări **in-app + email** de la început.
 
 ## Decizii deschise (pentru Edi)
+- **Poarta de acces la lansare — ÎN HOLD:** beta închis pe invitație (plan actual) vs. înregistrare publică
+  deschisă. De reconfirmat cu Edi. Independentă de verificarea rolului (Poarta 2).
 - Lista exactă de subroluri per rol principal (avem draftul din Documentul Fundamental).
 - Surse de verificare automată a rolului (OAR confirmat?), dincolo de manual-admin.
 - Câte resurse suplimentare per detaliu (2–3) și ce tipuri (imagine/link/PDF).
