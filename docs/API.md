@@ -1,5 +1,9 @@
 # DETALIA — Contract API (inventar endpoint-uri)
 
+> **🔵 SURSA DE ADEVĂR = CODUL** (`app/api/...` + `server/services`). Acest fișier e *design doc*: la orice
+> divergență, **codul câștigă**. Când schimbi un endpoint în cod, actualizează aici sau marchează „verifică în cod".
+> _Ultima verificare față de cod: pre-scaffold (codul încă nu există)._
+>
 > Inventarul rutelor REST (route handlers `app/api/...`) + server actions pentru mutații.
 > Convențiile de bază sunt în `CLAUDE.md` („Standarde moștenite"). Acest doc le aplică pe domeniul DETALIA.
 > Status: **contract de proiectare** — se materializează ca handlers în Faza 0/1. Se actualizează odată cu codul.
