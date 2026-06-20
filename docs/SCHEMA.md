@@ -50,6 +50,10 @@ notification_type      : SKETCH_PROPOSED | SKETCH_ACCEPTED | SKETCH_REJECTED | .
 | `verified_by_admin_id` | uuid FK→users.id | nullable; **index** |
 | `created_at` / `updated_at` | timestamptz | |
 
+> **Notă „admin":** nu există coloană `is_admin`. Un user e admin dacă emailul lui e în allowlist-ul `ADMIN_EMAILS`
+> (env, vezi `lib/admin.ts`). FK-urile `verified_by_admin_id` / `created_by_admin_id` arată spre rândul `users` al
+> acelui admin (care e tot un user normal).
+
 ### `invitations` (dă DOAR acces — NU atribuie rolul)
 | coloană | tip | note |
 |---|---|---|

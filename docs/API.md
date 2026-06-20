@@ -136,6 +136,7 @@ detaliu-mamă. Tranzițiile invalide → `409`. Doar autorul-mamă acceptă/resp
 
 ## Note de implementare
 
-- Rutele `/api/admin/*` cer rol de admin verificat pe server (deny-by-default).
+- Rutele `/api/admin/*` cer **admin** verificat pe server (deny-by-default) — admin = email în allowlist-ul
+  `ADMIN_EMAILS` (env, NU coloană `is_admin`); guard `requireAdmin()` din `lib/admin.ts`.
 - Paginare clasică unde e cazul (feed = top ~20, fără infinite scroll).
 - Toate valorile tunable (TTL-uri) din **env**, niciodată hardcodate.

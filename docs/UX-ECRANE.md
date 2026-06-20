@@ -4,6 +4,13 @@
 > Nu e Figma — e harta funcțională, ca să nu improvizăm ecran cu ecran. Aliniat la `ARHITECTURA.md` + `CLAUDE.md`.
 > Regulă (din `ui-ux-review`): fiecare ecran cu date are stări **empty/loading/error** explicite, nu doar „happy path".
 
+> **Stare implementare (Faza 0, 2026-06-20) — codul = adevărul:**
+> - ✅ **Login** — construit la **`/login`** (formular email → magic link, cu mesaj de eroare).
+> - ✅ **Confirmare „verifică emailul"** — deocamdată pagina **default Auth.js** (`/api/auth/verify-request`),
+>   NU `/login/sent`. Pagina custom `/login/sent` rămâne refinare ulterioară.
+> - ✅ **Declară rolul** — construit la **`/onboarding`** (nu `/onboarding/rol`): rol principal + subrol → acces imediat.
+> - Restul ecranelor (APP, ADMIN, verificare) = încă neconstruite (Faza 1+).
+
 ---
 
 ## Harta ecranelor

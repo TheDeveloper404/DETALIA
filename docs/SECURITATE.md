@@ -34,14 +34,16 @@
 ## 1. Model de zone (deny-by-default)
 
 ```
-PUBLIC                 /login, /invite/[token], /api/auth/*        → fără sesiune, dar rate-limited
-AUTENTIFICAT (app)     tot ce e sub (app) + /api/* (non-admin)     → middleware cere sesiune; altfel 401
-ADMIN                  /admin/*, /api/admin/*                      → sesiune + rol admin verificat pe server; altfel 403
+PUBLIC                 /, /login, /invite/[token], /api/auth/*     → fără sesiune, dar rate-limited
+AUTENTIFICAT           tot restul (rute + /api/* non-admin)        → proxy.ts cere sesiune; altfel redirect /login
+ADMIN                  /admin/*, /api/admin/*                      → sesiune + admin (ADMIN_EMAILS) verificat pe server; altfel 403
 ```
 
-- **Middleware** respinge neautentificații pe toată zona `(app)` și `/api/*` (excepție explicită: `/api/auth/*`).
-- Rolul și ownership-ul se verifică **în service, pe server** — middleware-ul e doar prima poartă, nu singura.
-- **Authz corect:** lipsă auth → **401**, rol greșit → **403**. **Niciodată 404** ca să ascunzi existența.
+- **`proxy.ts`** (Next 16 — fostul `middleware.ts`) e **deny-by-default**: tot ce nu e în allowlist-ul public
+  (`/`, `/login`, `/api/auth/*`, assets) cere sesiune; neautentificat → redirect `/login?callbackUrl=...`.
+- Rolul și ownership-ul se verifică **în service, pe server** — proxy-ul e doar prima poartă, nu singura.
+- **Admin** = user al cărui email e în `ADMIN_EMAILS` (env, deny-by-default); guard `requireAdmin()` în `lib/admin.ts`.
+- **Authz corect:** lipsă auth → **401** (API) / redirect (pagini), rol greșit → **403**. **Niciodată 404** ca să ascunzi existența.
 
 ---
 
@@ -118,8 +120,10 @@ Legendă: `Auth` = cere sesiune · `Rol` = rol necesar · `Input` = validare sch
 
 ## 5. Poarta de securitate per fază (Definition of Done)
 
-- **Faza 0 (auth):** middleware deny-by-default testat (401 pe zonă protejată); magic link one-time/expirare;
-  invitație one-time; fără secrete în cod; fără PII în loguri.
+- **Faza 0 (auth): ✅ structural acoperită (2026-06-20).** `proxy.ts` deny-by-default verificat la runtime
+  (rută protejată → 302 `/login`); magic link one-time/expirare (config Auth.js + TTL env); schelet invitație
+  one-time (HOLD); admin pe allowlist `ADMIN_EMAILS` + `requireAdmin()`; fără secrete în cod; fără PII în loguri
+  (seed loghează doar numere). Rămâne testarea „login real" cu credențiale (Neon + Resend).
 - **Faza 1 (validare):** matricea §2 verde pe details/validations/comments; IDOR pe DELETE validation; DISAPPROVE→422.
 - **Faza 1.5 (schiță):** ownership dublu (autor schiță vs. autor-mamă); tranziții state machine (409); target polimorfic validat.
 - **Faza 2 (verificare + lansare):** matrice 100% verde; rate-limit pe sensibile; audit pe cele 13 categorii;

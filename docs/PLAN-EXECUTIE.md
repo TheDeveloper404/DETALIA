@@ -15,7 +15,7 @@ Toate au free tier real. Coloana „Cine setează" = unde e nevoie de Liviu/Edi 
 | **GitHub** | repo, PR, colaborare | repo privat ✅ (există); Edi = Collaborator | Liviu (invită Edi) | $0 |
 | **Vercel** | hosting, deploy, env, preview | proiect linkat la repo | Liviu (login + link) | $0 Hobby → ~$20 Pro la comercial |
 | **Neon Postgres** | baza de date | via Vercel Marketplace → `DATABASE_URL` | Liviu (provisionează) | $0 free tier |
-| **Resend** | email (magic link + notificări) | cont + verificare domeniu (SPF/DKIM) → `RESEND_API_KEY` | Liviu (+ acces DNS domeniu) | $0 (3k/lună) |
+| **Resend** | email (magic link + notificări) | cont + verificare domeniu (SPF/DKIM) → `AUTH_RESEND_KEY` | Liviu (+ acces DNS domeniu) | $0 (3k/lună) |
 | **Vercel Blob** | imagini detalii + thumbnail schiță | token din proiectul Vercel → `BLOB_READ_WRITE_TOKEN` | Liviu | $0 free tier |
 | **Domeniu** | brand + email expeditor | deja deținut | Edi/Liviu (DNS) | $0 (plătit) |
 | **Auth.js** | auth (self-hosted) | doar `AUTH_SECRET` generat | Claude (cod) | $0 |
@@ -31,22 +31,31 @@ Toate au free tier real. Coloana „Cine setează" = unde e nevoie de Liviu/Edi 
 **Obiectiv:** aplicație care pornește, cu DB, auth funcțional și model de roluri. Încă fără feature-uri de produs.
 
 **Prerechizite (Liviu/Edi):** proiect Vercel linkat · Neon provisionat (`DATABASE_URL`) · Resend cu domeniu
-verificat (`RESEND_API_KEY`, `EMAIL_FROM`) · `BLOB_READ_WRITE_TOKEN`.
+verificat (`AUTH_RESEND_KEY`, `EMAIL_FROM`) · `BLOB_READ_WRITE_TOKEN`.
+
+### ✅ Faza 0 — ÎNCHEIATĂ structural (2026-06-20) — detalii în `CHANGELOG.md`
+> Tot codul fundației e scris și **verde** (`typecheck` + `lint` + `next build`). Rămâne doar **rularea** cu
+> credențiale reale (nu cod): `db:push` + `db:seed` pe Neon, plus testarea end-to-end a magic link-ului
+> (cere `AUTH_RESEND_KEY` + domeniu verificat).
 
 **Pași (Claude, pe `dev`):**
-1. Scaffold Next.js (App Router, TS) + structura de foldere (`app/`, `server/`, `db/`, `components/`, `lib/`).
-2. Drizzle + conexiune Neon; schema din `SCHEMA.md` → migrații. `db:push` / `db:migrate`.
-3. Auth.js v5 (Email provider = magic link) + adapter Drizzle; middleware deny-by-default pe `(app)`.
-4. Flux onboarding: declară rol (principal + subrol) → acces imediat.
-5. Poartă acces (invitație) — **schelet izolat** (rămâne ÎN HOLD; ușor de activat/dezactivat).
-6. Cont admin seed + rol de admin.
-7. Hook-uri în repo (`block-pii-log`, `lint-web`, `block-push-main`) la `git init` deja făcut.
+1. ✅ Scaffold Next.js (App Router, TS) + structura de foldere (`app/`, `server/`, `db/`, `components/`, `lib/`).
+2. ✅ Drizzle + conexiune Neon; schema din `SCHEMA.md` → migrația `0000`. (`db:push` rămâne de rulat cu `DATABASE_URL`.)
+3. ✅ Auth.js v5 (provider Resend = magic link) + adapter Drizzle; **`proxy.ts`** deny-by-default (Next 16 înlocuiește
+   `middleware.ts`). Verificat la runtime (providers/csrf OK, rută protejată → 302 `/login`).
+4. ✅ Flux onboarding: `/login` (magic link) + `/onboarding` (declară rol principal + subrol → acces imediat),
+   pe straturi (`server/domain|repos|services`).
+5. ✅ Poartă acces (invitație) — **schelet izolat** (`server/services/invitationService.ts`), rămâne ÎN HOLD, NEcablat.
+6. ✅ Cont admin seed + authz admin — allowlist `ADMIN_EMAILS` (env, fără coloană `is_admin`); `lib/admin.ts` + `db:seed`.
+7. ✅ Hook-uri locale (`block-pii-log`, `lint-web`, `block-push-main`, `block-secrets`) — `.claude/`, în afara repo.
 
 **Definiție de „gata":** un user invitat se loghează prin magic link, declară rol, ajunge în zona protejată;
 neautentificat → respins. Build verde (`next build` / `tsc --noEmit`). Migrațiile aplică curat.
+→ **Structural îndeplinit**; validarea end-to-end „login real" depinde de credențiale (Neon + Resend).
 
 **Input de la Edi pentru faza asta:** lista de subroluri per rol · zone climatice/seismice (listă fixă) ·
-taxonomia de categorii (pentru seed-ul din Faza 1).
+taxonomia de categorii (pentru seed-ul din Faza 1). *(Subrolurile rulează acum cu liste DRAFT în
+`server/domain/roles.ts` — de reconfirmat.)*
 
 ---
 
