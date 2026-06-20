@@ -15,6 +15,10 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   pe o singură linie inline. Block scalar `run: |` trecea js-yaml, dar linter-ul Red Hat din VS Code încă reclama
   („Nested mappings are not allowed in compact mappings") → am ales forma fără colon, validă în ORICE parser.
 - **Validat:** `npx js-yaml ci.yml` → VALID; niciun alt `run:` inline cu colon-space în fișier.
+- **+ trigger `push` pe dev/main** (pe lângă `pull_request`): cu workflow valid, pushurile directe pe dev nu
+  declanșau nimic vizibil; acum CI rulează și pe push, și pe PR → feedback verde imediat. Comentarii trecute pe ASCII.
+- ⚠️ **Necesită push:** fixul e local; cele 6 rulări roșii sunt istoricul vechi (workflow invalid). Până la push,
+  GitHub are tot fișierul invalid → nu rulează nimic. După push pe dev → ar trebui să apară prima rulare verde.
 - Notă: era doar fișierul de workflow — codul/schema/scaffold neafectate; CI nici n-a apucat să verifice ceva.
   Lecție: validez YAML-ul de workflow (js-yaml/actionlint) înainte să mă bazez pe el.
 
