@@ -49,4 +49,4 @@ jobs:
 
       - name: Pre-scaffold (skip)
         if: steps.detect.outputs.ready == 'false'
-        run: echo "Pre-scaffold: încă nu există package.json. CI trece gol; devine activ după Faza 0."
+        run: echo "Pre-scaffold - inca nu exista package.json. CI trece gol; devine activ dupa Faza 0."
