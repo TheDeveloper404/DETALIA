@@ -1,211 +1,161 @@
 # DETALIA — Plan non-tehnic
 
-> Document pentru Edward. Două părți:
-> **Partea I** — *de ce* am construit fundația așa cum am construit-o (ce înseamnă pentru bani, viteză, riscuri).
-> **Partea II** — *ce am confirmat împreună* (din răspunsurile tale) și *ce mai avem nevoie de la tine*.
-> Actualizat după runda ta de răspunsuri (iunie 2026).
+> Document pentru Edward, în limbaj simplu (fără termeni tehnici).
+> Patru părți, fiecare subiect explicat **o singură dată**:
+> **A.** Cum funcționează platforma · **B.** Ce e gata acum vs. ce urmează · **C.** De ce am construit-o așa ·
+> **D.** Ce ai confirmat și ce mai avem nevoie de la tine.
+> Actualizat: iunie 2026.
 
 ---
 
-# PARTEA I — De ce am ales arhitectura asta
+# A. Cum funcționează DETALIA (pe înțelesul tuturor)
 
-## Pe scurt:
+## A1. Cum intri în platformă — „login fără parolă" (magic link)
 
-Am ales o variantă **simplă, ieftină și rapidă** pentru faza în care suntem — cea în care testăm dacă
-oamenii vor platforma. Costă aproape nimic să o ținem pornită, o livrăm repede, și — important — am
-construit-o în așa fel încât **mai târziu, când crește, NU trebuie aruncată și făcută din nou.** Crește
-odată cu noi.
+La DETALIA **nu există parole.** Intrarea se face printr-un link trimis pe email. Concret:
 
----
+1. Omul intră pe pagina de **login** și scrie doar **adresa de email**.
+2. Primește pe email un **link unic** și dă click pe el.
+3. Clickul îl bagă direct în platformă. **Dacă e prima oară, contul i se creează automat** chiar atunci.
+4. Imediat după, **își alege rolul** (vezi A2) și are acces.
 
-## 1. „Construim o singură clădire, nu un cartier"
+Acest link se numește **„magic link"** — „magic" pentru că dai un singur click și ești înăuntru, fără să ții
+minte nicio parolă.
 
-Puteam să facem produsul din mai multe bucăți separate care vorbesc între ele (mai multe „clădiri" cu
-drumuri între ele). Sună impresionant, dar pentru faza de acum ar fi însemnat:
-- mai mulți bani de chirie (plătești fiecare bucată separat),
-- mai mult timp pierdut conectând bucățile,
-- mai multe lucruri care se pot strica.
+**De ce am ales așa:**
+- Nimeni nu uită parola — pentru că nu există.
+- Nu avem parole care se pot fura sau scurge → mai sigur.
+- Se potrivește perfect cu beta-ul pe invitație: invitația *este* cheia.
 
-Am ales **o singură construcție bine compartimentată** — un singur produs, cu camere clar separate
-înăuntru. E mai ieftin, se face mai repede, și **camerele sunt deja despărțite cu pereți**, așa că dacă
-într-o zi vrem să mutăm o cameră în altă clădire (când scalăm), o desprindem curat, fără să dărâmăm casa.
+**Important de reținut:** nu există „înregistrare" separată de „login". E **același drum** — prima intrare
+înseamnă cont nou. Linkul e de **o singură folosință** și **expiră repede** (câteva minute), ca să fie sigur.
 
-**Ce înseamnă pentru tine:** plătești o chirie, nu cinci. Și nu te blochezi — creșterea de mai târziu e
-pregătită din temelie.
+## A2. Rolul — „îl declari, apoi îl verifici"
 
----
+Ca să nu pierdem oameni la primul contact, **fiecare își declară singur rolul** când intră prima oară:
+proiectant / executant / furnizor / beneficiar, plus o specializare (ex. „arhitect"). **Un singur rol per om.**
+După ce l-a declarat, are acces imediat — nu-l blocăm cu nimic.
 
-## 2. „Cât mai aproape de zero, cât suntem în validare"
+Mai târziu, în platformă, există un pas opțional de **„Verificare rol"**: omul trimite o dovadă, iar tu
+(la MVP, manual) o aprobi. Odată verificat, lângă numele lui apare un **badge cu steluță galbenă ⭐.**
 
-Am ales doar unelte care au **variantă gratuită reală** la traficul mic de început:
-- locul unde stă aplicația (hosting),
-- baza de date (unde ținem detaliile, userii, validările),
-- trimiterea de emailuri (pentru invitații, login și notificări),
-- stocarea imaginilor și a schițelor.
+Ideea, exact cum ai descris-o: greutatea unei păreri o dă **întâi rolul**, apoi **faptul că e verificat.** Așa
+fiecare va vrea să se verifice singur, fără să-l forțăm. **Nu există note sau scoruri** — doar rolul afișat,
+iar cititorul cântărește singur.
 
-Toate stau pe gratuit cât timp suntem mici. **Singurul cost cvasi-sigur e hostingul** — pornim pe varianta
-gratuită pentru validare, iar când produsul devine clar comercial/public trecem pe varianta plătită,
-**~20$/lună**. Atât. Restul costurilor apar doar dacă explodează traficul — adică o „problemă de succes",
-nu o cheltuială de pornire.
+## A3. Detaliile și validarea (inima platformei)
 
-**Ce înseamnă pentru tine:** poți testa piața fără să bagi bani serioși. Costul crește doar dacă și
-încasările justifică.
+Un **detaliu** = unitatea de conținut: o imagine 2D (un detaliu de execuție), cu titlu, autor + rolul lui, și
+categorie. Lângă fiecare detaliu, oamenii își spun poziția — asta e **validarea**:
+- **Aprob** = un singur click.
+- **Dezaprob** = obligatoriu **cu o justificare** (nu poți dezaproba „mut"); justificarea devine automat un comentariu.
 
----
+Fiecare om are **o singură poziție** per detaliu, dar o poate schimba. Nu-ți poți valida propriul detaliu.
+Toți pot valida orice — diferența o face **rolul afișat** lângă nume.
 
-## 3. „Login fără parolă" (magic link) — confirmat de tine
+## A4. Schițele — „propuneri de modificare", ca pe GitHub
 
-La intrare, userul primește pe email un link pe care dă click și e înăuntru — fără parolă de ținut minte.
-Am ales asta pentru că:
-- se potrivește perfect cu **beta-ul pe invitație** (invitația *este* cheia de acces),
-- nu avem parole care se pot fura sau uita,
-- mai puține bătăi de cap și pentru useri, și pentru noi.
+O **schiță** = o foaie desenată **peste** un detaliu existent, ca o propunere de îmbunătățire. Aici e cheia care
+face lucrul fezabil: oamenii **NU desenează toți deodată** pe aceeași foaie (ca în Google Docs). Fiecare își face
+**foaia lui**, o trimite, iar **autorul detaliului o acceptă sau o respinge** — exact ca o propunere pe care o aprobi.
 
-**Ce înseamnă pentru tine:** tu trimiți invitația, omul dă click pe link și e înăuntru. Invitația îi dă
-**accesul**; rolul și-l alege singur la intrare (vezi punctul 4).
+Detalii pe care le-ai cerut și le-am prins:
+- Când intri în modul schiță, **detaliul de dedesubt se estompează ușor** (un „fill slab"), ca să desenezi comod peste el.
+- **Unelte:** mai multe culori stridente, 3 grosimi de creion, radieră, înapoi/înainte. (Mai târziu: linie, cerc, pătrat, săgeată, casetă text.)
+- Schițele le ținem ca **„rețetă de desen" (linii), nu ca poză** — e mic, se rejoacă, se scalează pe orice ecran și se poate dezbate în detaliu.
 
----
+Fiecare schiță acceptată intră în **„teancul"** detaliului și poate fi **dezbătută separat** (validări + comentarii pe ea).
 
-## 4. Rolul: „îl declari, apoi îl verifici" — exact cum ai cerut
+## A5. Cum găsești conținut, notificări, conținut de start
 
-Ca să nu pierdem oameni la primul contact, **fiecare își declară singur rolul** la înscriere (proiectant /
-executant / furnizor / beneficiar + specializarea) și intră imediat. Apoi, în platformă, există un pas de
-**„Verificare rol"**: odată verificat, lângă rol apare un **badge cu steluță galbenă**.
-
-Logica e cea pe care ai descris-o: greutatea unei păreri o dă **întâi rolul**, apoi **faptul că rolul e
-verificat** — așa că fiecare va vrea să-și verifice rolul, fără să-l forțăm noi de la început. La 50–100 de
-oameni cunoscuți, verificarea o faci tu manual (o conversație, nu un sistem). **Un singur rol per om** —
-mai curat de afișat și de verificat.
-
-**Ce înseamnă pentru tine:** intrare ușoară pentru invitați + un mecanism natural prin care lumea își
-verifică rolul singură, pentru greutate.
+- **Feed-ul** arată primele **~20 de detalii** după interacțiuni, **fără scroll infinit** (e comunitate, nu social media).
+- La început cauți **alegând din categorii** (filtre). Căutarea liberă „cu vorbele tale" vine mai târziu (e scumpă de făcut bine).
+- **Notificările** merg **și în aplicație, și pe email** de la început (ajută oamenii să revină — brand recall).
+- La lansare, **doar noi încărcăm detalii** (conținut „de start"), cu creatorii aleși de tine. Așa controlăm prima impresie.
 
 ---
 
-## 5. „Pornim cu conținutul nostru, controlat" (seed) — confirmat
+# B. Ce e gata acum vs. ce urmează
 
-La lansare **nimeni nu încarcă nimic** în afară de noi. Tu pui detaliile de start, cu cei 10–20 de creatori
-aleși. Așa controlăm exact calitatea și diversitatea, și ne asigurăm că de la prima zi e ceva interesant de
-dezbătut, nu un loc gol. Deschiderea încărcării pentru toți vine la pasul următor, când e clar că lumea o
-cere.
+Construim în etape. Prima etapă (**fundația**) e gata; restul urmează.
 
-**Ce înseamnă pentru tine:** controlezi total prima impresie. Și e mai sigur — mai puține lucruri care pot
-merge prost la lansare.
+## ✅ B1. Gata acum — fundația (intrarea în platformă și conturile)
 
----
+- **Login cu magic link** — funcționează (cum e descris la A1).
+- **Crearea contului** — automată la prima intrare.
+- **Alegerea rolului** la intrare (A2).
+- **Ușă încuiată implicit** — cine nu e logat **nu intră** în zonele protejate; e trimis automat la login.
+- **Conturi de admin (noi)** — sistemul știe cine suntem „noi", ca să putem pune conținutul de start.
+- **Invitațiile** — mecanismul e pregătit, dar **lăsat pe pauză**: îl aprindem cu un singur comutator când
+  decidem dacă lansăm pe invitație sau deschis.
 
-## 6. Partea grea: schițarea — obligatorie în MVP, în varianta inteligentă
+> Tot ce e mai sus e scris și **verificat** că funcționează.
 
-Schițarea (foile peste detaliu, fiecare cu autorul ei) e cea mai grea piesă — și o facem **din MVP**, pentru
-că fără ea platforma nu e ea însăși. Cheia care o face fezabilă: oamenii **NU desenează toți deodată pe
-aceeași foaie** (ca în Google Docs). Fiecare își face **foaia lui**, o trimite, iar autorul detaliului o
-acceptă — exact ca o „propunere de modificare" pe care o aprobi.
+## ⏳ B2. Două „chei" lipsă (nu muncă de programare)
 
-Asta seamănă izbitor cu felul în care programatorii colaborează pe GitHub (de unde a și pornit ideea ta):
-fiecare vine cu propunerea lui, iar proprietarul o acceptă. **Modelul ăsta ne scutește de partea cea mai
-scumpă și mai riscantă** (desenatul simultan în timp real), pe care o lăsăm pentru mult mai târziu, dacă va
-fi nevoie.
+Ca fundația să fie 100% live, mai trebuie conectate două lucruri din exterior:
+- **Serviciul de email cu domeniul nostru verificat** — fără el, linkul de login nu pleacă efectiv pe email.
+- **Baza de date online pornită** — e gata de conectat, durează minute.
 
-Două lucruri pe care le-ai cerut și le-am prins:
-- **Când intri în modul schiță, detaliul-mamă se estompează ușor** (un „fill slab"): vezi că s-a declanșat
-  schițarea și desenezi mai ușor peste un detaliu colorat intens.
-- **Unelte:** mai multe culori stridente, 3 grosimi de creion, radieră, înapoi/înainte. (Mai târziu:
-  linie, cerc, pătrat, săgeată, casetă de text.)
+## 🔜 B3. Ce urmează (etapele următoare)
 
-Iar schițele le ținem ca **„rețetă de desen" (linii), nu ca poză.** O rețetă e mică, se poate rejuca, se
-poate scala pe orice ecran și se poate discuta în detaliu. Pentru o platformă unde schița se dezbate, rețeta
-e alegerea corectă.
-
-**Ce înseamnă pentru tine:** facem partea cea mai grea într-o variantă realistă, fără să-i tăiem esența
-(fiecare foaie e a cuiva și poate fi dezbătută separat).
+1. **Inima:** detaliile, feed-ul, validarea (aprob/dezaprob) — aici aflăm dacă „se aprinde dezbaterea pe roluri".
+2. **Schițarea** (A4) — partea grea, obligatorie în MVP.
+3. **Verificarea rolului** (badge ⭐) + lustruirea pentru lansarea în beta.
 
 ---
 
-## 7. Notificările: și pe email de la început — cum ai cerut
+# C. De ce am construit fundația așa (ieftin, rapid, fără fundături)
 
-Pe lângă notificările din aplicație („cineva a propus o schiță pe detaliul tău"), trimitem și **email** de
-la început. E ușor de pus și, cum ai zis, ajută la **brand awareness & recall** — oamenii revin pe platformă.
+## C1. „O singură clădire bine compartimentată, nu un cartier"
 
----
+Puteam face produsul din mai multe bucăți separate care vorbesc între ele. Sună impresionant, dar acum ar fi
+însemnat mai mulți bani, mai mult timp de conectat și mai multe lucruri care se pot strica. Am ales **un singur
+produs, cu camere clar despărțite înăuntru.** E mai ieftin și mai rapid — iar pereții dintre camere sunt deja
+ridicați, așa că dacă într-o zi vrem să mutăm o cameră în altă clădire (când creștem), o desprindem curat,
+fără să dărâmăm casa.
 
-## 8. Căutarea: filtre acum, „caută cu vorbele tale" mai târziu
+## C2. „Cât mai aproape de zero, cât suntem în validare"
 
-La început, găsești detalii **alegând din categorii** (ex: Fundație → Beton → Hidroizolare). E ieftin,
-rapid și predictibil. Căutarea liberă, în care scrii o frază întreagă și sistemul „înțelege" ce vrei, e mult
-mai scumpă și mai grea de făcut bine — o lăsăm pentru când avem destui useri ca să merite. Feed-ul arată
-**primele ~20 de detalii** după interacțiuni, fără scroll infinit (e comunitate, nu social media).
+Folosim doar unelte cu **variantă gratuită reală** la traficul mic de început (găzduire, bază de date, email,
+stocare imagini). **Singurul cost cvasi-sigur e găzduirea**: pornim gratuit pentru validare, iar când produsul
+devine clar comercial trecem pe varianta plătită, **~20$/lună.** Restul costurilor apar doar dacă explodează
+traficul — adică o „problemă de succes", nu o cheltuială de pornire.
 
-**Ce înseamnă pentru tine:** oamenii găsesc ce caută din prima zi, fără să cheltuim pe tehnologie scumpă
-înainte să fie nevoie.
+## C3. Cele trei principii, în ordine
 
----
-
-## Concluzia Părții I
-
-Fundația e gândită pe trei principii, în ordinea asta:
 1. **Ieftin acum** — ca să poți valida piața aproape gratis.
-2. **Repede** — ca să avem ce arăta și ce testa cât mai curând.
-3. **Fără fundături** — tot ce construim acum se poate extinde mai târziu, nu se aruncă.
+2. **Repede** — ca să avem ce arăta și testa cât mai curând.
+3. **Fără fundături** — tot ce construim acum se poate extinde, nu se aruncă.
 
-Nu construim o catedrală înainte să știm că vine lumea la slujbă. Construim exact cât trebuie ca să aflăm —
-dar bine, ca să putem clădi mai sus pe ea.
-
----
-
-# PARTEA II — Ce am confirmat și ce mai rămâne
-
-## A. Ce ai confirmat (am integrat deja — spune dacă am înțeles greșit ceva)
-
-**Acces & roluri**
-- **Login fără parolă (magic link).** ✔
-- **Un singur rol** per om. ✔
-- **Rolul se declară la înscriere**, apoi se **verifică în platformă** → badge cu steluță galbenă lângă rol.
-  Verificarea o aprobi tu manual la MVP. ✔
-- La înscriere cerem minimul (nume + email + rolul declarat); restul (bio, localitate, poză) — opțional.
-- **Fără bifă „pe viață"** la invitație. ✔
-
-**Schiță**
-- Fiecare foaie are **un singur autor**; oamenii adaugă foi în teanc, **nu desenează toți pe aceeași foaie**
-  (model GitHub). ✔
-- Se desenează **peste imaginea detaliului-mamă**, cu un **fill slab** care estompează detaliul-mamă când
-  intri în modul schiță. ✔
-- Unelte: **mai multe culori stridente, 3 grosimi**, radieră, înapoi/înainte. (Viitor: linie/cerc/pătrat/
-  săgeată/casetă text.) ✔
-- O schiță pornește doar de la detaliul-mamă (nu „schiță din schiță", deocamdată). ✔
-- Autorul detaliului acceptă/respinge schițele propuse; nu modifică schițele altora. ✔
-
-**Detaliu & zone**
-- O imagine 2D per detaliu (jpg/png/webp, până la ~5MB). ✔
-- Maxim 3 resurse suplimentare (imagine + link; PDF/text mai târziu). ✔
-- **Zone climatică/seismică = listă fixă**, cu opțiune „General"; când alegi „General" apare o **atenționare**
-  că datele reale dau mai multă greutate detaliului. ✔
-
-**Validare**
-- Fără note/scoruri — afișăm doar rolul lângă nume; cititorul cântărește singur. ✔
-- Nu îți poți valida propriul detaliu/schiță. ✔
-- Toți pot valida orice (inclusiv beneficiarii) — diferența o face rolul afișat. ✔
-
-**Feed, căutare, notificări, conținut de start**
-- Feed cu **~20** detalii după interacțiuni, fără scroll infinit. ✔
-- Doar **filtre** la început; căutarea liberă vine mai târziu. ✔
-- Notificări **în aplicație + pe email** de la început. ✔
-- La lansare, **doar noi încărcăm** detalii (seed); deschiderea pentru toți vine în pasul următor. ✔
+> Nu construim o catedrală înainte să știm că vine lumea la slujbă. Construim exact cât trebuie ca să aflăm —
+> dar bine, ca să putem clădi mai sus pe ea.
 
 ---
 
-## B. Ce mai avem nevoie de la tine
+# D. Ce ai confirmat și ce mai avem nevoie de la tine
 
-- ⭐ **Lista exactă de subroluri** per rol principal. Ai zis că e în Documentul Fundamental — o folosim de
-  acolo ca atare; confirmă dacă vrei ajustări sau adăugiri pentru lansare.
-- ⭐ **Taxonomia de categorii** pentru filtre (primele 1–2 niveluri, ca să avem pe ce pune conținutul de
-  start). E schițată în Documentul Fundamental — o finalizăm împreună ca listă de lansare.
-- **Verificarea automată a rolului** (mai târziu, nu la MVP): pe lângă verificarea manuală făcută de tine,
-  vrem să folosim surse oficiale? (ex. **OAR** pentru arhitecți, **CUI** pentru firme.)
+## D1. Ce ai confirmat (deja integrat — spune dacă am înțeles greșit ceva)
 
----
+- Login fără parolă (magic link). ✔
+- Un singur rol per om; declarat la intrare, verificat ulterior → badge ⭐ (verificare manuală la MVP). ✔
+- La înscriere cerem minimul (nume + email + rol); restul opțional. ✔
+- Schiță: o foaie = un autor, model GitHub (nu desen simultan); peste detaliu cu „fill slab"; culori + 3 grosimi
+  + radieră + undo/redo; doar de la detaliul-mamă; autorul detaliului acceptă/respinge. ✔
+- Detaliu: o imagine 2D (până la ~5MB) + maxim 3 resurse; zone climatică/seismică = listă fixă cu „General"
+  (cu atenționare că datele reale dau mai multă greutate). ✔
+- Validare: fără note/scoruri; nu-ți validezi propriul conținut; toți pot valida, diferența o face rolul. ✔
+- Feed ~20 fără scroll infinit; doar filtre la început; notificări în app + email; la lansare doar noi încărcăm (seed). ✔
 
-## C. De discutat când are sens (nu grăbim)
-- Cine deține conținutul postat (detalii/schițe) și ce drepturi avem asupra lui — pentru Termeni & Condiții.
-  (Tratat în Documentul Fundamental, cap. 17.)
-- O politică minimă de confidențialitate (GDPR), din moment ce strângem emailuri. (Documentul Fundamental,
-  cap. 13.6.)
+## D2. Ce mai avem nevoie de la tine
+
+- ⭐ **Lista exactă de subroluri** per rol principal (e schițată în Documentul Fundamental — confirmă varianta de lansare).
+- ⭐ **Taxonomia de categorii** pentru filtre (primele 1–2 niveluri — ca să avem pe ce pune conținutul de start).
+- **Verificarea automată a rolului** (mai târziu, nu la MVP): pe lângă verificarea ta manuală, folosim surse
+  oficiale? (ex. **OAR** pentru arhitecți, **CUI** pentru firme.)
+- **Decizia de acces la lansare:** pe invitație sau deschis? (Mecanismul de invitație e gata și pe pauză.)
+
+## D3. De discutat când are sens (nu grăbim)
+
+- Cine deține conținutul postat (detalii/schițe) și ce drepturi avem — pentru Termeni & Condiții. (Doc. Fundamental, cap. 17.)
+- O politică minimă de confidențialitate (GDPR), din moment ce strângem emailuri. (Doc. Fundamental, cap. 13.6.)

@@ -6,6 +6,10 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-20
 
+### Fix CI: warning Node 20 deprecated pe GitHub Actions
+- `actions/checkout@v4`→`v5`, `actions/setup-node@v4`→`v5` (rulează nativ pe Node 24, nu mai sunt forțate de pe Node 20).
+- `node-version: 20`→`24` (LTS curent) pentru build-ul aplicației. Doar workflow CI; cod neafectat.
+
 ### Faza 0 — pasul 5 (complet): cont admin/seed + authz admin
 - **Model admin (decizie):** NU există coloană `is_admin` — admin = user normal al cărui email e în allowlist-ul
   **`ADMIN_EMAILS`** (env, separat prin virgulă), deny-by-default. Fără migrație, reversibil; un admin rămâne rând
