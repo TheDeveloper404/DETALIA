@@ -119,16 +119,32 @@ hostingul (~$0–20/lună).** Restul stă pe free tier la traficul de început.
 
 ### Rol declarat vs. verificat — abordare în trepte (confirmat de Edi)
 Logica: **rolul și-l declară userul singur la signup** (acces imediat → frecare minimă la primul contact),
-iar **verificarea e un pas separat în platformă**. Greutatea unei interacțiuni e dată întâi de rol, apoi de
-faptul că rolul e verificat — așa că fiecare va vrea să-și verifice rolul.
+iar **verificarea e un pas separat, opțional, în platformă**. Greutatea unei interacțiuni e dată întâi de rol,
+apoi de faptul că rolul e verificat — așa că fiecare va vrea să-și verifice rolul.
 
-1. **La signup:** userul **își declară** rolul principal + subrolul → acces imediat. Invitația dă **doar
-   accesul** la beta închis, NU atribuie rolul.
-2. **Verificare (MVP):** flux dedicat în platformă („Verificare rol", după login). Aprobarea e **manuală, de
-   admin (Edi)** la 50–100 de oameni cunoscuți. Odată verificat → **badge cu steluță galbenă** lângă rol.
-3. **Etapa următoare:** integrări de verificare unde există sursă (ex. arhitecți — registrul **OAR**),
+**Filozofia verificării = „pull, nu push" (confirmat de Edi).** Nu forțăm și nu blocăm pe nimeni să se
+verifice. Rolul neverificat e **complet funcțional** — userul interacționează normal (validează, comentează,
+schițează). Presiunea de a te verifica vine **organic, din credibilitate**: când te uiți cine discută pe un
+detaliu, specialiștii cu **rol verificat „cântăresc" mai mult** în ochii cititorului decât cei neverificați.
+Așa, **userii vin singuri** să-și verifice rolul, ca să fie credibili — noi nu-i stresăm, doar le ținem la
+vedere un **nudge blând și permanent** („Rolul tău nu e verificat → Verifică rolul").
+
+1. **La signup:** userul **își declară** rolul principal + subrolul → acces imediat. (Accesul în beta închis e
+   o poartă separată — vezi nota despre invitație mai jos; ea NU atribuie rolul.)
+2. **În folosire:** rol = `DECLARED`, funcțional 100%. Nudge permanent, neintruziv, spre fluxul de verificare.
+3. **Verificare (MVP):** flux dedicat în platformă („Verificare rol", inițiat de user). Îi cerem niște date;
+   aprobarea e **manuală, de admin (Edi)** la 50–100 de oameni cunoscuți. Odată verificat → **badge cu steluță
+   galbenă** lângă rol (poziția exactă — lângă rol și/sau lângă avatar — se decide la implementarea UI).
+4. **Etapa următoare:** integrări de verificare unde există sursă (ex. arhitecți — registrul **OAR**),
    upload de dovadă (legitimație, CUI firmă) cu aprobare admin.
-4. **Mai târziu:** verificare automată / badge-uri de încredere.
+5. **Mai târziu:** verificare automată / badge-uri de încredere.
+
+> **Nota despre poarta de acces (invitația) — ÎN HOLD, de reconfirmat cu Edi.** Verificarea de mai sus
+> (Poarta 2 — credibilitate) e independentă de **modul în care userii intră în platformă** (Poarta 1 — acces).
+> Planul actual = **beta închis pe invitație** (vezi §9). Acest mecanism **rămâne în plan**, dar e marcat
+> explicit ca *sub reevaluare* până la o consultare cu Edi (deschidere publică vs. invite-only la lansare).
+> Mesajul recent al lui Edi vizează exclusiv verificarea rolului, nu modul de acces — deci nu schimbă încă
+> nimic la invitație.
 
 **Un singur rol per user** (confirmat de Edi) — mai curat de afișat și de verificat.
 
@@ -310,9 +326,11 @@ DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
 
 Tratăm ca **CRITICAL** (auth, roluri, permisiuni):
 - **Deny-by-default.** Toată zona `(app)` e în spatele sesiunii; middleware respinge neautentificații.
-- **Beta închis:** fără înregistrare publică. Cont = doar prin **Invitation** validă (token, expirare,
-  one-time use). Adminul (Edi) emite invitațiile = **doar accesul**; rolul și-l declară userul la signup,
-  iar verificarea (badge) o aprobă adminul ulterior.
+- **Beta închis (poartă de acces — ÎN HOLD, de reconfirmat cu Edi):** plan actual = fără înregistrare publică,
+  cont = doar prin **Invitation** validă (token, expirare, one-time use). Adminul (Edi) emite invitațiile =
+  **doar accesul**; rolul și-l declară userul la signup, iar verificarea (badge) o aprobă adminul ulterior.
+  *Mecanismul rămâne în plan, dar e marcat ca sub reevaluare (invite-only vs. deschidere publică la lansare) —
+  decizie de produs care se ia cu Edi. Verificarea rolului (badge) e independentă de această poartă.*
 - **Magic link (Auth.js Email provider):** passwordless → fără parole de scurs/resetat, mai puțină suprafață
   de atac. Token cu durată scurtă, one-time.
 - **Validare pe server pentru toate regulile de business** (dezaprob necesită justificare; o poziție/user;
@@ -387,6 +405,9 @@ confirmi stack-ul.
 - **Auth = magic link** (passwordless, se mulează pe invite-only).
 - **Un singur rol per user**; **rol auto-declarat** la signup + verificare în platformă cu **badge** (NU
   atribuit de admin la invitație).
+- **Verificarea rolului = „pull, nu push":** opțională, fără blocare; rol neverificat e funcțional 100%; nudge
+  blând permanent; userii vin singuri să se verifice, motivați de credibilitate (rol verificat „cântărește"
+  mai mult în ochii cititorului). Fără scoring numeric — vezi §6.
 - **Schițarea colaborativă = obligatorie în MVP**; model asincron GitHub-style; fill slab pe detaliul-mamă;
   unelte = culori stridente + 3 grosimi + radieră + undo/redo.
 - **Notificări in-app + email** de la început.
@@ -400,5 +421,7 @@ confirmi stack-ul.
    o ajustăm dacă apar cereri reale.
 2. **Taxonomia de categorii** pentru filtre (din Documentul Fundamental) — de finalizat lista de lansare.
 3. **Surse de verificare automată** a rolului ulterior (OAR confirmat? CUI pentru firme?), dincolo de manual-admin.
-4. **Plan Vercel** — pornim pe Hobby pentru validare, trecem pe Pro (~$20/lună) la comercial. OK?
+4. **Poarta de acces la lansare — ÎN HOLD:** beta închis pe invitație (plan actual) vs. înregistrare publică
+   deschisă. De reconfirmat cu Edi. Independentă de verificarea rolului.
+5. **Plan Vercel** — pornim pe Hobby pentru validare, trecem pe Pro (~$20/lună) la comercial. OK?
 ```

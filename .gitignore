@@ -57,9 +57,9 @@ skills-lock.json
 
 # === Continuitate sesiune (local, nu cod de proiect) ===
 .remember/
+/documente_client
 
 # === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)
-# documente_client/           -> documentele de la client (Edi)
 # CLAUDE.md                   -> specificația de domeniu a proiectului
 # .env.example                -> template de env, fără valori reale
