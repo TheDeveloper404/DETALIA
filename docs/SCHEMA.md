@@ -1,5 +1,9 @@
 # DETALIA — Schema de date (proiectare concretă)
 
+> **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
+> **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
+> _Ultima verificare față de cod: pre-scaffold (codul încă nu există)._
+>
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.
 > Convenții (din CLAUDE.md): tabele `snake_case` plural · coloane `snake_case` singular · PK
