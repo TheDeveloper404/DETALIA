@@ -1,0 +1,17 @@
+# Build & deps
+node_modules/
+.next/
+out/
+build/
+
+# Lockfiles & generate
+package-lock.json
+next-env.d.ts
+
+# Tooling local (gitignored)
+.claude/
+.agents/
+.remember/
+
+# Conținut client (nu-l reformatăm)
+documente_client/

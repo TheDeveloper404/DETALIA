@@ -146,7 +146,9 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 - **Git:** Liviu comite/push singur din **VS Code Source Control**. Eu las **mesaj de commit sugerat** după
   fiecare set de modificări. Nu raportez ce e comis. Niciodată direct pe `main` (`dev` → PR).
 - **Documentație** în `docs/`. **Changelog detaliat cu dată** în `docs/CHANGELOG.md` (cel mai recent sus).
-- **Handoff** „unde am rămas" în `.remember/remember.md` după fiecare oprire.
+- **Handoff** „unde am rămas" în `.remember/remember.md` după fiecare oprire. **Handoff-ul = briefing, nu arhivă:**
+  ce e închis/implementat se trece ca **o linie cu referință la CHANGELOG** (ce + dată → vezi changelog), NU cu
+  detaliu complet. Handoff-ul ține doar **context viu + următorii pași**; detaliul istoric trăiește în `CHANGELOG.md`.
 - **Docs librării:** folosește **context7 MCP** înainte de a scrie cod cu Next.js / Auth.js / Drizzle /
   perfect-freehand (API-uri se schimbă des).
 
