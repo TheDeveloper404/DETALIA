@@ -1,0 +1,83 @@
+# DETALIA — Plan de teste
+
+> Strategia de testare + scenariile critice. Marker `HUMAN_RUNS_TESTS` activ → **Liviu rulează testele**;
+> Claude le scrie și spune ce/unde. `tsc --noEmit` / `next build` pot rula automat (nu sunt „teste").
+> Tratăm auth/roluri/validare ca **CRITICAL** → cer și teste de securitate, nu doar happy-path.
+
+---
+
+## Piramida (ce acoperim cu ce)
+
+| Nivel | Unde | Ce acoperă |
+|---|---|---|
+| **Unit** | `server/services`, `server/domain` | reguli de business + state machines, izolat (DB mock/in-memory) |
+| **Integration** | route handlers + DB de test | fluxul handler→service→repo, cu reguli enforce-uite pe server |
+| **Security** | authz pe endpoint-uri sensibile | IDOR, privilege escalation, deny-by-default |
+| **E2E** (Playwright) | fluxurile critice cap-coadă | invitație→login→validare→schiță→accept |
+
+---
+
+## Reguli de business de testat (server-side, NON-negociabile)
+
+1. **Dezaprob fără justificare → respins (422).** Cu justificare → creează `Validation` + `Comment` cu `originValidationId`.
+2. **O singură poziție per user/țintă, reversibilă** — a doua postare actualizează, nu duplică (constrângerea unică).
+3. **Schiță → PUBLISHED doar cu (1) send autor + (2) accept autor detaliu-mamă.** Tranziții invalide → 409.
+4. **Doar autorul detaliului-mamă** acceptă/respinge o schiță (altcineva → 403).
+5. **Upload detalii = doar admin/seed** (user normal → 403).
+6. **Max 3 resurse** per detaliu (a 4-a → respinsă).
+7. **Verificare rol:** doar admin aprobă (`DECLARED→PENDING→VERIFIED`); user normal nu poate auto-aproba.
+8. **Polimorfism:** validare/comentariu funcționează identic pe Detail și pe Sketch.
+
+---
+
+## Scenarii de securitate (CRITICAL — authz)
+
+- **IDOR:** user A nu poate edita/șterge validarea, comentariul sau schița lui user B.
+- **Privilege escalation:** user normal nu accesează `/api/admin/*` (invitații, seed detalii, aprobare verificare).
+- **Deny-by-default:** orice rută `(app)` fără sesiune → 401 (nu 200, nu 404 mascat).
+- **Authz corect:** rol greșit → 403, lipsă auth → 401 — **niciodată 404** ca să ascundă existența.
+- **Invitație/magic link:** token expirat/folosit → respins; one-time use chiar e one-time.
+- **Fără leak:** răspunsurile de eroare nu conțin stack-trace / SQL / căi.
+- **Rate-limit:** endpoint-urile sensibile (login, invitație, verificare) limitate.
+
+---
+
+## Scenarii E2E (Playwright — fluxurile care contează)
+
+```
+E2E-1  Acces & onboarding:
+       invitație validă → login (magic link) → declară rol → ajunge în feed → vede banner „rol neverificat"
+
+E2E-2  Validare cu dezaprobare:
+       deschide detaliu → Dezaprob fără text (blocat) → Dezaprob cu justificare →
+       apare poziția + comentariul cu nume+rol → își retrage poziția (reversibil)
+
+E2E-3  Schiță fork→PR (cap-coadă):
+       intră în mod schiță (fill slab) → desenează → Trimite → autorul-mamă primește notificare →
+       acceptă → schița devine PUBLISHED în teanc + are thumbnail
+
+E2E-4  Verificare rol „pull":
+       user merge singur la /verificare-rol → trimite dovezi → admin aprobă → badge ⭐ apare lângă rol
+
+E2E-5  Feed & filtre:
+       feed arată ~20 detalii, fără infinite scroll; filtru pe categorie restrânge corect
+```
+
+---
+
+## Ținte de acoperire (pragmatic, fază de validare)
+
+- **Reguli de business + authz: acoperire cât mai aproape de completă** (sunt inima + CRITICAL).
+- UI pur prezentațional: smoke/E2E, fără obsesie de coverage.
+- **Definition of done pe feature CRITICAL:** unit + integration + security, authz testat explicit (IDOR, escalare).
+
+---
+
+## Cum rulează Liviu (după scaffold)
+
+```bash
+npm run test           # unit + integration (vitest)
+npm run test:e2e       # Playwright (fluxurile E2E de mai sus)
+```
+> ⚠️ Teste verzi ≠ build verde: după schimbări de tipuri/schemă rulează și `npm run build` / `tsc --noEmit`
+> (vitest ignoră erorile de tip; CI/deploy pică la type-check).
