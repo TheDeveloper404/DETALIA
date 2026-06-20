@@ -1,10 +1,12 @@
 name: CI
 
-# Verifică build verde la fiecare PR pe dev / main: type-check + lint + build.
-# „Teste verzi ≠ build verde" — vitest ignoră erorile de tip; aici prindem ce pică la deploy.
-# Pre-scaffold (fără package.json) rulează gol și trece — devine activ automat după Faza 0.
+# Verifica build verde la fiecare push SI PR pe dev / main: type-check + lint + build.
+# Teste verzi nu inseamna build verde - vitest ignora erorile de tip; aici prindem ce pica la deploy.
+# Pre-scaffold (fara package.json) ruleaza gol si trece - devine activ automat dupa Faza 0.
 
 on:
+  push:
+    branches: [dev, main]
   pull_request:
     branches: [dev, main]
 
