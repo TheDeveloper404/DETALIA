@@ -1,5 +1,10 @@
-import "dotenv/config";
+import { config } from "dotenv";
 import { defineConfig } from "drizzle-kit";
+
+// Convenția proiectului = `.env.local` (auto-încărcat de Next). Îl încărcăm explicit pentru
+// uneltele DB (drizzle-kit nu citește singur .env.local), cu `.env` ca fallback.
+config({ path: ".env.local" });
+config();
 
 export default defineConfig({
   dialect: "postgresql",

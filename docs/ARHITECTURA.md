@@ -325,7 +325,8 @@ DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
 ## 9. Securitate (beta închis + RBAC)
 
 Tratăm ca **CRITICAL** (auth, roluri, permisiuni):
-- **Deny-by-default.** Toată zona `(app)` e în spatele sesiunii; middleware respinge neautentificații.
+- **Deny-by-default.** Tot ce nu e public e în spatele sesiunii; `proxy.ts` (Next 16, fostul `middleware.ts`)
+  respinge neautentificații (redirect `/login`).
 - **Beta închis (poartă de acces — ÎN HOLD, de reconfirmat cu Edi):** plan actual = fără înregistrare publică,
   cont = doar prin **Invitation** validă (token, expirare, one-time use). Adminul (Edi) emite invitațiile =
   **doar accesul**; rolul și-l declară userul la signup, iar verificarea (badge) o aprobă adminul ulterior.
@@ -386,8 +387,9 @@ confirmi stack-ul.
 
 ## 12. Fazare / roadmap
 
-- **Faza 0 — Schelet & acces (fundația):** proiect Next.js, DB+Drizzle, Auth.js magic link, model roluri,
-  invitații, cont admin seed.
+- **Faza 0 — Schelet & acces (fundația): ✅ ÎNCHEIATĂ structural (2026-06-20, vezi `CHANGELOG.md`).** proiect Next.js,
+  DB+Drizzle (migrația 0000), Auth.js magic link + `proxy.ts` deny-by-default, onboarding rol, schelet invitații (HOLD),
+  cont admin seed (allowlist `ADMIN_EMAILS`). Rămâne rularea cu credențiale (Neon `db:push`/`db:seed`, magic link e2e).
 - **Faza 1 — ETAPA A din mail (inima):** Detaliu (seed), Feed (top N), filtre pe categorii, Validare
   (Aprob/Dezaprob+justificare), Comentarii. → **Aici răspundem la întrebarea de validare.**
 - **Faza 1.5 — Schițarea colaborativă (OBLIGATORIE în MVP, confirmat de Edi):** canvas, stroke-uri vectoriale,
