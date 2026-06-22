@@ -4,12 +4,36 @@ import { notFound, redirect } from "next/navigation";
 
 import { AuthorBadge } from "@/components/author-badge";
 import { auth } from "@/lib/auth";
+import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
 import { getDetail } from "@/server/services/detailService";
+import { getPendingForOwner, getTeanc } from "@/server/services/sketchService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
 import { CommentsSection } from "./comments-section";
+import { SketchSection, type SketchItem } from "./sketch-section";
 import { ValidationPanel } from "./validation-panel";
+
+type SketchRow = {
+  id: string;
+  strokesJson: unknown;
+  authorName: string | null;
+  authorRoleMain: string | null;
+  authorSubRole: string | null;
+  authorVerification: string | null;
+};
+
+// Mapează un rând de schiță (cu strokesJson jsonb) la forma serializabilă pt client.
+function toSketchItem(r: SketchRow): SketchItem {
+  return {
+    id: r.id,
+    authorName: r.authorName,
+    authorRoleMain: r.authorRoleMain,
+    authorSubRole: r.authorSubRole,
+    authorVerification: r.authorVerification,
+    strokes: (r.strokesJson as Stroke[] | null) ?? [],
+  };
+}
 
 // Pagina unui detaliu (the «repo»). Imagine + autor/rol + descriere + resurse.
 // Panoul de validare (pas 4) și coloana de comentarii (pas 5) se cablează în locurile marcate.
@@ -25,8 +49,20 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
     notFound();
   }
 
-  const validation = await getTargetValidationView("DETAIL", detail.id, session.user.id);
+  const userId = session.user.id;
+  const validation = await getTargetValidationView("DETAIL", detail.id, userId);
   const comments = await getComments("DETAIL", detail.id);
+
+  // Schițele publicate (teancul) + dezbaterea fiecăreia (validare + comentarii pe SKETCH).
+  const teancRows = await getTeanc(detail.id);
+  const published = await Promise.all(
+    teancRows.map(async (r) => ({
+      ...toSketchItem(r),
+      validation: await getTargetValidationView("SKETCH", r.id, userId),
+      comments: await getComments("SKETCH", r.id),
+    })),
+  );
+  const pending = (await getPendingForOwner(detail.id, userId)).map(toSketchItem);
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:p-8">
@@ -102,15 +138,30 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
         {/* Coloana laterală: validare (pas 4) + comentarii (pas 5) */}
         <aside className="flex flex-col gap-6">
           <ValidationPanel
+            targetType="DETAIL"
+            targetId={detail.id}
             detailId={detail.id}
+            allowSketch
             counts={validation.counts}
             myPosition={validation.myPosition}
             positions={validation.positions}
           />
 
-          <CommentsSection detailId={detail.id} comments={comments} />
+          <CommentsSection
+            targetType="DETAIL"
+            targetId={detail.id}
+            detailId={detail.id}
+            comments={comments}
+          />
         </aside>
       </div>
+
+      <SketchSection
+        detailId={detail.id}
+        imageUrl={detail.imageUrl}
+        published={published}
+        pending={pending}
+      />
     </main>
   );
 }
