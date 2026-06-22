@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 
 import { AuthorBadge } from "@/components/author-badge";
+import type { TargetType } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
 
 import { addCommentAction, type AddCommentState } from "./comment-actions";
@@ -10,10 +11,14 @@ import { addCommentAction, type AddCommentState } from "./comment-actions";
 const initialState: AddCommentState = { error: null, ok: false };
 
 export function CommentsSection({
+  targetType,
+  targetId,
   detailId,
   comments,
 }: {
-  detailId: string;
+  targetType: TargetType;
+  targetId: string;
+  detailId: string; // pagina de revalidat (detaliul-părinte)
   comments: TargetComment[];
 }) {
   const [state, formAction, pending] = useActionState(addCommentAction, initialState);
@@ -58,6 +63,8 @@ export function CommentsSection({
       )}
 
       <form ref={formRef} action={formAction} className="flex flex-col gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+        <input type="hidden" name="targetType" value={targetType} />
+        <input type="hidden" name="targetId" value={targetId} />
         <input type="hidden" name="detailId" value={detailId} />
         <textarea
           name="body"
