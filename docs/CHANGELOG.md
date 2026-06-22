@@ -4,6 +4,130 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-22
+
+### Faza 0.5 (CRITICAL — auth): Google OAuth + signup public + onboarding cu poză
+- **Google OAuth** (`lib/auth.ts`): provider `Google` adăugat lângă Resend; `allowDangerousEmailAccountLinking: true`
+  (linkare pe email sigură — ambele fluxuri passwordless dovedesc deținerea email-ului). Env noi în `.env.example`:
+  `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` (+ redirect URI documentat).
+- **Auth public partajat** (`app/auth-actions.ts` + `components/auth-form.tsx`): „Continuă cu Google" + magic link pe
+  email, reutilizat de `/login` și `/signup`. `redirectTo` sanitizat la same-origin de Auth.js (fără open-redirect).
+- **`/signup` (public)** — înregistrare deschisă (fără invitație); după auth → `/onboarding`. **`/login`** rescris
+  (Google + email, link spre signup). Texte „beta închis / invitație" **eliminate**. Proxy: `/signup` adăugat la public.
+- **Landing `/`** — acum dinamic: CTA „Creează cont" / „Autentificare" pentru vizitatori, „Mergi la feed" pentru cei logați.
+- **Onboarding cu poză** — `lib/storage.ts` refactorizat (`validateImageFile` + `uploadAvatarImage`); `usersRepo.updateUserImage`;
+  `app/onboarding` acceptă poză opțională (validare ieftină înainte de declararea rolului, upload best-effort după).
+- **Securitate:** rutele rămân deny-by-default (doar `/`,`/login`,`/signup` publice); fără secrete în cod; fără PII logat.
+  `typecheck` + `lint` + **build VERZI**. Testare end-to-end Google/magic link → cere credențiale reale (Edi/Liviu).
+
+### Fix securitate (open-redirect) în `app/auth-actions.ts`
+- `authPath` (client-controlled, din formular) era interpolat direct în `redirect()` → un `//evil.com` ar fi fost
+  protocol-relative (redirecționare externă post-eroare auth). **Fix:** whitelist strict `safeAuthPath()` → doar
+  `/login` | `/signup`, + `encodeURIComponent` pe `error.type`. (Flag de la security review automat; MEDIUM, rezolvat.)
+  `callbackUrl` era deja sigur — sanitizat same-origin de Auth.js. `typecheck` + `lint` VERZI.
+
+### Faza 1 — pas 5: comentarii (afișare + adăugare)
+- **`server/domain/validation.ts`** — `validateCommentBody` (aceleași limite ca justificarea).
+- **`server/services/commentService.ts`** — `addComment` (enforce: rol declarat, corp non-vid ≤5000, țintă
+  `PUBLISHED`, `authorId` din sesiune) + `getComments`. Refolosește `targetExists` (exportat din `validationService`).
+- **`app/details/[id]/comment-actions.ts`** + **`comments-section.tsx`** — listă cronologică (nume+rol+★, badge
+  „dezaprobare" pe comentariile cu `originValidationId`) + form de adăugare (reset pe succes). Cablate în pagină.
+- Justificările-dezaprobare de la pas 4 **devin acum vizibile** în coloana de comentarii. Polimorfic (Detail acum).
+- `typecheck` + `lint` + **build VERZI**. **Faza 1 (detaliu + feed + validare + comentarii) = încheiată structural.**
+
+### Faza 1 — pas 4 (CRITICAL): validarea pe roluri (INIMA)
+- **`server/domain/validation.ts`** — poziții (APPROVE/DISAPPROVE), target (DETAIL/SKETCH), `validateJustification`
+  („nu există dezaprobare mută"), tip `RoleSnapshot`.
+- **`server/repos/validationsRepo.ts`** — `getUserPosition`, `upsertPosition` (**`onConflictDoUpdate` pe constrângerea
+  unică** `(userId,targetType,targetId)` = o poziție/user, reversibilă), `deletePosition`, `listPositionsForTarget`
+  (cu nume+rol curent).
+- **`server/repos/commentsRepo.ts`** — `insertComment` (cu `originValidationId`) + `listCommentsForTarget` (pt pas 5).
+- **`server/services/validationService.ts`** — `approve` (1 click, idempotent), `disapprove` (justificare OBLIGATORIE
+  → respinsă fără ea; devine automat `Comment` cu `originValidationId`; fără duplicate la re-trimitere), `retract`
+  (reversibilitate; comentariul rămâne în dezbatere), `getTargetValidationView` (poziții + totaluri + poziția mea).
+  Polimorfic (DETAIL acum; SKETCH reuse la schițare). Snapshot rol la momentul poziției.
+- **`app/details/[id]/validation-actions.ts`** + **`validation-panel.tsx`** — butoane Aprob/Dezaprob (identice),
+  form justificare la Dezaprob, „Retrage poziția", listă poziții cu rol (+ ★ verificat). Cablat în pagina de detaliu.
+- **Securitate (CRITICAL):** `userId` EXCLUSIV din sesiune (fără IDOR — upsert/delete keyed pe userul sesiunii);
+  poziția cere rol declarat (`NO_ROLE`→onboarding); justificarea enforce pe server (echivalent **422**), nu doar în
+  HTML; doar ținte `PUBLISHED`; fără 404 ascuns; fără PII logat; constrângerea unică DB ca plasă de siguranță.
+  `typecheck` + `lint` + **build VERZI**. (Audit formal 13-cat disponibil la cerere înainte de merge în `main`.)
+
+### Faza 1 — pas 3: pagina de detaliu (`/details/[id]`)
+- **`server/repos/detailsRepo.ts`** — `getDetailResources(detailId)` (cele 0–3 resurse atașate).
+- **`server/services/detailService.ts`** — `getDetail` validează acum **formatul UUID** (id malformat → `null` → 404,
+  nu eroare SQL/500) și întoarce detaliul + `resources`.
+- **`app/details/[id]/page.tsx`** — guard `auth()`; `getDetail` → `notFound()` dacă lipsește. Layout pe 2 coloane:
+  detaliul (categorie + titlu + `AuthorBadge` + descriere + imagine `next/image` + listă resurse) și o coloană
+  laterală cu **placeholdere marcate** pentru panoul de validare (pas 4) și comentarii (pas 5). Link „înapoi la feed".
+- Cardurile din feed (link spre `/details/[id]`) **nu mai dau 404**. Protejat de proxy deny-by-default.
+- `typecheck` + `lint` + **build VERZI**.
+
+### Faza 1 — pas 2: feed finit + filtre pe categorii + sortare după interacțiuni
+- **`listFeed` sortează acum după interacțiuni** (validări + comentarii polimorfice pe DETAIL + schițe PUBLISHED),
+  tie-break după dată — via subquery-uri corelate (fără dublare pe join). Achită datoria de la pas 1 (era după dată).
+  `FeedItem` expune `interactionCount`.
+- **`next.config.ts`** — `images.remotePatterns` pentru `**.public.blob.vercel-storage.com` (afișare cu `next/image`).
+- **Componente noi** (`components/`): `author-badge.tsx` (nume + rol + **steluță galbenă** la rol VERIFICAT),
+  `detail-card.tsx` (imagine `next/image` + titlu + excerpt + autor/rol + categorie, link spre `/details/[id]`),
+  `category-filter.tsx` (chip-uri link, „Toate" + per categorie; MVP plat, refinare arbore ulterior).
+- **`app/feed/page.tsx`** — suprafața autenticată principală: guard `auth()`, feed finit (~20, fără scroll infinit),
+  filtru pe categorie via `?cat=` (acceptat doar dacă e categorie reală), grilă responsivă, **stare empty**, buton
+  **„Adaugă detaliu"** (cablează linkul lipsă către `/details/new`). Protejat de proxy deny-by-default.
+- `typecheck` + `lint` + **build VERZI**. Testabil end-to-end după seed (categorii + detalii) + `DATABASE_URL`/Blob.
+
+### Faza 1 — pas 1 (cont.): wiring Blob + UI „Adaugă detaliu"
+- **Dependență nouă:** `@vercel/blob`. **`lib/storage.ts`** — `uploadDetailImage(file)` cu validare pe SERVER
+  (tip ∈ PNG/JPG/WebP/AVIF, max **8 MB**); urcă în Blob (acces public, nume uuid) și întoarce URL-ul.
+  Tokenul `BLOB_READ_WRITE_TOKEN` (deja în `.env.example`) e citit automat de `put()`.
+- **`server/services/categoryService.ts`** — `listCategories()` pentru UI (UI citește prin service, nu repo).
+- **`app/details/new/`** — pagină + form + action „Adaugă detaliu":
+  - `page.tsx` (RSC): guard `auth()` + `userHasRole` → fără sesiune `/login`, fără rol `/onboarding`; stare empty
+    dacă nu există categorii.
+  - `detail-form.tsx` (client): titlu/descriere/categorie/imagine + **preview local** + stări loading/error.
+  - `actions.ts` (server action): **`authorId` EXCLUSIV din sesiune**; guard ieftin înainte de upload (evită blob
+    orfan); upload imagine → `createDetail`; `NO_ROLE` → redirect `/onboarding`. Redirect post-creare → `/` (feed
+    vine la pasul 3).
+- **Securitate:** rută protejată de proxy deny-by-default (`/details` nu e public) **+** guard în pagină + enforce
+  în service — trei straturi. `typecheck` + `lint` + **build VERZI**.
+
+### Faza 1 — pas 1: stratul `server/` pentru Detaliu (domain + repo + service)
+- **`server/domain/detail.ts`** — reguli pure: status (`PUBLISHED`/`REMOVED`), limite (titlu ≤200, descriere ≤5000,
+  **max 3 resurse**, feed implicit **20**), tipuri de resurse (IMAGE/LINK/TEXT/PDF) + `validateDetailInput()` care
+  normalizează și respinge inputul invalid (titlu obligatoriu, imagine obligatorie, resurse validate pe tip).
+- **`server/repos/categoriesRepo.ts`** — `getCategoryById` (existență) + `listCategories` (pentru filtre/form).
+- **`server/repos/detailsRepo.ts`** — `insertDetail`, `insertDetailResources`, `getDetailById` și `listFeed`
+  (ambele cu autor nume+rol+verificare + categorie, doar `PUBLISHED`). Feed sortat provizoriu după `createdAt`
+  (TODO pas 2: sortare „după interacțiuni"). Toate prin `leftJoin` pe `categories`/`users`/`roles`.
+- **`server/services/detailService.ts`** — `createDetail` enforce pe SERVER: (1) **autor cu rol declarat**
+  (`userHasRole`, nu doar admin/seed, nu trebuie verificat) → altfel `NO_ROLE`; (2) validare/normalizare;
+  (3) categorie existentă → altfel `INVALID_CATEGORY`; (4) insert detaliu + resurse. Plus `getDetail` și `getFeed`.
+- **Upload Blob ținut în afara service-ului** (primește `imageUrl` rezolvat) — clean architecture, business testabil
+  fără infra. Wiring-ul Blob + UI = pașii următori. `typecheck` + `lint` VERZI. Fără UI, fără migrație.
+
+### Schemă: `details.description` (text liber „deasupra" imaginii, stil post)
+- Adăugat coloana **`description` (text, nullable)** pe `details` — caption/text bogat afișat deasupra imaginii
+  (model post LinkedIn). `title` rămâne obligatoriu; `description` e opțional. Decizie de produs (Edi).
+- Migrație **`0001_familiar_darkhawk.sql`** (`ADD COLUMN`, reversibilă prin `DROP COLUMN`). `typecheck` VERDE.
+- **Doc afectate:** `db/schema.ts`, `docs/SCHEMA.md` (tabel `details`). Rulare pe DB (`db:push`/`db:migrate`)
+  blocată de lipsa `DATABASE_URL` — migrația e generată și gata de aplicat.
+
+### Decizii de produs confirmate de Edi (răstoarnă câteva decizii „confirmat/HOLD" anterioare)
+- **Login: passwordless = magic link (Resend) + Google OAuth** („Continuă cu Google"). **Fără parolă** (s-a
+  clarificat ambiguitatea „parolă vs magic link" → rămâne passwordless, se adaugă Google).
+- **Acces PUBLIC** (înregistrare deschisă) — se renunță definitiv la beta pe invitație. Schela `Invitation`
+  rămâne **dormantă** în cod (neutilizată), nu se cablează în signup. Flux: landing → creare cont → email magic
+  link → onboarding profil (rol, subrol, poză) → feed.
+- **Upload de detalii DESCHIS** oricărui user cu rol declarat (nu mai e seed-only/admin-only). Moderare
+  post-publicare; fără cozi de aprobare în MVP.
+- **Taxonomia categorii + subroluri** — OK pentru MVP (draftul curent e suficient; Edi se mai gândește la roluri).
+- **Seed 50–100 detalii** (~2/categorie), prin conturi reale (Edi + useri din toate categoriile + portofoliul Edi).
+- **Pe HOLD (neschimbat):** lista fixă zone climatice/seismice; sursele de verificare automată a rolului.
+- **Doc afectate:** `CLAUDE.md` (Stack, Glosar, Poarta 1, Upload, Divergență Backend.md, Decizii confirmate/deschise).
+  Cod neatins în acest set — doar aliniere de decizii. (Implementarea Google OAuth + onboarding poză = task viitor.)
+
+---
+
 ## 2026-06-20
 
 ### Fix CI: warning Node 20 deprecated pe GitHub Actions

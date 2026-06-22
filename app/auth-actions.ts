@@ -1,0 +1,37 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { AuthError } from "next-auth";
+
+import { signIn } from "@/lib/auth";
+
+// Acces PUBLIC, passwordless. signIn aruncă un redirect intern (NEXT_REDIRECT) pe succes — re-aruncat.
+// La eroare de auth, ne întoarcem pe pagina de proveniență (authPath) cu ?error= pentru mesaj prietenos.
+
+// authPath vine din formular (client-controlled) → whitelist strict (evită open-redirect, ex. `//evil.com`).
+function safeAuthPath(formData: FormData): "/login" | "/signup" {
+  return formData.get("authPath") === "/signup" ? "/signup" : "/login";
+}
+
+export async function signInWithEmailAction(formData: FormData): Promise<void> {
+  const email = String(formData.get("email") ?? "").trim();
+  const callbackUrl = String(formData.get("callbackUrl") || "/");
+  const authPath = safeAuthPath(formData);
+  try {
+    await signIn("resend", { email, redirectTo: callbackUrl });
+  } catch (err) {
+    if (err instanceof AuthError) redirect(`${authPath}?error=${encodeURIComponent(err.type)}`);
+    throw err;
+  }
+}
+
+export async function signInWithGoogleAction(formData: FormData): Promise<void> {
+  const callbackUrl = String(formData.get("callbackUrl") || "/");
+  const authPath = safeAuthPath(formData);
+  try {
+    await signIn("google", { redirectTo: callbackUrl });
+  } catch (err) {
+    if (err instanceof AuthError) redirect(`${authPath}?error=${encodeURIComponent(err.type)}`);
+    throw err;
+  }
+}
