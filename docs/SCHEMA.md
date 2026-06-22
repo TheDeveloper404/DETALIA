@@ -78,6 +78,7 @@ notification_type      : SKETCH_PROPOSED | SKETCH_ACCEPTED | SKETCH_REJECTED | .
 |---|---|---|
 | `id` | uuid PK | |
 | `title` | text | not null |
+| `description` | text | nullable; text liber „deasupra" imaginii (stil post) |
 | `author_id` | uuid FK→users.id | **index** |
 | `category_id` | uuid FK→categories.id | **index** |
 | `climate_zone` | text | default `'General'` (listă fixă) |

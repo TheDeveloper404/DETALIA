@@ -10,6 +10,7 @@
 
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 import Resend from "next-auth/providers/resend";
 
 import { db } from "@/db";
@@ -37,6 +38,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Resend({
       from: process.env.EMAIL_FROM,
       maxAge: magicLinkMaxAgeSeconds,
+    }),
+    Google({
+      // Citește automat AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET din env.
+      // Linkăm Google la un user existent cu același email: ambele fluxuri (magic link + Google)
+      // dovedesc deținerea email-ului, deci linkarea pe email e sigură aici (passwordless).
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   callbacks: {
