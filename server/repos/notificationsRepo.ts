@@ -1,0 +1,48 @@
+// Repo notificări — singurul loc cu acces Drizzle pentru tabelul `notifications` (in-app).
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
+
+import { db } from "@/db";
+import { notifications } from "@/db/schema";
+
+export type NotificationType = "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED";
+
+export async function insertNotification(input: {
+  recipientUserId: string;
+  type: NotificationType;
+  payloadJson: Record<string, unknown>;
+}) {
+  const [row] = await db
+    .insert(notifications)
+    .values({
+      recipientUserId: input.recipientUserId,
+      type: input.type,
+      payloadJson: input.payloadJson,
+    })
+    .returning();
+  return row;
+}
+
+export async function listByRecipient(userId: string, limit = 30) {
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.recipientUserId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(limit);
+}
+
+export async function countUnread(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`cast(count(*) as integer)` })
+    .from(notifications)
+    .where(and(eq(notifications.recipientUserId, userId), isNull(notifications.readAt)));
+  return row?.count ?? 0;
+}
+
+// Marchează citite toate notificările unui user (sau doar una). userId = plasă anti-IDOR în service.
+export async function markAllRead(userId: string) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(eq(notifications.recipientUserId, userId), isNull(notifications.readAt)));
+}
