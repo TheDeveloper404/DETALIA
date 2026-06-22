@@ -6,6 +6,79 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-22
 
+### Schițare — pas 6: dezbatere pe schiță (validare + comentarii polimorfice)
+- **Generalizat UI-ul de la `DETAIL` la orice target:** `validation-actions` + `validation-panel` și `comment-actions`
+  + `comments-section` primesc acum `targetType` + `targetId` (+ `detailId` = pagina de revalidat). Butonul „Dezaprob
+  și fac o schiță" apare doar pe DETAIL (`allowSketch`).
+- **`sketch-section`** — pe schița activă din teanc montează `ValidationPanel` + `CommentsSection` cu `targetType=SKETCH`
+  (reuse total; dezbaterea per schiță vine „gratis", cum prevedea schema polimorfică).
+- **Pagina de detaliu** — pasează `targetType="DETAIL"` + îmbogățește fiecare schiță publicată cu validarea + comentariile ei.
+- **Schițarea = COMPLETĂ** (pașii 1–6): nucleu server → canvas → editor (din Dezaprob) → teanc/review → notificări → dezbatere.
+- `typecheck`+`lint`+`build` VERZI.
+
+### Schițare — pas 5: clopoțel notificări + pagina de notificări
+- **Header global** (`components/app-header.tsx` în `app/layout.tsx`) — apare DOAR pentru useri autentificați:
+  logo „DETALIA" → feed + **clopoțel** (`components/notification-bell.tsx`) cu badge de necitite.
+- **`server/services/notificationService`** — citiri: `getNotifications`, `getUnreadCount`, `markNotificationsRead`.
+- **`app/notifications/`** — `page.tsx` (listă, necitite evidențiate, link la detaliu, gol-state), `actions.ts`
+  (`markReadAction` — userId din sesiune), `mark-read-on-view.tsx` (la deschidere marchează citite + `router.refresh()`
+  → clopoțelul se golește). Protejat de proxy deny-by-default.
+- Notă: layout-ul citește sesiunea → toate rutele devin dinamice (corect pt această aplicație). `typecheck`+`lint`+`build` VERZI.
+- **Rămas (ultimul pas schițare):** dezbatere (validare/comentarii) pe pagină proprie de schiță publicată.
+
+### Schițare — pas 4: UI autor-mamă (teanc + accept/respinge)
+- **`components/sketch/sketch-viewer.tsx`** — viewer read-only: imaginea-mamă (intensitate normală) + stroke-uri deasupra.
+- **`app/details/[id]/sketch-section.tsx`** — pe pagina de detaliu: **teancul** (taburi „Original" + schițe PUBLISHED,
+  navigabile, cu autor+rol) + **coada de review** (doar autorul-mamă) cu butoane **Acceptă/Respinge** (fără justificare).
+- **`app/details/[id]/sketch-review-actions.ts`** — `acceptSketchAction`/`rejectSketchAction` (authz în `sketchService`:
+  doar autorul-mamă; PENDING→PUBLISHED/REJECTED + notifică autorul schiței). `actorUserId` din sesiune.
+- **`sketchesRepo`** — `strokesJson` inclus în query-urile teanc/coadă (randare în pagină); `getTeanc`/`getPendingForOwner` îl expun.
+- **Bucla de schițare e acum completă funcțional:** Dezaprob → desen → trimite → autor-mamă acceptă → intră în teanc (public).
+- `typecheck`+`lint`+`build` VERZI. **Urmează:** clopoțel notificări + dezbatere (validare/comentarii) pe schiță.
+
+### Schițare — pas 3: pagina-editor (din fereastra de Dezaprob)
+- **Enforcement „schițarea doar din Dezaprob":** editorul cere un DRAFT existent, iar draftul se creează **doar** de
+  acțiunea de Dezaprob → nu există altă cale către editor. Buton nou „Dezaprob și fac o schiță" în panoul de validare
+  (intent `sketch`): `disapproveDetailAction` face dezaprobarea (justificare obligatorie) → `createDraft` → redirect editor.
+- **`app/sketches/[id]/edit/`** — `page.tsx` (guard `auth()` + `getDraftForEdit` = doar autorul, doar DRAFT → altfel 404),
+  `sketch-editor.tsx` (leagă `SketchCanvas` de actions, stări pending/error/„salvat"), `sketch-actions.ts`
+  (`saveStrokesAction`; `sendSketchAction` = upload thumbnail → `sketchService.send` → redirect la detaliu).
+- Protejat de proxy deny-by-default + guard pagină + authz în service. `typecheck`+`lint`+`build` VERZI.
+- **Urmează:** UI autor-mamă (teanc/taburi + accept/respinge) + clopoțel notificări + dezbatere pe schiță.
+
+### Fix securitate (XSS în email) în `server/services/notificationService.ts`
+- `detailTitle` / `sketchAuthorName` (user-controlled) intrau neescapate în HTML-ul de email → XSS stocat. **Fix:**
+  helper `esc()` (HTML-escape) pe toate valorile interpolate + `plain()` pe subiect (anti header-injection).
+  (Flag de la security review automat; MEDIUM, rezolvat.)
+
+### Schițare — pas 2: canvas de desen (perfect-freehand)
+- **Dependență nouă:** `perfect-freehand`. **`lib/sketch-render.ts`** — `renderStrokes(ctx, strokes, w, h)` partajat
+  (editor + viewer); coordonate normalizate 0..1, grosime scalată față de `REFERENCE_WIDTH=1000`.
+- **`components/sketch/sketch-canvas.tsx`** — editor: desen peste imaginea-mamă **slabă (fill 0.3)**, unelte MVP
+  (6 culori stridente + 3 grosimi + radieră + undo/redo), pointer events (mouse/touch/pen), output stroke-uri
+  normalizate. La „Trimite" randează **thumbnail PNG** client-side (best-effort, taint CORS → null). Butoane
+  „Salvează ciorna" / „Trimite propunerea" (handlerele = props, cablate la pasul 3).
+- **`lib/storage.uploadSketchThumbnail`** (Blob PNG → Blob `sketches/`). `STROKE_WIDTHS` ajustate la [8,16,28] (vizibile).
+- Fix lint (React Compiler strict): fără assignment de ref în render; `ResizeObserver` în loc de listener manual.
+- `typecheck` + `lint` + **build VERZI**. **Urmează:** editor-page (din fereastra de Dezaprob) + UI autor mamă (teanc/review) + clopoțel notificări.
+
+### Schițare — pas 1 (CRITICAL): nucleul de server (state machine + notificări)
+- **`server/domain/sketch.ts`** — `SKETCH_STATUS`, paletă (culori stridente + 3 grosimi), tip `Stroke` (puncte
+  normalizate 0..1) + `validateStrokes` (structural + limite anti-abuz: max 2000 stroke-uri / 10000 puncte / size 100).
+- **`server/repos/sketchesRepo.ts`** — `insertDraft`, `getSketchById`, `updateStrokes`, `updateStatus`,
+  `listPublishedByDetail` (teancul), `listPendingByDetail` (coadă review), cu autor nume+rol.
+- **`server/repos/notificationsRepo.ts`** + **`server/repos/usersRepo.getUserContact`** — notificări in-app + contact.
+- **`lib/email.ts`** — trimitere best-effort via Resend REST (no-op fără credențiale; fără PII logat).
+- **`server/services/notificationService.ts`** — in-app (mereu) + email (best-effort) pentru SKETCH_PROPOSED/ACCEPTED/REJECTED.
+- **`server/services/sketchService.ts`** — state machine + authz: `createDraft`, `saveStrokes`, `send`
+  (DRAFT→PENDING_ACCEPTANCE + notifică autorul mamă), `accept`/`reject` (doar autorul mamă; →PUBLISHED/REJECTED +
+  notifică autorul schiței), `getTeanc`, `getPendingForOwner`, `getDraftForEdit`, `getPublishedSketch`.
+- **Datorie veche închisă:** validarea/comentariile pe **SKETCH** activate (`validationService.targetExists` →
+  schițe PUBLISHED). Dezbaterea per schiță vine gratis (polimorfic).
+- **Securitate:** `actorUserId` din sesiune (fără IDOR); doar autorul schiței editează/trimite, doar autorul mamă
+  acceptă/respinge; tranziții invalide respinse; stroke-uri validate; fără PII logat. `typecheck`+`lint`+`build` VERZI.
+- **Urmează:** canvas perfect-freehand (desen + thumbnail PNG) + UI (editor din fereastra de Dezaprob, teanc/taburi, review autor mamă).
+
 ### Faza 0.5 (CRITICAL — auth): Google OAuth + signup public + onboarding cu poză
 - **Google OAuth** (`lib/auth.ts`): provider `Google` adăugat lângă Resend; `allowDangerousEmailAccountLinking: true`
   (linkare pe email sigură — ambele fluxuri passwordless dovedesc deținerea email-ului). Env noi în `.env.example`:

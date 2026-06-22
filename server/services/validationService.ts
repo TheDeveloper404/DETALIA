@@ -14,6 +14,7 @@ import {
 import { insertComment } from "@/server/repos/commentsRepo";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { getSketchById } from "@/server/repos/sketchesRepo";
 import {
   deletePosition,
   getUserPosition,
@@ -34,8 +35,9 @@ export async function targetExists(targetType: TargetType, targetId: string): Pr
   if (targetType === "DETAIL") {
     return (await getDetailById(targetId)) !== null; // getDetailById întoarce doar PUBLISHED
   }
-  // SKETCH: validarea per schiță se cablează la faza de schițare (reuse același service).
-  return false;
+  // SKETCH: poziții/comentarii doar pe schițe PUBLISHED (dezbaterea per schiță vine gratis, polimorfic).
+  const sketch = await getSketchById(targetId);
+  return sketch !== null && sketch.status === "PUBLISHED";
 }
 
 function snapshotFromRole(role: {

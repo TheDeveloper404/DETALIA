@@ -49,3 +49,15 @@ export function uploadDetailImage(file: File): Promise<UploadImageResult> {
 export function uploadAvatarImage(file: File): Promise<UploadImageResult> {
   return uploadImage(file, "avatars");
 }
+
+// Thumbnail PNG al unei schițe (randat client-side la SEND). Primește un Blob, validăm doar dimensiunea.
+export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
+  if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
+  if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
+  const result = await put(`sketches/${crypto.randomUUID()}.png`, blob, {
+    access: "public",
+    addRandomSuffix: false,
+    contentType: "image/png",
+  });
+  return { ok: true, url: result.url };
+}
