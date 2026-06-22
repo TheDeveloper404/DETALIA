@@ -10,16 +10,18 @@
 ## Ce este DETALIA
 Comunitate profesională din construcții, organizată în jurul **detaliului de execuție**. Modelul mental:
 **„GitHub pentru construcții"** — detaliu = repo, schiță = fork+PR, validare = code review. Faza curentă:
-**validare de piață** (cost ~$0, livrare rapidă, fundație care scalează fără rescriere). Lansare = **beta
-închis, pe invitație**, cu conținut seed pus de noi.
+**validare de piață** (cost ~$0, livrare rapidă, fundație care scalează fără rescriere). Lansare = **acces
+public deschis** (înregistrare liberă), cu **conținut seed** pus la început prin conturi reale (Edi + useri
+aduși din toate categoriile) ca platforma să nu fie goală la primul contact.
 
 Întrebarea pe care MVP-ul o testează: *dacă pun un detaliu bun în față, se aprinde dezbaterea pe roluri?*
 
 ---
 
 ## Stack (confirmat)
-Single-app **Next.js (App Router)** pe **Vercel** · **Neon Postgres** + **Drizzle** · **Auth.js v5** magic
-link · **Resend** (email) · **Vercel Blob** (stocare) · **Canvas + perfect-freehand** pentru schiță.
+Single-app **Next.js (App Router)** pe **Vercel** · **Neon Postgres** + **Drizzle** · **Auth.js v5** —
+**magic link (Resend) + Google OAuth**, passwordless (fără parolă) · **Resend** (email) · **Vercel Blob**
+(stocare) · **Canvas + perfect-freehand** pentru schiță.
 NU monorepo Fastify în această fază (motivare: `docs/ARHITECTURA.md §2`). Business izolat în `server/` ca
 extragerea spre API separat ulterior să fie posibilă fără rescriere.
 
@@ -31,7 +33,7 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
 - **Schiță** (`Sketch`) — o „foaie" desenată peste un detaliu-mamă, cu **un singur autor** (~fork+PR).
 - **Validare** (`Validation`) — poziția unui user pe un detaliu SAU pe o schiță: **Aprob** / **Dezaprob**.
 - **Rol / Subrol** — PROIECTANT / EXECUTANT / FURNIZOR / BENEFICIAR + subrol (arhitect, inginer, etc.).
-- **Invitație** (`Invitation`) — token one-time prin care adminul (Edi) dă **acces** la beta închis (NU atribuie rolul; rolul și-l declară userul singur la signup).
+- **Invitație** (`Invitation`) — token one-time. **Dormant în MVP** (accesul e public, nu pe invitație) — schela rămâne în cod pentru un eventual reuse.
 - **Teanc** — totalitatea schițelor PUBLISHED ale unui detaliu (navigabile prin taburi).
 
 ---
@@ -73,10 +75,10 @@ DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
 > **Două porți distincte, nu le confunda:** Poarta 1 = **accesul** (cine intră în platformă → invitația).
 > Poarta 2 = **credibilitatea** (cât „cântărești" odată intrat → rol declarat → verificat). Sunt independente.
 
-- **Poarta 1 — acces (beta închis pe invitație) — ÎN HOLD, de reconfirmat cu Edi:** plan actual = zero
-  înregistrare publică, cont = doar prin `Invitation` validă (token one-time, expirare). Invitația dă **doar
-  acces** — NU atribuie rolul. *Mecanismul rămâne în plan, dar e sub reevaluare (invite-only vs. deschidere
-  publică la lansare) — decizie de produs cu Edi. Nu finaliza signup gating până nu se confirmă.*
+- **Poarta 1 — acces: PUBLIC (confirmat de Edi, iunie 2026).** Înregistrare deschisă, fără invitație. Flux:
+  landing → „creare cont" → email → magic link → onboarding profil (rol, subrol, poză) → feed. Schela de
+  invitație (`Invitation`, token one-time) **rămâne dormantă în cod** (neutilizată), pentru un eventual
+  reuse — NU o cabla în fluxul de signup.
 - **Rolul e auto-declarat de user la signup** (categorie + subrol). Acces imediat după declarare → minimizează
   frecarea la primul contact. Rolul e **vizibil permanent** lângă nume.
 - **Poarta 2 — verificare rolului = „pull, nu push":** flux separat în platformă ("Verificare rol", inițiat de
@@ -86,8 +88,10 @@ DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
   le cerem niște date; **aprobarea e manuală (admin/Edi)** în MVP; OAR/CUI auto = ulterior. Odată verificat →
   **badge cu steluță galbenă** lângă rol (poziția UI exactă — lângă rol și/sau avatar — se decide la implementare).
   Fără scoring numeric: greutatea e dată de rol + faptul că e verificat, judecată de cititor.
-- **Upload de detalii OPRIT în v1** (seed-only, confirmat). Doar conturi admin/seed creează detalii.
-  Deschiderea uploadului pentru useri = Val 2.
+- **Upload de detalii DESCHIS userilor (confirmat de Edi, iunie 2026).** Orice user autentificat cu **rol
+  declarat** poate publica detalii (nu trebuie să fie verificat). **Moderare post-publicare** (publici direct,
+  ștergem abuzurile ulterior) — fără cozi de aprobare în MVP. Calitatea o dă validarea/dezbaterea pe roluri.
+  Seed-ul inițial e tot prin conturi reale (vezi mai jos), dar uploadul NU mai e limitat la admin/seed.
 
 ---
 
@@ -131,8 +135,8 @@ Sursa de adevăr pentru inginerie/securitate. Skill-urile globale (`security-aud
 - Tabele `snake_case` plural; coloane `snake_case` singular. PK `uuid DEFAULT gen_random_uuid()`.
 - `created_at` / `updated_at` standard; **toate FK indexate**; **migrații reversibile**.
 
-**Divergență față de `Backend.md`:** DETALIA folosește **magic link (passwordless)** → endpoint-urile de
-register/login-cu-parolă/reset-password/MFA din `Backend.md` **NU se aplică**. Sesiunile, tokenurile și
+**Divergență față de `Backend.md`:** DETALIA folosește **magic link + Google OAuth, passwordless** →
+endpoint-urile de register/login-cu-parolă/reset-password/MFA din `Backend.md` **NU se aplică**. Sesiunile, tokenurile și
 adapter-ul de DB le **gestionează Auth.js** (nu le mâna manual). Reținem de acolo doar: format eroare,
 non-enumerare, logging fără valori sensibile, env pentru config.
 
@@ -163,18 +167,22 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 ---
 
 ## Decizii confirmate de Edi (iunie 2026)
-- **Magic link** (login fără parolă) — confirmat.
+- **Login passwordless: magic link (Resend) + Google OAuth** („Continuă cu Google") — confirmat. **Fără parolă.**
+- **Acces PUBLIC** (înregistrare deschisă, fără invitație) — confirmat. Flux: landing → creare cont → email
+  magic link → onboarding profil (rol, subrol, poză) → feed.
+- **Upload de detalii DESCHIS** oricărui user cu rol declarat (nu doar admin/seed) — confirmat. Moderare post-publicare.
+- **Taxonomia de categorii + subrolurile** — OK pentru MVP (Edi se mai gândește la roluri în viitor, dar nu blochează).
+- **Seed 50–100 detalii** (~2 per categorie, proporțional cu nr. categoriilor), prin **conturi reale** (Edi +
+  useri aduși din toate categoriile principale + portofoliul lui Edi) — ca platforma să nu fie goală la start.
 - **Schiță asincronă GitHub-style** (o foaie = un autor, NU real-time) — confirmat. Schițarea = **feature obligatoriu în MVP**.
 - **Un singur rol per user** (nu roluri multiple).
-- **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin la invitație).
+- **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin).
 - **Verificarea rolului = „pull, nu push"** — opțională, fără blocare, rol neverificat funcțional 100%, nudge
   blând; userii vin singuri să se verifice, motivați de credibilitate. Fără scoring numeric.
-- Zone climatice/seismice = **listă fixă** cu opțiune „General" + atenționare când alegi General.
 - Notificări **in-app + email** de la început.
 
 ## Decizii deschise (pentru Edi)
-- **Poarta de acces la lansare — ÎN HOLD:** beta închis pe invitație (plan actual) vs. înregistrare publică
-  deschisă. De reconfirmat cu Edi. Independentă de verificarea rolului (Poarta 2).
-- Lista exactă de subroluri per rol principal (avem draftul din Documentul Fundamental).
-- Surse de verificare automată a rolului (OAR confirmat?), dincolo de manual-admin.
+- **Zone climatice/seismice** — listă fixă concretă: **pe HOLD** (ne mai gândim cum o facem).
+- **Surse de verificare automată a rolului** (OAR/CUI confirmate?), dincolo de manual-admin: **pe HOLD**.
 - Câte resurse suplimentare per detaliu (2–3) și ce tipuri (imagine/link/PDF).
+- `DATABASE_URL` (Neon) — îl dă Liviu/Edi mai târziu (blochează rularea, nu codul).

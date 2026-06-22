@@ -2,7 +2,8 @@ import Link from "next/link";
 
 import { AuthForm } from "@/components/auth-form";
 
-// Mesaje de eroare prietenoase (fără a expune internals). Cheia = error.type din Auth.js.
+// Acces PUBLIC — înregistrare deschisă, fără invitație. Magic link / Google creează contul automat;
+// după autentificare, userul trece prin onboarding (rol, subrol, poză) înainte de feed.
 const ERROR_MESSAGES: Record<string, string> = {
   EmailSignInError: "Nu am putut trimite link-ul. Verifică adresa și încearcă din nou.",
   OAuthSignInError: "Nu am putut porni autentificarea cu Google. Încearcă din nou.",
@@ -11,7 +12,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   default: "Ceva n-a mers. Încearcă din nou.",
 };
 
-export default async function LoginPage({
+export default async function SignupPage({
   searchParams,
 }: {
   searchParams: Promise<{ callbackUrl?: string; error?: string }>;
@@ -23,9 +24,9 @@ export default async function LoginPage({
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
       <div className="w-full max-w-sm flex flex-col gap-6">
         <header className="text-center flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Autentificare</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Creează cont</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Intră cu Google sau cu un link de acces pe email. Fără parolă.
+            Înregistrare liberă, fără parolă. Apoi îți alegi rolul și ești gata.
           </p>
         </header>
 
@@ -39,15 +40,15 @@ export default async function LoginPage({
         )}
 
         <AuthForm
-          callbackUrl={callbackUrl ?? "/"}
-          authPath="/login"
-          submitLabel="Trimite link-ul de acces"
+          callbackUrl={callbackUrl ?? "/onboarding"}
+          authPath="/signup"
+          submitLabel="Creează cont cu email"
         />
 
         <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-          Nu ai cont?{" "}
-          <Link href="/signup" className="font-medium text-zinc-900 underline dark:text-zinc-100">
-            Creează unul
+          Ai deja cont?{" "}
+          <Link href="/login" className="font-medium text-zinc-900 underline dark:text-zinc-100">
+            Autentifică-te
           </Link>
         </p>
       </div>

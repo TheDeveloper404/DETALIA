@@ -9,7 +9,8 @@ import { auth } from "@/lib/auth";
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
 const PUBLIC_PATHS = [
   "/", // landing
-  "/login", // pagina de login (magic link) — va fi construită ulterior
+  "/login", // autentificare (magic link + Google)
+  "/signup", // înregistrare publică (magic link + Google)
 ];
 
 export default auth((req) => {
