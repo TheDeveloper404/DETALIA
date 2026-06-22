@@ -68,6 +68,19 @@ export function RoleForm() {
         </select>
       </label>
 
+      <label className="flex flex-col gap-1.5 text-sm">
+        <span className="font-medium">
+          Poză de profil <span className="text-zinc-400">(opțional)</span>
+        </span>
+        <input
+          name="image"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/avif"
+          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white dark:file:bg-zinc-100 dark:file:text-zinc-900"
+        />
+        <span className="text-xs text-zinc-400">PNG, JPG, WebP sau AVIF · max 8 MB</span>
+      </label>
+
       <button
         type="submit"
         disabled={pending || !roleMain}

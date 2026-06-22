@@ -174,6 +174,8 @@ export const details = pgTable(
   {
     id: uuid().defaultRandom().primaryKey(),
     title: text().notNull(),
+    // Text liber „deasupra" imaginii (stil post LinkedIn). Opțional — titlul rămâne obligatoriu.
+    description: text(),
     authorId: uuid()
       .notNull()
       .references(() => users.id),
