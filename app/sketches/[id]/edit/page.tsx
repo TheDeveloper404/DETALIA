@@ -30,14 +30,14 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
     <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4 sm:p-6">
       <Link
         href={`/details/${detail.id}`}
-        className="text-sm text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         ← Înapoi la detaliu
       </Link>
 
       <header className="flex flex-col gap-1">
         <h1 className="text-xl font-semibold tracking-tight">Schițează peste „{detail.title}”</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Desenează cum ar trebui să arate. Când trimiți, autorul detaliului acceptă sau respinge propunerea.
         </p>
       </header>

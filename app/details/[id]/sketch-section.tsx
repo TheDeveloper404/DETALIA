@@ -4,6 +4,8 @@ import { useState } from "react";
 
 import { AuthorBadge } from "@/components/author-badge";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
@@ -55,7 +57,7 @@ export function SketchSection({
     <div className="flex flex-col gap-6">
       {published.length > 0 && (
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+          <h2 className="text-sm font-semibold">
             Teanc — propuneri publicate ({published.length})
           </h2>
 
@@ -104,11 +106,12 @@ export function SketchSection({
       )}
 
       {pending.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50/50 p-4 dark:border-amber-900 dark:bg-amber-950/30">
-          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            Propuneri în așteptare ({pending.length})
-          </h2>
-          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+        <section className="flex flex-col gap-3 rounded-xl bg-card p-4 text-card-foreground ring-1 ring-foreground/10">
+          <div className="flex items-center gap-2">
+            <h2 className="text-sm font-semibold">Propuneri în așteptare</h2>
+            <Badge variant="secondary">{pending.length}</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
             Cineva a propus o modificare la detaliul tău. Acceptă (intră în teanc) sau respinge.
           </p>
 
@@ -126,22 +129,16 @@ export function SketchSection({
                   <form action={acceptSketchAction}>
                     <input type="hidden" name="sketchId" value={s.id} />
                     <input type="hidden" name="detailId" value={detailId} />
-                    <button
-                      type="submit"
-                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-emerald-700"
-                    >
+                    <Button type="submit" size="sm">
                       Acceptă
-                    </button>
+                    </Button>
                   </form>
                   <form action={rejectSketchAction}>
                     <input type="hidden" name="sketchId" value={s.id} />
                     <input type="hidden" name="detailId" value={detailId} />
-                    <button
-                      type="submit"
-                      className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
+                    <Button type="submit" size="sm" variant="outline">
                       Respinge
-                    </button>
+                    </Button>
                   </form>
                 </div>
               </li>
@@ -163,12 +160,14 @@ function TabButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Button
       type="button"
       onClick={onClick}
-      className={`rounded-full border px-3 py-1 text-sm transition-colors ${active ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 text-zinc-700 hover:border-zinc-500 dark:border-zinc-700 dark:text-zinc-300"}`}
+      size="sm"
+      variant={active ? "default" : "outline"}
+      className="rounded-full"
     >
       {children}
-    </button>
+    </Button>
   );
 }

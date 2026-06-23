@@ -41,7 +41,7 @@ export default async function NotificationsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Notificări</h1>
 
       {notifications.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-300 py-12 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+        <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
           Nu ai nicio notificare încă.
         </p>
       ) : (
@@ -51,14 +51,12 @@ export default async function NotificationsPage() {
             const unread = n.readAt === null;
             const content = (
               <div
-                className={`flex flex-col gap-1 rounded-lg border p-3 transition-colors ${
-                  unread
-                    ? "border-zinc-300 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900"
-                    : "border-zinc-200 dark:border-zinc-800"
-                } ${href ? "hover:border-zinc-400 dark:hover:border-zinc-600" : ""}`}
+                className={`flex flex-col gap-1 rounded-xl border p-3 transition-colors ${
+                  unread ? "border-border bg-muted/50" : "border-border"
+                } ${href ? "hover:border-foreground/30" : ""}`}
               >
-                <p className="text-sm text-zinc-800 dark:text-zinc-200">{text}</p>
-                <span className="text-xs text-zinc-400">{dateFmt.format(n.createdAt)}</span>
+                <p className="text-sm text-foreground/90">{text}</p>
+                <span className="text-xs text-muted-foreground">{dateFmt.format(n.createdAt)}</span>
               </div>
             );
             return (
