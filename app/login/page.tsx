@@ -12,8 +12,6 @@ import {
 // Mesaje de eroare prietenoase (fără a expune internals). Cheia = error.type din Auth.js.
 const ERROR_MESSAGES: Record<string, string> = {
   EmailSignInError: "Nu am putut trimite link-ul. Verifică adresa și încearcă din nou.",
-  OAuthSignInError: "Nu am putut porni autentificarea cu Google. Încearcă din nou.",
-  OAuthAccountNotLinked: "Acest email e deja folosit cu altă metodă. Intră cum ai făcut prima dată.",
   Verification: "Link-ul a expirat sau a fost deja folosit. Cere unul nou.",
   default: "Ceva n-a mers. Încearcă din nou.",
 };
@@ -32,7 +30,7 @@ export default async function LoginPage({
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Autentificare</CardTitle>
           <CardDescription>
-            Intră cu Google sau cu un link de acces pe email. Fără parolă.
+            Intră cu un link de acces trimis pe email. Fără parolă.
           </CardDescription>
         </CardHeader>
 

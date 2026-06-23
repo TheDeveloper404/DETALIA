@@ -6,6 +6,36 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-23
 
+### GitGuardian — fals pozitiv pe copy-ul de landing („fără parolă")
+- GitGuardian (GitHub App) a semnalat un „Generic Password" în `app/page.tsx` — **fals pozitiv**: detectorul se agață de
+  cuvântul „parolă" din `const SUBLINE = "...fără parolă..."` (copy UI passwordless), NU o credențială. Zero secrete reale.
+- Adăugat **`.gitguardian.yaml`** (v2) cu `ignored_matches` pe acest text. **Atenție:** fișierul e citit de **ggshield** (CLI);
+  GitHub App-ul îl respectă doar dacă workspace-ul are „honor repo config". Pe PR-ul curent, fixul sigur = „Skip: false positive"
+  în check / resolve în dashboard. CI-ul propriu (`ci.yml`) NU rulează ggshield (doar type-check+lint+build).
+
+### Auth — Google OAuth scos pentru MVP (rămâne doar magic link)
+- **Decizie Edi/Liviu:** pentru MVP autentificarea e **doar passwordless prin magic link (Resend)**. Google OAuth scos din flux.
+- **`lib/auth.ts`** — eliminat providerul `Google` + importul; rămâne doar `Resend`. (Schela de re-adăugare documentată în comentariu.)
+- **`app/auth-actions.ts`** — eliminat `signInWithGoogleAction` (rămâne `signInWithEmailAction`).
+- **`components/auth-form.tsx`** — scos butonul „Continuă cu Google", separatorul „sau" și `GoogleIcon`; formularul = doar email.
+- **`/login` + `/signup`** — copy actualizat (fără „Google"), curățate mesajele de eroare OAuth (`OAuthSignInError`/`OAuthAccountNotLinked`).
+- **`.env.example`** — secțiunea Google marcată DEZACTIVAT (variabile comentate + instrucțiuni de reactivare). `tsc`+`build` VERZI.
+
+### Landing public — implementat din Claude Design (hero varianta B) + responsive
+- **`app/page.tsx`** rescris complet din designul aprobat de Edi în Claude Design (proiect `Detalia Landing.dc.html`).
+  Implementat **hero varianta B** (split: text + card preview cu planșă SVG și voturi pe roluri — M. Popa ✓ Aprobă /
+  I. Radu ✕ Dezaprobă + justificare) + CTA final dark. Reproducere **fidelă**: paletă proprie de brand (bej `#faf8f4` /
+  teracotă `#a9573a`) + fonturile **Archivo + IBM Plex Mono** (via `next/font` în `layout.tsx`) — separată intenționat de tokenii shadcn.
+- Secțiuni: header sticky · hero B · 01 Problema&soluția · 02 Cum funcționează · 03 Ce câștigi · 04 Pentru cine (4 roluri) ·
+  05 FAQ (`<details>` nativ, fără JS) · CTA final dark · footer.
+- **Responsive (adăugat):** heading-uri + padding-uri verticale pe `clamp()` (fluide, fără media queries); grilele de carduri pe
+  `repeat(auto-fit, minmax(...))` (colapsează singure); singura grilă cu media query e hero B → `.dc-hero-grid` în `globals.css`
+  (1 coloană sub 880px). Hover-urile și markerul `<details>` scoped în `globals.css` la `.dc-landing`.
+- Cablat `/signup` `/login` `/feed`; ramura **authed** (session → „Mergi la feed", fără sublinii de signup); `auth()` server-side păstrat.
+  Copy fără „Google" (passwordless = doar email) și fără „GitHub". **`app/page.tsx` provizoriu** înlocuit definitiv. `tsc`+`build` VERZI.
+- **Rafinări post-verificare vizuală (browser):** breakpoint hero coborât 880→720px (laptopuri cu scalare OS rămân pe 2 coloane);
+  lățime conținut principal lărgită 1180→1320px (constanta `MAXW` — header/hero/01–04/footer; FAQ+CTA rămân înguste, centrate).
+
 ### Refresh documentație (README + PLAN-EXECUTIE aliniate la realitate)
 - **`README.md`** rescris ca punct de intrare: secțiune **„Stare la zi"** consolidată (✅ făcut / ⏳ blocat de credențiale /
   ⛔ placeholder / 🔮 backlog), stack corectat (Google OAuth + shadcn), acces **PUBLIC** (nu „beta închis"), rulare reală

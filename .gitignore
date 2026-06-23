@@ -33,7 +33,10 @@ coverage/
 playwright-report/
 test-results/
 playwright/.cache/
+.playwright-mcp/
 .nyc_output/
+# Screenshot-uri de verificare locală (Playwright/manual) — NU se comit
+hero-b-fixed.png
 
 # === Lint / cache build ===
 .eslintcache
