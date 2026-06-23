@@ -34,7 +34,7 @@ de cei care îl proiectează, îl execută sau îl trăiesc, fiecare cu **rolul 
 | Zonă | Stare |
 |---|---|
 | **Fundație** | schelet Next.js, schema DB (13 tabele + migrația `0000`), `proxy.ts` deny-by-default, CI verde |
-| **Auth & acces** | passwordless: **magic link (Resend) + Google OAuth**; `/signup` public, `/login`, onboarding rol+subrol+poză; admin allowlist (`ADMIN_EMAILS`) |
+| **Auth & acces** | passwordless: **magic link (Resend)** (Google OAuth scos pentru MVP); `/signup` public, `/login`, onboarding rol+subrol+poză; admin allowlist (`ADMIN_EMAILS`) |
 | **Inima** | „Adaugă detaliu" (upload Blob), feed finit ~20 + filtre, pagina detaliu, **validare pe roluri** (Aprob/Dezaprob cu justificare), comentarii |
 | **Schițare** | end-to-end: canvas `perfect-freehand`, state machine DRAFT→PENDING→PUBLISHED/REJECTED, teanc, accept/respinge, **notificări in-app + email**, dezbatere pe schiță |
 | **Profil** | editare poză/rol; cerere de verificare rol (latura user) |
@@ -61,7 +61,7 @@ Search semantic (pgvector) · scoring/reputație · unelte schiță avansate (Li
 | Framework | **Next.js (App Router)** — UI + API într-un singur produs |
 | Hosting | **Vercel** |
 | Bază de date | **Neon Postgres** (serverless) + **Drizzle** (ORM) |
-| Auth | **Auth.js v5** — **magic link (Resend) + Google OAuth**, passwordless |
+| Auth | **Auth.js v5** — **magic link (Resend)**, passwordless (Google OAuth scos pentru MVP; schela de re-adăugare în comentarii) |
 | Email | **Resend** (magic link + notificări) |
 | Stocare | **Vercel Blob** (imagini detalii + thumbnail-uri schiță) |
 | UI | **shadcn/ui** + Tailwind v4 (tokeni de temă) |
@@ -106,7 +106,7 @@ npm run dev            # http://localhost:3000
 ```
 
 **Fără credențiale:** paginile publice (`/`, `/login`, `/signup`) randează dacă setezi doar `AUTH_SECRET` în `.env.local`
-(generează cu `npx auth secret`). Restul ecranelor cer sesiune → au nevoie de `DATABASE_URL` + Resend/Google.
+(generează cu `npx auth secret`). Restul ecranelor cer sesiune → au nevoie de `DATABASE_URL` + Resend (`AUTH_RESEND_KEY`).
 Secretele reale **nu** se comit niciodată — stau în `vercel env` / `.env.local` (ignorat de git).
 
 ---

@@ -9,8 +9,11 @@ import { auth } from "@/lib/auth";
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
 const PUBLIC_PATHS = [
   "/", // landing
-  "/login", // autentificare (magic link + Google)
-  "/signup", // înregistrare publică (magic link + Google)
+  "/login", // autentificare (magic link)
+  "/signup", // înregistrare publică (magic link)
+  // Preview dev (mock, fără DB/auth) — DESCHIS DOAR pe non-producție. În prod rămâne protejat
+  // (și paginile dau notFound() ca a doua barieră). Niciodată expus în producție.
+  ...(process.env.NODE_ENV !== "production" ? ["/dev"] : []),
 ];
 
 export default auth((req) => {
