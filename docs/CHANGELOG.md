@@ -6,6 +6,15 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-23
 
+### Refresh documentație (README + PLAN-EXECUTIE aliniate la realitate)
+- **`README.md`** rescris ca punct de intrare: secțiune **„Stare la zi"** consolidată (✅ făcut / ⏳ blocat de credențiale /
+  ⛔ placeholder / 🔮 backlog), stack corectat (Google OAuth + shadcn), acces **PUBLIC** (nu „beta închis"), rulare reală
+  (inclusiv `.env.local` doar cu `AUTH_SECRET` pt paginile publice), hartă de docuri grupată. „GitHub pentru construcții"
+  marcat explicit ca metaforă internă (NU în UI).
+- **`docs/PLAN-EXECUTIE.md`** — Faza 1 + 1.5 marcate **ÎNCHEIATE**, Faza 2 **PARȚIALĂ**; corectate notele depășite
+  (upload deschis userilor, nu doar admin/seed; Poarta 1 = PUBLIC, rezolvată).
+- Restul design-docs (SCHEMA/API/SECURITATE/EMAILURI/PLAN-SEED) aveau deja bannere „codul = sursa de adevăr" — neatinse.
+
 ### Design — restul suprafețelor pe shadcn (migrare completă)
 - **profil** (`page.tsx` + `profile-forms.tsx`): Button/Input/Label + select stilizat + alerte pe tokeni.
 - **notificări** (`page.tsx`): listă + empty-state pe tokeni (unread = `bg-muted/50`).

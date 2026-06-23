@@ -63,8 +63,13 @@ taxonomia de categorii (pentru seed-ul din Faza 1). *(Subrolurile rulează acum 
 
 **Obiectiv:** răspundem la întrebarea de validare — *se aprinde dezbaterea pe roluri?*
 
+### ✅ Faza 1 — ÎNCHEIATĂ (2026-06-22) — detalii în `CHANGELOG.md`
+> „Adaugă detaliu" (upload Blob), feed finit ~20 + filtre, pagina detaliu, validarea pe roluri, comentarii — toate
+> scrise și verzi. **Schimbare față de plan:** uploadul e **DESCHIS** oricărui user cu rol declarat (decizie Edi,
+> iunie 2026), nu doar admin/seed; moderare post-publicare. Rămâne de rulat cu credențiale + seed.
+
 **Pași:**
-1. Model `Detail` + `DetailResource` (max 3) + upload imagine (Blob) — **doar admin/seed**.
+1. Model `Detail` + `DetailResource` (max 3) + upload imagine (Blob) — ~~doar admin/seed~~ **deschis userilor cu rol** (Edi).
 2. Categorii (arbore) + filtre; feed finit **~20** după interacțiuni (fără infinite scroll).
 3. Pagina de detaliu: imagine + nume+rol autor + panou validare + coloană comentarii.
 4. **Validare** (inima): Aprob = 1 click; Dezaprob = justificare obligatorie (server 422) → `Comment` auto
@@ -83,6 +88,10 @@ poziția altuia cu rolul afișat. Reguli enforce-uite pe server (teste din `PLAN
 
 **Obiectiv:** fără ea „e doar blog cu comentarii". Modelul fork→PR, asincron.
 
+### ✅ Faza 1.5 — ÎNCHEIATĂ (2026-06-22) — detalii în `CHANGELOG.md`
+> Schițare end-to-end completă: canvas + unelte, state machine, teanc, accept/respinge, notificări in-app + email,
+> dezbatere polimorfică pe schiță. Verde la `typecheck`+`lint`+`build`.
+
 **Pași:**
 1. Mod schiță: canvas (HTML5 + `perfect-freehand`) peste detaliul-mamă cu **fill slab**.
 2. Unelte: culori stridente + 3 grosimi + radieră + undo/redo. Auto-save `strokes_json` (normalizat 0..1).
@@ -98,15 +107,20 @@ email), o acceptă, schița intră în teanc cu thumbnail și poate fi dezbătut
 
 ## Faza 2 — Verificare rol + lustruire pentru lansare
 
-**Obiectiv:** poarta 2 (credibilitate) + pregătire de beta.
+**Obiectiv:** poarta 2 (credibilitate) + pregătire de lansare.
+
+### 🟡 Faza 2 — PARȚIALĂ (în curs)
+> Făcut: **profil** (editare poză/rol) + **latura user** a verificării rolului (cerere → PENDING) — CHANGELOG 2026-06-23.
+> **Poarta 1 = REZOLVATĂ: acces PUBLIC** (Edi, iunie 2026) — fără gating de invitație. Lipsește: **latura admin** a
+> verificării (metodă în regândire, fără frecare — vezi handoff), stările empty/loading/error complete, auditul 13-cat.
 
 **Pași:**
 1. Flux „Verificare rol" („pull, nu push"): user trimite dovezi → PENDING → admin aprobă → **badge ⭐**.
-   Nudge blând permanent, fără blocare.
-2. Profil cu nume + rol + badge.
-3. Stări empty/loading/error peste tot (`UX-ECRANE.md`); accesibilitate minimă.
-4. Securitate CRITICAL: audit authz (IDOR, escalare), rate-limit pe endpoint-urile sensibile.
-5. Decizie finală **Poarta 1** (invitație vs. public) — reconfirmată cu Edi → activare/dezactivare gating.
+   Nudge blând permanent, fără blocare. → **latura user ✅; latura admin ❌ (metodă în regândire).**
+2. ✅ Profil cu nume + rol + badge.
+3. Stări empty/loading/error peste tot (`UX-ECRANE.md`); accesibilitate minimă. → parțial.
+4. Securitate CRITICAL: audit authz (IDOR, escalare), rate-limit pe endpoint-urile sensibile. → de făcut.
+5. ✅ Decizie **Poarta 1** — **PUBLIC** (înregistrare liberă, fără invitație); schela de invitație rămâne dormantă în cod.
 
 **Definiție de „gata":** beta închis lansabil — acces controlat, roluri afișate/verificabile, fluxurile critice
 testate (unit+integration+security+E2E), build verde, deploy reproducibil pe Vercel.
