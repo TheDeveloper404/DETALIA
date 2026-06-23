@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { renderStrokes, REFERENCE_WIDTH } from "@/lib/sketch-render";
 import { STROKE_COLORS, STROKE_WIDTHS, type Stroke } from "@/server/domain/sketch";
 
@@ -190,7 +191,7 @@ export function SketchCanvas({
   return (
     <div className="flex flex-col gap-3">
       {error && (
-        <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
           {error}
         </p>
       )}
@@ -207,13 +208,13 @@ export function SketchCanvas({
                 setColor(c);
                 setEraser(false);
               }}
-              className={`h-6 w-6 rounded-full border-2 ${color === c && !eraser ? "border-zinc-900 dark:border-zinc-100" : "border-transparent"}`}
+              className={`h-6 w-6 rounded-full border-2 ${color === c && !eraser ? "border-foreground" : "border-transparent"}`}
               style={{ backgroundColor: c }}
             />
           ))}
         </div>
 
-        <div className="mx-1 h-5 w-px bg-zinc-200 dark:bg-zinc-700" />
+        <div className="mx-1 h-5 w-px bg-border" />
 
         <div className="flex items-center gap-1">
           {STROKE_WIDTHS.map((wsize) => (
@@ -225,45 +226,48 @@ export function SketchCanvas({
                 setSize(wsize);
                 setEraser(false);
               }}
-              className={`flex h-7 w-7 items-center justify-center rounded-md border ${size === wsize && !eraser ? "border-zinc-900 dark:border-zinc-100" : "border-zinc-300 dark:border-zinc-700"}`}
+              className={`flex h-7 w-7 items-center justify-center rounded-md border ${size === wsize && !eraser ? "border-foreground" : "border-input"}`}
             >
               <span
-                className="rounded-full bg-zinc-800 dark:bg-zinc-200"
+                className="rounded-full bg-foreground"
                 style={{ width: wsize / 2.5, height: wsize / 2.5 }}
               />
             </button>
           ))}
         </div>
 
-        <div className="mx-1 h-5 w-px bg-zinc-200 dark:bg-zinc-700" />
+        <div className="mx-1 h-5 w-px bg-border" />
 
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={eraser ? "default" : "outline"}
           onClick={() => setEraser((v) => !v)}
-          className={`rounded-md border px-2.5 py-1 text-sm ${eraser ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900" : "border-zinc-300 dark:border-zinc-700"}`}
         >
           Radieră
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          size="sm"
+          variant="outline"
           onClick={() => dispatch({ type: "undo" })}
           disabled={history.past.length === 0}
-          className="rounded-md border border-zinc-300 px-2.5 py-1 text-sm disabled:opacity-40 dark:border-zinc-700"
         >
           ↶ Undo
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          size="sm"
+          variant="outline"
           onClick={() => dispatch({ type: "redo" })}
           disabled={history.future.length === 0}
-          className="rounded-md border border-zinc-300 px-2.5 py-1 text-sm disabled:opacity-40 dark:border-zinc-700"
         >
           ↷ Redo
-        </button>
+        </Button>
       </div>
 
       {/* Suprafața de desen */}
-      <div ref={containerRef} className="w-full overflow-hidden rounded-lg border border-zinc-300 dark:border-zinc-700">
+      <div ref={containerRef} className="w-full overflow-hidden rounded-xl border border-input">
         <canvas
           ref={canvasRef}
           width={dims.w}
@@ -279,22 +283,23 @@ export function SketchCanvas({
 
       {/* Acțiuni */}
       <div className="flex items-center justify-end gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          className="h-10"
           onClick={() => onSaveDraft(present)}
           disabled={pending || isEmpty}
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium disabled:opacity-50 dark:border-zinc-700"
         >
           Salvează ciorna
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          className="h-10"
           onClick={async () => onSend(present, await exportThumbnail())}
           disabled={pending || isEmpty}
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900"
         >
           {pending ? "Se trimite…" : "Trimite propunerea"}
-        </button>
+        </Button>
       </div>
     </div>
   );
