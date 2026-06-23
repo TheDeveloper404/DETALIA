@@ -9,19 +9,21 @@ export type FilterCategory = { id: string; name: string };
 export function CategoryFilter({
   categories,
   activeId,
+  basePath = "/feed",
 }: {
   categories: FilterCategory[];
   activeId: string | null;
+  basePath?: string;
 }) {
   if (categories.length === 0) return null;
 
   return (
     <nav aria-label="Filtru categorii" className="flex flex-wrap gap-2">
-      <Chip href="/feed" label="Toate" active={!activeId} />
+      <Chip href={basePath} label="Toate" active={!activeId} />
       {categories.map((c) => (
         <Chip
           key={c.id}
-          href={`/feed?cat=${c.id}`}
+          href={`${basePath}?cat=${c.id}`}
           label={c.name}
           active={activeId === c.id}
         />
