@@ -1,0 +1,20 @@
+# Config GitGuardian (ggshield) — DETALIA
+#
+# Scop: marchează un FALS POZITIV recurent ca să nu mai pice scanarea de secrete pe el.
+#
+# ⚠ Notă importantă: acest fișier e citit de **ggshield** (CLI, ex. pre-commit / pas CI).
+# **GitHub App-ul GitGuardian** îl respectă DOAR dacă workspace-ul are activat „honor repo
+# configuration". Dacă App-ul tot semnalează incidentul pe PR → rezolvă-l o dată din check
+# („Skip: false positive") sau din dashboard. Vezi `docs/CHANGELOG.md` (2026-06-23).
+
+version: 2
+
+secret:
+  ignored_matches:
+    # FALS POZITIV — NU e o credențială. E copy de UI pe landing-ul public (`app/page.tsx`):
+    # textul „fără parolă" anunță login-ul passwordless. Detectorul generic „Generic Password"
+    # se agață de cuvântul „parolă" dintr-o atribuire `const SUBLINE = "...parolă..."`.
+    # Dacă acest match nu prinde la ggshield, înlocuiește valoarea cu SHA256-ul ocurenței
+    # din incidentul GitGuardian (mai precis decât valoarea brută).
+    - name: landing-passwordless-copy-fals-pozitiv
+      match: "Cont gratuit · fără parolă · intri cu un link primit pe email"
