@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AuthForm } from "@/components/auth-form";
+import { AuthShell } from "@/components/auth-shell";
 import {
   Card,
   CardContent,
@@ -9,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-// Acces PUBLIC — înregistrare deschisă, fără invitație. Magic link / Google creează contul automat;
+// Acces PUBLIC — înregistrare deschisă, fără invitație. Magic link creează contul automat;
 // după autentificare, userul trece prin onboarding (rol, subrol, poză) înainte de feed.
 const ERROR_MESSAGES: Record<string, string> = {
   EmailSignInError: "Nu am putut trimite link-ul. Verifică adresa și încearcă din nou.",
@@ -26,7 +27,7 @@ export default async function SignupPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center p-6 sm:p-8">
+    <AuthShell crossLinkHref="/login" crossLinkLabel="Autentificare">
       <Card className="w-full max-w-sm gap-6 py-6">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Creează cont</CardTitle>
@@ -59,6 +60,6 @@ export default async function SignupPage({
           </p>
         </CardContent>
       </Card>
-    </main>
+    </AuthShell>
   );
 }

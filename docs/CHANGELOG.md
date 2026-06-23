@@ -6,7 +6,24 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-23
 
-### GitGuardian — fals pozitiv pe copy-ul de landing („fără parolă")
+### Design — login/signup la lățimea landing-ului + cadru bogat (AuthShell)
+- **`components/auth-shell.tsx`** (nou) — cadru comun login/signup la **lățimea landing-ului (1320px)**: header de brand + corp pe
+  două coloane (panou de pitch în stânga — eyebrow + titlu + 3 puncte cu rombul; cardul cu formular în dreapta) + footer dark ca pe
+  landing. Panoul de pitch e ascuns pe mobil (rămâne cardul centrat). Rezolvă feedback-ul „prea sec / prea îngust".
+- `app/login` + `app/signup` refactorizate să folosească `AuthShell` (header-ul propriu adăugat anterior a fost înlocuit). Verificat vizual.
+
+### Design — temă de brand pe toată aplicația + preview dev (feed & schiță) fără DB
+- **Tema unică (`globals.css`):** paleta landing-ului (bej `#faf8f4` / teracotă `#a9573a` / ink `#211d18` + borduri/muted
+  calde) mapată pe **tokenii shadcn `:root`** + fonturile **Archivo/IBM Plex Mono** ca `--font-sans`/`--font-mono`. Efect: TOATE
+  suprafețele pe tokeni (login/signup/feed/profil/notificări/detaliu/onboarding) se aliniază AUTOMAT la landing, fără rescriere.
+- **`components/brand-logo.tsx`** (nou) — rombul teracotă + wordmark „DETALIA", partajat. Folosit pe login/signup + `AppHeader`.
+- **Login/signup:** adăugat header de brand (logo + cross-link) + fundal bej din tokeni; cardul devine brand automat.
+- **`AppHeader`:** sticky + bej translucid + `BrandLogo` (rombul), aliniat la header-ul landing.
+- **Preview dev (`/dev/preview`, `/feed`, `/sketch`)** — randează componentele REALE (`DetailCard`, `CategoryFilter`, `SketchCanvas`)
+  cu **date mock** (`app/dev/preview/mock.ts` + `/public/preview/detail.svg`), **fără DB și fără auth**. Pentru a vedea feed-ul și
+  editorul de schiță fără a popula DB-ul. **Gated strict pe non-producție:** `/dev` e public în proxy DOAR dacă `NODE_ENV !==
+  production`, iar fiecare pagină dă `notFound()` în prod (a doua barieră). `CategoryFilter` a primit prop opțional `basePath`
+  (default `/feed` — comportament real neschimbat). `tsc`+`build` VERZI; verificat vizual (Playwright).
 - GitGuardian (GitHub App) a semnalat un „Generic Password" în `app/page.tsx` — **fals pozitiv**: detectorul se agață de
   cuvântul „parolă" din `const SUBLINE = "...fără parolă..."` (copy UI passwordless), NU o credențială. Zero secrete reale.
 - Adăugat **`.gitguardian.yaml`** (v2) cu `ignored_matches` pe acest text. **Atenție:** fișierul e citit de **ggshield** (CLI);

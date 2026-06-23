@@ -20,8 +20,8 @@ aduși din toate categoriile) ca platforma să nu fie goală la primul contact.
 
 ## Stack (confirmat)
 Single-app **Next.js (App Router)** pe **Vercel** · **Neon Postgres** + **Drizzle** · **Auth.js v5** —
-**magic link (Resend) + Google OAuth**, passwordless (fără parolă) · **Resend** (email) · **Vercel Blob**
-(stocare) · **Canvas + perfect-freehand** pentru schiță.
+**magic link (Resend)**, passwordless (fără parolă) — *Google OAuth scos pentru MVP; schela de re-adăugare e documentată
+în comentarii (`lib/auth.ts`)* · **Resend** (email) · **Vercel Blob** (stocare) · **Canvas + perfect-freehand** pentru schiță.
 NU monorepo Fastify în această fază (motivare: `docs/ARHITECTURA.md §2`). Business izolat în `server/` ca
 extragerea spre API separat ulterior să fie posibilă fără rescriere.
 
@@ -135,7 +135,7 @@ Sursa de adevăr pentru inginerie/securitate. Skill-urile globale (`security-aud
 - Tabele `snake_case` plural; coloane `snake_case` singular. PK `uuid DEFAULT gen_random_uuid()`.
 - `created_at` / `updated_at` standard; **toate FK indexate**; **migrații reversibile**.
 
-**Divergență față de `Backend.md`:** DETALIA folosește **magic link + Google OAuth, passwordless** →
+**Divergență față de `Backend.md`:** DETALIA folosește **magic link passwordless** (Google OAuth scos pentru MVP) →
 endpoint-urile de register/login-cu-parolă/reset-password/MFA din `Backend.md` **NU se aplică**. Sesiunile, tokenurile și
 adapter-ul de DB le **gestionează Auth.js** (nu le mâna manual). Reținem de acolo doar: format eroare,
 non-enumerare, logging fără valori sensibile, env pentru config.
@@ -167,7 +167,7 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 ---
 
 ## Decizii confirmate de Edi (iunie 2026)
-- **Login passwordless: magic link (Resend) + Google OAuth** („Continuă cu Google") — confirmat. **Fără parolă.**
+- **Login passwordless: magic link (Resend)** — confirmat. **Fără parolă.** *(Google OAuth a fost scos pentru MVP — vezi CHANGELOG 2026-06-23; schela de re-adăugare rămâne documentată în `lib/auth.ts`.)*
 - **Acces PUBLIC** (înregistrare deschisă, fără invitație) — confirmat. Flux: landing → creare cont → email
   magic link → onboarding profil (rol, subrol, poză) → feed.
 - **Upload de detalii DESCHIS** oricărui user cu rol declarat (nu doar admin/seed) — confirmat. Moderare post-publicare.

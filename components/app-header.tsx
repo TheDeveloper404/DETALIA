@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getUnreadCount } from "@/server/services/notificationService";
 
+import { BrandLogo } from "./brand-logo";
 import { NotificationBell } from "./notification-bell";
 
 // Header global — apare DOAR pentru useri autentificați (landing/login/signup rămân fără header).
@@ -13,11 +14,9 @@ export async function AppHeader() {
   const unread = await getUnreadCount(session.user.id);
 
   return (
-    <header className="border-b border-border">
+    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-        <Link href="/feed" className="text-lg font-semibold tracking-tight">
-          DETALIA
-        </Link>
+        <BrandLogo href="/feed" />
         <div className="flex items-center gap-1">
           <NotificationBell count={unread} />
           <Link

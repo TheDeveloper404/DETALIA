@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AuthForm } from "@/components/auth-form";
+import { AuthShell } from "@/components/auth-shell";
 import {
   Card,
   CardContent,
@@ -25,7 +26,7 @@ export default async function LoginPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center p-6 sm:p-8">
+    <AuthShell crossLinkHref="/signup" crossLinkLabel="Creează cont">
       <Card className="w-full max-w-sm gap-6 py-6">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">Autentificare</CardTitle>
@@ -58,6 +59,6 @@ export default async function LoginPage({
           </p>
         </CardContent>
       </Card>
-    </main>
+    </AuthShell>
   );
 }
