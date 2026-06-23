@@ -13,8 +13,6 @@ import {
 // după autentificare, userul trece prin onboarding (rol, subrol, poză) înainte de feed.
 const ERROR_MESSAGES: Record<string, string> = {
   EmailSignInError: "Nu am putut trimite link-ul. Verifică adresa și încearcă din nou.",
-  OAuthSignInError: "Nu am putut porni autentificarea cu Google. Încearcă din nou.",
-  OAuthAccountNotLinked: "Acest email e deja folosit cu altă metodă. Intră cum ai făcut prima dată.",
   Verification: "Link-ul a expirat sau a fost deja folosit. Cere unul nou.",
   default: "Ceva n-a mers. Încearcă din nou.",
 };

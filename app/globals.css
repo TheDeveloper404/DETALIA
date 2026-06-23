@@ -128,3 +128,51 @@
     @apply font-sans;
   }
 }
+
+/* Landing public (app/page.tsx) — paletă proprie de brand, separată de tokenii UI shadcn.
+   Inline style nu poate exprima :hover sau markerul <details>, deci stau aici, scoped la .dc-landing. */
+.dc-landing details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.dc-landing details > summary::-webkit-details-marker {
+  display: none;
+}
+.dc-landing details[open] .dt-sign {
+  transform: rotate(45deg);
+}
+.dc-landing .dc-btn-primary {
+  transition: background-color 0.15s;
+}
+.dc-landing .dc-btn-primary:hover {
+  background-color: #974a2e;
+}
+.dc-landing .dc-btn-primary-dark {
+  transition: background-color 0.15s;
+}
+.dc-landing .dc-btn-primary-dark:hover {
+  background-color: #b9603f;
+}
+.dc-landing .dc-btn-outline {
+  transition: border-color 0.15s;
+}
+.dc-landing .dc-btn-outline:hover {
+  border-color: #a9573a;
+}
+.dc-landing .dc-link:hover {
+  color: #a9573a;
+}
+/* Hero B = două coloane (text + card preview). Inline style are specificitate mai mare decât
+   un media query din stylesheet, deci grila hero stă AICI ca să o pot colapsa pe mobil. */
+.dc-landing .dc-hero-grid {
+  display: grid;
+  grid-template-columns: 1.04fr 0.96fr;
+  gap: 56px;
+  align-items: center;
+}
+@media (max-width: 720px) {
+  .dc-landing .dc-hero-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+}
