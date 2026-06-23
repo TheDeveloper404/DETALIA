@@ -1,14 +1,18 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { CategoryFilter } from "@/components/category-filter";
 import { DetailCard } from "@/components/detail-card";
-import { Button } from "@/components/ui/button";
+import { FeedRail } from "@/components/feed-rail";
+import { FeedSidebar } from "@/components/feed-sidebar";
 import { auth } from "@/lib/auth";
-import { listCategories } from "@/server/services/categoryService";
+import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
+import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import { getFeed } from "@/server/services/detailService";
+import { getUserRole } from "@/server/services/roleService";
+
+import { FeedEmpty } from "./feed-empty";
 
 // Feed = suprafața principală autenticată. Finit (~20), sortat după interacțiuni, filtrabil pe categorie.
+// Layout pe 3 coloane (sidebar · feed · rail) — gen GitHub/LinkedIn, dens/profesional. Fără scroll infinit.
 export default async function FeedPage({
   searchParams,
 }: {
@@ -20,52 +24,64 @@ export default async function FeedPage({
   }
 
   const { cat } = await searchParams;
-  const categories = await listCategories();
+  const [categories, role] = await Promise.all([
+    listCategoriesWithCounts(),
+    getUserRole(session.user.id),
+  ]);
 
-  // Acceptăm filtrul doar dacă e o categorie reală (altfel îl ignorăm — fără input arbitrar).
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
   const details = await getFeed({ categoryId: activeId });
 
-  return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Detalii</h1>
-          <p className="text-sm text-muted-foreground">
-            Detalii de execuție din comunitate. Aprobă, dezaprobă sau propune o schiță.
-          </p>
-        </div>
-        <Button asChild className="h-10 px-4">
-          <Link href="/details/new">Adaugă detaliu</Link>
-        </Button>
-      </header>
+  const total = categories.reduce((sum, c) => sum + c.count, 0);
+  const roleLabel = role
+    ? `${ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain}${role.subRole ? ` · ${role.subRole}` : ""}`
+    : null;
 
-      <CategoryFilter
-        categories={categories.map((c) => ({ id: c.id, name: c.name }))}
+  const popular = [...categories].sort((a, b) => b.count - a.count).slice(0, 4);
+  const debated = [...details]
+    .sort((a, b) => b.commentCount - a.commentCount)
+    .slice(0, 3)
+    .map((d) => ({
+      id: d.id,
+      title: d.title,
+      commentCount: d.commentCount,
+      sketchCount: d.sketchCount,
+    }));
+
+  return (
+    <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
+      <FeedSidebar
+        profile={{
+          name: session.user.name ?? null,
+          image: session.user.image ?? null,
+          roleLabel,
+          verified: role?.verificationStatus === "VERIFIED",
+        }}
+        categories={categories}
         activeId={activeId}
+        total={total}
       />
 
-      {details.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
-          <p className="text-sm text-muted-foreground">
-            {activeId
-              ? "Nu există încă detalii în această categorie."
-              : "Nu există încă niciun detaliu. Fii primul care publică unul."}
-          </p>
-          <Link
-            href="/details/new"
-            className="text-sm font-medium underline underline-offset-4"
-          >
-            Adaugă un detaliu
-          </Link>
+      <main className="min-w-0">
+        <div className="mb-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold tracking-tight">Detalii recente</h1>
+          <div className="font-mono text-xs text-muted-foreground">
+            sortează: <span className="text-foreground">în dezbatere</span>
+          </div>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {details.map((d) => (
-            <DetailCard key={d.id} detail={d} />
-          ))}
-        </div>
-      )}
-    </main>
+
+        {details.length === 0 ? (
+          <FeedEmpty filtered={!!activeId} />
+        ) : (
+          <div className="flex flex-col gap-4">
+            {details.map((d) => (
+              <DetailCard key={d.id} detail={d} />
+            ))}
+          </div>
+        )}
+      </main>
+
+      <FeedRail categories={popular} debated={debated} />
+    </div>
   );
 }

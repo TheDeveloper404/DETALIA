@@ -9,6 +9,7 @@ export default function DevPreviewIndex() {
 
   const links = [
     { href: "/dev/preview/feed", title: "Feed", body: "Lista de detalii din comunitate, cu date fictive." },
+    { href: "/dev/preview/profile", title: "Profil", body: "Profil stil LinkedIn pentru construcții (verificat / neverificat)." },
     { href: "/dev/preview/sketch", title: "Schițare", body: "Editorul de schiță (unelte + culori + radieră + undo/redo)." },
   ];
 

@@ -27,12 +27,13 @@ export default async function SignupPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <AuthShell crossLinkHref="/login" crossLinkLabel="Autentificare">
-      <Card className="w-full max-w-sm gap-6 py-6">
-        <CardHeader className="text-center">
-          <CardTitle className="text-xl">Creează cont</CardTitle>
-          <CardDescription>
-            Înregistrare liberă, fără parolă. Apoi îți alegi rolul și ești gata.
+    <AuthShell mode="signup" crossLinkHref="/login" crossLinkLabel="Autentificare">
+      <Card className="w-full gap-6 [--card-spacing:--spacing(8)] shadow-[0_22px_56px_-34px_rgba(33,29,24,0.35)]">
+        <CardHeader>
+          <CardTitle className="text-[27px] leading-tight tracking-tight">Creează cont</CardTitle>
+          <CardDescription className="text-[15px]">
+            Intră printre primii profesioniști. Cont gratuit, fără parolă — primești un link de acces
+            pe email.
           </CardDescription>
         </CardHeader>
 
