@@ -24,14 +24,3 @@ export async function signInWithEmailAction(formData: FormData): Promise<void> {
     throw err;
   }
 }
-
-export async function signInWithGoogleAction(formData: FormData): Promise<void> {
-  const callbackUrl = String(formData.get("callbackUrl") || "/");
-  const authPath = safeAuthPath(formData);
-  try {
-    await signIn("google", { redirectTo: callbackUrl });
-  } catch (err) {
-    if (err instanceof AuthError) redirect(`${authPath}?error=${encodeURIComponent(err.type)}`);
-    throw err;
-  }
-}
