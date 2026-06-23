@@ -5,14 +5,15 @@ import Link from "next/link";
 import type { FeedItem } from "@/server/repos/detailsRepo";
 
 import { AuthorBadge } from "./author-badge";
+import { Badge } from "./ui/badge";
 
 export function DetailCard({ detail }: { detail: FeedItem }) {
   return (
     <Link
       href={`/details/${detail.id}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900"
+      className="group flex flex-col overflow-hidden rounded-xl bg-card text-card-foreground ring-1 ring-foreground/10 transition-shadow hover:shadow-md"
     >
-      <div className="relative aspect-[4/3] w-full bg-zinc-100 dark:bg-zinc-800">
+      <div className="relative aspect-[4/3] w-full bg-muted">
         <Image
           src={detail.imageUrl}
           alt={detail.title}
@@ -24,17 +25,13 @@ export function DetailCard({ detail }: { detail: FeedItem }) {
 
       <div className="flex flex-1 flex-col gap-2 p-4">
         {detail.categoryName && (
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+          <Badge variant="secondary" className="w-fit">
             {detail.categoryName}
-          </span>
+          </Badge>
         )}
-        <h3 className="font-semibold leading-snug text-zinc-900 group-hover:underline dark:text-zinc-100">
-          {detail.title}
-        </h3>
+        <h3 className="font-semibold leading-snug group-hover:underline">{detail.title}</h3>
         {detail.description && (
-          <p className="line-clamp-2 text-sm text-zinc-600 dark:text-zinc-400">
-            {detail.description}
-          </p>
+          <p className="line-clamp-2 text-sm text-muted-foreground">{detail.description}</p>
         )}
         <div className="mt-auto pt-2">
           <AuthorBadge

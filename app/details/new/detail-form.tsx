@@ -2,6 +2,10 @@
 
 import { useActionState, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { TITLE_MAX_LENGTH, DESCRIPTION_MAX_LENGTH } from "@/server/domain/detail";
 
 import { createDetailAction, type CreateDetailState } from "./actions";
@@ -10,8 +14,8 @@ const initialState: CreateDetailState = { error: null };
 
 export type CategoryOption = { id: string; name: string };
 
-const inputClass =
-  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900";
+const selectClass =
+  "h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function DetailForm({ categories }: { categories: CategoryOption[] }) {
   const [state, formAction, pending] = useActionState(createDetailAction, initialState);
@@ -27,40 +31,42 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
       {state.error && (
         <p
           role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {state.error}
         </p>
       )}
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">Titlu</span>
-        <input
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="title">Titlu</Label>
+        <Input
+          id="title"
           name="title"
           type="text"
           required
           maxLength={TITLE_MAX_LENGTH}
           placeholder="Ex: Racord termoizolație la soclu"
-          className={inputClass}
+          className="h-10"
         />
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">
-          Descriere <span className="text-zinc-400">(opțional)</span>
-        </span>
-        <textarea
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="description">
+          Descriere <span className="font-normal text-muted-foreground">(opțional)</span>
+        </Label>
+        <Textarea
+          id="description"
           name="description"
           rows={4}
           maxLength={DESCRIPTION_MAX_LENGTH}
           placeholder="Spune contextul detaliului: unde se aplică, ce problemă rezolvă…"
-          className={`${inputClass} resize-y`}
+          className="resize-y"
         />
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">Categorie</span>
-        <select name="categoryId" required defaultValue="" className={inputClass}>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="categoryId">Categorie</Label>
+        <select id="categoryId" name="categoryId" required defaultValue="" className={selectClass}>
           <option value="" disabled>
             Alege categoria…
           </option>
@@ -70,37 +76,34 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">Imagine (detaliul 2D)</span>
-        <input
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="image">Imagine (detaliul 2D)</Label>
+        <Input
+          id="image"
           name="image"
           type="file"
           required
           accept="image/png,image/jpeg,image/webp,image/avif"
           onChange={onPickImage}
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white dark:file:bg-zinc-100 dark:file:text-zinc-900"
+          className="h-10"
         />
-        <span className="text-xs text-zinc-400">PNG, JPG, WebP sau AVIF · max 8 MB</span>
-      </label>
+        <span className="text-xs text-muted-foreground">PNG, JPG, WebP sau AVIF · max 8 MB</span>
+      </div>
 
       {previewUrl && (
         // eslint-disable-next-line @next/next/no-img-element -- preview local (blob: URL), nu asset optimizabil
         <img
           src={previewUrl}
           alt="Previzualizare imagine detaliu"
-          className="max-h-64 w-full rounded-md border border-zinc-200 object-contain dark:border-zinc-800"
+          className="max-h-64 w-full rounded-xl object-contain ring-1 ring-foreground/10"
         />
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-      >
+      <Button type="submit" disabled={pending} className="h-10 self-start">
         {pending ? "Se publică…" : "Publică detaliul"}
-      </button>
+      </Button>
     </form>
   );
 }

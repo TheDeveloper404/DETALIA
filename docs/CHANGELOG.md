@@ -4,6 +4,69 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-23
+
+### Design — restul suprafețelor pe shadcn (migrare completă)
+- **profil** (`page.tsx` + `profile-forms.tsx`): Button/Input/Label + select stilizat + alerte pe tokeni.
+- **notificări** (`page.tsx`): listă + empty-state pe tokeni (unread = `bg-muted/50`).
+- **header + clopoțel** (`app-header.tsx`, `notification-bell.tsx`): tokeni (badge necitite rămâne roșu = semnal).
+- **`/details/new`** (`detail-form.tsx` + `page.tsx`): Input/Textarea/Label/Button + preview pe `ring`.
+- **editor schiță** (`sketch-canvas.tsx`, `sketch-editor`, `sketch-viewer`, `edit/page.tsx`): chrome-ul (toolbar/butoane/
+  suprafață/alertă) pe `Button` + tokeni; **logica de desen și `STROKE_COLORS` neatinse**.
+- **`author-badge.tsx`** tokenizat (folosit peste tot). **Migrarea design pe shadcn = COMPLETĂ** — zero `zinc-*`/`dark:` rămase
+  în afară de culorile semantice intenționate (emerald=aprobă/salvat, destructive=dezaprobă, roșu=badge necitite, amber=★ verificat,
+  culorile creionului). `lint`+`build` VERZI.
+
+### Design — pagina de detaliu pe shadcn (`/details/[id]` + sub-componente)
+- Adăugat `textarea`. **`page.tsx`** — back-link + descriere + imagine + resurse pe tokeni; categoria = `Badge`.
+- **`validation-panel.tsx`** — pe `Button` (Aprob default/outline; Dezaprob destructive/outline) + `Textarea`; carcasă pe
+  `bg-card`/`ring`. Păstrate culorile semantice (aprobă=emerald, dezaprobă=destructive) ca afordanță, restul pe tokeni.
+- **`comments-section.tsx`** — `Textarea` + `Button`; tag „dezaprobare" = `Badge` destructive.
+- **`sketch-section.tsx`** — taburi teanc + accept/respinge pe `Button` (accept=primary, drop emerald); secțiunea „în așteptare"
+  pe `bg-card`/`ring` cu `Badge` în loc de wash amber. Logica (state machine, authz, polimorfism) neatinsă. VERZI.
+
+### Design — feed pe shadcn (`Badge`/`Button` + tokeni)
+- Adăugat `badge`. **`detail-card.tsx`** — card pe tokeni (`bg-card`/`ring-foreground/10`), categoria devine `Badge` secondary.
+- **`category-filter.tsx`** — chip-uri pe `Button asChild` (default=activ / outline=inactiv, `rounded-full`).
+- **`app/feed/page.tsx`** — „Adaugă detaliu" pe `Button`, header + empty-state pe tokeni (`text-muted-foreground`, `border-border`).
+
+### Design — onboarding pe shadcn (`Card`/`Button`/`Input`/`Label`)
+- **`app/onboarding/page.tsx`** — wrap în `Card` (titlu + descriere), tokeni de temă.
+- **`app/onboarding/role-form.tsx`** — `Button` + `Label` + `Input` (file) + alertă `destructive`. Logica neschimbată.
+  **`select` rol/subrol rămâne native** (stilizat ca Input) — subrolul are opțiune goală, iar Radix Select interzice
+  `value=""` → native = robust + submit curat în server action, fără sentinel.
+
+### Design — login + signup pe shadcn (`Card`/`Input`/`Label`/`Button`)
+- Adăugate componente shadcn: `card`, `input`, `label`, `separator`.
+- **`components/auth-form.tsx`** — rescris pe `Button` (outline pt Google, default pt email) + `Input` + `Label`, tokeni de temă.
+  Logica neschimbată (Google + magic link, două server actions, hidden `callbackUrl`/`authPath`).
+- **`app/login` + `app/signup`** — wrap în `Card` (header titlu+descriere + content), alertă de eroare pe tokeni `destructive`.
+  **Confirmat cu Liviu: păstrăm două pagini** (signup→`/onboarding`, login→`/`) — diferă doar copy-ul + destinația; mecanic e
+  același flux passwordless. Garanția new-vs-returning rămâne check-ul de rol, nu pagina. VERZI.
+
+### Design — fundație shadcn/ui + landing minimalist
+- **shadcn/ui inițializat** (`init -d --base radix`): `components.json`, `lib/utils.ts` (`cn`), `components/ui/button.tsx`,
+  dependențe (radix-ui, cva, clsx, tailwind-merge, lucide). `globals.css` rescris cu tokeni de temă (oklch, light + `.dark`).
+- **Fix gotcha Tailwind v4:** init-ul a stricat fontul (`--font-sans: var(--font-sans)`, circular) → re-legat la
+  `var(--font-geist-sans)`/`var(--font-geist-mono)` (variabilele încărcate de `layout.tsx`). Acum aplicația folosește Geist
+  (înainte body cădea pe Arial). Dark mode devine class-based (`.dark`) — fără toggle deocamdată (light-only).
+- **Landing (`app/page.tsx`) — redesign minimalist** (direcție „centrat, esențial" aleasă de Liviu): wordmark + o frază +
+  CTA pe componenta `Button` (default + outline) / „Mergi la feed" pt logați. Tokeni de temă, fără hex ad-hoc. VERZI.
+
+### Pagina de profil (`/profile`) — editare poză/rol + „Verifică rolul" (Poarta 2)
+- **`app/profile/page.tsx`** — server component: avatar + `AuthorBadge` (nume/rol/★) + email (read-only).
+  Logat fără rol → redirect `/onboarding`. Trei secțiuni: poză, rol, verificare + buton de deconectare.
+- **`app/profile/profile-forms.tsx`** (client) — `AvatarForm`, `EditRoleForm` (pre-completat, subrol resetat la
+  schimbarea rolului principal), `VerificationSection`/`VerificationForm`, `SignOutButton`. Feedback succes/eroare.
+- **`app/profile/actions.ts`** — `updateAvatarAction` (reuse `uploadAvatarImage`+`updateUserImage`),
+  `updateRoleAction`, `requestVerificationAction`, `signOutAction`. userId din sesiune; `revalidatePath`.
+- **`server/services/roleService`** — `getUserRole`, `updateRole` (validare rol/subrol + **reset verificare la DECLARED**
+  dacă revendicarea se schimbă), `requestRoleVerification` (DECLARED/REJECTED → PENDING; respinge dacă deja VERIFIED/PENDING/dovadă goală).
+- **`server/repos/rolesRepo`** — `updateRoleClaim`, `setRoleVerificationPending` (dovada OAR/CUI = PII, nu se loghează).
+- **`server/repos/usersRepo`** — `getUserProfile` (nume/email/poză).
+- **`components/app-header.tsx`** — adăugat avatar-link spre `/profile` lângă clopoțel.
+- **Aprobarea verificării (latura admin) = task separat** (nu există încă admin UI). `typecheck`+`lint`+`build` VERZI.
+
 ## 2026-06-22
 
 ### Schițare — pas 6: dezbatere pe schiță (validare + comentarii polimorfice)

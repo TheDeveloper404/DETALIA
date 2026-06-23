@@ -2,14 +2,9 @@
 // MVP: listă plată de chip-uri. (Refinare: grupare pe arbore parent→copii când taxonomia se adâncește.)
 import Link from "next/link";
 
-export type FilterCategory = { id: string; name: string };
+import { Button } from "./ui/button";
 
-const baseChip =
-  "rounded-full border px-3 py-1 text-sm transition-colors whitespace-nowrap";
-const activeChip =
-  "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-900";
-const idleChip =
-  "border-zinc-300 text-zinc-700 hover:border-zinc-500 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-zinc-500";
+export type FilterCategory = { id: string; name: string };
 
 export function CategoryFilter({
   categories,
@@ -22,18 +17,28 @@ export function CategoryFilter({
 
   return (
     <nav aria-label="Filtru categorii" className="flex flex-wrap gap-2">
-      <Link href="/feed" className={`${baseChip} ${!activeId ? activeChip : idleChip}`}>
-        Toate
-      </Link>
+      <Chip href="/feed" label="Toate" active={!activeId} />
       {categories.map((c) => (
-        <Link
+        <Chip
           key={c.id}
           href={`/feed?cat=${c.id}`}
-          className={`${baseChip} ${activeId === c.id ? activeChip : idleChip}`}
-        >
-          {c.name}
-        </Link>
+          label={c.name}
+          active={activeId === c.id}
+        />
       ))}
     </nav>
+  );
+}
+
+function Chip({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Button
+      asChild
+      size="sm"
+      variant={active ? "default" : "outline"}
+      className="rounded-full"
+    >
+      <Link href={href}>{label}</Link>
+    </Button>
   );
 }

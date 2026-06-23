@@ -9,7 +9,12 @@ import {
   isValidSubRole,
   type RoleMain,
 } from "@/server/domain/roles";
-import { getRoleByUserId, insertRole } from "@/server/repos/rolesRepo";
+import {
+  getRoleByUserId,
+  insertRole,
+  setRoleVerificationPending,
+  updateRoleClaim,
+} from "@/server/repos/rolesRepo";
 
 export type DeclareRoleResult =
   | { ok: true }
@@ -43,4 +48,81 @@ export async function declareRole(input: {
 
 export async function userHasRole(userId: string): Promise<boolean> {
   return (await getRoleByUserId(userId)) !== null;
+}
+
+// Rolul curent al unui user (pentru pagina de profil). null dacă n-a trecut prin onboarding.
+export function getUserRole(userId: string) {
+  return getRoleByUserId(userId);
+}
+
+export type UpdateRoleResult =
+  | { ok: true }
+  | { ok: false; error: "NO_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" };
+
+// Editarea rolului din profil. Reguli (enforce pe SERVER):
+//  - userul trebuie să aibă deja un rol (altfel e onboarding, nu editare).
+//  - subrolul trebuie să aparțină rolului principal.
+//  - dacă revendicarea (rol sau subrol) se schimbă, verificarea redevine DECLARED — badge-ul
+//    de verificat aparținea vechii revendicări, nu se mută automat pe noua alegere.
+export async function updateRole(input: {
+  userId: string;
+  roleMain: string;
+  subRole: string | null;
+}): Promise<UpdateRoleResult> {
+  if (!isValidRoleMain(input.roleMain)) {
+    return { ok: false, error: "INVALID_ROLE" };
+  }
+  const roleMain: RoleMain = input.roleMain;
+
+  const subRole = input.subRole?.trim() || null;
+  if (subRole !== null && !isValidSubRole(roleMain, subRole)) {
+    return { ok: false, error: "INVALID_SUBROLE" };
+  }
+
+  const existing = await getRoleByUserId(input.userId);
+  if (!existing) {
+    return { ok: false, error: "NO_ROLE" };
+  }
+
+  const claimChanged = existing.roleMain !== roleMain || (existing.subRole ?? null) !== subRole;
+  // Resetăm verificarea DOAR dacă revendicarea s-a schimbat ȘI fusese deja procesată.
+  const resetVerification =
+    claimChanged && existing.verificationStatus !== "DECLARED";
+
+  await updateRoleClaim(input.userId, {
+    roleMain,
+    subRole,
+    ...(resetVerification ? { verificationStatus: "DECLARED" as const } : {}),
+  });
+  return { ok: true };
+}
+
+export type RequestVerificationResult =
+  | { ok: true }
+  | { ok: false; error: "NO_ROLE" | "ALREADY_VERIFIED" | "PENDING" | "EMPTY_EVIDENCE" };
+
+// Cererea de verificare a rolului (Poarta 2 — „pull, nu push"). Opțională, fără blocare.
+// Userul trimite o dovadă (OAR/CUI); statusul devine PENDING; aprobarea e manuală (admin/Edi).
+export async function requestRoleVerification(input: {
+  userId: string;
+  evidence: string;
+}): Promise<RequestVerificationResult> {
+  const evidence = input.evidence.trim();
+  if (!evidence) {
+    return { ok: false, error: "EMPTY_EVIDENCE" };
+  }
+
+  const existing = await getRoleByUserId(input.userId);
+  if (!existing) {
+    return { ok: false, error: "NO_ROLE" };
+  }
+  if (existing.verificationStatus === "VERIFIED") {
+    return { ok: false, error: "ALREADY_VERIFIED" };
+  }
+  if (existing.verificationStatus === "PENDING") {
+    return { ok: false, error: "PENDING" };
+  }
+
+  await setRoleVerificationPending(input.userId, evidence);
+  return { ok: true };
 }

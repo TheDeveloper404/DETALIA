@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { AuthorBadge } from "@/components/author-badge";
+import { Badge } from "@/components/ui/badge";
 import { auth } from "@/lib/auth";
 import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
@@ -68,7 +69,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
     <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 p-6 sm:p-8">
       <Link
         href="/feed"
-        className="text-sm text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         ← Înapoi la feed
       </Link>
@@ -76,11 +77,9 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Coloana principală: detaliul (mama) */}
         <article className="flex flex-col gap-4">
-          <header className="flex flex-col gap-2">
+          <header className="flex flex-col items-start gap-2">
             {detail.categoryName && (
-              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                {detail.categoryName}
-              </span>
+              <Badge variant="secondary">{detail.categoryName}</Badge>
             )}
             <h1 className="text-2xl font-semibold tracking-tight">{detail.title}</h1>
             <AuthorBadge
@@ -92,12 +91,12 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
           </header>
 
           {detail.description && (
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/80">
               {detail.description}
             </p>
           )}
 
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-800">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10">
             <Image
               src={detail.imageUrl}
               alt={detail.title}
@@ -110,11 +109,11 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
 
           {detail.resources.length > 0 && (
             <section className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium text-zinc-900 dark:text-zinc-100">Resurse</h2>
+              <h2 className="text-sm font-medium">Resurse</h2>
               <ul className="flex flex-col gap-1.5 text-sm">
                 {detail.resources.map((r) =>
                   r.type === "TEXT" ? (
-                    <li key={r.id} className="text-zinc-700 dark:text-zinc-300">
+                    <li key={r.id} className="text-foreground/80">
                       {r.body}
                     </li>
                   ) : (
@@ -123,7 +122,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
                         href={r.url ?? "#"}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-zinc-700 underline hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+                        className="text-foreground/80 underline underline-offset-4 hover:text-foreground"
                       >
                         {r.url}
                       </a>

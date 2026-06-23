@@ -6,6 +6,8 @@ import { db } from "@/db";
 import { roles } from "@/db/schema";
 import type { RoleMain } from "@/server/domain/roles";
 
+type VerificationStatus = (typeof roles.verificationStatus.enumValues)[number];
+
 export async function getRoleByUserId(userId: string) {
   const [row] = await db.select().from(roles).where(eq(roles.userId, userId)).limit(1);
   return row ?? null;
@@ -26,4 +28,21 @@ export async function insertRole(input: {
     })
     .returning();
   return row;
+}
+
+// Actualizează revendicarea de rol (rol principal + subrol). Opțional resetează statusul de
+// verificare — folosit când userul schimbă rolul (verificarea era legată de vechea revendicare).
+export async function updateRoleClaim(
+  userId: string,
+  fields: { roleMain: RoleMain; subRole: string | null; verificationStatus?: VerificationStatus },
+) {
+  await db.update(roles).set(fields).where(eq(roles.userId, userId));
+}
+
+// Cerere de verificare (Poarta 2): trece pe PENDING + stochează dovada (OAR/CUI = PII, nu se loghează).
+export async function setRoleVerificationPending(userId: string, evidence: string) {
+  await db
+    .update(roles)
+    .set({ verificationStatus: "PENDING", verificationEvidence: evidence })
+    .where(eq(roles.userId, userId));
 }
