@@ -1,6 +1,9 @@
 "use client";
 
 import { signInWithEmailAction, signInWithGoogleAction } from "@/app/auth-actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Formular de autentificare passwordless reutilizabil: „Continuă cu Google" + magic link pe email.
 // Folosit de /login și /signup (același flux; doar copy-ul diferă).
@@ -18,42 +21,36 @@ export function AuthForm({
       <form action={signInWithGoogleAction}>
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
         <input type="hidden" name="authPath" value={authPath} />
-        <button
-          type="submit"
-          className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:bg-zinc-800"
-        >
+        <Button type="submit" variant="outline" className="h-10 w-full">
           <GoogleIcon />
           Continuă cu Google
-        </button>
+        </Button>
       </form>
 
-      <div className="flex items-center gap-3 text-xs text-zinc-400">
-        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        <span className="h-px flex-1 bg-border" />
         sau
-        <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        <span className="h-px flex-1 bg-border" />
       </div>
 
       <form action={signInWithEmailAction} className="flex flex-col gap-3">
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
         <input type="hidden" name="authPath" value={authPath} />
-        <label htmlFor="email" className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium">Email</span>
-          <input
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
             id="email"
             name="email"
             type="email"
             required
             autoComplete="email"
             placeholder="nume@exemplu.ro"
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+            className="h-10"
           />
-        </label>
-        <button
-          type="submit"
-          className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-        >
+        </div>
+        <Button type="submit" className="h-10 w-full">
           {submitLabel}
-        </button>
+        </Button>
       </form>
     </div>
   );

@@ -2,6 +2,9 @@
 
 import { useActionState, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ROLE_MAINS,
   ROLE_MAIN_LABELS,
@@ -12,6 +15,10 @@ import {
 import { declareRoleAction, type DeclareRoleState } from "./actions";
 
 const initialState: DeclareRoleState = { error: null };
+
+// `select` native stilizat ca un Input shadcn (subrolul are opțiune goală → evităm Radix Select).
+const selectClass =
+  "h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function RoleForm() {
   const [state, formAction, pending] = useActionState(declareRoleAction, initialState);
@@ -24,20 +31,21 @@ export function RoleForm() {
       {state.error && (
         <p
           role="alert"
-          className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
+          className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
           {state.error}
         </p>
       )}
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">Rolul tău</span>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="roleMain">Rolul tău</Label>
         <select
+          id="roleMain"
           name="roleMain"
           required
           value={roleMain}
           onChange={(e) => setRoleMain(e.target.value as RoleMain)}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 dark:border-zinc-700 dark:bg-zinc-900"
+          className={selectClass}
         >
           <option value="" disabled>
             Alege rolul…
@@ -48,17 +56,13 @@ export function RoleForm() {
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">
-          Specializare <span className="text-zinc-400">(opțional)</span>
-        </span>
-        <select
-          name="subRole"
-          disabled={!roleMain}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900"
-        >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="subRole">
+          Specializare <span className="font-normal text-muted-foreground">(opțional)</span>
+        </Label>
+        <select id="subRole" name="subRole" disabled={!roleMain} className={selectClass}>
           <option value="">Fără specializare</option>
           {subRoles.map((s) => (
             <option key={s} value={s}>
@@ -66,28 +70,25 @@ export function RoleForm() {
             </option>
           ))}
         </select>
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">
-          Poză de profil <span className="text-zinc-400">(opțional)</span>
-        </span>
-        <input
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="image">
+          Poză de profil <span className="font-normal text-muted-foreground">(opțional)</span>
+        </Label>
+        <Input
+          id="image"
           name="image"
           type="file"
           accept="image/png,image/jpeg,image/webp,image/avif"
-          className="text-sm file:mr-3 file:rounded-md file:border-0 file:bg-zinc-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white dark:file:bg-zinc-100 dark:file:text-zinc-900"
+          className="h-10"
         />
-        <span className="text-xs text-zinc-400">PNG, JPG, WebP sau AVIF · max 8 MB</span>
-      </label>
+        <span className="text-xs text-muted-foreground">PNG, JPG, WebP sau AVIF · max 8 MB</span>
+      </div>
 
-      <button
-        type="submit"
-        disabled={pending || !roleMain}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-      >
+      <Button type="submit" disabled={pending || !roleMain} className="h-10 w-full">
         {pending ? "Se salvează…" : "Continuă"}
-      </button>
+      </Button>
     </form>
   );
 }

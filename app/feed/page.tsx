@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { CategoryFilter } from "@/components/category-filter";
 import { DetailCard } from "@/components/detail-card";
+import { Button } from "@/components/ui/button";
 import { auth } from "@/lib/auth";
 import { listCategories } from "@/server/services/categoryService";
 import { getFeed } from "@/server/services/detailService";
@@ -30,16 +31,13 @@ export default async function FeedPage({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">Detalii</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted-foreground">
             Detalii de execuție din comunitate. Aprobă, dezaprobă sau propune o schiță.
           </p>
         </div>
-        <Link
-          href="/details/new"
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-        >
-          Adaugă detaliu
-        </Link>
+        <Button asChild className="h-10 px-4">
+          <Link href="/details/new">Adaugă detaliu</Link>
+        </Button>
       </header>
 
       <CategoryFilter
@@ -48,15 +46,15 @@ export default async function FeedPage({
       />
 
       {details.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-16 text-center">
+          <p className="text-sm text-muted-foreground">
             {activeId
               ? "Nu există încă detalii în această categorie."
               : "Nu există încă niciun detaliu. Fii primul care publică unul."}
           </p>
           <Link
             href="/details/new"
-            className="text-sm font-medium text-zinc-900 underline dark:text-zinc-100"
+            className="text-sm font-medium underline underline-offset-4"
           >
             Adaugă un detaliu
           </Link>

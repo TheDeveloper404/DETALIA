@@ -1,5 +1,12 @@
 import { redirect } from "next/navigation";
 
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { auth } from "@/lib/auth";
 import { userHasRole } from "@/server/services/roleService";
 
@@ -16,22 +23,24 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
-      <div className="w-full max-w-sm flex flex-col gap-6">
-        <header className="text-center flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">Bun venit în DETALIA</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+    <main className="flex flex-1 flex-col items-center justify-center p-6 sm:p-8">
+      <Card className="w-full max-w-sm gap-6 py-6">
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl">Bun venit în DETALIA</CardTitle>
+          <CardDescription>
             Spune-ne cine ești. Rolul tău apare lângă nume și ajută comunitatea să-ți
             cântărească corect părerea.
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="flex flex-col gap-5">
+          <RoleForm />
+
+          <p className="text-center text-xs text-muted-foreground">
+            Îți poți verifica rolul mai târziu, din profil. Nu e obligatoriu acum.
           </p>
-        </header>
-
-        <RoleForm />
-
-        <p className="text-center text-xs text-zinc-400 dark:text-zinc-500">
-          Îți poți verifica rolul mai târziu, din profil. Nu e obligatoriu acum.
-        </p>
-      </div>
+        </CardContent>
+      </Card>
     </main>
   );
 }

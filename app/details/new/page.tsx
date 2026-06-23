@@ -23,13 +23,13 @@ export default async function NewDetailPage() {
     <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-8">
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Adaugă un detaliu</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted-foreground">
           Publici un detaliu de execuție: titlu, context și imaginea 2D. Comunitatea îl validează pe roluri.
         </p>
       </header>
 
       {categories.length === 0 ? (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300">
+        <p className="rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           Nu există încă nicio categorie. Categoriile se adaugă la pasul de seed — revino după ce sunt
           configurate.
         </p>

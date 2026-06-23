@@ -17,9 +17,9 @@ export function AuthorBadge({
 
   return (
     <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm">
-      <span className="font-medium text-zinc-900 dark:text-zinc-100">{name ?? "Anonim"}</span>
+      <span className="font-medium text-foreground">{name ?? "Anonim"}</span>
       {roleLabel && (
-        <span className="text-zinc-500 dark:text-zinc-400">
+        <span className="text-muted-foreground">
           · {roleLabel}
           {subRole ? ` (${subRole})` : ""}
         </span>
