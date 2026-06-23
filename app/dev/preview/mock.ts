@@ -19,7 +19,9 @@ type MockSeed = {
   authorRoleMain: FeedItem["authorRoleMain"];
   authorSubRole: string;
   authorVerification: FeedItem["authorVerification"];
-  interactionCount: number;
+  validationCount: number;
+  commentCount: number;
+  sketchCount: number;
 };
 
 const SEEDS: MockSeed[] = [
@@ -31,7 +33,9 @@ const SEEDS: MockSeed[] = [
     authorRoleMain: "PROIECTANT",
     authorSubRole: "Arhitect",
     authorVerification: "VERIFIED",
-    interactionCount: 12,
+    validationCount: 14,
+    commentCount: 9,
+    sketchCount: 4,
   },
   {
     title: "Buiandrug peste gol fereastră — termosistem",
@@ -41,7 +45,9 @@ const SEEDS: MockSeed[] = [
     authorRoleMain: "EXECUTANT",
     authorSubRole: "Zidar",
     authorVerification: "DECLARED",
-    interactionCount: 8,
+    validationCount: 22,
+    commentCount: 17,
+    sketchCount: 6,
   },
   {
     title: "Hidroizolație radier — racord perete subsol",
@@ -51,7 +57,9 @@ const SEEDS: MockSeed[] = [
     authorRoleMain: "PROIECTANT",
     authorSubRole: "Inginer structurist",
     authorVerification: "VERIFIED",
-    interactionCount: 6,
+    validationCount: 31,
+    commentCount: 12,
+    sketchCount: 5,
   },
   {
     title: "Prag ușă terasă — fără punte termică",
@@ -61,7 +69,9 @@ const SEEDS: MockSeed[] = [
     authorRoleMain: "FURNIZOR",
     authorSubRole: "Furnizor tâmplărie",
     authorVerification: "DECLARED",
-    interactionCount: 4,
+    validationCount: 9,
+    commentCount: 5,
+    sketchCount: 2,
   },
   {
     title: "Streașină — ventilare strat de aer",
@@ -71,7 +81,9 @@ const SEEDS: MockSeed[] = [
     authorRoleMain: "EXECUTANT",
     authorSubRole: "Dulgher",
     authorVerification: "DECLARED",
-    interactionCount: 3,
+    validationCount: 18,
+    commentCount: 7,
+    sketchCount: 3,
   },
   {
     title: "Soclu — racord termosistem la hidroizolație",
@@ -81,7 +93,9 @@ const SEEDS: MockSeed[] = [
     authorRoleMain: "BENEFICIAR",
     authorSubRole: "Dezvoltator",
     authorVerification: "DECLARED",
-    interactionCount: 1,
+    validationCount: 11,
+    commentCount: 14,
+    sketchCount: 7,
   },
 ];
 
@@ -105,5 +119,22 @@ export const MOCK_FEED: FeedItem[] = SEEDS.map((s, i) => ({
   authorRoleMain: s.authorRoleMain,
   authorSubRole: s.authorSubRole,
   authorVerification: s.authorVerification,
-  interactionCount: s.interactionCount,
+  validationCount: s.validationCount,
+  commentCount: s.commentCount,
+  sketchCount: s.sketchCount,
+  interactionCount: s.validationCount + s.commentCount + s.sketchCount,
 }));
+
+// Categorii + nr. de detalii (derivat din feed-ul mock) — pentru sidebar/rail.
+export const MOCK_CATEGORIES_WITH_COUNTS = MOCK_CATEGORIES.map((c) => ({
+  ...c,
+  count: MOCK_FEED.filter((d) => d.categoryId === c.id).length,
+}));
+
+// Profil mock pentru cardul din sidebar (fără auth în preview).
+export const MOCK_PROFILE = {
+  name: "Andrei Munteanu",
+  image: null as string | null,
+  roleLabel: "Proiectant · Structuri",
+  verified: true,
+};

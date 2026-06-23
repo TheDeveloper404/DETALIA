@@ -1,73 +1,142 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { BrandLogo } from "@/components/brand-logo";
 
 // Cadru comun pentru login/signup — aceeași lățime (1320px) și limbaj vizual ca landing-ul:
-// header de brand + corp pe două coloane (panou de pitch în stânga, cardul cu formular în dreapta) + footer.
-// Panoul de pitch e ascuns pe mobil (rămâne doar cardul, centrat). Copy-ul cardului vine din `children`.
-const POINTS = [
-  "Publici un detaliu de execuție.",
-  "Primești propuneri desenate peste el.",
-  "Validare deschisă, pe roluri — cu nume și rol.",
+// header de brand + corp pe două coloane (panou „cum funcționează" în stânga, cardul cu formular
+// în dreapta, peste un fundal blueprint) + footer. Panoul e ascuns pe mobil (rămâne doar cardul,
+// centrat). Importat din designul Claude Design „Detalia Auth" (2026-06-23).
+
+// Pașii sunt identici pe ambele moduri — complementează hero-ul (nu îl repetă).
+const STEPS = [
+  {
+    n: "01",
+    title: "Publici un detaliu",
+    body: "Încarci desenul de execuție și contextul lui.",
+  },
+  {
+    n: "02",
+    title: "Primești propuneri desenate",
+    body: "Alți profesioniști arată pe desen cum ar face.",
+  },
+  {
+    n: "03",
+    title: "Comunitatea validează pe roluri",
+    body: "Fiecare aprobă sau dezaprobă, cu rolul la vedere.",
+  },
 ];
 
+// Kicker + titlu diferă pe mod; restul panoului e identic.
+const PANEL_COPY = {
+  login: {
+    kicker: "Bun venit înapoi",
+    title: "Detaliile tale și dezbaterile lor te așteaptă.",
+  },
+  signup: {
+    kicker: "Comunitate nouă · fii printre primii",
+    title: "Un detaliu cântărit de breaslă, nu de un singur autor.",
+  },
+} as const;
+
 export function AuthShell({
+  mode,
   children,
   crossLinkHref,
   crossLinkLabel,
 }: {
+  mode: "login" | "signup";
   children: ReactNode;
   crossLinkHref: string;
   crossLinkLabel: string;
 }) {
+  const panel = PANEL_COPY[mode];
+
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-50 flex h-16 items-center border-b border-border bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-50 flex h-16 flex-none items-center border-b border-border bg-background/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between px-6">
           <BrandLogo />
-          <Link
+          <a
             href={crossLinkHref}
-            className="text-sm font-medium text-foreground no-underline hover:text-primary"
+            className="text-sm text-muted-foreground no-underline transition-colors hover:text-primary"
           >
             {crossLinkLabel}
-          </Link>
+          </a>
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1320px] flex-1 grid-cols-1 items-center gap-12 px-6 py-12 lg:grid-cols-2 lg:gap-16">
-        {/* Panou de pitch (limbaj landing) — ascuns pe mobil. */}
-        <section className="hidden flex-col gap-6 lg:flex">
-          <div className="flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.16em] text-primary">
-            <span aria-hidden className="inline-block size-1.5 rotate-45 bg-primary" />
-            Pre-lansare · Comunitate profesională
-          </div>
-          <h1 className="text-balance text-4xl font-extrabold leading-[1.06] tracking-tight">
-            Detaliul de execuție, pus la dezbatere <span className="text-primary">pe roluri</span>.
-          </h1>
-          <p className="max-w-md text-pretty leading-relaxed text-muted-foreground">
-            Profesioniștii din construcții publică un detaliu, desenează propuneri unul peste altul și îl
-            validează deschis — fiecare cu numele și rolul lui.
-          </p>
-          <ul className="flex flex-col gap-3">
-            {POINTS.map((t) => (
-              <li key={t} className="flex items-start gap-3">
-                <span aria-hidden className="mt-1.5 inline-block size-2 shrink-0 rotate-45 bg-primary" />
-                <span className="leading-relaxed text-foreground/80">{t}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+      <main className="relative flex flex-1 items-center overflow-hidden">
+        {/* Fundal blueprint — grilă fină mascată radial spre dreapta-sus (varianta A din landing). */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            backgroundImage:
+              "linear-gradient(#eae0cf 1px,transparent 1px),linear-gradient(90deg,#eae0cf 1px,transparent 1px)",
+            backgroundSize: "34px 34px",
+            opacity: 0.6,
+            WebkitMaskImage:
+              "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
+            maskImage: "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
+          }}
+        />
 
-        {/* Cardul cu formularul. */}
-        <div className="flex w-full justify-center">{children}</div>
+        <div className="relative z-10 mx-auto grid w-full max-w-[1320px] grid-cols-1 items-center gap-16 px-6 py-14 lg:grid-cols-[1.05fr_0.95fr]">
+          {/* Panou „cum funcționează" — ascuns pe mobil. */}
+          <section className="hidden min-h-[520px] flex-col justify-center overflow-hidden rounded-2xl border border-[#e6ddcf] bg-secondary p-12 lg:flex">
+            <div className="mb-6 flex items-center gap-2.5 font-mono text-[11.5px] uppercase tracking-[0.16em] text-primary">
+              <span aria-hidden className="inline-block size-1.5 rotate-45 bg-primary" />
+              {panel.kicker}
+            </div>
+            <h2 className="mb-8 max-w-[18ch] text-balance text-3xl font-bold leading-[1.16] tracking-tight text-foreground">
+              {panel.title}
+            </h2>
+
+            <ul className="flex max-w-[400px] list-none flex-col p-0">
+              {STEPS.map((s) => (
+                <li
+                  key={s.n}
+                  className="flex items-start gap-[18px] border-t border-[#e2d7c4] py-[18px] last:border-b"
+                >
+                  <span className="w-[26px] flex-none font-mono text-[13px] tracking-[0.06em] text-primary">
+                    {s.n}
+                  </span>
+                  <div>
+                    <div className="mb-0.5 text-[16.5px] font-semibold text-foreground">
+                      {s.title}
+                    </div>
+                    <div className="text-sm leading-relaxed text-muted-foreground">{s.body}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          {/* Coloana cu formular — logo de brand peste card. */}
+          <div className="flex w-full justify-center">
+            <div className="w-full max-w-[420px]">
+              <div className="mb-7 flex items-center gap-2.5">
+                <span aria-hidden className="inline-block size-[11px] rotate-45 bg-primary" />
+                <span
+                  className="font-extrabold text-foreground"
+                  style={{ letterSpacing: "0.2em", fontSize: 19 }}
+                >
+                  DETALIA
+                </span>
+              </div>
+              {children}
+            </div>
+          </div>
+        </div>
       </main>
 
-      <footer style={{ background: "#1b1813", color: "#c4bcae" }}>
-        <div className="mx-auto flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm">
-          <span style={{ color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
-          <span className="font-mono text-xs" style={{ color: "#6f685e" }}>
+      <footer className="flex-none border-t border-border">
+        <div className="mx-auto flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-4 px-6 py-5">
+          <span className="font-mono text-xs text-muted-foreground">
             © {new Date().getFullYear()} DETALIA
+          </span>
+          <span className="text-[13px] text-muted-foreground">
+            Detaliul de execuție, pus la dezbatere pe roluri.
           </span>
         </div>
       </footer>

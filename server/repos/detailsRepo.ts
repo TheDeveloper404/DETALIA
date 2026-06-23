@@ -97,16 +97,17 @@ export async function getDetailById(id: string) {
   return row ?? null;
 }
 
-// Scor de interacțiune per detaliu = validări + comentarii (polimorfice, pe DETAIL) + schițe publicate.
-// Subquery-uri corelate (nu join-uri) ca să nu dublăm rândurile când există mai multe interacțiuni.
-const interactionScore = sql<number>`(
-  (select count(*) from ${validations}
-     where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})
-  + (select count(*) from ${comments}
-     where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})
-  + (select count(*) from ${sketches}
-     where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED')
-)`;
+// Counts de interacțiune per detaliu (polimorfice, pe DETAIL) — subquery-uri corelate (nu join-uri)
+// ca să nu dublăm rândurile când există mai multe interacțiuni. `::int` ca să vină number, nu string.
+const validationCount = sql<number>`(select count(*)::int from ${validations}
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`;
+const commentCount = sql<number>`(select count(*)::int from ${comments}
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`;
+const sketchCount = sql<number>`(select count(*)::int from ${sketches}
+   where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED')`;
+
+// Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
+const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${sketchCount})`;
 
 // Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
 // Sortare după interacțiuni (caracter de comunitate), tie-break după dată descrescătoare.
@@ -116,7 +117,13 @@ export async function listFeed(input: { categoryId?: string | null; limit: numbe
     : eq(details.status, DETAIL_STATUS.PUBLISHED);
 
   return db
-    .select({ ...detailWithAuthorColumns, interactionCount: interactionScore })
+    .select({
+      ...detailWithAuthorColumns,
+      validationCount,
+      commentCount,
+      sketchCount,
+      interactionCount: interactionScore,
+    })
     .from(details)
     .leftJoin(categories, eq(categories.id, details.categoryId))
     .leftJoin(users, eq(users.id, details.authorId))
