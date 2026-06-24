@@ -65,6 +65,14 @@ export const users = pgTable("users", {
   // Extensii DETALIA peste tabelul standard Auth.js:
   status: userStatus().notNull().default("ACTIVE"),
   invitedById: uuid(),
+  // Profil extins (colectat la onboarding, editabil din /profile). `name` rămâne (Auth.js) și e
+  // compus din firstName + lastName la onboarding pentru compatibilitate cu codul care-l citește.
+  firstName: text(),
+  lastName: text(),
+  headline: text(),
+  location: text(),
+  website: text(),
+  coverImage: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 

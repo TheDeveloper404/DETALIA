@@ -9,8 +9,8 @@ export function FeedEmpty({
   addHref?: string;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-dashed border-[#d8cfc0] bg-card px-8 py-16 text-center">
-      <div className="mb-[22px] flex size-16 items-center justify-center rounded-2xl border border-[#e6ddcf] bg-secondary">
+    <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card px-8 py-16 text-center">
+      <div className="mb-[22px] flex size-16 items-center justify-center rounded-lg border border-border bg-secondary">
         <svg
           width="30"
           height="30"
@@ -33,7 +33,7 @@ export function FeedEmpty({
       </p>
       <Link
         href={addHref}
-        className="inline-flex items-center gap-2 rounded-[10px] border border-[#95492e] bg-primary px-[22px] py-3 font-semibold text-primary-foreground no-underline transition-colors hover:bg-[#974a2e]"
+        className="inline-flex items-center gap-2 rounded-lg border border-[#95492e] bg-primary px-[22px] py-3 font-semibold text-primary-foreground no-underline transition-colors hover:bg-[#974a2e]"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />

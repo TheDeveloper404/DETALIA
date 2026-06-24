@@ -36,7 +36,7 @@ export function FeedSidebar({
       {/* Card mini de profil. */}
       <Link
         href="/profile"
-        className="block overflow-hidden rounded-2xl bg-card no-underline ring-1 ring-foreground/10"
+        className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10"
       >
         <div className="h-[54px] bg-gradient-to-br from-secondary to-[#ece1d3]" />
         <div className="px-[18px] pb-[18px]">
@@ -65,7 +65,7 @@ export function FeedSidebar({
       {/* Categorii. */}
       <nav
         aria-label="Filtru categorii"
-        className="rounded-2xl bg-card p-2 ring-1 ring-foreground/10"
+        className="rounded-lg bg-card p-2 ring-1 ring-foreground/10"
       >
         <div className="px-3 pb-2 pt-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
           Categorii
@@ -84,7 +84,7 @@ export function FeedSidebar({
 
       <Link
         href={addHref}
-        className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#95492e] bg-primary px-4 py-3 font-semibold text-primary-foreground no-underline transition-colors hover:bg-[#974a2e]"
+        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#95492e] bg-primary px-4 py-3 font-semibold text-primary-foreground no-underline transition-colors hover:bg-[#974a2e]"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
@@ -109,10 +109,10 @@ function CategoryLink({
   return (
     <Link
       href={href}
-      className={`flex items-center justify-between rounded-[9px] px-3 py-2.5 text-[14.5px] no-underline transition-colors ${
+      className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-[14.5px] no-underline transition-colors ${
         active
-          ? "bg-[#f6ede4] font-semibold text-foreground"
-          : "text-foreground/80 hover:bg-[#f6ede4]"
+          ? "bg-secondary font-semibold text-foreground"
+          : "text-foreground/80 hover:bg-secondary"
       }`}
     >
       {label}

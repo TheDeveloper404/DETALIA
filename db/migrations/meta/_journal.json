@@ -15,6 +15,13 @@
       "when": 1782142026493,
       "tag": "0001_familiar_darkhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782272171673,
+      "tag": "0002_tearful_puck",
+      "breakpoints": true
     }
   ]
 }
