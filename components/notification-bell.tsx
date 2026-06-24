@@ -9,10 +9,14 @@ import { markReadAction } from "@/app/notifications/actions";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
+import { RolePill } from "./role-pill";
+
 export type NotificationView = {
   id: string;
   type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED";
   actorName: string | null;
+  actorRole: string | null;
+  actorVerified: boolean;
   detailTitle: string;
   href: string | null;
   createdAt: string; // ISO
@@ -38,25 +42,21 @@ const TYPE_STYLE = {
 } as const;
 
 // Textul notificării pe datele reale din payload (fără a inventa rol/identitate lipsă).
+// Titlul e `span`, NU link: rândul întreg e deja un <Link> spre același detaliu (evită <a> imbricat).
 function NotificationText({ n }: { n: NotificationView }) {
-  const ref =
-    n.href ? (
-      <Link
-        href={n.href}
-        onClick={(e) => e.stopPropagation()}
-        className="border-b border-[#e3c4b4] font-semibold text-primary"
-      >
-        «{n.detailTitle}»
-      </Link>
-    ) : (
-      <span className="font-semibold text-primary">«{n.detailTitle}»</span>
-    );
+  const ref = <span className="font-semibold text-primary">«{n.detailTitle}»</span>;
 
   if (n.type === "SKETCH_PROPOSED") {
     return (
       <>
-        <b className="font-bold text-foreground">{n.actorName ?? "Cineva"}</b> a propus o modificare
-        la {ref}.
+        <b className="font-bold text-foreground">{n.actorName ?? "Cineva"}</b>
+        {n.actorRole && (
+          <>
+            {" "}
+            <RolePill roleMain={n.actorRole} verified={n.actorVerified} />
+          </>
+        )}{" "}
+        a propus o modificare la {ref}.
       </>
     );
   }
@@ -188,14 +188,11 @@ export function NotificationBell({
                       </div>
 
                       {n.type === "SKETCH_PROPOSED" && n.href && (
-                        <Link
-                          href={n.href}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-2.5 inline-flex items-center gap-1.5 rounded-[9px] border border-[#ecdcc8] bg-[#f6ede4] px-3 py-1.5 font-heading text-[13px] font-semibold text-primary transition-colors hover:border-primary"
-                        >
+                        // CTA vizual (span, nu link) — rândul-Link de mai jos face navigarea spre același detaliu.
+                        <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-[9px] border border-[#ecdcc8] bg-[#f6ede4] px-3 py-1.5 font-heading text-[13px] font-semibold text-primary">
                           Vizualizează &amp; acceptă
                           <ArrowRight className="size-3.5" strokeWidth={2} />
-                        </Link>
+                        </span>
                       )}
                     </div>
                   </div>

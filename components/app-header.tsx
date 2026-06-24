@@ -1,4 +1,4 @@
-import { PencilRuler } from "lucide-react";
+import { PencilRuler, Search } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
@@ -12,6 +12,8 @@ type NotificationPayload = {
   detailId?: string;
   detailTitle?: string;
   sketchAuthorName?: string | null;
+  sketchAuthorRole?: string | null;
+  sketchAuthorVerified?: boolean;
 };
 
 // Header global — apare DOAR pentru useri autentificați (landing/login/signup rămân fără header).
@@ -27,6 +29,8 @@ export async function AppHeader() {
       id: n.id,
       type: n.type,
       actorName: p.sketchAuthorName ?? null,
+      actorRole: p.sketchAuthorRole ?? null,
+      actorVerified: p.sketchAuthorVerified ?? false,
       detailTitle: p.detailTitle ?? "un detaliu",
       href: p.detailId ? `/details/${p.detailId}` : null,
       createdAt: n.createdAt.toISOString(),
@@ -39,6 +43,24 @@ export async function AppHeader() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6 py-3">
         <BrandLogo href="/feed" />
+
+        {/* Căutare simplă pe titlu — form GET nativ (merge fără JS) spre feed. */}
+        <form action="/feed" className="mx-4 hidden max-w-sm flex-1 md:block" role="search">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              strokeWidth={2}
+            />
+            <input
+              type="search"
+              name="q"
+              placeholder="Caută detalii…"
+              aria-label="Caută detalii"
+              className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
+            />
+          </div>
+        </form>
+
         <div className="flex items-center gap-1">
           <Link
             href="/sketches/drafts"
