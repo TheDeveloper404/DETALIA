@@ -6,6 +6,71 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-24
 
+### Editor schiță — redesign full-screen din Claude Design (`Detalia Schita-editor.dc.html`)
+Re-skin al editorului (`app/sketches/[id]/edit`) la layout full-screen. Toată logica de desen refolosită (perfect-freehand prin
+`renderStrokes`, undo/redo, radieră, thumbnail PNG, coordonate normalizate, fill-slab 0.3 al detaliului-mamă).
+- **`sketch-canvas.tsx`** refactorizat: acum **`forwardRef`** care expune `getStrokes()` + `exportThumbnail()` (citite din bara de context),
+  randează **rail vertical de unelte** (Culori grid · 3 Grosimi · Radieră · Undo/Redo) + **canvas fit-to-area** (centrat, păstrează raportul,
+  `ResizeObserver`), grid de lucru faint + badge „Mod schiță · detaliul-mamă estompat". Grup pen estompat când radiera e activă.
+- **`sketch-editor.tsx`** rescris ca **shell full-screen** (`fixed inset-0 z-[60]`, acoperă AppHeader-ul global): bară de context
+  (Renunță → detaliu, badge „Schiță peste" + titlu detaliu-mamă + autor cu `RolePill`, notă, **Salvează ciornă** + **Trimite propunerea**),
+  suprafața de desen, **toast „ciornă salvată"**. Acțiunile citesc strokes/thumbnail prin ref.
+- **`page.tsx`** pasează acum `detailTitle`/`authorName`/`authorRoleMain`/`authorVerified`; a renunțat la wrapper-ul `max-w` (editorul e full-screen).
+- **`dev/preview/sketch`** aliniat la noul API (container cu înălțime fixă, fără handlere save/send).
+- **Deviere onestă:** modalul „Propunere trimisă" din design = înlocuit de **redirect la `/details/[id]`** pe succes (flux MPA, nu SPA).
+- `typecheck` + `lint` + `build` VERZI. **Neverificat vizual cu DB.**
+
+### „Adaugă un detaliu" — redesign formular din Claude Design (`Detalia Publica.dc.html`)
+Re-skin + completare a formularului de creare detaliu (`app/details/new`). Tot fluxul existent (upload imagine Blob, auth, rol declarat,
+moderare post-publicare) refolosit; în plus **cablate câmpuri pe care service-ul le suporta deja dar formularul nu le trimitea**.
+- **`detail-form.tsx`** rescris ca card pe design: label-uri mono uppercase, titlu, descriere (notă „apare deasupra desenului"),
+  select categorie stilizat (săgeată proprie), **zonă climatică + seismică** (selecturi noi, default „General"), **dropzone imagine**
+  (file input ascuns + preview cu grid blueprint, nume fișier, Înlocuiește/Elimină), **repeater resurse** (max 3, tip Imagine/Link/PDF +
+  valoare, add/remove, serializat în câmp ascuns JSON), notă „devine public imediat", butoane Renunță / Publică detaliul.
+- **`actions.ts`** citește acum `climateZone`, `seismicZone` și `resources` (parsare JSON defensivă, ignoră malformat/gol, max 3, validare
+  finală în `DetailService`). După publicare **redirect la `/details/[id]`** (înainte mergea la `/`).
+- **`page.tsx`:** breadcrumb + titlu + subtitlu, lățime `760px`.
+- **Deviere/follow-up onest:** resursele suplimentare stochează un **URL/referință** (placeholder-ele cer link), NU upload de fișier secundar —
+  uploadul de fișiere per-resursă nu există încă (decizie de produs deschisă: tipuri resurse). Tipul „Imagine/PDF" e doar etichetă peste un URL.
+- `typecheck` + `lint` + `build` VERZI. **Neverificat vizual cu DB.**
+
+### Notificări — dropdown din clopoțel (din Claude Design `Detalia Notificari.dc.html`)
+La cererea lui Liviu, designul de notificări **NU** e tratat ca pagină separată, ci ca **dropdown care iese din clopoțelul** din header.
+- **`components/notification-bell.tsx`** rescris ca **client component cu dropdown**: buton clopoțel (badge teracotă cu count), panou
+  ancorat dreapta, închidere la click-în-afară + Escape. Header „Notificări" + „Marchează toate ca citite" (disabled fără necitite).
+- **Rânduri fidele designului:** gutter cu punct de necitit, pătrat-iconiță colorat pe tip (proposed=creion teracotă / accepted=check verde
+  / rejected=X cărămiziu), text + link «titlu detaliu» + timp relativ, buton „Vizualizează & acceptă" doar pe `SKETCH_PROPOSED`.
+  Rândurile necitite au fundal cald + hover. **Empty state** desenat.
+- **`components/app-header.tsx`** aduce acum lista (`getNotifications`) și o mapează la o formă serializabilă; trece `notifications` + `count`
+  la clopoțel (înainte trimitea doar count-ul). „Marchează toate" → `markReadAction` (existentă) + `router.refresh()`.
+- **Deviere/follow-up onest:** designul arată **rol + steluță** lângă nume; payload-ul de notificări **nu stochează rolul** actorului (doar
+  numele, doar la „proposed") → rolul a fost **omis** (de adăugat prin îmbogățirea payload-ului în `notifySketch*`). Pentru accepted/rejected
+  păstrăm formularea „Schița ta … a fost acceptată/respinsă" (nu stocăm identitatea autorului-mamă). Pagina `/notifications` rămâne **dormantă**
+  (URL direct funcțional), dar clopoțelul nu mai duce la ea.
+- `typecheck` + `lint` + `build` VERZI. **Neverificat vizual cu DB.**
+
+### Pagina DETALIU — redesign din Claude Design (re-skin peste Faza 1)
+Design importat din proiectul Claude Design (`Detalia Detaliu.dc.html`, via tool-ul `DesignSync`) și implementat peste pagina
+de detaliu existentă (funcțional Faza 1) — **doar re-skin + reorganizare layout**, tot wiring-ul server (services/actions) refolosit.
+- **Layout nou:** coloană principală (`minmax(0,1fr)`) + sidebar 320px (`lg:sticky`). Validarea, teancul și dezbaterea au trecut în
+  coloana principală; sidebar = card autor / card meta („Despre detaliu") / „Regula de aur". Breadcrumb mono Detalii / categorie / titlu.
+- **Antet:** H1 32px extrabold, rând autor (avatar + nume + `RolePill` + chip categorie + dată `formatDate`), strip zone climatice/seismice
+  (afișat doar dacă există), descriere `max-w-[64ch]`. Imaginea 2D într-o ramă cu grid blueprint + resurse ca chipuri cu iconițe pe tip.
+- **Bara de validare (`validation-panel`)** rescrisă: butoane mari Aprob (check, verde când activ) / Dezaprob (X, destructive când activ),
+  hint „o singură poziție reversibilă", confirmarea poziției proprii cu retragere, rând de contoare (validări/comentarii/schițe „fără scor"),
+  lista pozițiilor celorlalți (nume+rol). Justificarea rămâne **inline-expand** (nu modal — funcțional identic, deviere intenționată).
+- **Teancul (`sketch-section`)** rescris: card cu taburi pe autor, viewport + panou meta (autor/rol/contoare/status „în teanc · publicată"),
+  dezbaterea schiței active sub viewport, **empty state** desenat, secțiunea „propuneri în așteptare" (doar autorul-mamă). Butonul
+  **„Schițează peste detaliu"** cablat la noua acțiune `startSketchAction` (creează DRAFT → editor; NO_ROLE → onboarding) — nu mai e
+  accesibilă schițarea doar din „Dezaprob și fac o schiță".
+- **Dezbaterea (`comments-section`)** rescrisă: composer cu avatar + listă cu avatar/nume/`RolePill`/timp relativ; dezaprobările marcate
+  distinct (bară stânga + fundal `destructive`). Header „Dezbatere · N comentarii".
+- **Componente noi reutilizabile:** `components/avatar-initials.tsx` (poză sau inițiale) + `lib/format.ts` (`formatDate` / `formatRelative` ro).
+- **Schemă/repo:** `detailsRepo` aduce acum `authorLocation` + `authorHeadline` (cardul autor din sidebar). Mock-ul de preview aliniat la tip.
+- **Deviere/follow-up:** secțiunea „Detalii înrudite" din design **omisă** (n-avem încă query de înrudite — de adăugat). Header-ul global
+  `AppHeader` rămâne (n-am dublat header-ul cu search din mockup). Strip-ul de thumbnails al teancului redus la taburi (fără mini-previews).
+- `typecheck` + `lint` + `build` VERZI. **Neverificat vizual cu DB** (vezi capcane env — magic link/seed).
+
 ### Design System — aliniere globală de dimensiuni + culori pe tokeni
 Cerere (via Claude Design): UI uniform pe dimensiuni și culori prin tokenii shadcn, nu hex ad-hoc. Aplicat doar pe **design**
 (dimensiuni/culori) — comportamentul (stări empty/loading/error, flux Dezaprob) a fost lăsat în afara scope-ului, la cererea lui Liviu.

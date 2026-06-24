@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -27,27 +26,15 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4 sm:p-6">
-      <Link
-        href={`/details/${detail.id}`}
-        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        ← Înapoi la detaliu
-      </Link>
-
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-semibold tracking-tight">Schițează peste „{detail.title}”</h1>
-        <p className="text-sm text-muted-foreground">
-          Desenează cum ar trebui să arate. Când trimiți, autorul detaliului acceptă sau respinge propunerea.
-        </p>
-      </header>
-
-      <SketchEditor
-        sketchId={id}
-        detailId={detail.id}
-        imageUrl={detail.imageUrl}
-        initialStrokes={draft.value.strokes}
-      />
-    </main>
+    <SketchEditor
+      sketchId={id}
+      detailId={detail.id}
+      imageUrl={detail.imageUrl}
+      initialStrokes={draft.value.strokes}
+      detailTitle={detail.title}
+      authorName={detail.authorName}
+      authorRoleMain={detail.authorRoleMain}
+      authorVerified={detail.authorVerification === "VERIFIED"}
+    />
   );
 }
