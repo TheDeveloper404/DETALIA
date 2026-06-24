@@ -2,7 +2,7 @@
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { roles, sketches, users } from "@/db/schema";
+import { details, roles, sketches, users } from "@/db/schema";
 import { type SketchStatus, type Stroke } from "@/server/domain/sketch";
 
 export async function insertDraft(input: {
@@ -45,6 +45,21 @@ export async function updateStatus(
     .where(eq(sketches.id, id));
 }
 
+// Tranziție condiționată PENDING_ACCEPTANCE → PUBLISHED/REJECTED.
+// Update atomic cu guard pe status: două requesturi concurente nu pot scrie ambele
+// rezultate opuse — doar primul prinde rândul în PENDING_ACCEPTANCE. Întoarce true dacă a tranziționat.
+export async function transitionFromPending(
+  id: string,
+  input: { status: SketchStatus; acceptedAt: Date | null },
+): Promise<boolean> {
+  const rows = await db
+    .update(sketches)
+    .set({ status: input.status, acceptedAt: input.acceptedAt })
+    .where(and(eq(sketches.id, id), eq(sketches.status, "PENDING_ACCEPTANCE")))
+    .returning({ id: sketches.id });
+  return rows.length > 0;
+}
+
 // Forma de afișare a unei schițe cu autor (nume+rol) + stroke-uri (pt randare în pagină).
 // Teancul/coada sunt mici (câteva foi) → e ok să aducem strokesJson aici.
 const sketchWithAuthorColumns = {
@@ -83,3 +98,30 @@ export function listPendingByDetail(detailId: string) {
 }
 
 export type SketchWithAuthor = Awaited<ReturnType<typeof listPublishedByDetail>>[number];
+
+// Ciornele (DRAFT) ale unui autor — cu titlul + imaginea detaliului-mamă, pentru a le relua din „Ciornele mele".
+export function listDraftsByAuthor(authorId: string) {
+  return db
+    .select({
+      id: sketches.id,
+      createdAt: sketches.createdAt,
+      detailId: sketches.detailId,
+      detailTitle: details.title,
+      detailImageUrl: details.imageUrl,
+    })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .where(and(eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
+    .orderBy(desc(sketches.createdAt));
+}
+
+export type DraftItem = Awaited<ReturnType<typeof listDraftsByAuthor>>[number];
+
+// Șterge o ciornă — DOAR a autorului ei și DOAR cât e DRAFT (delete condiționat). Întoarce true dacă a șters.
+export async function deleteDraftByAuthor(id: string, authorId: string): Promise<boolean> {
+  const rows = await db
+    .delete(sketches)
+    .where(and(eq(sketches.id, id), eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
+    .returning({ id: sketches.id });
+  return rows.length > 0;
+}

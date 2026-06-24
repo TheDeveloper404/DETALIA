@@ -39,6 +39,7 @@ export async function approveAction(formData: FormData): Promise<void> {
   if (!res.ok && res.error === "NO_ROLE") redirect("/onboarding");
 
   revalidatePath(`/details/${detailId}`);
+  revalidatePath("/feed");
 }
 
 export async function retractAction(formData: FormData): Promise<void> {
@@ -49,6 +50,7 @@ export async function retractAction(formData: FormData): Promise<void> {
   await retract({ userId: session.user.id, targetType, targetId });
 
   revalidatePath(`/details/${detailId}`);
+  revalidatePath("/feed");
 }
 
 export async function disapproveAction(
@@ -74,5 +76,6 @@ export async function disapproveAction(
   }
 
   revalidatePath(`/details/${detailId}`);
+  revalidatePath("/feed");
   return { error: null };
 }

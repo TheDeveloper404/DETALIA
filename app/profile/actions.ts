@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
-import { uploadAvatarImage, validateImageFile } from "@/lib/storage";
-import { updateUserImage } from "@/server/repos/usersRepo";
+import { uploadAvatarImage, uploadCoverImage, validateImageFile } from "@/lib/storage";
+import { updateUserCoverImage, updateUserImage } from "@/server/repos/usersRepo";
 import { requestRoleVerification, updateRole } from "@/server/services/roleService";
 
+// NOTĂ: un fișier „use server" poate exporta DOAR funcții async (Next 16). Starea inițială a formularelor
+// (`initialProfileState`) trăiește în `profile-forms.tsx`, nu aici. Tipul îl exportăm (tipurile se șterg).
 export type ProfileFormState = { error: string | null; ok: boolean };
-
-export const initialProfileState: ProfileFormState = { error: null, ok: false };
 
 const ROLE_ERRORS: Record<string, string> = {
   NO_ROLE: "Nu ai încă un rol declarat.",
@@ -29,6 +29,7 @@ const IMAGE_ERRORS: Record<string, string> = {
   EMPTY: "Alege o poză.",
   INVALID_TYPE: "Poza trebuie să fie PNG, JPG, WebP sau AVIF.",
   TOO_LARGE: "Poza e prea mare (max 8 MB).",
+  UPLOAD_FAILED: "Stocarea imaginilor nu e disponibilă acum (config Blob).",
 };
 
 async function requireUserId() {
@@ -60,6 +61,32 @@ export async function updateAvatarAction(
     return { error: IMAGE_ERRORS[upload.error] ?? "Poza nu a putut fi încărcată.", ok: false };
   }
   await updateUserImage(userId, upload.url);
+
+  revalidatePath("/profile");
+  return { error: null, ok: true };
+}
+
+// Schimbă imaginea de cover (banda de sus a profilului). Validare tip/dimensiune pe server.
+export async function updateCoverAction(
+  _prev: ProfileFormState,
+  formData: FormData,
+): Promise<ProfileFormState> {
+  const userId = await requireUserId();
+
+  const imageFile = formData.get("cover");
+  if (!(imageFile instanceof File) || imageFile.size === 0) {
+    return { error: IMAGE_ERRORS.EMPTY, ok: false };
+  }
+  const valid = validateImageFile(imageFile);
+  if (!valid.ok) {
+    return { error: IMAGE_ERRORS[valid.error] ?? "Imaginea nu a putut fi încărcată.", ok: false };
+  }
+
+  const upload = await uploadCoverImage(imageFile);
+  if (!upload.ok) {
+    return { error: IMAGE_ERRORS[upload.error] ?? "Imaginea nu a putut fi încărcată.", ok: false };
+  }
+  await updateUserCoverImage(userId, upload.url);
 
   revalidatePath("/profile");
   return { error: null, ok: true };

@@ -90,7 +90,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
           <>
             <span className="text-[#cabfac]">/</span>
             <Link
-              href={`/feed?category=${detail.categorySlug ?? ""}`}
+              href={`/feed?cat=${detail.categoryId}`}
               className="hover:text-foreground"
             >
               {detail.categoryName}
@@ -118,7 +118,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               <RolePill roleMain={detail.authorRoleMain} verified={verified} />
               {detail.categoryName && (
                 <Link
-                  href={`/feed?category=${detail.categorySlug ?? ""}`}
+                  href={`/feed?cat=${detail.categoryId}`}
                   className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary"
                 >
                   {detail.categoryName}
@@ -277,7 +277,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               </div>
             )}
             <Link
-              href={`/profile`}
+              href={`/profile/${detail.authorId}`}
               className="mt-4 flex items-center justify-center rounded-[9px] border border-[#d8cfc0] bg-card px-3.5 py-2.5 font-heading text-[13.5px] font-semibold transition-colors hover:border-primary"
             >
               Vezi profilul
