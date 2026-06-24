@@ -21,6 +21,7 @@ import {
   insertDetailResources,
   listFeed,
 } from "@/server/repos/detailsRepo";
+import { listTopAuthors } from "@/server/repos/usersRepo";
 import { userHasRole } from "@/server/services/roleService";
 
 // Validare format UUID — un id malformat trebuie să dea „not found", nu o eroare SQL (500).
@@ -92,8 +93,23 @@ export async function getDetail(id: string) {
   return { ...detail, resources };
 }
 
-// Feed finit (~20), opțional filtrat pe categorie. Fără scroll infinit.
-export async function getFeed(options?: { categoryId?: string | null; limit?: number }) {
+export type FeedSort = "debated" | "recent";
+
+// Feed finit (~20), opțional filtrat pe categorie, sortabil. Fără scroll infinit.
+export async function getFeed(options?: {
+  categoryId?: string | null;
+  limit?: number;
+  sort?: FeedSort;
+}) {
   const limit = options?.limit ?? DEFAULT_FEED_SIZE;
-  return listFeed({ categoryId: options?.categoryId ?? null, limit });
+  return listFeed({
+    categoryId: options?.categoryId ?? null,
+    limit,
+    sort: options?.sort ?? "debated",
+  });
+}
+
+// Autori activi pentru rail-ul din feed (top după detalii publicate).
+export function getActiveAuthors(limit = 5) {
+  return listTopAuthors(limit);
 }

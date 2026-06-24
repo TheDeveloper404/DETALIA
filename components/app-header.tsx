@@ -1,3 +1,4 @@
+import { PencilRuler } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
@@ -5,6 +6,7 @@ import { getNotifications } from "@/server/services/notificationService";
 
 import { BrandLogo } from "./brand-logo";
 import { NotificationBell, type NotificationView } from "./notification-bell";
+import { UserMenu } from "./user-menu";
 
 type NotificationPayload = {
   detailId?: string;
@@ -38,25 +40,16 @@ export async function AppHeader() {
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6 py-3">
         <BrandLogo href="/feed" />
         <div className="flex items-center gap-1">
-          <NotificationBell notifications={notifications} count={unread} />
           <Link
-            href="/profile"
-            aria-label="Profilul tău"
-            className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-muted-foreground transition-colors hover:bg-muted"
+            href="/sketches/drafts"
+            aria-label="Ciornele mele"
+            title="Ciornele mele"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
           >
-            {session.user.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={session.user.image}
-                alt=""
-                className="h-7 w-7 rounded-full object-cover"
-              />
-            ) : (
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
-                {(session.user.name?.trim()?.[0] ?? "?").toUpperCase()}
-              </span>
-            )}
+            <PencilRuler className="size-[18px]" strokeWidth={2} />
           </Link>
+          <NotificationBell notifications={notifications} count={unread} />
+          <UserMenu name={session.user.name ?? null} image={session.user.image ?? null} />
         </div>
       </div>
     </header>

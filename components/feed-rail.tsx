@@ -1,8 +1,19 @@
-// Coloana dreaptă a feed-ului — categorii populare + „în dezbatere acum" + nudge de validare pe rol.
+// Coloana dreaptă a feed-ului — autori activi + „în dezbatere acum" + nudge de validare pe rol.
 // Prezentațional (props-driven). „În dezbatere" = detaliile cu cele mai multe comentarii (derivat din feed).
 import Link from "next/link";
 
-export type RailCategory = { id: string; name: string; count: number };
+import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
+
+import { AvatarInitials } from "./avatar-initials";
+
+export type RailAuthor = {
+  id: string;
+  name: string | null;
+  image: string | null;
+  roleMain: string | null;
+  verification: string | null;
+  detailCount: number;
+};
 export type RailDebated = {
   id: string;
   title: string;
@@ -11,32 +22,41 @@ export type RailDebated = {
 };
 
 export function FeedRail({
-  categories,
+  authors,
   debated,
-  basePath = "/feed",
 }: {
-  categories: RailCategory[];
+  authors: RailAuthor[];
   debated: RailDebated[];
-  basePath?: string;
 }) {
   return (
     <aside className="hidden flex-col gap-[18px] xl:sticky xl:top-[90px] xl:flex">
-      {/* Categorii populare. */}
-      {categories.length > 0 && (
+      {/* Autori activi. */}
+      {authors.length > 0 && (
         <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
           <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-            Categorii populare
+            Autori activi
           </div>
-          <ul className="flex list-none flex-col gap-[11px] p-0">
-            {categories.map((c) => (
-              <li key={c.id} className="flex items-center justify-between">
+          <ul className="flex list-none flex-col gap-3 p-0">
+            {authors.map((a) => (
+              <li key={a.id}>
                 <Link
-                  href={`${basePath}?cat=${c.id}`}
-                  className="text-sm text-foreground/80 no-underline hover:text-primary"
+                  href={`/profile/${a.id}`}
+                  className="flex items-center gap-2.5 no-underline"
                 >
-                  {c.name}
+                  <AvatarInitials name={a.name} imageUrl={a.image} size={32} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1 truncate text-sm font-semibold text-foreground">
+                      {a.name ?? "Anonim"}
+                      {a.verification === "VERIFIED" && (
+                        <span className="text-[#d99a2b]" title="Rol verificat">★</span>
+                      )}
+                    </span>
+                    <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                      {a.roleMain ? ROLE_MAIN_LABELS[a.roleMain as RoleMain] ?? a.roleMain : "—"} ·{" "}
+                      {a.detailCount} detalii
+                    </span>
+                  </span>
                 </Link>
-                <span className="font-mono text-[11.5px] text-primary">{c.count} detalii</span>
               </li>
             ))}
           </ul>

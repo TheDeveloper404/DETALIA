@@ -24,7 +24,11 @@ export default async function DevFeedPreview({
   const details = activeId ? MOCK_FEED.filter((d) => d.categoryId === activeId) : MOCK_FEED;
 
   const total = MOCK_CATEGORIES_WITH_COUNTS.reduce((sum, c) => sum + c.count, 0);
-  const popular = [...MOCK_CATEGORIES_WITH_COUNTS].sort((a, b) => b.count - a.count).slice(0, 4);
+  const mockAuthors = [
+    { id: "u1", name: "Andrei Munteanu", image: null, roleMain: "PROIECTANT", verification: "VERIFIED", detailCount: 4 },
+    { id: "u2", name: "Mihai Radu", image: null, roleMain: "EXECUTANT", verification: "VERIFIED", detailCount: 2 },
+    { id: "u3", name: "Ioana Pop", image: null, roleMain: "PROIECTANT", verification: "DECLARED", detailCount: 2 },
+  ];
   const debated = [...details]
     .sort((a, b) => b.commentCount - a.commentCount)
     .slice(0, 3)
@@ -58,7 +62,7 @@ export default async function DevFeedPreview({
 
         <main className="min-w-0">
           <div className="mb-4 flex items-center justify-between">
-            <h1 className="text-xl font-bold tracking-tight">Detalii recente</h1>
+            <h1 className="text-xl font-bold tracking-tight">Detalii în dezbatere</h1>
             <div className="font-mono text-xs text-muted-foreground">
               sortează: <span className="text-foreground">în dezbatere</span>
             </div>
@@ -69,7 +73,7 @@ export default async function DevFeedPreview({
           ) : (
             <div className="flex flex-col gap-4">
               {details.map((d) => (
-                <DetailCard key={d.id} detail={d} />
+                <DetailCard key={d.id} detail={d} myPosition={null} />
               ))}
             </div>
           )}
@@ -82,7 +86,7 @@ export default async function DevFeedPreview({
           </p>
         </main>
 
-        <FeedRail categories={popular} debated={debated} basePath={base} />
+        <FeedRail authors={mockAuthors} debated={debated} />
       </div>
     </div>
   );

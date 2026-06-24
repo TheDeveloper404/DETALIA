@@ -9,6 +9,7 @@
 import {
   type RoleSnapshot,
   type TargetType,
+  type ValidationPosition,
   validateJustification,
 } from "@/server/domain/validation";
 import { insertComment } from "@/server/repos/commentsRepo";
@@ -19,6 +20,7 @@ import {
   deletePosition,
   getUserPosition,
   listPositionsForTarget,
+  listUserPositionsForTargets,
   upsertPosition,
 } from "@/server/repos/validationsRepo";
 
@@ -128,6 +130,16 @@ export async function retract(input: {
 }): Promise<ValidationResult> {
   await deletePosition(input.userId, input.targetType, input.targetId);
   return { ok: true };
+}
+
+// Poziția userului curent pe o listă de ținte (feed) → Map targetId → poziție. Batch, fără N+1.
+export async function getMyPositions(
+  userId: string,
+  targetType: TargetType,
+  targetIds: string[],
+): Promise<Map<string, ValidationPosition>> {
+  const rows = await listUserPositionsForTargets(userId, targetType, targetIds);
+  return new Map(rows.map((r) => [r.targetId, r.position]));
 }
 
 // Vedere pentru UI: pozițiile (cu rol), totalurile și poziția userului curent.
