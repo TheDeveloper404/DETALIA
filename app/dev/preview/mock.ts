@@ -116,6 +116,8 @@ export const MOCK_FEED: FeedItem[] = SEEDS.map((s, i) => ({
   authorId: `author-${i + 1}`,
   authorName: s.authorName,
   authorImage: null,
+  authorLocation: null,
+  authorHeadline: null,
   authorRoleMain: s.authorRoleMain,
   authorSubRole: s.authorSubRole,
   authorVerification: s.authorVerification,
