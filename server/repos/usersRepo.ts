@@ -30,7 +30,7 @@ export async function updateUserCoverImage(userId: string, coverUrl: string) {
   await db.update(users).set({ coverImage: coverUrl }).where(eq(users.id, userId));
 }
 
-// Datele de profil pentru /profile/edit (nume, email, poză, cover). Email = PII, NU se loghează.
+// Datele de profil pentru /profile/edit (nume, email, poză, cover + headline/locație/website). Email = PII.
 export async function getUserProfile(userId: string) {
   const [row] = await db
     .select({
@@ -38,11 +38,22 @@ export async function getUserProfile(userId: string) {
       email: users.email,
       image: users.image,
       coverImage: users.coverImage,
+      headline: users.headline,
+      location: users.location,
+      website: users.website,
     })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;
+}
+
+// Editarea câmpurilor de text ale profilului (nume, headline, locație, website). NU atinge rolul (definitiv).
+export async function updateUserDetails(
+  userId: string,
+  fields: { name: string; headline: string | null; location: string | null; website: string | null },
+) {
+  await db.update(users).set(fields).where(eq(users.id, userId));
 }
 
 // Profil PUBLIC (adresabil prin userId) — câmpuri publice colectate la onboarding + rol/verificare.
@@ -93,6 +104,21 @@ export async function getUserContact(userId: string) {
   const [row] = await db
     .select({ email: users.email, name: users.name })
     .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+// Actorul unei notificări = nume + rol + verificare (pt afișarea rolului/steluței lângă nume). Fără PII.
+export async function getNotificationActor(userId: string) {
+  const [row] = await db
+    .select({
+      name: users.name,
+      roleMain: roles.roleMain,
+      verification: roles.verificationStatus,
+    })
+    .from(users)
+    .leftJoin(roles, eq(roles.userId, users.id))
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;

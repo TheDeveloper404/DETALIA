@@ -18,7 +18,7 @@ import {
   updateStatus,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
-import { getUserContact } from "@/server/repos/usersRepo";
+import { getNotificationActor } from "@/server/repos/usersRepo";
 import {
   notifySketchDecision,
   notifySketchProposed,
@@ -106,13 +106,15 @@ export async function send(input: {
     thumbnailUrl: input.thumbnailUrl ?? null,
   });
 
-  const author = await getUserContact(sketch.authorId);
+  const author = await getNotificationActor(sketch.authorId);
   await notifySketchProposed({
     recipientUserId: detail.authorId,
     sketchId: sketch.id,
     detailId: sketch.detailId,
     detailTitle: detail.title,
     sketchAuthorName: author?.name ?? null,
+    sketchAuthorRole: author?.roleMain ?? null,
+    sketchAuthorVerified: author?.verification === "VERIFIED",
   });
   return { ok: true };
 }

@@ -14,14 +14,27 @@ export const SKETCH_STATUS = {
 } as const;
 export type SketchStatus = (typeof SKETCH_STATUS)[keyof typeof SKETCH_STATUS];
 
-// Paletă recomandată pt UI: culori stridente + 3 grosimi (uneltele MVP). Folosite și ca default vizual.
+// Paletă de schiță: culori stridente dar aliniate la brandul cald DETALIA (teracotă/ocru/cărămiziu),
+// condusă de grafit (adnotare tehnică) — toate pop bine peste detaliul-mamă estompat. Single source: schimbă aici.
 // Grosimile sunt px la o lățime de referință de 1000 (vezi REFERENCE_WIDTH în randare) — scalate la randare.
-export const STROKE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6", "#a855f7"] as const;
+export const STROKE_COLORS = ["#211d18", "#b0463c", "#d97a1e", "#caa12e", "#2f8f5f", "#2f6fb0"] as const;
 export const STROKE_WIDTHS = [8, 16, 28] as const;
 
 // Un punct = [x, y] normalizat 0..1 față de imaginea-mamă (rezoluție-agnostic).
 export type Point = [number, number];
-export type Stroke = { color: string; size: number; points: Point[] };
+// Unealta cu care a fost desenat stroke-ul. Toate formele cu 2 capete (line/rect/ellipse/arrow) folosesc
+// primul + ultimul punct. „free" = traseu freehand (perfect-freehand); „text" = casetă la `points[0]`
+// (`size` = mărimea fontului). Opțional → stroke-urile vechi (fără `kind`) rămân „free" implicit.
+export type StrokeKind = "free" | "line" | "text" | "rect" | "ellipse" | "arrow";
+export const STROKE_KINDS: StrokeKind[] = ["free", "line", "text", "rect", "ellipse", "arrow"];
+export const MAX_TEXT_LENGTH = 200;
+export type Stroke = {
+  color: string;
+  size: number;
+  points: Point[];
+  kind?: StrokeKind;
+  text?: string; // doar pt kind === "text"
+};
 
 // Limite anti-abuz pentru payload-ul vectorial (bound pe mărimea jsonb).
 export const MAX_STROKES = 2000;
@@ -59,6 +72,26 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
       return { ok: false, error: "INVALID_STROKE" };
     }
 
+    // `kind` opțional: dacă lipsește → „free"; dacă e prezent trebuie să fie una din uneltele cunoscute.
+    let kind: StrokeKind = "free";
+    if (s.kind !== undefined) {
+      if (typeof s.kind !== "string" || !STROKE_KINDS.includes(s.kind as StrokeKind)) {
+        return { ok: false, error: "INVALID_STROKE" };
+      }
+      kind = s.kind as StrokeKind;
+    }
+
+    // `text` obligatoriu (și doar) pentru kind === "text": șir nevid, lungime mărginită.
+    let text: string | undefined;
+    if (kind === "text") {
+      if (typeof s.text !== "string") return { ok: false, error: "INVALID_STROKE" };
+      const trimmed = s.text.trim();
+      if (trimmed.length === 0 || trimmed.length > MAX_TEXT_LENGTH) {
+        return { ok: false, error: "INVALID_STROKE" };
+      }
+      text = trimmed;
+    }
+
     const points: Point[] = [];
     for (const p of s.points) {
       if (!Array.isArray(p) || p.length !== 2 || !isNormalized(p[0]) || !isNormalized(p[1])) {
@@ -66,7 +99,7 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
       }
       points.push([p[0], p[1]]);
     }
-    value.push({ color: s.color, size: s.size, points });
+    value.push(kind === "text" ? { color: s.color, size: s.size, points, kind, text } : { color: s.color, size: s.size, points, kind });
   }
   return { ok: true, value };
 }

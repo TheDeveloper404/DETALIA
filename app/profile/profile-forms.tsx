@@ -1,33 +1,23 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  ROLE_MAINS,
-  ROLE_MAIN_LABELS,
-  SUBROLES,
-  type RoleMain,
-} from "@/server/domain/roles";
 
 import {
   type ProfileFormState,
   signOutAction,
   updateAvatarAction,
   updateCoverAction,
-  updateRoleAction,
+  updateProfileDetailsAction,
 } from "./actions";
 
 // Starea inițială a formularelor — definită aici (client), NU în „use server" (care exportă doar funcții async).
 const initialProfileState: ProfileFormState = { error: null, ok: false };
 
 type VerificationStatus = "DECLARED" | "PENDING" | "VERIFIED" | "REJECTED";
-
-// `select` native stilizat ca un Input shadcn (subrolul are opțiune goală → evităm Radix Select).
-const selectClass =
-  "h-10 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50";
 
 function Feedback({ error, ok, okText }: { error: string | null; ok: boolean; okText: string }) {
   if (error) {
@@ -97,70 +87,74 @@ export function CoverForm() {
   );
 }
 
-export function EditRoleForm({
-  initialRoleMain,
-  initialSubRole,
+// Editarea datelor de profil (nume, headline, locație, website). Rolul NU se editează aici (e definitiv).
+export function EditDetailsForm({
+  initialName,
+  initialHeadline,
+  initialLocation,
+  initialWebsite,
 }: {
-  initialRoleMain: string;
-  initialSubRole: string | null;
+  initialName: string | null;
+  initialHeadline: string | null;
+  initialLocation: string | null;
+  initialWebsite: string | null;
 }) {
-  const [state, formAction, pending] = useActionState(updateRoleAction, initialProfileState);
-  const [roleMain, setRoleMain] = useState<RoleMain | "">(
-    (initialRoleMain as RoleMain) || "",
+  const [state, formAction, pending] = useActionState(
+    updateProfileDetailsAction,
+    initialProfileState,
   );
-
-  const subRoles = roleMain ? SUBROLES[roleMain] : [];
-  // Păstrăm subrolul inițial doar cât timp rolul principal nu s-a schimbat.
-  const subRoleDefault = roleMain === initialRoleMain ? (initialSubRole ?? "") : "";
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
-      <Feedback error={state.error} ok={state.ok} okText="Rolul a fost actualizat." />
+      <Feedback error={state.error} ok={state.ok} okText="Profilul a fost actualizat." />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="roleMain">Rol principal</Label>
-        <select
-          id="roleMain"
-          name="roleMain"
-          required
-          value={roleMain}
-          onChange={(e) => setRoleMain(e.target.value as RoleMain)}
-          className={selectClass}
-        >
-          <option value="" disabled>
-            Alege rolul…
-          </option>
-          {ROLE_MAINS.map((r) => (
-            <option key={r} value={r}>
-              {ROLE_MAIN_LABELS[r]}
-            </option>
-          ))}
-        </select>
+        <Label htmlFor="name">Nume afișat</Label>
+        <Input id="name" name="name" required maxLength={100} defaultValue={initialName ?? ""} />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="subRole">
-          Specializare <span className="font-normal text-muted-foreground">(opțional)</span>
+        <Label htmlFor="headline">
+          Titlu/headline <span className="font-normal text-muted-foreground">(opțional)</span>
         </Label>
-        <select
-          key={roleMain}
-          id="subRole"
-          name="subRole"
-          defaultValue={subRoleDefault}
-          disabled={!roleMain}
-          className={selectClass}
-        >
-          <option value="">Fără specializare</option>
-          {subRoles.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
+        <Input
+          id="headline"
+          name="headline"
+          maxLength={120}
+          placeholder="ex: Arhitect · birou propriu"
+          defaultValue={initialHeadline ?? ""}
+        />
       </div>
 
-      <Button type="submit" disabled={pending || !roleMain} className="h-10 self-start">
-        {pending ? "Se salvează…" : "Salvează rolul"}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="location">
+            Locație <span className="font-normal text-muted-foreground">(opțional)</span>
+          </Label>
+          <Input
+            id="location"
+            name="location"
+            maxLength={120}
+            placeholder="ex: Cluj-Napoca"
+            defaultValue={initialLocation ?? ""}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="website">
+            Website <span className="font-normal text-muted-foreground">(opțional)</span>
+          </Label>
+          <Input
+            id="website"
+            name="website"
+            maxLength={200}
+            placeholder="ex: detalia.ro"
+            defaultValue={initialWebsite ?? ""}
+          />
+        </div>
+      </div>
+
+      <Button type="submit" disabled={pending} className="h-10 self-start">
+        {pending ? "Se salvează…" : "Salvează profilul"}
       </Button>
     </form>
   );

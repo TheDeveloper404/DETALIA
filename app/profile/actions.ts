@@ -5,18 +5,16 @@ import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
 import { uploadAvatarImage, uploadCoverImage, validateImageFile } from "@/lib/storage";
-import { updateUserCoverImage, updateUserImage } from "@/server/repos/usersRepo";
-import { requestRoleVerification, updateRole } from "@/server/services/roleService";
+import {
+  updateUserCoverImage,
+  updateUserDetails,
+  updateUserImage,
+} from "@/server/repos/usersRepo";
+import { requestRoleVerification } from "@/server/services/roleService";
 
 // NOTĂ: un fișier „use server" poate exporta DOAR funcții async (Next 16). Starea inițială a formularelor
 // (`initialProfileState`) trăiește în `profile-forms.tsx`, nu aici. Tipul îl exportăm (tipurile se șterg).
 export type ProfileFormState = { error: string | null; ok: boolean };
-
-const ROLE_ERRORS: Record<string, string> = {
-  NO_ROLE: "Nu ai încă un rol declarat.",
-  INVALID_ROLE: "Selectează un rol valid.",
-  INVALID_SUBROLE: "Subrolul ales nu corespunde rolului.",
-};
 
 const VERIFICATION_ERRORS: Record<string, string> = {
   NO_ROLE: "Nu ai încă un rol declarat.",
@@ -92,23 +90,31 @@ export async function updateCoverAction(
   return { error: null, ok: true };
 }
 
-// Editează rolul / subrolul. Schimbarea revendicării resetează verificarea (vezi roleService).
-export async function updateRoleAction(
+// Editează câmpurile de text ale profilului (nume, headline, locație, website). NU atinge rolul (definitiv).
+// Numele e obligatoriu; restul opțional (gol → null). Website fără schemă → prefixăm https://.
+export async function updateProfileDetailsAction(
   _prev: ProfileFormState,
   formData: FormData,
 ): Promise<ProfileFormState> {
   const userId = await requireUserId();
 
-  const roleMain = String(formData.get("roleMain") ?? "");
-  const rawSubRole = formData.get("subRole");
-  const subRole = rawSubRole ? String(rawSubRole) : null;
+  const name = String(formData.get("name") ?? "").trim();
+  if (name.length === 0) return { error: "Numele nu poate fi gol.", ok: false };
+  if (name.length > 100) return { error: "Numele e prea lung (max 100).", ok: false };
 
-  const result = await updateRole({ userId, roleMain, subRole });
-  if (!result.ok) {
-    return { error: ROLE_ERRORS[result.error] ?? "Ceva n-a mers. Încearcă din nou.", ok: false };
-  }
+  const clip = (v: FormDataEntryValue | null, max: number) => {
+    const s = String(v ?? "").trim();
+    return s.length === 0 ? null : s.slice(0, max);
+  };
+  const headline = clip(formData.get("headline"), 120);
+  const location = clip(formData.get("location"), 120);
+  let website = clip(formData.get("website"), 200);
+  if (website && !/^https?:\/\//i.test(website)) website = `https://${website}`;
+
+  await updateUserDetails(userId, { name, headline, location, website });
 
   revalidatePath("/profile");
+  revalidatePath("/profile/edit");
   return { error: null, ok: true };
 }
 
