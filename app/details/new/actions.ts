@@ -4,9 +4,35 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { uploadDetailImage } from "@/lib/storage";
+import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail } from "@/server/services/detailService";
 
 export type CreateDetailState = { error: string | null };
+
+// Resursele suplimentare vin ca JSON dintr-un câmp ascuns (repeater pe client). Parsare defensivă:
+// ignorăm orice e malformat sau cu valoare goală; validarea finală o face DetailService.
+function readResources(formData: FormData): DetailResourceInput[] {
+  const raw = formData.get("resources");
+  if (typeof raw !== "string" || raw.trim().length === 0) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (r): r is { type: string; url: string } =>
+          typeof r === "object" &&
+          r !== null &&
+          typeof (r as { type?: unknown }).type === "string" &&
+          typeof (r as { url?: unknown }).url === "string" &&
+          (r as { url: string }).url.trim().length > 0,
+      )
+      .filter((r) => isValidResourceType(r.type))
+      .slice(0, 3)
+      .map((r) => ({ type: r.type as DetailResourceInput["type"], url: r.url.trim() }));
+  } catch {
+    return [];
+  }
+}
 
 // Mesaje prietenoase (fără internals). Acoperă erorile din storage + DetailService.
 const ERROR_MESSAGES: Record<string, string> = {
@@ -36,6 +62,9 @@ export async function createDetailAction(
   const title = String(formData.get("title") ?? "");
   const description = String(formData.get("description") ?? "");
   const categoryId = String(formData.get("categoryId") ?? "");
+  const climateZone = String(formData.get("climateZone") ?? "");
+  const seismicZone = String(formData.get("seismicZone") ?? "");
+  const resources = readResources(formData);
 
   // Guard ieftin înainte de upload — evită blob-uri orfane dacă lipsesc câmpurile text.
   if (title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
@@ -53,6 +82,9 @@ export async function createDetailAction(
     description,
     categoryId,
     imageUrl: upload.url,
+    climateZone,
+    seismicZone,
+    resources,
   });
 
   if (!result.ok) {
@@ -63,6 +95,6 @@ export async function createDetailAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
-  // Pagina de detaliu (/details/[id]) vine la pasul 3 — deocamdată ducem userul în feed.
-  redirect("/");
+  // Publicat → ducem userul direct la pagina noului detaliu.
+  redirect(`/details/${result.detailId}`);
 }
