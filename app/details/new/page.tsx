@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -20,16 +21,26 @@ export default async function NewDetailPage() {
   const categories = await listCategories();
 
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-6 p-8">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">Adaugă un detaliu</h1>
-        <p className="text-sm text-muted-foreground">
-          Publici un detaliu de execuție: titlu, context și imaginea 2D. Comunitatea îl validează pe roluri.
-        </p>
-      </header>
+    <main className="mx-auto w-full max-w-[760px] flex-1 px-6 pb-20 pt-8">
+      {/* breadcrumb */}
+      <nav className="mb-[18px] flex items-center gap-2 font-mono text-xs text-muted-foreground">
+        <Link href="/feed" className="hover:text-foreground">
+          Detalii
+        </Link>
+        <span className="text-[#cabfac]">/</span>
+        <span className="text-foreground/70">Adaugă un detaliu</span>
+      </nav>
+
+      <h1 className="mb-2 font-heading text-[30px] font-extrabold tracking-tight">
+        Adaugă un detaliu
+      </h1>
+      <p className="mb-7 max-w-[58ch] text-[15px] leading-relaxed text-muted-foreground">
+        Pui un detaliu de execuție la dezbatere. Publici desenul cu o descriere, breasla îl
+        cântărește pe roluri — fără coadă de aprobare.
+      </p>
 
       {categories.length === 0 ? (
-        <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+        <p className="rounded-[10px] border border-border bg-muted/50 px-3.5 py-2.5 text-sm text-muted-foreground">
           Nu există încă nicio categorie. Categoriile se adaugă la pasul de seed — revino după ce sunt
           configurate.
         </p>

@@ -68,6 +68,8 @@ const detailWithAuthorColumns = {
   authorId: details.authorId,
   authorName: users.name,
   authorImage: users.image,
+  authorLocation: users.location,
+  authorHeadline: users.headline,
   authorRoleMain: roles.roleMain,
   authorSubRole: roles.subRole,
   authorVerification: roles.verificationStatus,
