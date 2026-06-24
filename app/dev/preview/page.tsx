@@ -36,7 +36,7 @@ export default function DevPreviewIndex() {
             <Link
               key={l.href}
               href={l.href}
-              className="flex flex-col gap-2 rounded-xl bg-card p-6 ring-1 ring-foreground/10 transition-shadow hover:shadow-md"
+              className="flex flex-col gap-2 rounded-lg bg-card p-6 ring-1 ring-foreground/10 transition-shadow hover:shadow-md"
             >
               <h2 className="font-semibold">{l.title}</h2>
               <p className="text-sm text-muted-foreground">{l.body}</p>

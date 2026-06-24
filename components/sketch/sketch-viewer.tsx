@@ -44,7 +44,7 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
   }, [dims, strokes]);
 
   return (
-    <div ref={containerRef} className="w-full overflow-hidden rounded-xl ring-1 ring-foreground/10">
+    <div ref={containerRef} className="w-full overflow-hidden rounded-lg ring-1 ring-foreground/10">
       <canvas ref={canvasRef} width={dims.w} height={dims.h} className="block w-full" style={{ height: dims.h }} />
     </div>
   );

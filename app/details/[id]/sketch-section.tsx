@@ -106,7 +106,7 @@ export function SketchSection({
       )}
 
       {pending.length > 0 && (
-        <section className="flex flex-col gap-3 rounded-xl bg-card p-4 text-card-foreground ring-1 ring-foreground/10">
+        <section className="flex flex-col gap-3 rounded-lg bg-card p-4 text-card-foreground ring-1 ring-foreground/10">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-semibold">Propuneri în așteptare</h2>
             <Badge variant="secondary">{pending.length}</Badge>

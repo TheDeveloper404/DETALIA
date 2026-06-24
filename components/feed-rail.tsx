@@ -23,7 +23,7 @@ export function FeedRail({
     <aside className="hidden flex-col gap-[18px] xl:sticky xl:top-[90px] xl:flex">
       {/* Categorii populare. */}
       {categories.length > 0 && (
-        <div className="rounded-2xl bg-card p-[18px] ring-1 ring-foreground/10">
+        <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
           <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Categorii populare
           </div>
@@ -45,7 +45,7 @@ export function FeedRail({
 
       {/* În dezbatere acum. */}
       {debated.length > 0 && (
-        <div className="rounded-2xl bg-card p-[18px] ring-1 ring-foreground/10">
+        <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
           <div className="mb-3.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             În dezbatere acum
           </div>
@@ -68,7 +68,7 @@ export function FeedRail({
       )}
 
       {/* Nudge: validează pe rolul tău. */}
-      <div className="rounded-2xl border border-[#e6ddcf] bg-secondary p-[18px]">
+      <div className="rounded-lg border border-border bg-secondary p-[18px]">
         <div className="mb-1.5 font-bold text-foreground">Validează pe rolul tău</div>
         <p className="text-[13px] leading-relaxed text-muted-foreground">
           O dezaprobare vine mereu cu o justificare. Părerea ta cântărește prin rolul afișat lângă nume.

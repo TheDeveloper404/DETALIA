@@ -4,6 +4,45 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-24
+
+### Design System — aliniere globală de dimensiuni + culori pe tokeni
+Cerere (via Claude Design): UI uniform pe dimensiuni și culori prin tokenii shadcn, nu hex ad-hoc. Aplicat doar pe **design**
+(dimensiuni/culori) — comportamentul (stări empty/loading/error, flux Dezaprob) a fost lăsat în afara scope-ului, la cererea lui Liviu.
+- **Lățime container unică:** variabila `--container-max: 1280px` (globals.css) folosită pe **Auth/Onboarding/Feed/Landing** (erau
+  1320/1280/1180/1320). **Profil rămâne 1080px intenționat** (lizibilitate). Paginile de conținut/formular (detaliu, notificări,
+  schiță) rămân pe lățimi de citit mai înguste (`max-w-5xl/3xl/2xl`) — tier separat, deliberat.
+- **Gutter unic 24px** (Onboarding era 28; landing deja 24).
+- **Radius unic 10px** (`--radius` / `rounded-lg`) pe toate cardurile/butoanele/inputurile/panourile, inclusiv baza shadcn
+  `components/ui/card.tsx` (era `rounded-xl`); eliminat amestecul 9/11/12/13/14/16/18px. Pastilele (`rounded-full`) și cercurile
+  (`50%`) rămân. Radius-urile inline din landing → `var(--radius)`.
+- **Culori pe tokeni:** `destructive` (#b0463c) pe **Dezaprob** (`detail-card`) și pe stările **disputat/dezaprobat** (`profile-view`
+  — `SKETCH_STATUS_STYLE.disputed`, `ACTIVITY_ICON.disapprove`, bordura justificării); border input `#d8cfc0` → `--input` (Onboarding)
+  / `border-border` (buton editare profil, feed-empty); borduri calde ad-hoc (`#e6ddcf/#e2d7c4/#e6dccd`) → `border-border`; bg activ
+  categorie `#f6ede4` → `bg-secondary`.
+- **Breakpoint** onboarding 680→720px (aliniat la breakpoint-ul de sistem al hero-ului).
+- **Excepție păstrată:** landing-ul (`.dc-landing`) își păstrează **paleta proprie** (inclusiv pastila „disputat" #9a3a30 din
+  preview-ul hero) — confirmat ca excepție; doar dimensiunile (container/gutter/radius) au fost aliniate.
+- `typecheck` + `lint` + `build` VERZI.
+
+### Onboarding — redesign din Claude Design (date de profil) + migrație schemă
+- **Design importat** din proiectul Claude Design (`Detalia Onboarding.dc.html`) și implementat 1:1 ca pagină de brand bespoke
+  (header cu „Conectat ca {email}" + fundal blueprint + titlu + card cu **preview live** „cum vei apărea").
+- **Schemă — câmpuri noi pe `users`** (migrația `0002_tearful_puck`, reversibilă, toate nullable): `first_name`, `last_name`,
+  `headline`, `location`, `website`, `cover_image`. `name` (Auth.js) rămâne și e compus din `first + last` la onboarding pentru
+  compatibilitate cu codul care-l citește. **Necesită `db:push`/`db:migrate` pe Neon la următoarea rulare.**
+- **Onboarding colectează acum** (era doar rol+subrol+poză): prenume, nume (**obligatorii** — magic link nu capturează numele),
+  rol, subrol, headline, locație, website + **poză de profil** și **bandă de cover** (ambele opționale). Validare server-side
+  (lungimi + tip/dimensiune imagine) în `app/onboarding/actions.ts` → `roleService.declareRole` + `usersRepo.updateUserProfile`.
+- **Storage:** `uploadCoverImage` (prefix `covers/`) lângă avatar. **usersRepo:** `updateUserProfile` + `updateUserCoverImage`.
+- **Fix redirect (handoff):** onboarding redirectează acum în **`/feed`** (era `/`), atât post-submit cât și pentru userul care
+  are deja rol și reintră.
+- Componente: `app/onboarding/onboarding-form.tsx` (client, preview live + previews imagini cu `URL.createObjectURL`) înlocuiește
+  `role-form.tsx` (șters). Reguli scoped `.dt-onb` în `globals.css` (focus/hover/săgeată select/responsive 680px).
+- `typecheck` + `lint` + `build` VERZI.
+
+---
+
 ## 2026-06-23
 
 ### Design — login/signup la lățimea landing-ului + cadru bogat (AuthShell)
