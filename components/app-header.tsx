@@ -15,7 +15,7 @@ export async function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
+      <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6 py-3">
         <BrandLogo href="/feed" />
         <div className="flex items-center gap-1">
           <NotificationBell count={unread} />

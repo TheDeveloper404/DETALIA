@@ -29,7 +29,7 @@ export default async function NewDetailPage() {
       </header>
 
       {categories.length === 0 ? (
-        <p className="rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+        <p className="rounded-lg border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           Nu există încă nicio categorie. Categoriile se adaugă la pasul de seed — revino după ce sunt
           configurate.
         </p>

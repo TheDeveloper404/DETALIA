@@ -41,7 +41,7 @@ export default async function NotificationsPage() {
       <h1 className="text-2xl font-semibold tracking-tight">Notificări</h1>
 
       {notifications.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
           Nu ai nicio notificare încă.
         </p>
       ) : (
@@ -51,7 +51,7 @@ export default async function NotificationsPage() {
             const unread = n.readAt === null;
             const content = (
               <div
-                className={`flex flex-col gap-1 rounded-xl border p-3 transition-colors ${
+                className={`flex flex-col gap-1 rounded-lg border p-3 transition-colors ${
                   unread ? "border-border bg-muted/50" : "border-border"
                 } ${href ? "hover:border-foreground/30" : ""}`}
               >

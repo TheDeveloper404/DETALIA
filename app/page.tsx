@@ -21,7 +21,8 @@ const SECTION_PAD = "clamp(56px, 9vw, 92px) 24px";
 
 // Lățimea maximă a conținutului principal (header, hero, secțiunile 01–04, footer).
 // FAQ și CTA-ul dark rămân mai înguste, centrate intenționat (lizibilitate text centrat).
-const MAXW = 1320;
+// Lățime unică pe aplicație (vezi --container-max din globals.css).
+const MAXW = "var(--container-max)";
 
 const STEPS = [
   {
@@ -108,7 +109,7 @@ const h2: CSSProperties = {
 const card: CSSProperties = {
   background: "#ffffff",
   border: "1px solid #e6dfd3",
-  borderRadius: 14,
+  borderRadius: "var(--radius)",
   padding: 28,
 };
 const primaryBtn: CSSProperties = {
@@ -122,7 +123,7 @@ const primaryBtn: CSSProperties = {
   fontWeight: 600,
   fontSize: 16,
   padding: "14px 26px",
-  borderRadius: 10,
+  borderRadius: "var(--radius)",
   textDecoration: "none",
   border: "1px solid #95492e",
 };
@@ -137,7 +138,7 @@ const outlineBtn: CSSProperties = {
   fontWeight: 600,
   fontSize: 16,
   padding: "14px 26px",
-  borderRadius: 10,
+  borderRadius: "var(--radius)",
   textDecoration: "none",
   border: "1px solid #d8cfc0",
 };
@@ -200,7 +201,7 @@ export default async function Home() {
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
             {authed ? (
-              <Link href="/feed" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: 9 }}>
+              <Link href="/feed" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: "var(--radius)" }}>
                 Mergi la feed
               </Link>
             ) : (
@@ -208,7 +209,7 @@ export default async function Home() {
                 <Link href="/login" className="dc-link" style={{ fontSize: 14.5, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
                   Autentificare
                 </Link>
-                <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: 9 }}>
+                <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: "var(--radius)" }}>
                   Creează cont
                 </Link>
               </>
@@ -272,7 +273,7 @@ export default async function Home() {
 
           {/* Coloana card preview (planșă + voturi pe roluri) */}
           <div style={{ position: "relative" }}>
-            <div style={{ background: "#ffffff", border: "1px solid #e3ddd2", borderRadius: 14, boxShadow: "0 24px 60px -28px rgba(33,29,24,0.28)", overflow: "hidden" }}>
+            <div style={{ background: "#ffffff", border: "1px solid #e3ddd2", borderRadius: "var(--radius)", boxShadow: "0 24px 60px -28px rgba(33,29,24,0.28)", overflow: "hidden" }}>
               {/* Antet card */}
               <div
                 style={{
@@ -365,7 +366,7 @@ export default async function Home() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
             {/* Azi */}
-            <div style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: 14, padding: "30px 30px 16px" }}>
+            <div style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: "var(--radius)", padding: "30px 30px 16px" }}>
               <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "#9a3a30", marginBottom: 18 }}>
                 Azi
               </div>
@@ -385,7 +386,7 @@ export default async function Home() {
             </div>
 
             {/* Cu DETALIA */}
-            <div style={{ background: "#ffffff", border: "1px solid #d9c7ba", borderRadius: 14, padding: "30px 30px 16px", boxShadow: "0 18px 44px -30px rgba(169,87,58,0.4)" }}>
+            <div style={{ background: "#ffffff", border: "1px solid #d9c7ba", borderRadius: "var(--radius)", padding: "30px 30px 16px", boxShadow: "0 18px 44px -30px rgba(169,87,58,0.4)" }}>
               <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "#a9573a", marginBottom: 18 }}>
                 Cu DETALIA
               </div>
@@ -621,7 +622,7 @@ const voteAvatar: CSSProperties = {
 
 function RoleCard({ marker, title, body }: { marker: ReactNode; title: string; body: string }) {
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: 14, padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
+    <div style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: "var(--radius)", padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
       {marker}
       <div>
         <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "#211d18" }}>{title}</h3>

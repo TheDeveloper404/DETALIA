@@ -69,7 +69,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
       {/* Banner — grilă blueprint mascată radial. */}
-      <div className="relative h-[180px] overflow-hidden rounded-b-2xl bg-[#ece1d3]">
+      <div className="relative h-[180px] overflow-hidden rounded-b-lg bg-[#ece1d3]">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -122,14 +122,14 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             {!data.verified && (
               <a
                 href={data.verifyHref}
-                className="inline-flex items-center gap-1.5 rounded-[9px] border border-[#95492e] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground no-underline"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#95492e] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground no-underline"
               >
                 <Star className="text-white" /> Verifică rolul
               </a>
             )}
             <a
               href={data.editHref}
-              className="inline-flex items-center gap-1.5 rounded-[9px] border border-[#d8cfc0] bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
             >
               <Pencil /> Editează profil
             </a>
@@ -142,7 +142,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
         {/* Nudge — doar dacă rolul e neverificat. */}
         {!data.verified && (
-          <div className="mt-5 flex items-start gap-3 rounded-xl border border-[#f0e3c2] bg-[#fbf4e4] px-4 py-4">
+          <div className="mt-5 flex items-start gap-3 rounded-lg border border-[#f0e3c2] bg-[#fbf4e4] px-4 py-4">
             <Star className="mt-0.5 shrink-0 text-[#d99a2b]" size={20} />
             <div className="flex-1">
               <div className="font-semibold text-[#5e4a1a]">
@@ -164,7 +164,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       </div>
 
       {/* Bara de statistici. */}
-      <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-[13px] border border-border bg-border sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
         <Stat value={data.stats.published} label="Detalii publicate" />
         <Stat value={data.stats.sketches} label="Schițe propuse" />
         <Stat value={data.stats.validationsGiven} label="Validări date" />
@@ -193,7 +193,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
         <aside className="flex flex-col gap-[18px]">
           {(data.about || data.specializations.length > 0) && (
-            <div className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
+            <div className="rounded-lg bg-card p-5 ring-1 ring-foreground/10">
               <SectionLabel>Despre</SectionLabel>
               {data.about && (
                 <p className="mb-4 mt-3 text-sm leading-relaxed text-muted-foreground">
@@ -218,11 +218,11 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             </div>
           )}
 
-          <div className="rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
+          <div className="rounded-lg bg-card p-5 ring-1 ring-foreground/10">
             <SectionLabel>Rol &amp; verificare</SectionLabel>
             {data.verified ? (
               <>
-                <div className="mb-3.5 mt-3 flex items-center gap-2.5 rounded-[10px] border border-[#f0e3c2] bg-[#fbf6ea] px-3.5 py-3">
+                <div className="mb-3.5 mt-3 flex items-center gap-2.5 rounded-lg border border-[#f0e3c2] bg-[#fbf6ea] px-3.5 py-3">
                   <Star className="shrink-0 text-[#d99a2b]" size={22} />
                   <div>
                     <div className="font-semibold text-[#5e4a1a]">Rol verificat</div>
@@ -236,7 +236,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
               </>
             ) : (
               <>
-                <div className="mb-3.5 mt-3 flex items-center gap-2.5 rounded-[10px] border border-border bg-secondary px-3.5 py-3">
+                <div className="mb-3.5 mt-3 flex items-center gap-2.5 rounded-lg border border-border bg-secondary px-3.5 py-3">
                   <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[#b6a98f] text-xs text-muted-foreground">
                     ?
                   </span>
@@ -253,7 +253,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                 </p>
                 <a
                   href={data.verifyHref}
-                  className="flex items-center justify-center gap-1.5 rounded-[9px] border border-[#95492e] bg-primary px-3.5 py-2.5 text-[13.5px] font-semibold text-primary-foreground no-underline"
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-[#95492e] bg-primary px-3.5 py-2.5 text-[13.5px] font-semibold text-primary-foreground no-underline"
                 >
                   Verifică rolul
                 </a>
@@ -310,9 +310,9 @@ function DetailsTab({ items }: { items: ProfileDetailItem[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {items.map((d) => (
-        <div key={d.id} className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+        <div key={d.id} className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
           <div className="relative flex h-[120px] items-center justify-center border-b border-border bg-secondary">
-            <span className="absolute left-2.5 top-2.5 rounded-md border border-[#e6dccd] bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
+            <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
               {d.categoryName}
             </span>
           </div>
@@ -333,7 +333,8 @@ const SKETCH_STATUS_STYLE: Record<
   { bg: string; border: string; fg: string }
 > = {
   approved: { bg: "#e9f2ea", border: "#cfe3d2", fg: "#2f6b3f" },
-  disputed: { bg: "#f6ebe9", border: "#ecd6d2", fg: "#9a3a30" },
+  // „disputat" = poziție de dezacord → culoarea destructive a sistemului (#b0463c).
+  disputed: { bg: "rgba(176,70,60,0.1)", border: "rgba(176,70,60,0.3)", fg: "#b0463c" },
   open: { bg: "#f3efe8", border: "#e3ddd2", fg: "#8a8073" },
 };
 
@@ -345,7 +346,7 @@ function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
         return (
           <div
             key={s.id}
-            className="flex items-center gap-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10"
+            className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10"
           >
             <div className="flex h-[74px] w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary" />
             <div className="min-w-0 flex-1">
@@ -369,7 +370,7 @@ function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
 
 const ACTIVITY_ICON: Record<ProfileActivityItem["kind"], { bg: string; fg: string; glyph: string }> = {
   approve: { bg: "#e9f2ea", fg: "#2f6b3f", glyph: "✓" },
-  disapprove: { bg: "#f6ebe9", fg: "#9a3a30", glyph: "✕" },
+  disapprove: { bg: "rgba(176,70,60,0.12)", fg: "#b0463c", glyph: "✕" },
   comment: { bg: "#f3efe8", fg: "#a9573a", glyph: "💬" },
   publish: { bg: "#f3efe8", fg: "#a9573a", glyph: "+" },
 };
@@ -421,7 +422,7 @@ function activityText(a: ProfileActivityItem) {
 
 function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
   return (
-    <div className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
+    <div className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
       {items.map((a, i) => {
         const icon = ACTIVITY_ICON[a.kind];
         return (
@@ -438,7 +439,7 @@ function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
             <div className="flex-1">
               <div className="text-sm leading-relaxed text-foreground">{activityText(a)}</div>
               {a.justification && (
-                <div className="mt-1.5 border-l-2 border-[#ecd6d2] pl-2.5 text-[13px] leading-snug text-muted-foreground">
+                <div className="mt-1.5 border-l-2 border-destructive/30 pl-2.5 text-[13px] leading-snug text-muted-foreground">
                   „{a.justification}”
                 </div>
               )}

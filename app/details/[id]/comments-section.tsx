@@ -33,7 +33,7 @@ export function CommentsSection({
   }, [state]);
 
   return (
-    <section className="flex flex-col gap-4 rounded-xl bg-card p-4 text-card-foreground ring-1 ring-foreground/10">
+    <section className="flex flex-col gap-4 rounded-lg bg-card p-4 text-card-foreground ring-1 ring-foreground/10">
       <h2 className="text-sm font-semibold">Comentarii ({comments.length})</h2>
 
       {comments.length === 0 ? (

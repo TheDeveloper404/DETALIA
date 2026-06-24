@@ -54,7 +54,7 @@ export function AuthShell({
   return (
     <div className="flex flex-1 flex-col">
       <header className="sticky top-0 z-50 flex h-16 flex-none items-center border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1320px] items-center justify-between px-6">
+        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
           <BrandLogo />
           <a
             href={crossLinkHref}
@@ -81,9 +81,9 @@ export function AuthShell({
           }}
         />
 
-        <div className="relative z-10 mx-auto grid w-full max-w-[1320px] grid-cols-1 items-center gap-16 px-6 py-14 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="relative z-10 mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-center gap-16 px-6 py-14 lg:grid-cols-[1.05fr_0.95fr]">
           {/* Panou „cum funcționează" — ascuns pe mobil. */}
-          <section className="hidden min-h-[520px] flex-col justify-center overflow-hidden rounded-2xl border border-[#e6ddcf] bg-secondary p-12 lg:flex">
+          <section className="hidden min-h-[520px] flex-col justify-center overflow-hidden rounded-lg border border-border bg-secondary p-12 lg:flex">
             <div className="mb-6 flex items-center gap-2.5 font-mono text-[11.5px] uppercase tracking-[0.16em] text-primary">
               <span aria-hidden className="inline-block size-1.5 rotate-45 bg-primary" />
               {panel.kicker}
@@ -96,7 +96,7 @@ export function AuthShell({
               {STEPS.map((s) => (
                 <li
                   key={s.n}
-                  className="flex items-start gap-[18px] border-t border-[#e2d7c4] py-[18px] last:border-b"
+                  className="flex items-start gap-[18px] border-t border-border py-[18px] last:border-b"
                 >
                   <span className="w-[26px] flex-none font-mono text-[13px] tracking-[0.06em] text-primary">
                     {s.n}
@@ -131,7 +131,7 @@ export function AuthShell({
       </main>
 
       <footer className="flex-none border-t border-border">
-        <div className="mx-auto flex w-full max-w-[1320px] flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-wrap items-center justify-between gap-4 px-6 py-5">
           <span className="font-mono text-xs text-muted-foreground">
             © {new Date().getFullYear()} DETALIA
           </span>
