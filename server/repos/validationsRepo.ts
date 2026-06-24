@@ -1,5 +1,5 @@
 // Repo validări — singurul loc cu acces Drizzle pentru tabelul `validations` (polimorfic Detail/Sketch).
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { roles, users, validations } from "@/db/schema";
@@ -22,6 +22,25 @@ export async function getUserPosition(
     )
     .limit(1);
   return row ?? null;
+}
+
+// Pozițiile userului curent pe mai multe ținte deodată (batch, pentru feed) — fără N+1.
+export async function listUserPositionsForTargets(
+  userId: string,
+  targetType: TargetType,
+  targetIds: string[],
+) {
+  if (targetIds.length === 0) return [];
+  return db
+    .select({ targetId: validations.targetId, position: validations.position })
+    .from(validations)
+    .where(
+      and(
+        eq(validations.userId, userId),
+        eq(validations.targetType, targetType),
+        inArray(validations.targetId, targetIds),
+      ),
+    );
 }
 
 // Upsert: o singură poziție per (user, targetType, targetId) — reversibilă prin schimbarea poziției.
@@ -66,24 +85,42 @@ export async function deletePosition(
     );
 }
 
-// Pozițiile pe o țintă, cu autor (nume + rol curent) — pentru afișarea transparentă pe roluri.
+// Pozițiile pe o țintă, cu autor (nume + rolul DIN MOMENTUL poziției).
+// Afișăm `roleSnapshot` (rolul/verificarea de la momentul votului), nu rolul curent —
+// altfel o schimbare ulterioară de rol ar rescrie retrospectiv contextul validărilor vechi.
+// Fallback la rolul curent doar pentru înregistrările vechi fără snapshot.
 export async function listPositionsForTarget(targetType: TargetType, targetId: string) {
-  return db
+  const rows = await db
     .select({
       userId: validations.userId,
       position: validations.position,
       createdAt: validations.createdAt,
       userName: users.name,
       userImage: users.image,
-      roleMain: roles.roleMain,
-      subRole: roles.subRole,
-      verification: roles.verificationStatus,
+      roleSnapshot: validations.roleSnapshot,
+      currentRoleMain: roles.roleMain,
+      currentSubRole: roles.subRole,
+      currentVerification: roles.verificationStatus,
     })
     .from(validations)
     .leftJoin(users, eq(users.id, validations.userId))
     .leftJoin(roles, eq(roles.userId, validations.userId))
     .where(and(eq(validations.targetType, targetType), eq(validations.targetId, targetId)))
     .orderBy(desc(validations.createdAt));
+
+  return rows.map((r) => {
+    const snap = r.roleSnapshot as RoleSnapshot | null;
+    return {
+      userId: r.userId,
+      position: r.position,
+      createdAt: r.createdAt,
+      userName: r.userName,
+      userImage: r.userImage,
+      roleMain: snap?.roleMain ?? r.currentRoleMain,
+      subRole: snap?.subRole ?? r.currentSubRole,
+      verification: snap?.verificationStatus ?? r.currentVerification,
+    };
+  });
 }
 
 export type TargetPosition = Awaited<ReturnType<typeof listPositionsForTarget>>[number];

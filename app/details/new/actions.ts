@@ -39,6 +39,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   EMPTY: "Alege o imagine pentru detaliu.",
   INVALID_TYPE: "Imaginea trebuie să fie PNG, JPG, WebP sau AVIF.",
   TOO_LARGE: "Imaginea e prea mare (max 8 MB).",
+  UPLOAD_FAILED: "Stocarea imaginilor nu e disponibilă acum (config Blob).",
   TITLE_REQUIRED: "Titlul e obligatoriu.",
   TITLE_TOO_LONG: "Titlul e prea lung (max 200 de caractere).",
   DESCRIPTION_TOO_LONG: "Textul e prea lung (max 5000 de caractere).",

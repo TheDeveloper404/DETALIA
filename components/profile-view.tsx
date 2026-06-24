@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
+
+import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 
 // Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven.
 // Folosit acum de preview-ul cu date mock; gândit ca, după ce modelul de date primește câmpurile
@@ -17,7 +20,7 @@ export type ProfileStats = {
 export type ProfileDetailItem = {
   id: string;
   title: string;
-  categoryName: string;
+  categoryName: string | null;
   validationCount: number;
   sketchCount: number;
 };
@@ -44,6 +47,7 @@ export type ProfileViewData = {
   image: string | null;
   roleLabel: string; // ex: „Proiectant · Arhitect"
   location: string | null;
+  website: { href: string; label: string } | null;
   bio: string | null;
   about: string | null;
   specializations: string[];
@@ -53,7 +57,9 @@ export type ProfileViewData = {
   sketches: ProfileSketchItem[];
   activity: ProfileActivityItem[];
   editHref: string;
-  verifyHref: string;
+  viewerIsOwner: boolean; // ascunde „Editează profil" pentru vizitatori (profil public read-only)
+  contributions: ContributionDay[]; // heatmap ultimul an (zile aliniate pe săptămâni, nivel 0..4)
+  contributionsTotal: number;
 };
 
 function initials(name: string): string {
@@ -114,52 +120,34 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                     <Pin /> {data.location}
                   </span>
                 )}
+                {data.website && (
+                  <a
+                    href={data.website.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[13.5px] text-primary underline-offset-2 hover:underline"
+                  >
+                    {data.website.label}
+                  </a>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 pb-1.5">
-            {!data.verified && (
+          {data.viewerIsOwner && (
+            <div className="flex items-center gap-2.5 pb-1.5">
               <a
-                href={data.verifyHref}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#95492e] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground no-underline"
+                href={data.editHref}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
               >
-                <Star className="text-white" /> Verifică rolul
+                <Pencil /> Editează profil
               </a>
-            )}
-            <a
-              href={data.editHref}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
-            >
-              <Pencil /> Editează profil
-            </a>
-          </div>
+            </div>
+          )}
         </div>
 
         {data.bio && (
           <p className="mt-[18px] max-w-[64ch] leading-relaxed text-muted-foreground">{data.bio}</p>
-        )}
-
-        {/* Nudge — doar dacă rolul e neverificat. */}
-        {!data.verified && (
-          <div className="mt-5 flex items-start gap-3 rounded-lg border border-[#f0e3c2] bg-[#fbf4e4] px-4 py-4">
-            <Star className="mt-0.5 shrink-0 text-[#d99a2b]" size={20} />
-            <div className="flex-1">
-              <div className="font-semibold text-[#5e4a1a]">
-                Rolul tău e declarat, dar încă neverificat
-              </div>
-              <div className="mt-0.5 text-[13.5px] leading-relaxed text-[#7a6a3e]">
-                Poți publica și valida fără restricții. Verificarea e opțională și îți adaugă steluța ★
-                — un semn în plus de încredere lângă numele tău.
-              </div>
-            </div>
-            <a
-              href={data.verifyHref}
-              className="shrink-0 self-center whitespace-nowrap text-[13.5px] font-semibold text-primary no-underline"
-            >
-              Verifică acum →
-            </a>
-          </div>
         )}
       </div>
 
@@ -169,6 +157,11 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         <Stat value={data.stats.sketches} label="Schițe propuse" />
         <Stat value={data.stats.validationsGiven} label="Validări date" />
         <Stat value={data.stats.validationsReceived} label="Validări primite" />
+      </div>
+
+      {/* Heatmap de contribuții (ultimul an). */}
+      <div className="mt-6">
+        <ContributionGraph days={data.contributions} total={data.contributionsTotal} />
       </div>
 
       {/* Grid principal: taburi (stânga) + aside (dreapta). */}
@@ -247,16 +240,10 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                     </div>
                   </div>
                 </div>
-                <p className="mb-3.5 text-[13px] leading-relaxed text-muted-foreground">
-                  Contul tău e complet funcțional: poți publica detalii, propune schițe și valida fără
-                  nicio restricție. Verificarea e opțională — adaugă doar steluța ★ lângă nume.
+                <p className="text-[13px] leading-relaxed text-muted-foreground">
+                  Cont complet funcțional: poate publica detalii, propune schițe și valida fără nicio
+                  restricție. Verificarea rolului va fi disponibilă în curând (adaugă steluța ★ lângă nume).
                 </p>
-                <a
-                  href={data.verifyHref}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-[#95492e] bg-primary px-3.5 py-2.5 text-[13.5px] font-semibold text-primary-foreground no-underline"
-                >
-                  Verifică rolul
-                </a>
               </>
             )}
           </div>
@@ -307,23 +294,38 @@ function TabButton({
 }
 
 function DetailsTab({ items }: { items: ProfileDetailItem[] }) {
+  if (items.length === 0) return <EmptyTab>Niciun detaliu publicat încă.</EmptyTab>;
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {items.map((d) => (
-        <div key={d.id} className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
+        <Link
+          key={d.id}
+          href={`/details/${d.id}`}
+          className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10 transition-shadow hover:ring-primary/40"
+        >
           <div className="relative flex h-[120px] items-center justify-center border-b border-border bg-secondary">
-            <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
-              {d.categoryName}
-            </span>
+            {d.categoryName && (
+              <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
+                {d.categoryName}
+              </span>
+            )}
           </div>
           <div className="px-4 py-3.5">
-            <h3 className="mb-1.5 font-semibold">{d.title}</h3>
+            <h3 className="mb-1.5 font-semibold text-foreground">{d.title}</h3>
             <div className="font-mono text-[11px] text-muted-foreground">
               {d.validationCount} validări · {d.sketchCount} schițe
             </div>
           </div>
-        </div>
+        </Link>
       ))}
+    </div>
+  );
+}
+
+function EmptyTab({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-card px-6 py-10 text-center text-sm text-muted-foreground">
+      {children}
     </div>
   );
 }
@@ -339,6 +341,7 @@ const SKETCH_STATUS_STYLE: Record<
 };
 
 function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
+  if (items.length === 0) return <EmptyTab>Nicio schiță propusă încă.</EmptyTab>;
   return (
     <div className="flex flex-col gap-3.5">
       {items.map((s) => {
@@ -380,8 +383,7 @@ function activityText(a: ProfileActivityItem) {
     case "approve":
       return (
         <>
-          <b className="font-semibold">A aprobat</b> o schiță la{" "}
-          <b className="font-semibold">{a.target}</b>
+          <b className="font-semibold">A aprobat</b> „<b className="font-semibold">{a.target}</b>”
           {a.asRole && (
             <>
               {" "}
@@ -394,8 +396,7 @@ function activityText(a: ProfileActivityItem) {
     case "disapprove":
       return (
         <>
-          <b className="font-semibold">A dezaprobat</b> o schiță la{" "}
-          <b className="font-semibold">{a.target}</b>
+          <b className="font-semibold">A dezaprobat</b> „<b className="font-semibold">{a.target}</b>”
           {a.asRole && (
             <>
               {" "}
@@ -421,6 +422,7 @@ function activityText(a: ProfileActivityItem) {
 }
 
 function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
+  if (items.length === 0) return <EmptyTab>Nicio activitate încă.</EmptyTab>;
   return (
     <div className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
       {items.map((a, i) => {

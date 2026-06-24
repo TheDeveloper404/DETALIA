@@ -17,11 +17,23 @@ export default async function DevProfilePreview({
   const { variant } = await searchParams;
   const verified = variant !== "neverificat";
 
+  // Heatmap mock — 53 săptămâni de niveluri pseudo-aleatoare deterministe (preview, fără DB).
+  // Bază fixă (determinist, fără `Date.now` — interzis în render).
+  const mockBase = Date.UTC(2025, 5, 1);
+  const mockContributions = Array.from({ length: 53 * 7 }, (_, i) => {
+    const level = [0, 0, 1, 0, 2, 1, 3, 0, 4, 1][(i * 7) % 10];
+    const count = [0, 0, 2, 0, 4, 1, 7, 0, 12, 2][(i * 7) % 10];
+    const date = new Date(mockBase + i * 86_400_000).toISOString().slice(0, 10);
+    return { date, count, level };
+  });
+  const mockContributionsTotal = mockContributions.reduce((s, d) => s + d.count, 0);
+
   const data: ProfileViewData = {
     name: "Andrei Munteanu",
     image: null,
     roleLabel: "Proiectant · Arhitect",
     location: "Cluj-Napoca",
+    website: { href: "https://exemplu.ro", label: "exemplu.ro" },
     bio: "Proiectez structuri și detalii de execuție pentru locuințe și clădiri publice de peste 12 ani. Mă interesează acolo unde proiectul întâlnește șantierul — aticuri, racorduri, hidroizolații.",
     about:
       "Lucrez la limita dintre proiect și execuție: prefer un detaliu care se poate pune în operă, nu unul care arată bine doar pe planșă. Cred în dezbaterea deschisă între roluri.",
@@ -46,7 +58,9 @@ export default async function DevProfilePreview({
       { id: "a4", kind: "publish", target: "Atic acoperiș terasă", time: "acum 1 săptămână" },
     ],
     editHref: "#",
-    verifyHref: "#",
+    viewerIsOwner: true,
+    contributions: mockContributions,
+    contributionsTotal: mockContributionsTotal,
   };
 
   return (
