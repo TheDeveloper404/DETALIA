@@ -9,6 +9,27 @@ export async function updateUserImage(userId: string, imageUrl: string) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
 }
 
+// Datele de profil colectate la onboarding (text). Imaginile (image/coverImage) se setează separat,
+// după upload-ul în Blob. `name` îl compunem aici din first + last pentru codul care-l citește.
+export async function updateUserProfile(
+  userId: string,
+  fields: {
+    firstName: string;
+    lastName: string;
+    name: string;
+    headline: string | null;
+    location: string | null;
+    website: string | null;
+  },
+) {
+  await db.update(users).set(fields).where(eq(users.id, userId));
+}
+
+// Setează URL-ul cover-ului după upload (best-effort, ca și avatarul).
+export async function updateUserCoverImage(userId: string, coverUrl: string) {
+  await db.update(users).set({ coverImage: coverUrl }).where(eq(users.id, userId));
+}
+
 // Datele de profil afișate pe /profile (nume, email, poză). Email = PII, NU se loghează.
 export async function getUserProfile(userId: string) {
   const [row] = await db

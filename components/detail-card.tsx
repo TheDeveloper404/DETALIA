@@ -21,7 +21,7 @@ export function DetailCard({ detail }: { detail: FeedItem }) {
   const href = `/details/${detail.id}`;
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/10 sm:flex-row">
+    <article className="flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 sm:flex-row">
       {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. */}
       <Link
         href={href}
@@ -35,7 +35,7 @@ export function DetailCard({ detail }: { detail: FeedItem }) {
           className="object-cover"
         />
         {detail.categoryName && (
-          <span className="absolute left-2.5 top-2.5 rounded-md border border-[#e6dccd] bg-background/85 px-1.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary">
+          <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary">
             {detail.categoryName}
           </span>
         )}
@@ -90,7 +90,7 @@ export function DetailCard({ detail }: { detail: FeedItem }) {
           </Link>
           <Link
             href={href}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#ecd6d2] bg-[#f6ebe9] px-3.5 py-1.5 text-[13.5px] font-semibold text-[#9a3a30] no-underline transition-colors hover:bg-[#f0e0dd]"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-1.5 text-[13.5px] font-semibold text-destructive no-underline transition-colors hover:bg-destructive/15"
           >
             ✕ Dezaprob
           </Link>

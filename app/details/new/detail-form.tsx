@@ -97,7 +97,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
         <img
           src={previewUrl}
           alt="Previzualizare imagine detaliu"
-          className="max-h-64 w-full rounded-xl object-contain ring-1 ring-foreground/10"
+          className="max-h-64 w-full rounded-lg object-contain ring-1 ring-foreground/10"
         />
       )}
 

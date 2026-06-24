@@ -49,7 +49,7 @@ export default async function FeedPage({
     }));
 
   return (
-    <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
+    <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
       <FeedSidebar
         profile={{
           name: session.user.name ?? null,

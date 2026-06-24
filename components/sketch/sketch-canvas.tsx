@@ -267,7 +267,7 @@ export function SketchCanvas({
       </div>
 
       {/* Suprafața de desen */}
-      <div ref={containerRef} className="w-full overflow-hidden rounded-xl border border-input">
+      <div ref={containerRef} className="w-full overflow-hidden rounded-lg border border-input">
         <canvas
           ref={canvasRef}
           width={dims.w}

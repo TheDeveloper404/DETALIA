@@ -96,7 +96,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             </p>
           )}
 
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl bg-muted ring-1 ring-foreground/10">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted ring-1 ring-foreground/10">
             <Image
               src={detail.imageUrl}
               alt={detail.title}

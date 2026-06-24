@@ -38,7 +38,7 @@ export default async function DevFeedPreview({
   return (
     <div className="flex flex-1 flex-col">
       <header className="sticky top-0 z-50 flex h-16 items-center border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between px-6">
+        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
           <BrandLogo href="/dev/preview" />
           <span className="rounded-full border border-border bg-secondary px-3 py-1 font-mono text-xs uppercase tracking-wider text-muted-foreground">
             Preview · feed
@@ -46,7 +46,7 @@ export default async function DevFeedPreview({
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1280px] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
+      <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
         <FeedSidebar
           profile={MOCK_PROFILE}
           categories={MOCK_CATEGORIES_WITH_COUNTS}

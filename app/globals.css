@@ -74,7 +74,8 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem; /* brand */
+  --radius: 0.625rem; /* brand — 10px, radius unic pe toată aplicația */
+  --container-max: 1280px; /* lățime unică de container (Auth/Onboarding/Feed/Landing). Profil rămâne mai îngust intenționat. */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -177,4 +178,44 @@
     grid-template-columns: 1fr;
     gap: 40px;
   }
+}
+
+/* Onboarding (app/onboarding) — pagină de brand bespoke, ca landing-ul. Inline style nu poate
+   exprima :focus / :hover / media query / săgeata <select>, deci stau aici, scoped la .dt-onb. */
+.dt-onb .dt-row2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.dt-onb .dt-media {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 20px;
+}
+@media (max-width: 720px) {
+  .dt-onb .dt-row2,
+  .dt-onb .dt-media {
+    grid-template-columns: 1fr;
+  }
+}
+.dt-onb .dt-field {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dt-onb .dt-field:focus {
+  outline: none;
+  border-color: #a9573a;
+  box-shadow: 0 0 0 3px rgba(169, 87, 58, 0.13);
+}
+.dt-onb .dt-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a8073' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+}
+.dt-onb .dt-cta {
+  transition: background-color 0.15s;
+}
+.dt-onb .dt-cta:hover:not(:disabled) {
+  background-color: #974a2e;
 }

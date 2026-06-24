@@ -50,6 +50,11 @@ export function uploadAvatarImage(file: File): Promise<UploadImageResult> {
   return uploadImage(file, "avatars");
 }
 
+// Banda de cover a profilului — onboarding (opțional).
+export function uploadCoverImage(file: File): Promise<UploadImageResult> {
+  return uploadImage(file, "covers");
+}
+
 // Thumbnail PNG al unei schițe (randat client-side la SEND). Primește un Blob, validăm doar dimensiunea.
 export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
   if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
