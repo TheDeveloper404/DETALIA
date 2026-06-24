@@ -4,6 +4,105 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-24 (audit vizual Liviu — fix-uri + UX, val 1+2)
+
+### Fix-uri bug + îmbunătățiri UX din verificarea vizuală
+`typecheck` + `lint` + `build` VERZI. Pe puncte (numerotare din feedback-ul lui Liviu):
+- **#8 (bug 500 upload poză):** `"use server"` nu poate exporta un obiect → mutat `initialProfileState` din `profile/actions.ts` în `profile-forms.tsx`.
+- **#10/#13 (bug 500 Blob):** `lib/storage.ts` — `put()` în try/catch → întoarce `{ok:false, error:"UPLOAD_FAILED"}` în loc să arunce (fără 500).
+  Send schiță merge fără thumbnail; creare detaliu dă eroare curată. **Cauza reală = store Blob PRIVAT** (config Vercel): trebuie un store PUBLIC.
+- **#1 (feed):** Aprob/Dezaprob activ = **fill solid** (verde/roșu plin) home; Dezaprob deschide un **modal** (overlay) — nu mai mărește cardul.
+- **#3:** „Detalii recente" → **„Detalii în dezbatere"**.
+- **#4:** sortare **funcțională** (dropdown 2 opțiuni: „În dezbatere" după interacțiuni / „Recente" după dată) — `getFeed/listFeed` iau `sort`, param `?sort=`.
+- **#11:** rail dreapta „Categorii populare" (redundant cu sidebar-ul) → **„Autori activi"** (top după detalii publicate, link la profilul public). Repo `listTopAuthors`.
+- **#5:** avatar din header → **dropdown** (`UserMenu`): Vizualizare profil · Editează profil · **Deconectare** (reală, `signOut`).
+- **#6:** **upload cover** adăugat (`updateCoverAction` + `CoverForm`).
+- **#7:** `/profile/edit` **redesenat** — antet cu cover+avatar (preview live) + grid de carduri (mai puțin spațiu mort).
+- **#12:** buton **ștergere ciornă** pe `/sketches/drafts` (`deleteDraftAction` → delete condiționat: doar autorul, doar DRAFT).
+- **#2 (categorii count 0):** verificat — logica e corectă (subquery identic cu contoarele de pe detaliu); artefact de cache/timing pre-seed.
+
+**Rămas din audit:** #9 unelte schiță (line/text tool + paletă aliniată la brand) — separat.
+
+## 2026-06-24 (dev-login + seed — verificare vizuală localhost) 🔴 DE ȘTERS LA PROD
+
+### Dev-login gated + seed de conținut demo
+Infrastructură DOAR pentru verificare vizuală pe localhost (login + seed lipseau → paginile reale nevăzute cu DB).
+**Gated dur la non-producție; DE ȘTERS înainte de prod** (reminder în `.remember/remember.md`). `typecheck` + `lint` + `build` VERZI.
+- **`app/dev/login/`** (nou): pagină gated (`notFound` în prod) care listează userii și te loghează fără email. Cu sesiune `database`,
+  „login" = inserăm rând în `sessions` + setăm cookie-ul Auth.js (`authjs.session-token` / `__Secure-` după AUTH_URL). `/dev` e deja public pe non-prod în `proxy.ts`.
+- **`db/seed.ts`** extins: păstrează seedarea admin (ADMIN_EMAILS), adaugă **conținut demo idempotent** — 6 categorii, 4 useri cu roluri
+  diferite (Andrei PROIECTANT verificat · Ioana · Mihai EXECUTANT verificat · Elena FURNIZOR), 9 detalii distribuite pe categorii,
+  15 validări (cu dezaprobări→comentariu), ~18 comentarii Andrei împrăștiate pe an (densitate heatmap), 3 schițe (PUBLISHED/PENDING/DRAFT).
+  Guard: dacă Andrei are deja detalii → skip. PII fără log (hook `block-pii-log`).
+- **`public/seed/detail.svg`** (nou): placeholder blueprint local pentru `imageUrl` (next/image servește local fără remotePatterns).
+
+## 2026-06-24 (epic Profil pe date reale — Faza 2: heatmap contribuții)
+
+### Grafic de contribuții stil GitHub (heatmap „ultimul an")
+Heatmap de contribuții pe profil, **derivat din aceleași timestamp-uri** (validări date + comentarii + detalii publicate + schițe trimise),
+fără tabel de evenimente. `typecheck` + `lint` + `build` VERZI. **Neverificat vizual cu DB.**
+- **`profileRepo.getContributionCounts(userId, since)`** (nou): 4 query-uri grupate pe zi (UTC, `to_char ... at time zone 'UTC'`),
+  fuzionate într-un `Map<zi, număr>`. Helper `dayUtc(col)`.
+- **`profileService`**: fereastră ~53 săptămâni aliniată la **Luni** (UTC), generează zilele cu `level` 0..4 (buckete 0 / 1-2 / 3-5 / 6-9 / 10+) +
+  `contributionsTotal`. Adăugate în `ProfileViewData` (`contributions`, `contributionsTotal`).
+- **`components/contribution-graph.tsx`** (nou): grilă săptămâni × 7 zile, scală verde, etichete lună/zi RO, legendă „Mai puțin→Mai mult",
+  tooltip per zi. Randat în `ProfileView` sub bara de stats. Mock în `/dev/preview/profile`.
+- Note lint react-compiler: etichete lună fără variabilă mutabilă în closure; mock fără `Date.now` (bază fixă `Date.UTC`).
+
+**Rămas (din epic):** schema `bio/about/specializări` (decizie de produs); linkuri pe cardurile din tab-ul Schițe.
+
+## 2026-06-24 (epic Profil pe date reale — Faza 1)
+
+### Profil pe date REALE — ProfileView alimentat din DB + restructurare rute
+Epicul „PROFIL pe date reale" (faza 1). Stats + activitate **derivate din tabelele existente** (validations/comments/details/sketches au
+`created_at`) — **fără tabel de evenimente nou** (zero dual-write/backfill). `typecheck` + `lint` + `build` VERZI. **Neverificat vizual cu DB.**
+- **`server/repos/profileRepo.ts`** (nou): `getProfileStats` (publicate / schițe propuse / validări date / validări primite — ultima pe ținte
+  deținute de user, via `inArray` pe subquery), `listAuthorDetails` (cu contoare validări/schițe), `listAuthorSketches` (non-DRAFT, cu titlul
+  detaliului-mamă), `listAuthorActivity` (validări + comentarii + publicări; titlul țintei polimorfice rezolvat prin join, SKETCH→detaliul-mamă cu `alias`).
+- **`server/services/profileService.ts`** (nou): `getProfileView(userId, viewerId)` → `ProfileViewData`. Mapează statusuri schiță
+  (PUBLISHED→„În teanc"/approved, REJECTED→„Respinsă"/disputed, PENDING_ACCEPTANCE→„În așteptare"/open), fuzionează activitatea (recent→vechi,
+  sare peste comentariile-justificare ca să nu dubleze dezaprobarea), timp relativ RO, website sanitizat (allowlist http/https).
+- **`ProfileView`** ajustat: `viewerIsOwner` (ascunde „Editează profil" pe profil public) în loc de `verifyHref`; **scoase CTA-urile „Verifică rolul"**
+  (header/nudge/aside) — consecvent cu HOLD-ul de la verificarea rolului; **website** afișat în header; carduri Detalii **navigabile** (→ `/details/[id]`);
+  **stări goale** pe cele 3 taburi; copy activitate generic (nu mai zice „o schiță" pentru validări pe detalii).
+- **Restructurare rute:** `/profile` = **vizualizarea** proprie (ProfileView); **`/profile/edit`** (nou) = setările (mutate din `/profile`);
+  **`/profile/[userId]`** = aceeași ProfileView read-only (înlocuiește pagina minimală de la #2). Linkul „Editează profil" → `/profile/edit`.
+- **`bio/about/specializări`** rămân backlog (ProfileView le randează condiționat → ascunse); `headline` → slotul de tagline.
+- `package.json`: `test` → `vitest run --passWithNoTests` (verde până scriem teste). **vitest = de instalat de Liviu** (`npm i -D vitest`).
+
+**Rămas (faza 2):** grafic de contribuții stil GitHub (heatmap, derivă din aceleași timestamp-uri); schema `bio/about/specializări`; linkuri pe cardurile de schiță.
+
+## 2026-06-24 (audit Codex — aliniere frontend↔backend)
+
+### Remediere constatări audit (`audit.md`) — 8 fix-uri + 1 pus pe HOLD intenționat
+Rulat un audit static de aliniere frontend↔backend (Codex). Tratate toate cele 9 constatări. `typecheck` + `lint` + `build` VERZI.
+
+**Severitate ridicată**
+- **#2 „Vezi profilul" deschidea persoana greșită → profil public nou.** Linkul din cardul autor (`details/[id]`) ducea fix la `/profile`
+  (propriile setări). Adăugat **`/profile/[userId]`** read-only (cover/avatar/nume/rol+verificat/headline/locație/website), repo `getPublicProfile`
+  (fără email/PII), website sanitizat (allowlist http/https). Propriul ID → redirect la `/profile`. *Statistici/taburi/activity log rămân pe epicul „Profil pe date reale".*
+- **#1 Verificare rol „fără ieșire" → pusă pe HOLD (decizie Edi/Liviu).** Fluxul ducea userul în `PENDING` fără capăt de aprobare. În loc să
+  construim UI admin birocratic (metodă în regândire), **ascuns butonul „Verifică rolul"** din profil; mesaj onest „disponibilă în curând".
+  Rol declarat = funcțional 100%. Schela (`requestRoleVerification`) rămâne dormantă în service.
+
+**Severitate medie**
+- **#3 Link categorie din detaliu nu filtra feedul.** Genera `?category=<slug>`, feedul citea `?cat=<uuid>`. Aliniat la convenția unică `?cat=<categoryId>`.
+- **#4 „Aprob/Dezaprob" din feed erau doar linkuri → cablate INLINE.** Componentă client `FeedValidationActions` (buton identic, Dezaprob cu
+  justificare obligatorie), reutilizează acțiunile detaliului + `revalidatePath("/feed")`. Poziția curentă încărcată batch (`getMyPositions`, fără N+1).
+- **#5 Ciornele DRAFT nu puteau fi reluate → pagina „Ciornele mele".** `/sketches/drafts` (listează drafturile userului cu titlul detaliului-mamă),
+  `listDraftsByAuthor`/`getMyDrafts`, link în AppHeader (iconiță). Mesajul „o reiei oricând" devine real.
+- **#6 Onboarding putea lăsa profil parțial permanent.** Reordonat: profil text + imagini ÎNTÂI, **`declareRole` ULTIMUL** (e markerul de
+  „onboarding complet"). Dacă o scriere pică, rolul nu se creează → onboardingul se reia, nu rămâne rol fără nume.
+- **#7 Accept/reject schiță vulnerabil la concurență.** Înlocuit read-then-write cu update condiționat atomic `transitionFromPending`
+  (`WHERE id=? AND status='PENDING_ACCEPTANCE'`, verifică rândurile afectate) → fără rezultate opuse / notificări duble.
+- **#8 URL resurse nevalidat.** Adăugat `isHttpUrl` (parsare `new URL` + allowlist http/https) la validarea resurselor detaliului (blochează `javascript:`/`data:`).
+
+**Severitate redusă**
+- **#9 `roleSnapshot` ignorat la afișare.** `listPositionsForTarget` afișa rolul CURENT (rescria retroactiv validările vechi la schimbarea rolului).
+  Acum preferă snapshotul salvat la momentul votului; fallback la rolul curent doar pentru înregistrările vechi fără snapshot.
+
+*Rămas separat (nu în acest set): rescrierea/arhivarea docs-urilor depășite semnalate de audit (ADR/API/ARHITECTURA/plan nontehnic etc.) + epicul „Profil pe date reale" (stats/activity log).*
+
 ## 2026-06-24
 
 ### Editor schiță — redesign full-screen din Claude Design (`Detalia Schita-editor.dc.html`)

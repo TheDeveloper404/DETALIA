@@ -61,6 +61,7 @@ skills-lock.json
 # === Continuitate sesiune (local, nu cod de proiect) ===
 .remember/
 /documente_client
+/audit.md
 
 # === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)

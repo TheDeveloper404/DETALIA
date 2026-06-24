@@ -91,13 +91,7 @@ export async function onboardingAction(
     }
   }
 
-  // ── Declară rolul (regulile de business trăiesc în service) ────
-  const result = await declareRole({ userId, roleMain, subRole });
-  if (!result.ok) {
-    return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
-  }
-
-  // ── Profil text ────
+  // ── Profil text PRIMUL ────
   await updateUserProfile(userId, {
     firstName,
     lastName,
@@ -107,7 +101,7 @@ export async function onboardingAction(
     website,
   });
 
-  // ── Upload imagini după ce restul e salvat (best-effort — se pot adăuga ulterior din profil) ────
+  // ── Upload imagini (best-effort — opționale, se pot adăuga ulterior din profil) ────
   if (hasAvatar) {
     const upload = await uploadAvatarImage(avatarFile);
     if (upload.ok) {
@@ -119,6 +113,14 @@ export async function onboardingAction(
     if (upload.ok) {
       await updateUserCoverImage(userId, upload.url);
     }
+  }
+
+  // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există rol).
+  // Dacă orice scriere de mai sus eșuează, rolul NU se creează → următoarea accesare reia onboardingul,
+  // nu lasă un profil parțial permanent (rol fără nume). Regulile de business trăiesc în service.
+  const result = await declareRole({ userId, roleMain, subRole });
+  if (!result.ok) {
+    return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
   // Profil complet → direct în feed (frecare minimă la primul contact).

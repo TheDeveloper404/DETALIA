@@ -1,14 +1,15 @@
-// Card de detaliu în feed — prezentațional (server component). Layout orizontal: thumbnail (imaginea 2D)
-// + conținut (titlu, text, autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
+// Card de detaliu în feed — layout orizontal: thumbnail (imaginea 2D) + conținut (titlu, text,
+// autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
 //
-// NOTĂ business: „Aprob / Dezaprob" NU se fac inline din feed — Dezaprob cere justificare obligatorie
-// (regulă non-negociabilă, enforce pe server). Butoanele duc la pagina detaliului, unde validarea se face
-// corect (cu justificarea pentru dezaprobare). Aici sunt doar afișaj + intrare în dezbatere.
+// Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
+// Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
 import Image from "next/image";
 import Link from "next/link";
 
+import type { ValidationPosition } from "@/server/domain/validation";
 import type { FeedItem } from "@/server/repos/detailsRepo";
 
+import { FeedValidationActions } from "./feed-validation-actions";
 import { RolePill } from "./role-pill";
 
 function initials(name: string | null): string {
@@ -17,7 +18,13 @@ function initials(name: string | null): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
-export function DetailCard({ detail }: { detail: FeedItem }) {
+export function DetailCard({
+  detail,
+  myPosition,
+}: {
+  detail: FeedItem;
+  myPosition: ValidationPosition | null;
+}) {
   const href = `/details/${detail.id}`;
 
   return (
@@ -80,24 +87,8 @@ export function DetailCard({ detail }: { detail: FeedItem }) {
           <span>{detail.sketchCount} schițe în teanc</span>
         </div>
 
-        {/* Acțiuni — duc la pagina detaliului (validarea + justificarea se fac acolo). */}
-        <div className="mt-auto flex flex-wrap items-center gap-2.5">
-          <Link
-            href={href}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#cfe3d2] bg-[#e9f2ea] px-3.5 py-1.5 text-[13.5px] font-semibold text-[#2f6b3f] no-underline transition-colors hover:bg-[#dfece0]"
-          >
-            ✓ Aprob
-          </Link>
-          <Link
-            href={href}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-1.5 text-[13.5px] font-semibold text-destructive no-underline transition-colors hover:bg-destructive/15"
-          >
-            ✕ Dezaprob
-          </Link>
-          <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-            {detail.validationCount} pe roluri
-          </span>
-        </div>
+        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob cu justificare). */}
+        <FeedValidationActions detailId={detail.id} myPosition={myPosition} />
       </div>
     </article>
   );

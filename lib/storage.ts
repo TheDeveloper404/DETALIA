@@ -13,7 +13,7 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/avif",
 ] as const;
 
-export type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE";
+export type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE" | "UPLOAD_FAILED";
 export type UploadImageResult = { ok: true; url: string } | { ok: false; error: ImageValidationError };
 
 // Validare pură (fără upload) — utilă pentru un guard ieftin înainte de operații de scriere.
@@ -32,12 +32,19 @@ async function uploadImage(file: File, prefix: string): Promise<UploadImageResul
   if (!valid.ok) return valid;
 
   const ext = file.type.split("/")[1] ?? "bin";
-  const blob = await put(`${prefix}/${crypto.randomUUID()}.${ext}`, file, {
-    access: "public",
-    addRandomSuffix: false, // numele e deja unic (uuid)
-    contentType: file.type,
-  });
-  return { ok: true, url: blob.url };
+  try {
+    const blob = await put(`${prefix}/${crypto.randomUUID()}.${ext}`, file, {
+      access: "public",
+      addRandomSuffix: false, // numele e deja unic (uuid)
+      contentType: file.type,
+    });
+    return { ok: true, url: blob.url };
+  } catch (err) {
+    // Ex: store Blob privat („Cannot use public access on a private store") sau token lipsă.
+    // Nu aruncăm (evităm 500) — întoarcem o eroare gestionabilă. Fără PII în log.
+    console.error("Upload Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
+    return { ok: false, error: "UPLOAD_FAILED" };
+  }
 }
 
 // Imaginea 2D a unui detaliu.
@@ -59,10 +66,15 @@ export function uploadCoverImage(file: File): Promise<UploadImageResult> {
 export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
   if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
   if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
-  const result = await put(`sketches/${crypto.randomUUID()}.png`, blob, {
-    access: "public",
-    addRandomSuffix: false,
-    contentType: "image/png",
-  });
-  return { ok: true, url: result.url };
+  try {
+    const result = await put(`sketches/${crypto.randomUUID()}.png`, blob, {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: "image/png",
+    });
+    return { ok: true, url: result.url };
+  } catch (err) {
+    console.error("Upload thumbnail Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
+    return { ok: false, error: "UPLOAD_FAILED" };
+  }
 }

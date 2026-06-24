@@ -29,6 +29,19 @@ export function isValidResourceType(value: string): value is ResourceType {
   return (RESOURCE_TYPES as readonly string[]).includes(value);
 }
 
+// URL de resursă valid = parsabil ȘI cu schemă http/https (allowlist strict).
+// Blochează scheme periculoase (javascript:, data:, file: etc.) înainte de persistare,
+// pentru că valoarea ajunge direct în `href`.
+export function isHttpUrl(value: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "http:" || parsed.protocol === "https:";
+}
+
 // Input normalizat după validare (gata de inserare).
 export type NormalizedDetailInput = {
   title: string;
@@ -93,7 +106,7 @@ export function validateDetailInput(input: {
       if (!body) return { ok: false, error: "INVALID_RESOURCE" };
       resources.push({ type: "TEXT", url: null, body });
     } else {
-      if (!url) return { ok: false, error: "INVALID_RESOURCE" };
+      if (!url || !isHttpUrl(url)) return { ok: false, error: "INVALID_RESOURCE" };
       resources.push({ type: r.type, url, body: null });
     }
   }

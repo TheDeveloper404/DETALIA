@@ -10,8 +10,11 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   getSketchById,
   insertDraft,
+  deleteDraftByAuthor,
+  listDraftsByAuthor,
   listPendingByDetail,
   listPublishedByDetail,
+  transitionFromPending,
   updateStatus,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
@@ -127,10 +130,13 @@ async function decide(
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
   if (detail.authorId !== input.actorUserId) return { ok: false, error: "FORBIDDEN" };
 
-  await updateStatus(input.sketchId, {
+  // Tranziție atomică cu guard pe status: dacă un request concurent a decis deja,
+  // acesta nu mai prinde rândul în PENDING_ACCEPTANCE → nu scriem rezultat opus, nu notificăm dublu.
+  const transitioned = await transitionFromPending(input.sketchId, {
     status: accepted ? SKETCH_STATUS.PUBLISHED : SKETCH_STATUS.REJECTED,
     acceptedAt: accepted ? new Date() : null,
   });
+  if (!transitioned) return { ok: false, error: "INVALID_STATE" };
 
   await notifySketchDecision({
     recipientUserId: sketch.authorId,
@@ -155,6 +161,16 @@ export function reject(input: { sketchId: string; actorUserId: string }): Promis
 // Teancul public (schițele PUBLISHED ale unui detaliu).
 export function getTeanc(detailId: string) {
   return listPublishedByDetail(detailId);
+}
+
+// Ciornele userului curent (DRAFT) — pentru pagina „Ciornele mele" (reluare oricând).
+export function getMyDrafts(userId: string) {
+  return listDraftsByAuthor(userId);
+}
+
+// Șterge o ciornă a userului curent (doar DRAFT, doar a lui). Întoarce dacă s-a șters ceva.
+export function deleteDraft(input: { sketchId: string; authorId: string }): Promise<boolean> {
+  return deleteDraftByAuthor(input.sketchId, input.authorId);
 }
 
 // Coada de review — DOAR autorul detaliului-mamă vede schițele PENDING.

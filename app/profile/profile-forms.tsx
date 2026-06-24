@@ -13,12 +13,15 @@ import {
 } from "@/server/domain/roles";
 
 import {
-  initialProfileState,
-  requestVerificationAction,
+  type ProfileFormState,
   signOutAction,
   updateAvatarAction,
+  updateCoverAction,
   updateRoleAction,
 } from "./actions";
+
+// Starea inițială a formularelor — definită aici (client), NU în „use server" (care exportă doar funcții async).
+const initialProfileState: ProfileFormState = { error: null, ok: false };
 
 type VerificationStatus = "DECLARED" | "PENDING" | "VERIFIED" | "REJECTED";
 
@@ -66,6 +69,29 @@ export function AvatarForm() {
       <span className="text-xs text-muted-foreground">PNG, JPG, WebP sau AVIF · max 8 MB</span>
       <Button type="submit" disabled={pending} className="h-10 self-start">
         {pending ? "Se încarcă…" : "Schimbă poza"}
+      </Button>
+    </form>
+  );
+}
+
+export function CoverForm() {
+  const [state, formAction, pending] = useActionState(updateCoverAction, initialProfileState);
+
+  return (
+    <form action={formAction} className="flex flex-col gap-3">
+      <Feedback error={state.error} ok={state.ok} okText="Imaginea de cover a fost actualizată." />
+      <Input
+        name="cover"
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/avif"
+        required
+        className="h-10"
+      />
+      <span className="text-xs text-muted-foreground">
+        Banda de sus a profilului · PNG, JPG, WebP sau AVIF · max 8 MB
+      </span>
+      <Button type="submit" disabled={pending} className="h-10 self-start">
+        {pending ? "Se încarcă…" : "Schimbă coperta"}
       </Button>
     </form>
   );
@@ -150,51 +176,14 @@ export function VerificationSection({ status }: { status: VerificationStatus }) 
     );
   }
 
-  if (status === "PENDING") {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Cererea ta de verificare este în curs de evaluare. Te anunțăm când e gata.
-      </p>
-    );
-  }
-
-  // DECLARED sau REJECTED → poate (re)trimite o cerere.
-  return <VerificationForm rejected={status === "REJECTED"} />;
-}
-
-function VerificationForm({ rejected }: { rejected: boolean }) {
-  const [state, formAction, pending] = useActionState(
-    requestVerificationAction,
-    initialProfileState,
-  );
-
+  // MVP: verificarea pe bază de dovadă (OAR/CUI → aprobare) e pe HOLD până definim o metodă
+  // sigură, cu frecare mică. Nu expunem un buton care duce într-un PENDING fără ieșire.
+  // Rolul declarat rămâne funcțional 100%. (Re-activare: readuci formularul de cerere de verificare.)
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <p className="text-xs text-muted-foreground">
-        {rejected
-          ? "Cererea anterioară a fost respinsă. Poți trimite din nou, cu o dovadă corectă."
-          : "Rolul tău nu e verificat. Verificarea e opțională — un rol verificat „cântărește” mai mult în ochii comunității. Aprobarea e manuală."}
-      </p>
-      <Feedback
-        error={state.error}
-        ok={state.ok}
-        okText="Cererea a fost trimisă. Revenim cu un răspuns."
-      />
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="evidence">Dovadă</Label>
-        <Input
-          id="evidence"
-          name="evidence"
-          type="text"
-          required
-          placeholder="Nr. OAR, CUI sau alt act care îți confirmă rolul"
-          className="h-10"
-        />
-      </div>
-      <Button type="submit" disabled={pending} className="h-10 self-start">
-        {pending ? "Se trimite…" : "Verifică rolul"}
-      </Button>
-    </form>
+    <p className="text-sm text-muted-foreground">
+      Verificarea rolului va fi disponibilă în curând. Până atunci, rolul declarat este
+      funcțional integral.
+    </p>
   );
 }
 

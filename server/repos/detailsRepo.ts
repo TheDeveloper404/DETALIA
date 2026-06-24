@@ -113,10 +113,20 @@ const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${s
 
 // Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
 // Sortare după interacțiuni (caracter de comunitate), tie-break după dată descrescătoare.
-export async function listFeed(input: { categoryId?: string | null; limit: number }) {
+export async function listFeed(input: {
+  categoryId?: string | null;
+  limit: number;
+  sort?: "debated" | "recent";
+}) {
   const where = input.categoryId
     ? and(eq(details.status, DETAIL_STATUS.PUBLISHED), eq(details.categoryId, input.categoryId))
     : eq(details.status, DETAIL_STATUS.PUBLISHED);
+
+  // „recent" = doar după dată; „debated" (default) = după interacțiuni, tie-break pe dată.
+  const orderBy =
+    input.sort === "recent"
+      ? [desc(details.createdAt)]
+      : [sql`${interactionScore} desc`, desc(details.createdAt)];
 
   return db
     .select({
@@ -131,7 +141,7 @@ export async function listFeed(input: { categoryId?: string | null; limit: numbe
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(where)
-    .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
+    .orderBy(...orderBy)
     .limit(input.limit);
 }
 
