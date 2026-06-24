@@ -19,14 +19,15 @@ import { FeedEmpty } from "./feed-empty";
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; sort?: string }>;
+  searchParams: Promise<{ cat?: string; sort?: string; q?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const { cat, sort: sortParam } = await searchParams;
+  const { cat, sort: sortParam, q: rawQ } = await searchParams;
+  const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
   const [categories, role, authors] = await Promise.all([
@@ -36,7 +37,7 @@ export default async function FeedPage({
   ]);
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
-  const details = await getFeed({ categoryId: activeId, sort });
+  const details = await getFeed({ categoryId: activeId, q, sort });
   const myPositions = await getMyPositions(
     session.user.id,
     "DETAIL",
@@ -58,10 +59,11 @@ export default async function FeedPage({
       sketchCount: d.sketchCount,
     }));
 
-  // Linkuri de sortare care păstrează filtrul de categorie.
+  // Linkuri de sortare care păstrează filtrul de categorie + căutarea.
   const sortHref = (value: FeedSort) => {
     const params = new URLSearchParams();
     if (activeId) params.set("cat", activeId);
+    if (q) params.set("q", q);
     if (value === "recent") params.set("sort", "recent");
     const qs = params.toString();
     return qs ? `/feed?${qs}` : "/feed";
@@ -83,7 +85,9 @@ export default async function FeedPage({
 
       <main className="min-w-0">
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h1 className="text-xl font-bold tracking-tight">Detalii în dezbatere</h1>
+          <h1 className="text-xl font-bold tracking-tight">
+            {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}
+          </h1>
           <div className="inline-flex shrink-0 rounded-lg border border-border bg-card p-0.5 font-mono text-[11.5px]">
             <Link
               href={sortHref("debated")}
@@ -111,7 +115,7 @@ export default async function FeedPage({
         </div>
 
         {details.length === 0 ? (
-          <FeedEmpty filtered={!!activeId} />
+          <FeedEmpty filtered={!!activeId || !!q} />
         ) : (
           <div className="flex flex-col gap-4">
             {details.map((d) => (

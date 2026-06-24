@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
-import { getDetail } from "@/server/services/detailService";
+import { getDetail, getRelatedDetails } from "@/server/services/detailService";
 import { getPendingForOwner, getTeanc } from "@/server/services/sketchService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
@@ -76,6 +76,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
     })),
   );
   const pending = (await getPendingForOwner(detail.id, userId)).map(toSketchItem);
+  const related = await getRelatedDetails(detail.id, detail.categoryId, 5);
 
   const verified = detail.authorVerification === "VERIFIED";
 
@@ -305,6 +306,38 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               Cântărește rolul, nu un scor.
             </p>
           </div>
+
+          {/* detalii înrudite (aceeași categorie) */}
+          {related.length > 0 && (
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <div className="mb-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+                Detalii înrudite
+              </div>
+              <ul className="flex flex-col">
+                {related.map((r, i) => (
+                  <li key={r.id} className={i === 0 ? "" : "mt-3 border-t border-[#eee6da] pt-3"}>
+                    <Link href={`/details/${r.id}`} className="group block">
+                      <span className="block font-heading text-[13.5px] font-semibold leading-snug text-foreground/90 group-hover:text-primary">
+                        {r.title}
+                      </span>
+                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        {r.authorName && (
+                          <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
+                        )}
+                        <RolePill
+                          roleMain={r.authorRoleMain}
+                          verified={r.authorVerification === "VERIFIED"}
+                        />
+                        <span className="font-mono text-[11px] text-[#a59a88]">
+                          {r.commentCount} com · {r.sketchCount} schițe
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </aside>
       </div>
     </main>

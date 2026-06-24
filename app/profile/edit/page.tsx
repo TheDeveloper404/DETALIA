@@ -12,7 +12,7 @@ import { getUserRole } from "@/server/services/roleService";
 import {
   AvatarForm,
   CoverForm,
-  EditRoleForm,
+  EditDetailsForm,
   SignOutButton,
   VerificationSection,
 } from "../profile-forms";
@@ -76,6 +76,19 @@ export default async function ProfileEditPage() {
 
       {/* Carduri de editare — grid pe 2 coloane pe ecrane mari, mai puțin spațiu mort. */}
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
+          <h2 className="text-sm font-semibold">Detalii profil</h2>
+          <p className="text-xs text-muted-foreground">
+            Numele, titlul, locația și website-ul apar pe profilul tău public.
+          </p>
+          <EditDetailsForm
+            initialName={name}
+            initialHeadline={profile?.headline ?? null}
+            initialLocation={profile?.location ?? null}
+            initialWebsite={profile?.website ?? null}
+          />
+        </section>
+
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Poză de profil</h2>
           <AvatarForm />
@@ -88,11 +101,23 @@ export default async function ProfileEditPage() {
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
           <h2 className="text-sm font-semibold">Rolul tău</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[12px] text-primary">
+              {roleLabel}
+              {role.verificationStatus === "VERIFIED" && <span className="text-[#d99a2b]">★</span>}
+            </span>
+          </div>
           <p className="text-xs text-muted-foreground">
-            Rolul apare lângă numele tău în comunitate. Dacă îl schimbi după ce a fost verificat,
-            verificarea se reia.
+            Rolul e <strong>definitiv</strong> — îl alegi o singură dată, la crearea contului, fiindcă
+            stabilește credibilitatea ta în comunitate. Dacă ai nevoie de o schimbare, scrie-ne la{" "}
+            <a
+              href="mailto:support@detalia.ro?subject=Schimbare%20rol&body=Rolul%20dorit%20%C8%99i%20motivul%3A"
+              className="font-semibold text-primary hover:underline"
+            >
+              support@detalia.ro
+            </a>{" "}
+            cu rolul dorit și motivul.
           </p>
-          <EditRoleForm initialRoleMain={role.roleMain} initialSubRole={role.subRole} />
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">

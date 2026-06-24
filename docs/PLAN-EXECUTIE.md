@@ -110,17 +110,15 @@ email), o acceptă, schița intră în teanc cu thumbnail și poate fi dezbătut
 **Obiectiv:** poarta 2 (credibilitate) + pregătire de lansare.
 
 ### 🟡 Faza 2 — PARȚIALĂ (în curs)
-> Făcut: **profil** (editare poză/rol) + **latura user** a verificării rolului (cerere → PENDING) — CHANGELOG 2026-06-23.
-> **Poarta 1 = REZOLVATĂ: acces PUBLIC** (Edi, iunie 2026) — fără gating de invitație. Lipsește: **latura admin** a
-> verificării (metodă în regândire, fără frecare — vezi handoff), stările empty/loading/error complete, auditul 13-cat.
+> Făcut: **profil** (nume + rol + badge) + **stările empty/loading/error** (CHANGELOG 2026-06-24).
+> **Poarta 1 = REZOLVATĂ: acces PUBLIC** (Edi, iunie 2026) — fără gating de invitație. Rămâne: **accesibilitatea minimă**
+> (pe later), auditul 13-cat. **Verificarea rolului (pull/push, badge ⭐) = PE HOLD** — metoda e în regândire (prea birocratică); vezi handoff.
 
 **Pași:**
-1. Flux „Verificare rol" („pull, nu push"): user trimite dovezi → PENDING → admin aprobă → **badge ⭐**.
-   Nudge blând permanent, fără blocare. → **latura user ✅; latura admin ❌ (metodă în regândire).**
-2. ✅ Profil cu nume + rol + badge.
-3. Stări empty/loading/error peste tot (`UX-ECRANE.md`); accesibilitate minimă. → parțial.
-4. Securitate CRITICAL: audit authz (IDOR, escalare), rate-limit pe endpoint-urile sensibile. → de făcut.
-5. ✅ Decizie **Poarta 1** — **PUBLIC** (înregistrare liberă, fără invitație); schela de invitație rămâne dormantă în cod.
+1. ✅ Profil cu nume + rol + badge.
+2. Stări empty/loading/error peste tot (`UX-ECRANE.md`); accesibilitate minimă. → **empty/loading/error ✅; accesibilitate ❌ (pe later)**.
+3. Securitate CRITICAL: audit authz (IDOR, escalare), rate-limit pe endpoint-urile sensibile. → de făcut.
+4. ✅ Decizie **Poarta 1** — **PUBLIC** (înregistrare liberă, fără invitație); schela de invitație rămâne dormantă în cod.
 
 **Definiție de „gata":** beta închis lansabil — acces controlat, roluri afișate/verificabile, fluxurile critice
 testate (unit+integration+security+E2E), build verde, deploy reproducibil pe Vercel.
@@ -130,7 +128,8 @@ testate (unit+integration+security+E2E), build verde, deploy reproducibil pe Ver
 ## Backlog (post-MVP, NU acum)
 
 Search liber semantic (pgvector) · upload de detalii pentru useri (Val 2) · verificare automată rol (OAR/CUI) ·
-scoring/reputație · unelte de schiță avansate (Line/Circle/Arrow/text) · co-desenare real-time.
+scoring/reputație · unelte de schiță avansate rămase (Circle/Square/Arrow, casetă-text avansată) — *Line + Text livrate
+în MVP, vezi CHANGELOG 2026-06-24* · co-desenare real-time.
 
 ---
 

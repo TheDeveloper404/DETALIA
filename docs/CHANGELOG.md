@@ -4,6 +4,97 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-24 (editare profil completă + rol DEFINITIV)
+
+### Câmpuri lipsă în editare profil (#5) + rol blocat după alegere (#6)
+`typecheck` + `lint` + `build` VERZI. (Verificarea vizuală o face Liviu.)
+- **#5 — editare profil completă:** `/profile/edit` n-avea câmpuri pentru nume/headline/locație/website (apăreau pe profil
+  dar nu se puteau seta), iar `getUserProfile` nici nu le aducea. Adăugat: `getUserProfile` întoarce acum
+  `headline/location/website`; `updateUserDetails` (repo, doar câmpuri text, NU atinge rolul); `updateProfileDetailsAction`
+  (nume obligatoriu, restul opțional → null, website fără schemă → `https://` prefixat); `EditDetailsForm` (nume, headline,
+  locație, website) într-o secțiune nouă „Detalii profil" pe `/profile/edit`.
+- **#6 — rol DEFINITIV (decizie Edi/Liviu):** rolul se alege o singură dată la onboarding și **nu se mai schimbă din UI**
+  (stabilește credibilitatea). Scos `EditRoleForm` + `updateRoleAction` + `ROLE_ERRORS` din profil; secțiunea „Rolul tău"
+  devine read-only (pill cu rol + steluță) + nota: schimbarea se cere prin email la `support@detalia.ro` (mailto cu
+  subiect/motiv) — fără UI admin în MVP. Onboarding-ul deja bloca re-intrarea celor cu rol (`userHasRole → /feed`).
+  `updateRole` rămâne în `roleService` dar **necablat** (fără cale din UI). **TODO:** adresa `support@detalia.ro` e
+  placeholder — de înlocuit cu adresa reală.
+
+## 2026-06-24 (follow-up-uri mărunte: detalii înrudite + search + rol în notificări)
+
+### Detalii înrudite (sidebar) · căutare în header · rolul actorului în notificări
+Trei follow-up-uri din handoff. `typecheck` + `lint` + `build` VERZI; verificat vizual (Playwright, logat ca Andrei).
+- **Detalii înrudite**: `detailsRepo.listRelatedDetails` (aceeași categorie, PUBLISHED, exclus self, sortat după
+  interacțiuni) + `detailService.getRelatedDetails` + card nou în sidebar-ul paginii de detaliu (titlu + autor/rol +
+  contoare). Ascuns dacă nu există înrudite. Confirmat: arată detaliile din aceeași categorie.
+- **Căutare simplă în AppHeader**: form GET nativ (merge fără JS) → `/feed?q=`. `listFeed` ia `q` → filtru `title ILIKE`
+  (cu escape pe `%_\`). Feed: heading „Rezultate pentru …", `q` păstrat în linkurile de sortare, empty state pe „filtrat".
+  Confirmat vizual.
+- **Rolul actorului în notificări**: `usersRepo.getNotificationActor` (nume + rol + verificare); `notifySketchProposed`
+  stochează `sketchAuthorRole`/`sketchAuthorVerified` în payload; clopoțelul afișează `RolePill` lângă nume la „a propus
+  o modificare". Notificările vechi (fără rol în payload) rămân valide — pill-ul apare doar când există rolul (graceful).
+
+## 2026-06-24 (fix clopoțel notificări — `<a>` imbricat)
+
+### Hydration error în dropdown-ul de notificări — REZOLVAT
+La deschiderea clopoțelului: 2 erori în consolă (`<a>` nu poate fi descendent de `<a>`). Rândul de notificare e
+împachetat într-un `<Link>`, iar înăuntru titlul (`NotificationText`) ȘI butonul „Vizualizează & acceptă" erau tot
+`<Link>` → ancore imbricate (HTML invalid → hydration error). Cauza găsită prin reproducere în browser (Playwright +
+`/dev/login` ca Andrei), nu ghicită. Toate trei duceau la același `n.href` → titlul + CTA devin `span` (vizual identice),
+rândul-Link rămâne singura navigare. `typecheck` + `lint` + `build` VERZI; verificat: 0 erori în consolă.
+
+## 2026-06-24 (editor schiță — fix-uri audit Liviu + forme noi)
+
+### Grilă pe foaie, zoom, riglă, radieră corectă, text-casetă + circle/square/arrow
+Run de fix-uri pe editorul de schiță (feedback Liviu, verificat vizual cu Playwright pe `/dev/preview/sketch`).
+`typecheck` + `lint` + `build` VERZI.
+- **Bug text tool (nu apărea caseta) — REZOLVAT:** click-ul real pe canvas (`mousedown`) muta focusul pe `body` →
+  textarea-ul abia deschis lua `onBlur` → `commitText` gol → se închidea instant. Fix: `onMouseDown preventDefault`
+  pe canvas (desenul merge pe pointer events, neafectat). Cauza găsită prin reproducere în browser, nu ghicită.
+- **#3 Text = etichetă curată** cu **halou alb** subțire (stil adnotare plan/CAD), în culoarea aleasă — FĂRĂ casetă/
+  bordură (varianta cu casetă albă+bordură arăta lipită peste desen). Input flotant fără box (fundal-hârtie subtil doar
+  la editare). Plasare prin click → scrii → Enter fixează.
+- **#1 Grila** mutată de pe fundalul zonei pe **foaie** (desenată în canvas la `redraw`, deci NU intră în thumbnail).
+- **#2 Zoom** 40–300%: controale −/100%/＋ (jos-dreapta) + **Ctrl/Cmd + rotiță** (listener non-passive). Transform pe
+  wrapper; `normPoint` rămâne corect (folosește `getBoundingClientRect`, care include scalarea).
+- **#4 Radieră — hit-test geometric** (distanță punct→segment per formă): prinde acum și liniile/formele (înainte
+  verifica doar punctele, deci rata muchiile). Un singur pas de undo per tragere (batching în `eraseRef`).
+- **#5 Riglă**: benzi cu ticks (la 26px = pasul grilei) pe marginile de sus și stânga ale foii, scalate cu zoom.
+- **#6 Forme noi**: `rect` / `ellipse` / `arrow` (dreptunghi/cerc/săgeată cu vârf) — kind-uri în `Stroke`, validate pe
+  server, randate în `lib/sketch-render.ts`; rail reorganizat în grilă 2 coloane (6 unelte).
+- **Fix preview**: `sketch-preview-client` arăta `/preview/detail.svg` (404) → `/seed/detail.svg`. Robustețe: dacă
+  imaginea-mamă nu se încarcă, editorul rămânea gol (dims 0) — de monitorizat pe editorul real.
+
+## 2026-06-24 (#9 unelte schiță — line + text + paletă pe brand)
+
+### Line tool, text tool și paletă aliniată la brand
+Ultimul punct din auditul vizual Liviu (#9). Schița avea doar freehand + culori + grosimi + radieră → adăugate
+**linie dreaptă** și **casetă de text**, plus **paletă de brand**. `typecheck` + `lint` + `build` VERZI.
+- **`server/domain/sketch.ts`**: `Stroke.kind?: "free" | "line" | "text"` (opțional → stroke-urile vechi rămân „free");
+  `text?: string` (doar pt kind text, validat: nevid, ≤ `MAX_TEXT_LENGTH` 200). `STROKE_KINDS` + validare server extinsă.
+- **Paletă nouă** `STROKE_COLORS` = grafit `#211d18` + cărămiziu `#b0463c` + chihlimbar `#d97a1e` + ocru `#caa12e` +
+  verde `#2f8f5f` + albastru `#2f6fb0` — stridente dar calde (brand), grafitul ca default pt adnotare tehnică.
+- **`lib/sketch-render.ts`**: randare `kind: "line"` (segment drept, cap rotund) și `kind: "text"` (fillText multi-rând,
+  baseline top, font scalat cu `TEXT_FONT_SCALE`). Partajat → liniile/textul apar identic în editor, teanc și thumbnail.
+- **`components/sketch/sketch-canvas.tsx`**: `eraser` boolean → unealtă unică `tool: pen | line | text | eraser` cu selector
+  în rail (Creion/Linie/Text). Linie = drag A→B cu preview live. Text = **click → input flotant** (textarea ancorată la
+  poziția normalizată, font identic cu randarea, auto-grow, Enter fixează / Esc anulează / blur fixează).
+
+## 2026-06-24 (Faza 2 #3 — stări loading/error/not-found)
+
+### Schelete de încărcare + error boundaries + pagină 404
+Punctul 3 din Faza 2 (`PLAN-EXECUTIE.md`): stările empty/loading/error „peste tot". **Empty states existau deja**
+(feed, notificări, ciorne, comentarii) → completat ce lipsea: **loading** (fișiere `loading.tsx`) și **error/404**.
+`typecheck` + `lint` VERZI. **Accesibilitatea minimă rămâne pe later** (decizie Liviu — vezi handoff).
+- **`components/ui/skeleton.tsx`** (nou): primitivă `Skeleton` (puls discret, `bg-muted`, `aria-hidden`).
+- **`app/loading.tsx`** (nou): fallback generic Suspense pentru rutele fără schelet dedicat.
+- **`app/feed/loading.tsx`** · **`app/details/[id]/loading.tsx`** · **`app/profile/loading.tsx`** (noi): schelete pe
+  forma reală a paginii (feed = grilă 3 coloane · detaliu = antet+imagine+validare+sidebar · profil = cover+avatar+stats).
+  `loading.tsx` din `profile/` acoperă și `/profile/[userId]` + `/profile/edit` (segmente copil).
+- **`app/error.tsx`** (nou): error boundary sub AppHeader — „Încearcă din nou" (`reset`) + „Mergi la feed". Log fără PII (digest/mesaj).
+- **`app/global-error.tsx`** (nou): plasă pentru erorile din root layout (randează propriul `<html>/<body>`, stiluri inline).
+- **`app/not-found.tsx`** (nou): pagina 404 pe brand — `notFound()` din pagina detaliu o folosește acum.
+
 ## 2026-06-24 (audit vizual Liviu — fix-uri + UX, val 1+2)
 
 ### Fix-uri bug + îmbunătățiri UX din verificarea vizuală

@@ -20,6 +20,7 @@ import {
   insertDetail,
   insertDetailResources,
   listFeed,
+  listRelatedDetails,
 } from "@/server/repos/detailsRepo";
 import { listTopAuthors } from "@/server/repos/usersRepo";
 import { userHasRole } from "@/server/services/roleService";
@@ -95,15 +96,17 @@ export async function getDetail(id: string) {
 
 export type FeedSort = "debated" | "recent";
 
-// Feed finit (~20), opțional filtrat pe categorie, sortabil. Fără scroll infinit.
+// Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu, sortabil. Fără scroll infinit.
 export async function getFeed(options?: {
   categoryId?: string | null;
+  q?: string | null;
   limit?: number;
   sort?: FeedSort;
 }) {
   const limit = options?.limit ?? DEFAULT_FEED_SIZE;
   return listFeed({
     categoryId: options?.categoryId ?? null,
+    q: options?.q?.trim() || null,
     limit,
     sort: options?.sort ?? "debated",
   });
@@ -112,4 +115,10 @@ export async function getFeed(options?: {
 // Autori activi pentru rail-ul din feed (top după detalii publicate).
 export function getActiveAuthors(limit = 5) {
   return listTopAuthors(limit);
+}
+
+// Detalii înrudite (aceeași categorie) pentru sidebar-ul paginii de detaliu. Gol dacă nu există categorie.
+export function getRelatedDetails(detailId: string, categoryId: string | null, limit = 5) {
+  if (!categoryId) return Promise.resolve([]);
+  return listRelatedDetails({ detailId, categoryId, limit });
 }
