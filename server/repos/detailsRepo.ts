@@ -1,6 +1,6 @@
 // Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -115,12 +115,18 @@ const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${s
 // Sortare după interacțiuni (caracter de comunitate), tie-break după dată descrescătoare.
 export async function listFeed(input: {
   categoryId?: string | null;
+  q?: string | null;
   limit: number;
   sort?: "debated" | "recent";
 }) {
-  const where = input.categoryId
-    ? and(eq(details.status, DETAIL_STATUS.PUBLISHED), eq(details.categoryId, input.categoryId))
-    : eq(details.status, DETAIL_STATUS.PUBLISHED);
+  const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED)];
+  if (input.categoryId) conds.push(eq(details.categoryId, input.categoryId));
+  // Căutare simplă pe titlu (ILIKE, case-insensitive). `%` din input e escapat ca să fie literal.
+  if (input.q) {
+    const term = `%${input.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    conds.push(sql`${details.title} ilike ${term}`);
+  }
+  const where = and(...conds);
 
   // „recent" = doar după dată; „debated" (default) = după interacțiuni, tie-break pe dată.
   const orderBy =
@@ -145,5 +151,37 @@ export async function listFeed(input: {
     .limit(input.limit);
 }
 
+// Detalii înrudite = aceeași categorie, PUBLISHED, exclus self. Pentru sidebar-ul paginii de detaliu.
+// Sortare după interacțiuni (cele mai dezbătute întâi), tie-break pe dată.
+export async function listRelatedDetails(input: {
+  detailId: string;
+  categoryId: string;
+  limit: number;
+}) {
+  return db
+    .select({
+      id: details.id,
+      title: details.title,
+      authorName: users.name,
+      authorRoleMain: roles.roleMain,
+      authorVerification: roles.verificationStatus,
+      commentCount,
+      sketchCount,
+    })
+    .from(details)
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(
+      and(
+        eq(details.status, DETAIL_STATUS.PUBLISHED),
+        eq(details.categoryId, input.categoryId),
+        ne(details.id, input.detailId),
+      ),
+    )
+    .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
+    .limit(input.limit);
+}
+
 export type DetailWithAuthor = Awaited<ReturnType<typeof getDetailById>>;
 export type FeedItem = Awaited<ReturnType<typeof listFeed>>[number];
+export type RelatedDetail = Awaited<ReturnType<typeof listRelatedDetails>>[number];

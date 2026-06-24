@@ -7,7 +7,7 @@ import { SketchCanvas } from "@/components/sketch/sketch-canvas";
 export function SketchPreviewClient() {
   return (
     <div className="flex h-[600px] overflow-hidden rounded-lg border border-border">
-      <SketchCanvas imageUrl="/preview/detail.svg" initialStrokes={[]} />
+      <SketchCanvas imageUrl="/seed/detail.svg" initialStrokes={[]} />
     </div>
   );
 }

@@ -71,6 +71,8 @@ export async function notifySketchProposed(input: {
   detailId: string;
   detailTitle: string;
   sketchAuthorName: string | null;
+  sketchAuthorRole?: string | null;
+  sketchAuthorVerified?: boolean;
 }) {
   const who = input.sketchAuthorName ?? "Cineva";
   const url = detailUrl(input.detailId);
@@ -82,6 +84,8 @@ export async function notifySketchProposed(input: {
       detailId: input.detailId,
       detailTitle: input.detailTitle,
       sketchAuthorName: input.sketchAuthorName,
+      sketchAuthorRole: input.sketchAuthorRole ?? null,
+      sketchAuthorVerified: input.sketchAuthorVerified ?? false,
     },
     emailSubject: plain(`${who} a propus o modificare la „${input.detailTitle}"`),
     emailHtml: `<p>${esc(who)} a propus o schiță la detaliul tău <strong>${esc(input.detailTitle)}</strong>.</p>
