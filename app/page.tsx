@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { HeroPreview } from "@/components/hero-preview";
+import { IntroSplash } from "@/components/intro-splash";
+import { Reveal } from "@/components/reveal";
 import { auth } from "@/lib/auth";
 
 // Landing public DETALIA — import din Claude Design („Detalia Landing.dc.html"), hero varianta B
@@ -24,6 +27,26 @@ const SECTION_PAD = "clamp(56px, 9vw, 92px) 24px";
 // Lățime unică pe aplicație (vezi --container-max din globals.css).
 const MAXW = "var(--container-max)";
 
+// Secțiunea 01 — „diff" (metafora GitHub): fiecare problemă de azi (−) e înlocuită de soluția DETALIA (+).
+const DIFF = [
+  {
+    minus: "Detaliile circulă în PDF-uri răzlețe, pe mail și pe WhatsApp.",
+    plus: "Stau într-un singur loc viu, deschis breslei.",
+  },
+  {
+    minus: "Fiecare le desenează altfel — nu există un punct de referință.",
+    plus: "Oricine desenează o propunere direct peste detaliu.",
+  },
+  {
+    minus: "Nimeni nu le contestă pe roluri; proiectantul nu aude executantul.",
+    plus: "Fiecare rol aprobă sau dezaprobă — dezacordul vine cu justificare.",
+  },
+  {
+    minus: "Aceleași greșeli de execuție se repetă de la șantier la șantier.",
+    plus: "Detaliul bun iese la suprafață prin dezbatere, nu printr-un scor.",
+  },
+];
+
 const STEPS = [
   {
     n: "PASUL 01",
@@ -42,41 +65,33 @@ const STEPS = [
   },
 ];
 
+// Secțiunea 03 — listă editorială (fără carduri). `label` = tema beneficiului (încodează ceva real,
+// servește ca rubrică mono în stânga fiecărui rând).
 const BENEFITS = [
   {
+    label: "Încredere",
     title: "Detalii verificate de breaslă",
     body: "Nu te bazezi pe un singur autor: detaliul trece prin ochii mai multor roluri înainte să ajungă pe șantier.",
   },
   {
+    label: "Transparență",
     title: "Vezi cine aprobă și cu ce rol",
     body: "Părerea unui proiectant și a unui executant cântăresc diferit — și le ai pe amândouă la vedere.",
   },
   {
+    label: "Învățare",
     title: "Înveți din dezacord",
     body: "Cele mai utile lucruri stau în motivele unei dezaprobări, nu în aprobările tăcute.",
   },
   {
+    label: "Reputație",
     title: "Îți construiești reputația",
     body: "Propunerile și părerile tale rămân legate de numele tău profesional, vizibile breslei.",
   },
 ];
 
-const FAQ = [
-  {
-    q: "E gratuit?",
-    a: "Da. Contul e gratuit și înregistrarea e liberă. Nu cerem card și nu există abonament.",
-  },
-  {
-    q: "Trebuie să fiu verificat ca să postez?",
-    a: "Nu. Îți declari rolul la înscriere și poți publica imediat. Verificarea profesională e opțională și vine mai târziu — îți dă mai multă greutate, dar nu e o condiție.",
-  },
-  {
-    q: "Cum mă înscriu?",
-    a: "O singură dată, fără parolă. Primești un link de intrare pe email și ești înăuntru.",
-  },
-];
 
-const SUBLINE = "Cont gratuit · fără parolă · intri cu un link primit pe email";
+const SUBLINE = "Alătură-te chiar azi comunității";
 
 // — Stiluri reutilizate —
 const eyebrowDiamond: CSSProperties = {
@@ -105,12 +120,6 @@ const h2: CSSProperties = {
   letterSpacing: "-0.02em",
   margin: 0,
   textWrap: "balance",
-};
-const card: CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #e6dfd3",
-  borderRadius: "var(--radius)",
-  padding: 28,
 };
 const primaryBtn: CSSProperties = {
   display: "inline-flex",
@@ -168,6 +177,9 @@ export default async function Home() {
         flex: 1,
       }}
     >
+      {/* Intro de brand (logo animat) — o singură dată pe sesiune, înaintea landing-ului. */}
+      <IntroSplash />
+
       {/* ===== HEADER ===== */}
       <header
         style={{
@@ -219,10 +231,26 @@ export default async function Home() {
       </header>
 
       {/* ===== HERO (varianta B — planșă în panou + voturi pe roluri) ===== */}
-      <section style={{ background: "#faf8f4" }}>
+      <section style={{ background: "#faf8f4", position: "relative", overflow: "hidden" }}>
+        {/* Fundal blueprint — identic cu login/signup (grilă fină mascată radial spre dreapta). */}
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: "none",
+            backgroundImage:
+              "linear-gradient(#eae0cf 1px,transparent 1px),linear-gradient(90deg,#eae0cf 1px,transparent 1px)",
+            backgroundSize: "34px 34px",
+            opacity: 0.6,
+            WebkitMaskImage: "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
+            maskImage: "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
+          }}
+        />
         <div
           className="dc-hero-grid"
-          style={{ maxWidth: MAXW, margin: "0 auto", padding: "clamp(72px, 10vw, 124px) 24px clamp(64px, 8vw, 96px)" }}
+          style={{ position: "relative", zIndex: 1, maxWidth: MAXW, margin: "0 auto", padding: "clamp(72px, 10vw, 124px) 24px clamp(64px, 8vw, 96px)" }}
         >
           {/* Coloana text */}
           <div>
@@ -271,84 +299,8 @@ export default async function Home() {
             )}
           </div>
 
-          {/* Coloana card preview (planșă + voturi pe roluri) */}
-          <div style={{ position: "relative" }}>
-            <div style={{ background: "#ffffff", border: "1px solid #e3ddd2", borderRadius: "var(--radius)", boxShadow: "0 24px 60px -28px rgba(33,29,24,0.28)", overflow: "hidden" }}>
-              {/* Antet card */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "14px 18px",
-                  borderBottom: "1px solid #eee6da",
-                  fontFamily: MONO,
-                  fontSize: 11.5,
-                  letterSpacing: "0.06em",
-                  color: "#8a8073",
-                  textTransform: "uppercase",
-                }}
-              >
-                <span>Detaliu · Atic acoperiș terasă</span>
-                <span>DET-014</span>
-              </div>
-              {/* Planșă */}
-              <div style={{ position: "relative", background: "#faf7f1", padding: 22 }}>
-                <svg width="100%" viewBox="0 0 420 250" fill="none" style={{ display: "block" }} aria-hidden>
-                  <rect x="60" y="40" width="150" height="150" stroke="#c4b59c" strokeWidth="1.5" />
-                  <rect x="60" y="40" width="44" height="150" stroke="#c4b59c" strokeWidth="1.5" />
-                  <line x1="104" y1="48" x2="186" y2="190" stroke="#d8cab1" strokeWidth="1" />
-                  <line x1="118" y1="48" x2="186" y2="166" stroke="#d8cab1" strokeWidth="1" />
-                  <line x1="132" y1="48" x2="186" y2="142" stroke="#d8cab1" strokeWidth="1" />
-                  <line x1="146" y1="48" x2="186" y2="118" stroke="#d8cab1" strokeWidth="1" />
-                  <path d="M60 40 L60 24 L260 24" stroke="#a9573a" strokeWidth="1.4" fill="none" />
-                  <line x1="60" y1="16" x2="60" y2="32" stroke="#a9573a" strokeWidth="1" />
-                  <line x1="210" y1="16" x2="210" y2="32" stroke="#a9573a" strokeWidth="1" />
-                  <text x="120" y="14" fontFamily={MONO} fontSize="12" fill="#a9573a">
-                    30 cm
-                  </text>
-                  <circle cx="186" cy="92" r="4" stroke="#8a8073" strokeWidth="1" fill="none" />
-                  <line x1="186" y1="92" x2="300" y2="70" stroke="#8a8073" strokeWidth="1" />
-                  <text x="306" y="66" fontFamily={MONO} fontSize="11" fill="#8a8073">
-                    șorț tablă
-                  </text>
-                  <line x1="240" y1="120" x2="350" y2="120" stroke="#a9573a" strokeWidth="1.4" strokeDasharray="4 3" />
-                  <circle cx="240" cy="120" r="3.5" fill="#a9573a" />
-                  <text x="256" y="138" fontFamily={MONO} fontSize="11" fill="#a9573a">
-                    propunere
-                  </text>
-                </svg>
-              </div>
-              {/* Voturi pe roluri */}
-              <div style={{ padding: "14px 18px", borderTop: "1px solid #eee6da", display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={voteAvatar}>MP</span>
-                  <span style={{ fontSize: 13.5, flex: 1 }}>
-                    <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "#8a8073" }}>· Proiectant</span>
-                  </span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2f6b3f", background: "#e9f2ea", border: "1px solid #d3e6d6", padding: "3px 9px", borderRadius: 999 }}>
-                    ✓ Aprobă
-                  </span>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <span style={voteAvatar}>IR</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 13.5 }}>
-                        <b style={{ fontWeight: 600 }}>I. Radu</b> <span style={{ color: "#8a8073" }}>· Executant</span>
-                      </span>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#9a3a30", background: "#f6ebe9", border: "1px solid #ecd6d2", padding: "3px 9px", borderRadius: 999, marginLeft: "auto" }}>
-                        ✕ Dezaprobă
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12.5, color: "#6f685e", marginTop: 4, lineHeight: 1.45 }}>
-                      „Șorțul nu acoperă rostul — apa intră pe la atic.”
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Coloana card preview (planșă + voturi pe roluri) — animat, loop ~6s. */}
+          <HeroPreview />
         </div>
       </section>
 
@@ -364,47 +316,49 @@ export default async function Home() {
             îndoială pe roluri.
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 24 }}>
-            {/* Azi */}
-            <div style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: "var(--radius)", padding: "30px 30px 16px" }}>
-              <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "#9a3a30", marginBottom: 18 }}>
-                Azi
-              </div>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                {[
-                  "Detaliile circulă în PDF-uri răzlețe, pe mail și pe WhatsApp.",
-                  "Fiecare le desenează altfel — nu există un punct de referință.",
-                  "Nimeni nu le contestă pe roluri; proiectantul nu aude executantul.",
-                  "Aceleași greșeli de execuție se repetă de la șantier la șantier.",
-                ].map((t) => (
-                  <li key={t} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "14px 0", borderTop: "1px solid #efe8dc" }}>
-                    <span style={{ flex: "none", marginTop: 1, color: "#b0463c", fontWeight: 700 }}>✕</span>
-                    <span style={{ fontSize: 15.5, color: "#3f3a33", lineHeight: 1.5 }}>{t}</span>
-                  </li>
-                ))}
-              </ul>
+          {/* Panou „diff" — metafora GitHub: problema de azi (−) înlocuită de soluția DETALIA (+). */}
+          <Reveal>
+          <div
+            style={{
+              border: "1px solid #e3ddd2",
+              borderRadius: "var(--radius)",
+              overflow: "hidden",
+              background: "#fffdf9",
+              boxShadow: "0 20px 48px -32px rgba(33,29,24,0.32)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "12px 18px",
+                borderBottom: "1px solid #eee6da",
+                background: "#f6f1e8",
+                fontFamily: MONO,
+                fontSize: 12,
+                letterSpacing: "0.04em",
+                color: "#8a8073",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                <span style={{ width: 8, height: 8, background: "#a9573a", transform: "rotate(45deg)", display: "inline-block" }} />
+                starea-breslei.diff
+              </span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 12, fontWeight: 600 }}>
+                <span style={{ color: "#2f6b3f" }}>+4</span>
+                <span style={{ color: "#b0463c" }}>−4</span>
+              </span>
             </div>
 
-            {/* Cu DETALIA */}
-            <div style={{ background: "#ffffff", border: "1px solid #d9c7ba", borderRadius: "var(--radius)", padding: "30px 30px 16px", boxShadow: "0 18px 44px -30px rgba(169,87,58,0.4)" }}>
-              <div style={{ fontFamily: MONO, fontSize: 11.5, letterSpacing: "0.14em", textTransform: "uppercase", color: "#a9573a", marginBottom: 18 }}>
-                Cu DETALIA
+            {DIFF.map((d, i) => (
+              <div key={d.minus} style={{ borderTop: i ? "1px solid #f0e9dd" : "none" }}>
+                <DiffLine sign="−" text={d.minus} kind="del" />
+                <DiffLine sign="+" text={d.plus} kind="add" />
               </div>
-              <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                {[
-                  "Detaliile stau într-un singur loc viu, deschis breslei.",
-                  "Oricine poate desena o propunere direct peste detaliu.",
-                  "Fiecare rol aprobă sau dezaprobă — dezacordul vine cu justificare.",
-                  "Detaliul bun iese la suprafață prin dezbatere, nu printr-un scor.",
-                ].map((t) => (
-                  <li key={t} style={{ display: "flex", gap: 13, alignItems: "flex-start", padding: "14px 0", borderTop: "1px solid #efe8dc" }}>
-                    <span style={{ flex: "none", marginTop: 1, color: "#2f6b3f", fontWeight: 700 }}>✓</span>
-                    <span style={{ fontSize: 15.5, color: "#3f3a33", lineHeight: 1.5 }}>{t}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            ))}
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -414,16 +368,24 @@ export default async function Home() {
           <Eyebrow>02 — Cum funcționează</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "20ch" }}>Trei pași, de la desen la validare.</h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 28 }}>
-            {STEPS.map((s) => (
-              <div key={s.n}>
-                <div style={{ fontFamily: MONO, fontSize: 13, color: "#a9573a", borderTop: "2px solid #211d18", paddingTop: 14, marginBottom: 18, letterSpacing: "0.08em" }}>
-                  {s.n}
-                </div>
-                <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 21, margin: "0 0 10px", color: "#211d18" }}>{s.title}</h3>
-                <p style={{ fontSize: 15.5, color: "#5d564c", lineHeight: 1.55, margin: 0 }}>{s.body}</p>
-              </div>
-            ))}
+          {/* Storyboard — același detaliu evoluează cadru cu cadru (publicat → propus → validat).
+              Reveal în cascadă (stânga→dreapta) la scroll, ca să sublinieze fluxul. */}
+          <div className="dt-flow">
+            <Reveal delay={0}>
+              <FlowStep step={1} data={STEPS[0]} />
+            </Reveal>
+            <span className="dt-flow-arrow" aria-hidden>
+              →
+            </span>
+            <Reveal delay={120}>
+              <FlowStep step={2} data={STEPS[1]} />
+            </Reveal>
+            <span className="dt-flow-arrow" aria-hidden>
+              →
+            </span>
+            <Reveal delay={240}>
+              <FlowStep step={3} data={STEPS[2]} />
+            </Reveal>
           </div>
         </div>
       </section>
@@ -431,19 +393,34 @@ export default async function Home() {
       {/* ===== 03 · CE CÂȘTIGI ===== */}
       <section style={{ background: "#faf8f4", borderTop: "1px solid #e6ddcf" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
-          <Eyebrow>03 — Ce câștigi</Eyebrow>
-          <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "22ch" }}>
-            Un detaliu cântărit de breaslă, nu de un singur autor.
-          </h2>
+          <Reveal>
+          <div className="dt-gains">
+            {/* Coloana titlu */}
+            <div>
+              <Eyebrow>03 — Ce câștigi</Eyebrow>
+              <h2 style={{ ...h2, margin: "0 0 16px" }}>
+                Un detaliu cântărit de breaslă, nu de un singur autor.
+              </h2>
+              <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "#5d564c", margin: 0, maxWidth: "38ch" }}>
+                Nu doar un loc unde ții detalii — un mecanism prin care fiecare detaliu iese mai bun
+                decât a intrat.
+              </p>
+            </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
-            {BENEFITS.map((b) => (
-              <div key={b.title} style={card}>
-                <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 19, margin: "0 0 9px", color: "#211d18" }}>{b.title}</h3>
-                <p style={{ fontSize: 15.5, color: "#5d564c", lineHeight: 1.55, margin: 0 }}>{b.body}</p>
-              </div>
-            ))}
+            {/* Lista beneficiilor — rânduri editoriale, separate de linii fine. */}
+            <div className="dt-gain-list">
+              {BENEFITS.map((b) => (
+                <div key={b.title} className="dt-gain">
+                  <div className="dt-gain-label">{b.label}</div>
+                  <div>
+                    <h3 className="dt-gain-title">{b.title}</h3>
+                    <p className="dt-gain-body">{b.body}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
+          </Reveal>
         </div>
       </section>
 
@@ -453,80 +430,30 @@ export default async function Home() {
           <Eyebrow>04 — Pentru cine</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "20ch" }}>Patru roluri, în jurul aceluiași detaliu.</h2>
 
+          <Reveal>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
             <RoleCard
-              marker={<span style={{ flex: "none", width: 14, height: 14, background: "#a9573a", transform: "rotate(45deg)", marginTop: 6 }} />}
+              emoji="📐"
               title="Proiectant"
               body="Pui detaliul la încercare înainte de șantier și vezi unde se împiedică execuția."
             />
             <RoleCard
-              marker={<span style={{ flex: "none", width: 14, height: 14, borderRadius: "50%", background: "#a9573a", marginTop: 6 }} />}
+              emoji="👷"
               title="Executant"
               body="Arăți cum se face de fapt și semnalezi din timp ce nu se poate pune în operă."
             />
             <RoleCard
-              marker={<span style={{ flex: "none", width: 14, height: 14, background: "#a9573a", marginTop: 6 }} />}
+              emoji="📦"
               title="Furnizor"
               body="Aduci soluția corectă de montaj pentru produsul tău, direct pe detaliu."
             />
             <RoleCard
-              marker={
-                <span
-                  style={{
-                    flex: "none",
-                    width: 0,
-                    height: 0,
-                    borderLeft: "8px solid transparent",
-                    borderRight: "8px solid transparent",
-                    borderBottom: "14px solid #a9573a",
-                    marginTop: 7,
-                  }}
-                />
-              }
+              emoji="🏠"
               title="Beneficiar"
               body="Înțelegi deciziile și vezi că detaliul a fost cântărit de mai mulți, nu de unul singur."
             />
           </div>
-        </div>
-      </section>
-
-      {/* ===== 05 · ÎNTREBĂRI FRECVENTE ===== */}
-      <section style={{ background: "#faf8f4", borderTop: "1px solid #e6ddcf" }}>
-        <div style={{ maxWidth: 840, margin: "0 auto", padding: SECTION_PAD }}>
-          <Eyebrow>05 — Întrebări frecvente</Eyebrow>
-          <h2 style={{ ...h2, margin: "0 0 40px" }}>Întrebări frecvente</h2>
-
-          {FAQ.map((item, i) => (
-            <details
-              key={item.q}
-              open={i === 0}
-              style={{
-                borderTop: "1px solid #e3ddd2",
-                borderBottom: i === FAQ.length - 1 ? "1px solid #e3ddd2" : undefined,
-                padding: "6px 0",
-              }}
-            >
-              <summary
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  padding: "20px 0",
-                  fontFamily: SANS,
-                  fontWeight: 600,
-                  fontSize: 19,
-                  color: "#211d18",
-                }}
-              >
-                {item.q}
-                <span className="dt-sign" style={{ flex: "none", fontFamily: MONO, fontSize: 22, color: "#a9573a", transition: "transform .2s", fontWeight: 400 }}>
-                  +
-                </span>
-              </summary>
-              <p style={{ fontSize: 16, color: "#5d564c", lineHeight: 1.6, margin: "0 0 18px", maxWidth: "64ch" }}>{item.a}</p>
-            </details>
-          ))}
+          </Reveal>
         </div>
       </section>
 
@@ -545,6 +472,7 @@ export default async function Home() {
             maskImage: "radial-gradient(120% 100% at 50% 0%,#000,transparent 80%)",
           }}
         />
+        <Reveal>
         <div style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "clamp(72px, 10vw, 104px) 24px", textAlign: "center" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: "#e0a07f", marginBottom: 22 }}>
             <span style={{ width: 6, height: 6, background: "#e0a07f", transform: "rotate(45deg)", display: "inline-block" }} />
@@ -565,9 +493,12 @@ export default async function Home() {
             {authed ? "Mergi la feed" : "Creează cont gratuit"}
           </Link>
           {!authed && (
-            <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8c8475", marginTop: 20, letterSpacing: "0.02em" }}>{SUBLINE}</div>
+            <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8c8475", marginTop: 20, letterSpacing: "0.02em" }}>
+              Alătură-te chiar azi comunității
+            </div>
           )}
         </div>
+        </Reveal>
       </section>
 
       {/* ===== FOOTER ===== */}
@@ -592,12 +523,6 @@ export default async function Home() {
             <span style={{ fontSize: 14, color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-            <Link href="/login" style={{ fontSize: 14, color: "#c4bcae", textDecoration: "none" }}>
-              Autentificare
-            </Link>
-            <Link href="/signup" style={{ fontSize: 14, color: "#faf6ef", textDecoration: "none", fontWeight: 600 }}>
-              Creează cont
-            </Link>
             <span style={{ fontFamily: MONO, fontSize: 12.5, color: "#6f685e" }}>© {new Date().getFullYear()} DETALIA</span>
           </div>
         </div>
@@ -606,24 +531,123 @@ export default async function Home() {
   );
 }
 
-const voteAvatar: CSSProperties = {
-  flex: "none",
-  width: 26,
-  height: 26,
-  borderRadius: "50%",
-  background: "#ece4d6",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 10.5,
-  color: "#6f685e",
-  fontFamily: MONO,
-};
 
-function RoleCard({ marker, title, body }: { marker: ReactNode; title: string; body: string }) {
+// O linie de diff (secțiunea 01): gutter mono cu semn colorat + textul. „del" = problema veche
+// (estompată), „add" = soluția DETALIA (prezentă).
+function DiffLine({ sign, text, kind }: { sign: string; text: string; kind: "del" | "add" }) {
+  const del = kind === "del";
   return (
-    <div style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: "var(--radius)", padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
-      {marker}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "46px 1fr",
+        background: del ? "rgba(176,70,60,0.05)" : "rgba(47,107,63,0.06)",
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          fontFamily: MONO,
+          fontSize: 16,
+          fontWeight: 700,
+          textAlign: "center",
+          padding: "13px 0",
+          color: del ? "#b0463c" : "#2f6b3f",
+          borderRight: `1px solid ${del ? "rgba(176,70,60,0.18)" : "rgba(47,107,63,0.18)"}`,
+          userSelect: "none",
+        }}
+      >
+        {sign}
+      </span>
+      <span style={{ padding: "13px 18px", fontSize: 15.5, lineHeight: 1.5, color: del ? "#6f675c" : "#34302a" }}>
+        {text}
+      </span>
+    </div>
+  );
+}
+
+// Un cadru din storyboard-ul secțiunii 02 — același detaliu evoluează: gol → cu o propunere
+// desenată peste → validat pe roluri (✓/✕). Mini-planșă pe grilă, ca în restul brandului.
+function FlowFrame({ step }: { step: 1 | 2 | 3 }) {
+  return (
+    <div
+      style={{
+        position: "relative",
+        height: 150,
+        borderRadius: "var(--radius)",
+        border: "1px solid #e3ddd2",
+        background: "#faf7f1",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
+          backgroundSize: "22px 22px",
+          opacity: 0.5,
+        }}
+      />
+      <svg
+        viewBox="0 0 200 120"
+        preserveAspectRatio="xMidYMid meet"
+        width="100%"
+        height="100%"
+        style={{ position: "relative", display: "block" }}
+        aria-hidden
+      >
+        {/* detaliul de bază (grafit) — estompat la pasul de validare */}
+        <g opacity={step === 3 ? 0.5 : 1}>
+          <rect x="46" y="30" width="108" height="60" stroke="#bfae93" strokeWidth="2" fill="none" />
+          <line x1="46" y1="60" x2="154" y2="60" stroke="#d3c4aa" strokeWidth="1.5" />
+          <line x1="92" y1="30" x2="92" y2="90" stroke="#d3c4aa" strokeWidth="1.5" />
+        </g>
+        {/* pasul 2: propunerea desenată peste (terracotta) */}
+        {step === 2 && (
+          <path d="M58 78 C 82 44, 108 94, 150 52" stroke="#a9573a" strokeWidth="3" fill="none" strokeLinecap="round" />
+        )}
+        {/* pasul 3: validări pe roluri */}
+        {step === 3 && (
+          <>
+            <circle cx="80" cy="56" r="15" fill="rgba(47,107,63,0.12)" stroke="#2f6b3f" strokeWidth="1.5" />
+            <text x="80" y="61" textAnchor="middle" fontSize="15" fontWeight="700" fill="#2f6b3f">
+              ✓
+            </text>
+            <circle cx="124" cy="66" r="15" fill="rgba(176,70,60,0.12)" stroke="#b0463c" strokeWidth="1.5" />
+            <text x="124" y="71" textAnchor="middle" fontSize="14" fontWeight="700" fill="#b0463c">
+              ✕
+            </text>
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+function FlowStep({ step, data }: { step: 1 | 2 | 3; data: { n: string; title: string; body: string } }) {
+  return (
+    <div>
+      <FlowFrame step={step} />
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "#a9573a", letterSpacing: "0.1em", margin: "16px 0 8px" }}>
+        {data.n}
+      </div>
+      <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "#211d18" }}>
+        {data.title}
+      </h3>
+      <p style={{ fontSize: 15, color: "#5d564c", lineHeight: 1.55, margin: 0 }}>{data.body}</p>
+    </div>
+  );
+}
+
+function RoleCard({ emoji, title, body }: { emoji: string; title: string; body: string }) {
+  return (
+    <div className="dt-role-card" style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: "var(--radius)", padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
+      <span className="dt-role-emoji" aria-hidden>
+        {emoji}
+      </span>
       <div>
         <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "#211d18" }}>{title}</h3>
         <p style={{ fontSize: 15.5, color: "#5d564c", lineHeight: 1.55, margin: 0 }}>{body}</p>

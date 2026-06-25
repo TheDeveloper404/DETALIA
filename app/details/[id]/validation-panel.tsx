@@ -40,6 +40,8 @@ export function ValidationPanel({
   const approved = myPosition === "APPROVE";
   const disapproved = myPosition === "DISAPPROVE";
   const totalValidari = counts.approve + counts.disapprove;
+  // Polimorfic: aceeași validare pe detaliu SAU pe schiță — textul confirmării urmează ținta.
+  const targetNoun = targetType === "SKETCH" ? "această schiță" : "acest detaliu";
 
   // Câmpurile ascunse comune (țintă + pagina de revalidat).
   const hidden = (
@@ -135,7 +137,7 @@ export function ValidationPanel({
           )}
         >
           <span className="leading-snug">
-            {approved ? "Ai aprobat acest detaliu." : "Ai dezaprobat acest detaliu."}
+            {approved ? `Ai aprobat ${targetNoun}.` : `Ai dezaprobat ${targetNoun}.`}
           </span>
           <form action={retractAction} className="ml-auto">
             {hidden}
