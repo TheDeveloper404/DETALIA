@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { markReadAction } from "@/app/notifications/actions";
+import { markReadAction } from "@/app/(app)/notifications/actions";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 

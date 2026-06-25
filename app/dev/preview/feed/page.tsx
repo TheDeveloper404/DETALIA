@@ -6,7 +6,7 @@ import { DetailCard } from "@/components/detail-card";
 import { FeedRail } from "@/components/feed-rail";
 import { FeedSidebar } from "@/components/feed-sidebar";
 
-import { FeedEmpty } from "@/app/feed/feed-empty";
+import { FeedEmpty } from "@/app/(app)/feed/feed-empty";
 
 import { MOCK_CATEGORIES_WITH_COUNTS, MOCK_FEED, MOCK_PROFILE } from "../mock";
 
