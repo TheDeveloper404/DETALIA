@@ -7,7 +7,7 @@ import {
   disapproveAction,
   retractAction,
   type DisapproveState,
-} from "@/app/details/[id]/validation-actions";
+} from "@/app/(app)/details/[id]/validation-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
