@@ -4,6 +4,20 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-25 (datorie vie #4 — validare pe SKETCH, fix copy)
+
+### Validare/comentarii pe schiță — confirmarea poziției urmează ținta
+`typecheck` VERDE. (Verificarea vizuală o face Liviu.)
+- **Constatare:** datoria „validare pe SKETCH" era deja implementată end-to-end în cod (service `targetExists`
+  → schițe PUBLISHED; `page.tsx` aduce `getTargetValidationView("SKETCH")` + `getComments("SKETCH")` per schiță;
+  `readTarget` acceptă SKETCH; `SketchSection` randează `ValidationPanel`/`CommentsSection` cu `targetType="SKETCH"`).
+  Handoff-ul era depășit pe acest punct.
+- **Singurul defect viu — copy:** mesajul de confirmare din `validation-panel.tsx` era hardcodat „acest detaliu",
+  deci pe o schiță apărea „Ai dezaprobat acest detaliu." (greșit). Fix: `targetNoun` derivat din `targetType`
+  („această schiță" / „acest detaliu") → confirmarea urmează ținta.
+
+---
+
 ## 2026-06-24 (editare profil completă + rol DEFINITIV)
 
 ### Câmpuri lipsă în editare profil (#5) + rol blocat după alegere (#6)
