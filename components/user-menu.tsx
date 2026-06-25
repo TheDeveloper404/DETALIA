@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { signOutAction } from "@/app/profile/actions";
+import { signOutAction } from "@/app/(app)/profile/actions";
 
 // Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
 export function UserMenu({ name, image }: { name: string | null; image: string | null }) {
