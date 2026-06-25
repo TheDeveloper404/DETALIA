@@ -41,27 +41,17 @@ const PANEL_COPY = {
 export function AuthShell({
   mode,
   children,
-  crossLinkHref,
-  crossLinkLabel,
 }: {
   mode: "login" | "signup";
   children: ReactNode;
-  crossLinkHref: string;
-  crossLinkLabel: string;
 }) {
   const panel = PANEL_COPY[mode];
 
   return (
     <div className="flex flex-1 flex-col">
       <header className="sticky top-0 z-50 flex h-16 flex-none items-center border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
+        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center px-6">
           <BrandLogo />
-          <a
-            href={crossLinkHref}
-            className="text-sm text-muted-foreground no-underline transition-colors hover:text-primary"
-          >
-            {crossLinkLabel}
-          </a>
         </div>
       </header>
 

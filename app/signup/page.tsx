@@ -27,7 +27,7 @@ export default async function SignupPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <AuthShell mode="signup" crossLinkHref="/login" crossLinkLabel="Autentificare">
+    <AuthShell mode="signup">
       <Card className="w-full gap-6 [--card-spacing:--spacing(8)] shadow-[0_22px_56px_-34px_rgba(33,29,24,0.35)]">
         <CardHeader>
           <CardTitle className="text-[27px] leading-tight tracking-tight">Creează cont</CardTitle>
