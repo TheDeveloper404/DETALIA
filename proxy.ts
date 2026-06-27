@@ -11,11 +11,20 @@ const PUBLIC_PATHS = [
   "/", // landing
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
+  // 🔴 Dev-login (bypass auth) — public DOAR pe non-producție. DE ȘTERS înainte de prod (vezi handoff).
+  ...(process.env.NODE_ENV !== "production" ? ["/dev"] : []),
 ];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth;
+
+  // User logat pe landing → direct în feed. Făcut AICI (redirect 307 curat), nu în pagină:
+  // un redirect() din pagină se produce în timpul streaming-ului → Next emite un meta-refresh,
+  // care în unele browsere intră în buclă de reîncărcare. Middleware-ul evită complet asta.
+  if (pathname === "/" && isLoggedIn) {
+    return Response.redirect(new URL("/feed", req.nextUrl.origin));
+  }
 
   const isPublic = PUBLIC_PATHS.some(
     (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
