@@ -4,6 +4,37 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-27
+
+### Redirect authed `/` → `/feed`
+User logat care intră pe landing e dus direct în feed; ramurile authed din landing au fost scoase (cod mort). `app/page.tsx`.
+
+### Aliniere header între pagini
+`scrollbar-gutter: stable` global pe `html` (`globals.css`) — gata diferența de centrare între paginile cu/fără scrollbar.
+
+### Stivă de avatare validatori pe cardul de feed
+Subquery `validatorAvatars` în `detailsRepo.listFeed` (max 5 validatori recenți) + componenta `ValidatorStack` în `detail-card.tsx` (cercuri suprapuse + „+N").
+
+### Coloană `about` în profil
+Schemă + migrația `0003` + repo (`getUserProfile`/`updateUserDetails`/`getPublicProfile`) + `Textarea` „Despre" în edit form + afișare în `ProfileView`. Aplicată în DB direct (migrate e rupt pe Neon HTTP → `db:push`/SQL).
+
+### Constraint `validations_user_target_unique`
+Adăugat în DB (lipsea) — regula „o poziție per user per țintă" e acum enforce la nivel de bază de date.
+
+### Șters bypass-ul de acces dev
+`app/dev/` (dev-login + preview + mock) ȘTERS, poarta `/dev` scoasă din `proxy.ts`, sesiunile din DB șterse. Login-ul rămâne doar magic-link real.
+
+### Cardurile de schiță din profil linkează spre detaliul-mamă
+Tab-ul Schițe: cardurile (înainte non-navigabile) duc acum la `/details/[detailId]`. `detailId` propagat prin `ProfileSketchItem` + `profileService`.
+
+### Comentarii — editare și ștergere
+Autorul își poate **edita** comentariile (inline) și **șterge** comentariile libere. Justificările de dezaprobare (`originValidationId`) NU se pot șterge (ar deveni „dezaprobare mută" — regulă de business), doar edita. Ownership enforce pe server (condiție `authorId` în repo, fără IDOR). Nou: `updateCommentByAuthor`/`deleteFreeCommentByAuthor` (repo) · `editComment`/`deleteComment` (service) · `editCommentAction`/`deleteCommentAction` (actions) · `CommentItem` cu edit inline (`comments-section.tsx`).
+
+### Editor schiță — text manipulabil (mutare/rotire/mărime)
+Textul plasat poate fi selectat (click cu unealta Text) și transformat: **mutare** prin drag, **rotire** ±15° și **mărime** ±, plus editare conținut și ștergere — printr-o bară flotantă ancorată la text + contur de selecție. Câmp nou `angle` (radiani) pe `Stroke` (validat în domain, randat rotit în `sketch-render.ts`). `sketch-canvas.tsx`.
+
+---
+
 ## 2026-06-25 (datorie vie #4 — validare pe SKETCH, fix copy)
 
 ### Validare/comentarii pe schiță — confirmarea poziției urmează ținta

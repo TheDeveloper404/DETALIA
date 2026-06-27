@@ -129,6 +129,10 @@
   }
   html {
     @apply font-sans;
+    /* Gutter de scrollbar stabil: rezervă mereu lățimea scrollbarului, chiar și pe
+       paginile scurte (login/signup). Fără el, paginile cu scroll au clientWidth mai
+       mic → containerele centrate se deplasează cu ~15px între pagini. */
+    scrollbar-gutter: stable;
   }
 }
 

@@ -39,6 +39,7 @@ export async function getUserProfile(userId: string) {
       image: users.image,
       coverImage: users.coverImage,
       headline: users.headline,
+      about: users.about,
       location: users.location,
       website: users.website,
     })
@@ -48,10 +49,16 @@ export async function getUserProfile(userId: string) {
   return row ?? null;
 }
 
-// Editarea câmpurilor de text ale profilului (nume, headline, locație, website). NU atinge rolul (definitiv).
+// Editarea câmpurilor de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
 export async function updateUserDetails(
   userId: string,
-  fields: { name: string; headline: string | null; location: string | null; website: string | null },
+  fields: {
+    name: string;
+    headline: string | null;
+    about: string | null;
+    location: string | null;
+    website: string | null;
+  },
 ) {
   await db.update(users).set(fields).where(eq(users.id, userId));
 }
@@ -65,6 +72,7 @@ export async function getPublicProfile(userId: string) {
       image: users.image,
       coverImage: users.coverImage,
       headline: users.headline,
+      about: users.about,
       location: users.location,
       website: users.website,
       roleMain: roles.roleMain,

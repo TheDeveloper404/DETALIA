@@ -155,14 +155,15 @@ export async function getProfileView(
     roleLabel,
     location: profile.location,
     website: safeWebsite(profile.website),
-    bio: profile.headline, // headline = tagline sub nume (bio/about extinse = backlog)
-    about: null,
+    bio: profile.headline, // headline = tagline sub nume
+    about: profile.about,
     specializations: [],
     verified: profile.verificationStatus === "VERIFIED",
     stats,
     details: detailRows,
     sketches: sketchRows.map((s) => ({
       id: s.id,
+      detailId: s.detailId,
       parentTitle: s.parentTitle,
       title: "Propunere de schiță",
       ...(SKETCH_STATUS_VIEW[s.status] ?? SKETCH_STATUS_VIEW.PENDING_ACCEPTANCE),

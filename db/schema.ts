@@ -70,6 +70,7 @@ export const users = pgTable("users", {
   firstName: text(),
   lastName: text(),
   headline: text(),
+  about: text(),
   location: text(),
   website: text(),
   coverImage: text(),
