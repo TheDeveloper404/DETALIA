@@ -4,6 +4,16 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-28
+
+### Fix gating onboarding + separare dev/prod DB (date demo în prod)
+- **Bug grav:** user logat fără rol intra direct în feed ca „anonim". Cauză: `app/(app)/layout.tsx` nu verifica rolul.
+  Fix: layout async → logat fără rol → redirect `/onboarding` (un singur loc, acoperă toată zona autentificată).
+- **Date demo în prod:** local și prod foloseau aceeași ramură Neon → `db:seed` local scria demo în producție.
+  Remediere: (1) golit prod via Neon SQL Editor pe ramura `production` (păstrat `categories`); (2) ramură Neon nouă
+  `dev-local` (persistentă), `.env.local` re-creat să arate spre ea, nu spre prod; (3) barieră `SEED_DEMO=true` în
+  `db/seed.ts` — demo se seamănă doar cu opt-in explicit. Separarea documentată în `DEPLOY.md §2b`.
+
 ## 2026-06-27
 
 ### SECURITATE §10 — plan de implementare pe faze + gitignore docs
