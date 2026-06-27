@@ -1,9 +1,11 @@
 # DETALIA — Confidențialitate & GDPR (notă de lucru + schelet ToS)
 
-> ⚠️ **Risc real, nu birocrație.** DETALIA colectează **emailuri** și **dovezi de verificare rol (nr. OAR / CUI)**
-> = date cu caracter personal, în RO/UE. Pentru beta închis cu 50–100 de cunoscuți riscul e mic, dar **înainte
-> de orice deschidere mai largă** (Val 2 / înregistrare publică) e nevoie de notă de confidențialitate + ToS publicate.
-> Acest document e **nota de lucru** + scheletul textelor — **nu** consultanță juridică. Înainte de public: revizuire de jurist.
+> ⚠️ **Risc real, nu birocrație — acum mai urgent.** DETALIA colectează **emailuri**, **dovezi de verificare rol
+> (nr. OAR / CUI)** și **conținut încărcat de useri** (detalii + schițe, imagini ce pot conține PII) = date cu
+> caracter personal, în RO/UE. **Decizia de acces e PUBLIC** (înregistrare deschisă, upload deschis userilor — Edi,
+> iunie 2026), deci NU mai există faza „beta închis cu cunoscuți" în care riscul era mic: **nota de confidențialitate
+> + ToS trebuie publicate ÎNAINTE de lansarea publică**, nu „mai târziu". Acest document e **nota de lucru** +
+> scheletul textelor — **nu** consultanță juridică. Înainte de public: revizuire de jurist.
 
 ---
 
@@ -52,7 +54,7 @@ fluxuri auto (ștergere cont + date asociate).
 ```
 1. Ce este serviciul + cui se adresează
 2. Reguli de conduită în comunitate (conținut, respect, rol declarat onest)
-3. Proprietatea asupra conținutului (detalii seed vs. contribuții useri — de clarificat cu Edi)
+3. Proprietatea asupra conținutului (detalii seed vs. contribuții useri)
 4. Verificarea rolului (ce înseamnă badge-ul, că NU garantăm noi competența)
 5. Limitarea răspunderii (detaliile sunt opinii profesionale, nu avize)
 6. Suspendare/închidere cont
@@ -70,7 +72,7 @@ fluxuri auto (ștergere cont + date asociate).
 | Resend | trimitere email (adrese) | DPA disponibil |
 | Vercel Blob | imagini/thumbnail-uri | fără PII direct |
 
-> **De decis cu Edi:** regiunea DB (UE) + entitatea operator (persoană/firmă) — pentru notă.
+> Ce ține de Edi aici (entitatea operator, regiunea DB) → **`docs/DECIZII-EDI.md`**.
 
 ---
 
@@ -79,4 +81,4 @@ fluxuri auto (ștergere cont + date asociate).
 - [x] Principii aplicate în arhitectură (minimizare, fără PII în loguri, tokenuri one-time).
 - [ ] **Înainte de Val 2 / public:** publicare Notă confidențialitate + ToS (revizuite de jurist).
 - [ ] Flux automat de ștergere cont + date.
-- [ ] Confirmare regiune UE pentru Neon + entitatea operator (Edi).
+- [ ] Confirmare regiune UE pentru Neon + entitatea operator → vezi `docs/DECIZII-EDI.md`.

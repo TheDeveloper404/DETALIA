@@ -37,7 +37,7 @@ Dacă nu ai cerut tu acest link, poți ignora liniștit acest email.
 
 ## 2. Invitație în beta închis
 
-> Poarta de acces (invitația) e **ÎN HOLD** ca mecanism — dar copy-ul e gata pentru când se confirmă.
+> ⚠️ Acces = **PUBLIC** (Edi, iunie 2026) → invitația e **DORMANTĂ** (necablată în signup). Copy-ul rămâne doar pentru un eventual reuse.
 
 - **Subiect:** `Ai fost invitat în DETALIA`
 - **Preheader:** `Comunitatea profesională din construcții, organizată pe detaliul de execuție.`
