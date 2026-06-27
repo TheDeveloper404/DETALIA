@@ -6,6 +6,12 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-27
 
+### Șters dev-login (bypass auth) — re-adăugat din greșeală
+`app/dev/login/` (page + `devLoginAction`) re-apăruse prin commit `fac1249`. Eliminat din nou: folderul `app/dev/` șters, poarta publică `/dev` scoasă din `proxy.ts`, și **2 sesiuni reziduale** create de dev-login șterse din tabelul `sessions` (Neon). Login-ul rămâne doar magic-link real. (Eroarea tsc din `.next/dev/types/validator.ts` e generată, se regenerează la următorul dev/build.)
+
+### Fix buclă de reload în Firefox (dev pe webpack)
+La prima `npm run dev`, Firefox reîncărca `/feed` la infinit (Chrome nu). Cauză: HMR-ul Turbopack (default în Next 16) la compilare la rece — Firefox anulează chunk-urile lente (`NS_BINDING_ABORTED`) → Turbopack face full-reload → buclă. Diagnoza: Network arăta `/feed` 200 (nu redirect) + scripturi `[turbopack]_hmr-client` anulate. Fix: `dev` opt-out de Turbopack (`next dev --webpack`). `build`/`start` rămân pe Turbopack. `package.json`.
+
 ### Redirect authed `/` → `/feed`
 User logat care intră pe landing e dus direct în feed; ramurile authed din landing au fost scoase (cod mort). `app/page.tsx`.
 
