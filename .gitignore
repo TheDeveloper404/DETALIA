@@ -60,8 +60,10 @@ skills-lock.json
 
 # === Continuitate sesiune (local, nu cod de proiect) ===
 .remember/
+
+# === Documente care NU se comit (client + arhivă de docs) ===
 /documente_client
-/audit.md
+docs/_archive/
 
 # === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)

@@ -6,6 +6,32 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-27
 
+### SECURITATE §10 — plan de implementare pe faze + gitignore docs
+`SECURITATE.md §10` rescris ca **plan ordonat pe 4 faze** acoperind TOATE constatările (SEC-01..14 + §11c), în ordinea
+de făcut: Faza 1 blocante (rate limit, upload, URL allowlist, conturi suspendate) → Faza 2 production-ready (teste,
+atomicitate, ștergere date, headers, deps, PII rol) → Faza 3 hardening → Faza 4 igienă cod/UX.
+`.gitignore`: adăugat `docs/_archive/` + untracked `documente_client/` (documente client, nu se comit).
+
+### Consolidare audituri într-un singur document
+Cele 3 documente de audit (`SECURITATE.md`, `opencode.md`, `audit.md`) aveau suprapunere mare. Consolidate în
+**`SECURITATE.md`** (canonicul — cel mai riguros, se autodeclară „singurul doc de securitate"): adăugată §11b cu
+constatările non-securitate unice (profile actions ocolesc service, `zod` nefolosit, snapshot rol ignorat la afișare)
++ lista constatărilor deja rezolvate. `opencode.md` și `audit.md` **arhivate** în `docs/_archive/` cu banner.
+
+### Curățenie documentație (handoff #6)
+Aliniere docs la deciziile confirmate de Edi (acces PUBLIC, upload deschis, Server Actions, rute reale).
+- **Arhivate** în `docs/_archive/` (cu banner „NU mai e sursă activă"): `API.md` (ficțiune REST — appul folosește Server Actions), `plan nontehnic.md` (invite/seed-only + feature livrate ca „urmează"), `UX-ECRANE.md` (rute greșite).
+- **Șters** `PLAN-EXECUTIE.md` — tot ce conținea e implementat (în CHANGELOG) sau restanță trecută în handoff (Faza 2: accesibilitate + audit securitate).
+- **Actualizate țintit:** `ADR.md` (008→acces public, 009→upload deschis), `ARHITECTURA.md` (banner decizii suprascrise + §0/§13), `SCHEMA.md` (scos „pre-scaffold", adăugate câmpurile de profil reale din `db/schema.ts`), `CONFIDENTIALITATE-GDPR.md` (risc public de la lansare), `EMAILURI.md` (invitație dormantă), `PLAN-SEED.md` (50–100 detalii, upload deschis), `PLAN-TESTE.md` (0 teste/Vitest neinstalat, upload deschis, E2E verificare rol pe HOLD).
+- Rămân surse active: `SECURITATE.md`, `CHANGELOG.md`, `DEPLOY.md`, `audit.md` (dated, încă util).
+- **`docs/DECIZII-EDI.md` nou** — toate deciziile care depind de Edi într-un singur loc, în limbaj simplu (acum/mai târziu). Scoase din restul docurilor (ARHITECTURA „Încă deschise", GDPR, PLAN-SEED) → trimitere la el. PLAN-SEED rescris simplu, fără jargon.
+
+### `docs/DEPLOY.md` — ghid de deploy + DNS
+Document operațional nou: servicii third-party (Vercel/Neon/Blob/Resend/Google Workspace/Hostico/Cloudflare), stare actuală, și pașii rămași în ordine — migrare DNS pe Cloudflare, records Google Workspace (`support@detalia.ro`), records Resend pe `send.detalia.ro` (deblochează login real), legare opțională domeniu de Vercel. Include capcanele SPF (un singur record) + proxy Cloudflare (DNS only pe mail/verificare/Vercel).
+
+### Pagina de detaliu — scos sidebar-ul dreapta, lățit conținutul
+Eliminat sidebar-ul (carduri autor + „Despre detaliu" = redundante, info deja în antet; + „Regula de aur"). Pagina e acum o singură coloană lățită. „Detalii înrudite" mutat într-o secțiune **full-width** la baza paginii (grid responsive 1/2/3 coloane). `app/(app)/details/[id]/page.tsx` (scos `MetaRow` + importul `MapPin`).
+
 ### Deploy live pe Vercel (Neon branching + Blob)
 Proiectul e deployat pe Vercel: `main` = producție, `dev`/PR = preview. Integrarea nativă **Neon ↔ Vercel** face branching automat (prod = ramura principală, fiecare preview = ramură Neon efemeră) și injectează `DATABASE_URL`. **Vercel Blob** injectează automat `BLOB_READ_WRITE_TOKEN`. `AUTH_URL` = URL-ul `.vercel.app` (domeniul `detalia.ro` încă nelegat), `AUTH_TRUST_HOST=true`. **Resend încă nesetat** → login real (magic-link) blocat pe prod până la `AUTH_RESEND_KEY` + `EMAIL_FROM`. Schimbările de env vars cer redeploy.
 

@@ -8,6 +8,13 @@
 
 ---
 
+> 🔄 **DECIZII SUPRASCRISE (iunie 2026) — citește înainte.** Acest doc conceptual rămâne valid pe stack/straturi/schiță,
+> dar 3 decizii s-au schimbat de la scriere (vezi `CLAUDE.md` + `ADR.md`):
+> 1. **Acces = PUBLIC** (înregistrare deschisă), NU „beta închis pe invitație". Invitația = schelă dormantă.
+> 2. **Upload de detalii = DESCHIS** userilor cu rol declarat (moderare post-publicare), NU „seed-only v1".
+> 3. **Verificarea rolului = PE HOLD** (metoda în regândire). Restul (magic link, fără scoring, schiță async) — confirmat.
+> Unde textul de mai jos zice „invite-only" / „seed-only", aplică deciziile de aici.
+
 ## 0. Rezumat executiv (pentru client)
 
 DETALIA = **comunitatea profesională din construcții, organizată în jurul detaliului de execuție**, unde
@@ -15,8 +22,9 @@ fiecare detaliu poate fi aprobat, contestat cu argument și îmbunătățit prin
 execută sau îl trăiesc, fiecare cu rolul lui afișat transparent.
 
 Tehnic, construim un singur produs web, ieftin la rulare în faza de validare (aproape de **$0/lună** pe
-trafic mic), care poate scala fără să-l rescriem când comunitatea crește. Lansăm în **beta închis, pe
-invitație**, cu conținut pus de noi (seed), exact ca să controlăm calitatea dezbaterii din prima zi.
+trafic mic), care poate scala fără să-l rescriem când comunitatea crește. Lansăm cu **acces public**
+(înregistrare deschisă), cu **conținut seed pus de noi prin conturi reale** ca platforma să nu fie goală la
+primul contact, exact ca să controlăm calitatea dezbaterii din prima zi.
 
 Livrăm în etape clare; prima etapă răspunde direct la întrebarea de validare, fără să cheltuim pe ce nu o
 servește.
@@ -414,16 +422,11 @@ confirmi stack-ul.
   unelte = culori stridente + 3 grosimi + radieră + undo/redo.
 - **Notificări in-app + email** de la început.
 - **Zone climatice/seismice = listă fixă** + opțiune „General" (cu atenționare că datele reale dau greutate).
-- **Upload detalii = seed-only în v1** (deschidere pentru useri = Val 2).
+- **Upload detalii = DESCHIS** userilor cu rol declarat (moderare post-publicare); seed inițial prin conturi reale.
+- **Acces = PUBLIC** (înregistrare deschisă, fără invitație); schela de invitație rămâne dormantă în cod.
 - **Feed ~20** detalii după interacțiuni; căutare pe filtre la început.
 - O imagine 2D/detaliu (jpg/png/webp, ~5MB); **max 3 resurse** suplimentare.
 
 ### Încă deschise
-1. **Lista exactă de subroluri** per rol principal — Edi indică Documentul Fundamental; o folosim ca atare,
-   o ajustăm dacă apar cereri reale.
-2. **Taxonomia de categorii** pentru filtre (din Documentul Fundamental) — de finalizat lista de lansare.
-3. **Surse de verificare automată** a rolului ulterior (OAR confirmat? CUI pentru firme?), dincolo de manual-admin.
-4. **Poarta de acces la lansare — ÎN HOLD:** beta închis pe invitație (plan actual) vs. înregistrare publică
-   deschisă. De reconfirmat cu Edi. Independentă de verificarea rolului.
-5. **Plan Vercel** — pornim pe Hobby pentru validare, trecem pe Pro (~$20/lună) la comercial. OK?
+→ Toate deciziile care depind de Edi sunt într-un singur loc: **`docs/DECIZII-EDI.md`**.
 ```

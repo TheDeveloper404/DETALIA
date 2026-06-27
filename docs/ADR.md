@@ -47,15 +47,15 @@ fără FK forțat pe `target_id` → integritate în service + indici compuși. 
 nudge blând, badge la verificat). Rol auto-declarat la signup.
 **Consecințe:** frecare minimă la intrare + cerere organică de verificare din credibilitate. _(ARHITECTURA §3)_
 
-## ADR-008 — Poarta de acces (beta închis pe invitație) — **ÎN HOLD**
-**Context:** plan actual = invite-only; de reconfirmat cu Edi (invite-only vs. înregistrare publică la lansare).
-**Decizie (provizorie):** rămâne invite-only în plan, marcat reversibil până la confirmare.
-**Consecințe:** nu finalizăm signup gating până nu confirmă Edi; codul de acces se izolează ca să fie ușor de schimbat. _(ARHITECTURA §3, §9)_
+## ADR-008 — Poarta de acces = PUBLIC (înregistrare deschisă)
+**Context:** confirmat de Edi (iunie 2026) — minimizăm frecarea la primul contact; lansare = acces public deschis.
+**Decizie:** înregistrare liberă, fără invitație. Flux: landing → creare cont → magic link → onboarding (rol+subrol) → feed.
+**Consecințe:** schela de invitație (`Invitation`, token one-time) rămâne **dormantă în cod** pentru eventual reuse, NEcablată în signup. _(CLAUDE.md „Decizii confirmate de Edi")_
 
-## ADR-009 — Upload de detalii = seed-only în v1
-**Context:** controlul calității dezbaterii din ziua 1 + suprafață de atac redusă.
-**Decizie:** doar conturi admin/seed creează detalii în v1; deschiderea pentru useri = Val 2. Confirmat de Edi.
-**Consecințe:** lansare cu conținut curat (vezi `PLAN-SEED.md`); mai puține fluxuri de securizat la lansare. _(ARHITECTURA §9, §12)_
+## ADR-009 — Upload de detalii DESCHIS userilor cu rol declarat
+**Context:** confirmat de Edi (iunie 2026) — orice user autentificat cu rol declarat poate publica detalii (nu doar admin/seed).
+**Decizie:** upload deschis + **moderare post-publicare** (publici direct, ștergem abuzurile ulterior); fără cozi de aprobare în MVP. Seed inițial rămâne prin conturi reale.
+**Consecințe:** calitatea o dă validarea/dezbaterea pe roluri, nu un gatekeeper la intrare; mai multe fluxuri de securizat (validare input upload). _(CLAUDE.md „Decizii confirmate de Edi")_
 
 ## ADR-010 — Stack de date: Neon Postgres + Drizzle
 **Context:** avem nevoie de relații (roluri, validări, schițe); cold start mic pe serverless; free tier real.

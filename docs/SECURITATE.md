@@ -291,29 +291,55 @@ Este uzual în Vercel, dar presupune host controlat și `AUTH_URL` canonic. Pe s
 - Tokenurile de invitație și magic link trebuie să fie one-time și să expire.
 - Orice viitoare suprafață `/admin` trebuie să cheme `requireAdmin()` server-side; ascunderea UI nu este authz.
 
-## 10. Plan și porți de remediere
+## 10. Plan de implementare pe faze (în ordinea de făcut)
 
-### P0 — înainte de orice trafic public
+Ordinea de mai jos acoperă **toate** constatările (SEC-01..14 + §11c). Numerotare continuă = ordinea recomandată.
 
-- SEC-01: limiter distribuit și cote;
-- SEC-02: validare reală a fișierelor, reordonarea uploadurilor și cleanup;
-- SEC-03: allowlist URL;
-- SEC-04: blocarea conturilor suspendate.
+### FAZA 1 — BLOCANTE (înainte de ORICE trafic public)
+Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
 
-### P1 — înainte de production-ready
+1. **SEC-01 — Rate limiting + cote.** Limiter distribuit (serverless): login pe IP + hash email; mutații (validare,
+   comentariu, schiță, upload) pe user/acțiune; cote de upload; dedup/limită la emailuri; răspunsuri generice anti-enumerare.
+2. **SEC-02 — Upload sigur.** Mută authz + validările ieftine ÎNAINTE de upload; verifică magic bytes + decodare +
+   re-encodare fără metadata; limite dimensiuni/pixeli; cote; cleanup blob orfan la eșec; verifică headerele reale Blob.
+3. **SEC-03 — Allowlist URL.** `new URL()` + allowlist strict `http:`/`https:` + normalizare + limită lungime, pe
+   resursele detaliului ȘI pe `website` din profil.
+4. **SEC-04 — Blochează conturile `SUSPENDED`.** Refuz la sign-in și la sesiune dacă status ≠ `ACTIVE`; revocă sesiunile existente; test dedicat.
 
-- SEC-05/06: retenție PII, ștergere cont și Blob lifecycle;
-- SEC-07: tranziții atomice și notificări idempotente;
-- SEC-08: security headers;
-- SEC-09: actualizare sau risk acceptance documentat pentru advisories;
-- SEC-10: teste authz și anti-abuz.
+### FAZA 2 — înainte de production-ready
 
-### P2 — hardening înainte și imediat după lansare
+5. **SEC-10 — Runner de teste + teste de securitate.** Instalează `vitest` (acum lipsește); scrie teste authz/IDOR,
+   concurență, upload, rate-limit. *Pus devreme: prinde regresii pe tot ce urmează.*
+6. **SEC-07 — Tranziții atomice.** Accept/reject schiță cu `WHERE id=? AND status='PENDING_ACCEPTANCE'` + verificare
+   rânduri afectate; notificări idempotente (outbox/dedup).
+7. **SEC-06 — Ștergere cont + lifecycle date.** Export/ștergere; strategie FK `details.authorId`/`sketches.authorId`
+   (anonimizare/cascade); cleanup blob avatar/cover la înlocuire/ștergere.
+8. **SEC-08 — Security headers.** CSP, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, frame policy;
+   HSTS verificat pe platformă. Verifică pe răspunsurile reale de staging.
+9. **SEC-09 — Dependențe.** Update sau risk-acceptance documentat pentru advisories-urile moderate; fără downgrade major automat.
+10. **SEC-05 — PII verificare rol** *(cuplat cu feature-ul „verificare rol", acum PE HOLD).* Dacă feature-ul rămâne
+    dezactivat, **ascunde fluxul de trimitere dovezi** ca să nu colectezi PII deloc. Dacă se activează: limită + structurare
+    + flux admin de review + retenție/ștergere după decizie.
 
-- validare centralizată pentru toate inputurile;
-- audit trail și alerte;
-- hardening invitații înainte de activare;
-- scanare automată de dependențe și secrete în CI.
+### FAZA 3 — hardening (înainte și imediat după lansare)
+
+11. **SEC-11 — Validare centralizată inputuri.** Scheme server-side unice; UUID parsing (UUID malformat să nu dea 500);
+    limite de lungime pe fiecare string (`climateZone`/`seismicZone` etc.).
+12. **SEC-13 — Matcher proxy.** Excluderi explicite pentru asseturi (în loc de `.*\..*`) + guard local obligatoriu pe orice rută nouă.
+13. **SEC-14 — Audit trail + alerte.** Evenimente structurate fără PII brut, correlation ID, alerte pe rate/cost, retenție controlată.
+14. **SEC-12 — Hardening invitații** *(doar dacă se reactivează invitația — acum dormantă).* Stochează hash-ul tokenului
+    + consum atomic `WHERE used_at IS NULL AND expires_at > now()`. De făcut ÎNAINTE de orice activare.
+
+### FAZA 4 — igienă cod / corectitudine / UX (§11c, non-blocante)
+
+15. **§11c #1** — mută profile actions prin `profileService` (nu direct în `usersRepo`).
+16. **§11c #2** — elimină `zod` nefolosit din `package.json` (sau adoptă-l pentru validările din `domain`).
+17. **§11c #3** — afișează validările istorice cu `roleSnapshot` (fallback la rolul curent doar pentru cele vechi).
+18. **§11c #4** — erori silențioase: logging/handling explicit + cleanup resurse orfane (legat de SEC-02).
+19. **§11c #5** — UX: `maxLength` pe textarea de justificare + loading states pe butoanele de formular.
+
+> **CI permanent (transversal):** `npm audit` + scanare de secrete + rularea testelor pe fiecare PR (SEC-09/10/14).
+> **INFO-02** (`trustHost`) se validează în poarta de staging (§11), nu e un task separat.
 
 ## 11. Poarta finală de securitate pe staging
 
@@ -329,6 +355,53 @@ Este uzual în Vercel, dar presupune host controlat și `AUTH_URL` canonic. Pe s
 - verificarea rotației secretelor, backup/restore și regiunii procesatorilor;
 - rerulare `npm audit`, teste și scanare de secrete;
 - toate constatările High închise și Medium fie închise, fie acceptate explicit cu owner și termen.
+
+## 11b. Crosswalk consolidare — fiecare constatare din audit.md + opencode.md (2026-06-27)
+
+`audit.md` (24 iun, aliniere FE↔BE) și `opencode.md` (26 iun, audit 100% cod) au fost **integrate aici și arhivate**.
+Maparea de mai jos e **cap-la-cap**, ca să nu se piardă nimic. „Unde" = unde trăiește constatarea acum.
+
+### Din `audit.md`
+| # | Constatare | Unde acum |
+|---|---|---|
+| 1 | Verificarea rolului = flux fără ieșire (fără review admin) | **SEC-05** + matrice `requestVerificationAction` (deschis) |
+| 2 | „Vezi profilul" deschidea persoana greșită | ✅ REZOLVAT — există `/profile/[userId]` |
+| 3 | Linkul de categorie nu filtra feedul (`?category=slug` vs `cat`) | ✅ REZOLVAT — folosește `cat=<uuid>` |
+| 4 | Aprob/Dezaprob din feed erau doar linkuri | ✅ REZOLVAT — `feed-validation-actions.tsx` face validare inline reală |
+| 5 | Ciornele nu puteau fi reluate | ✅ REZOLVAT — există `/sketches/drafts` |
+| 6 | Onboarding poate lăsa profil parțial (rol+profil neatomice) | matrice `onboardingAction` ⚠️ (deschis) |
+| 7 | Accept/reject schiță neatomic (concurență) | **SEC-07** |
+| 8 | URL-uri resurse nevalidate http/https | **SEC-03** |
+| 9 | Snapshot de rol salvat dar ignorat la afișare | **§11c #3** |
+
+### Din `opencode.md`
+| Constatare | Unde acum |
+|---|---|
+| Rate limiting absent (auth, validări, comentarii, upload) | **SEC-01** |
+| Eliminat `dev/login` din build | ✅ REZOLVAT — șters complet |
+| Security headers lipsă (CSP/HSTS) | **SEC-08** |
+| Upload abuzabil / validare insuficientă fișiere | **SEC-02** |
+| Anti-IDOR (userId din sesiune) — confirmat OK | matrice §5 + §6 (pozitiv) |
+| `trustHost: true` de revizuit | **INFO-02** |
+| Docs `API.md`/`SCHEMA.md` stale | ✅ REZOLVAT — curățenie docs (CHANGELOG 2026-06-27) |
+| Profile actions ocolesc service-ul | **§11c #1** |
+| `zod` în dependențe, nefolosit | **§11c #2** |
+| Erori silențioase (sendEmail/thumbnail best-effort) + resurse orfane | **§11c #4** (legat de SEC-02) |
+| `maxLength` pe textarea justificare; loading states pe butoane | **§11c #5** (UX, low) |
+| Website safety (`safeWebsite`) / hardcodări TTL/feed-size | confirmate OK (pozitiv/info) |
+
+## 11c. Constatări non-securitate carry-over (igienă cod / corectitudine / UX)
+
+1. **Profile actions ocolesc service-ul:** `updateAvatarAction` / `updateCoverAction` / `updateProfileDetailsAction`
+   scriu direct în `usersRepo`, nu prin `profileService`. Nu e gaură (userId din sesiune), dar încalcă convenția pe straturi.
+2. **`zod` în dependențe, nefolosit** — validările sunt manuale. De eliminat din `package.json` sau de adoptat în `domain`.
+3. **Snapshot de rol ignorat la afișare:** `roleSnapshot` pe `validations` se salvează, dar afișarea face join cu rolul
+   curent → schimbarea ulterioară a rolului rescrie retrospectiv validările vechi. (De reverificat în cod.)
+4. **Erori silențioase + resurse orfane:** `sendEmail` înghite erorile (intenționat); thumbnail upload e best-effort;
+   bloburile/resursele orfane la eșec nu au cleanup (legat de **SEC-02** — Neon HTTP nu are tranzacții interactive).
+5. **UX (low):** `maxLength` pe textarea de justificare; loading states consistente pe butoanele de formular.
+
+> Constatări deja **rezolvate** (nu mai sunt valabile): vezi coloana „REZOLVAT" din tabelele de mai sus.
 
 ## 12. Întreținerea documentului
 
