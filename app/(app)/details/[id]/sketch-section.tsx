@@ -44,6 +44,7 @@ export function SketchSection({
   imageUrl,
   published,
   pending,
+  currentUserId,
   currentUserName,
   currentUserImage,
 }: {
@@ -51,6 +52,7 @@ export function SketchSection({
   imageUrl: string;
   published: PublishedSketchItem[];
   pending: SketchItem[]; // gol dacă userul curent nu e autorul-mamă
+  currentUserId?: string | null;
   currentUserName?: string | null;
   currentUserImage?: string | null;
 }) {
@@ -159,6 +161,7 @@ export function SketchSection({
                 targetId={active.id}
                 detailId={detailId}
                 comments={active.comments}
+                currentUserId={currentUserId}
                 currentUserName={currentUserName}
                 currentUserImage={currentUserImage}
                 title="Dezbatere pe schiță"

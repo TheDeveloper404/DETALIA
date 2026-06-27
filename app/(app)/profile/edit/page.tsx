@@ -79,11 +79,12 @@ export default async function ProfileEditPage() {
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
           <h2 className="text-sm font-semibold">Detalii profil</h2>
           <p className="text-xs text-muted-foreground">
-            Numele, titlul, locația și website-ul apar pe profilul tău public.
+            Numele, titlul, secțiunea „Despre”, locația și website-ul apar pe profilul tău public.
           </p>
           <EditDetailsForm
             initialName={name}
             initialHeadline={profile?.headline ?? null}
+            initialAbout={profile?.about ?? null}
             initialLocation={profile?.location ?? null}
             initialWebsite={profile?.website ?? null}
           />

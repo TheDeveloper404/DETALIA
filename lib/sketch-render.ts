@@ -56,6 +56,14 @@ export function renderStrokes(
       // (ca adnotările de pe planuri/CAD) — FĂRĂ casetă/bordură, ca să arate parte din schiță.
       const [x, y] = points[0] ?? [0, 0];
       const fontPx = s.size * scale * TEXT_FONT_SCALE;
+      ctx.save();
+      // Rotație opțională în jurul ancorei (points[0]): translatăm acolo, rotim, desenăm de la origine.
+      if (s.angle) {
+        ctx.translate(x, y);
+        ctx.rotate(s.angle);
+      } else {
+        ctx.translate(x, y);
+      }
       ctx.font = `600 ${fontPx}px ${TEXT_FONT_FAMILY}`;
       ctx.textBaseline = "top";
       ctx.textAlign = "left";
@@ -64,9 +72,10 @@ export function renderStrokes(
       const lineHeight = fontPx * 1.3;
       ctx.strokeStyle = "rgba(250,247,241,0.92)";
       ctx.lineWidth = Math.max(fontPx * 0.16, 2);
-      lines.forEach((line, i) => ctx.strokeText(line, x, y + i * lineHeight));
+      lines.forEach((line, i) => ctx.strokeText(line, 0, i * lineHeight));
       ctx.fillStyle = s.color;
-      lines.forEach((line, i) => ctx.fillText(line, x, y + i * lineHeight));
+      lines.forEach((line, i) => ctx.fillText(line, 0, i * lineHeight));
+      ctx.restore();
       continue;
     }
 

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 import {
   type ProfileFormState,
@@ -87,15 +88,17 @@ export function CoverForm() {
   );
 }
 
-// Editarea datelor de profil (nume, headline, locație, website). Rolul NU se editează aici (e definitiv).
+// Editarea datelor de profil (nume, headline, about, locație, website). Rolul NU se editează aici (e definitiv).
 export function EditDetailsForm({
   initialName,
   initialHeadline,
+  initialAbout,
   initialLocation,
   initialWebsite,
 }: {
   initialName: string | null;
   initialHeadline: string | null;
+  initialAbout: string | null;
   initialLocation: string | null;
   initialWebsite: string | null;
 }) {
@@ -124,6 +127,21 @@ export function EditDetailsForm({
           placeholder="ex: Arhitect · birou propriu"
           defaultValue={initialHeadline ?? ""}
         />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="about">
+          Despre <span className="font-normal text-muted-foreground">(opțional)</span>
+        </Label>
+        <Textarea
+          id="about"
+          name="about"
+          maxLength={1000}
+          rows={4}
+          placeholder="Câteva rânduri despre tine, experiența și domeniile în care lucrezi."
+          defaultValue={initialAbout ?? ""}
+        />
+        <span className="text-xs text-muted-foreground">Apare pe profilul tău public, sub date.</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

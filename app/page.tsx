@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 
 import { HeroPreview } from "@/components/hero-preview";
@@ -163,7 +164,9 @@ function Eyebrow({ children }: { children: ReactNode }) {
 
 export default async function Home() {
   const session = await auth();
-  const authed = Boolean(session?.user);
+  // Un user logat n-are ce căuta pe landing-ul de marketing → direct în app.
+  // Landing-ul de mai jos randează DOAR pentru anonimi.
+  if (session?.user) redirect("/feed");
 
   return (
     <div
@@ -212,20 +215,12 @@ export default async function Home() {
             </span>
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-            {authed ? (
-              <Link href="/feed" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: "var(--radius)" }}>
-                Mergi la feed
-              </Link>
-            ) : (
-              <>
-                <Link href="/login" className="dc-link" style={{ fontSize: 14.5, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
-                  Autentificare
-                </Link>
-                <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: "var(--radius)" }}>
-                  Creează cont
-                </Link>
-              </>
-            )}
+            <Link href="/login" className="dc-link" style={{ fontSize: 14.5, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
+              Autentificare
+            </Link>
+            <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: "var(--radius)" }}>
+              Creează cont
+            </Link>
           </div>
         </div>
       </header>
@@ -277,26 +272,16 @@ export default async function Home() {
               validează deschis — fiecare cu numele și rolul lui.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
-              {authed ? (
-                <Link href="/feed" className="dc-btn-primary" style={primaryBtn}>
-                  Mergi la feed
-                </Link>
-              ) : (
-                <>
-                  <Link href="/signup" className="dc-btn-primary" style={primaryBtn}>
-                    Creează cont gratuit
-                  </Link>
-                  <Link href="/login" className="dc-btn-outline" style={outlineBtn}>
-                    Autentificare
-                  </Link>
-                </>
-              )}
+              <Link href="/signup" className="dc-btn-primary" style={primaryBtn}>
+                Creează cont gratuit
+              </Link>
+              <Link href="/login" className="dc-btn-outline" style={outlineBtn}>
+                Autentificare
+              </Link>
             </div>
-            {!authed && (
-              <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8a8073", marginTop: 20, letterSpacing: "0.02em" }}>
-                {SUBLINE}
-              </div>
-            )}
+            <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8a8073", marginTop: 20, letterSpacing: "0.02em" }}>
+              {SUBLINE}
+            </div>
           </div>
 
           {/* Coloana card preview (planșă + voturi pe roluri) — animat, loop ~6s. */}
@@ -486,17 +471,15 @@ export default async function Home() {
             în care breasla discută un detaliu de execuție.
           </p>
           <Link
-            href={authed ? "/feed" : "/signup"}
+            href="/signup"
             className="dc-btn-primary-dark"
             style={{ ...primaryBtn, fontSize: 16, padding: "15px 30px", border: "1px solid #c06b46" }}
           >
-            {authed ? "Mergi la feed" : "Creează cont gratuit"}
+            Creează cont gratuit
           </Link>
-          {!authed && (
-            <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8c8475", marginTop: 20, letterSpacing: "0.02em" }}>
-              Alătură-te chiar azi comunității
-            </div>
-          )}
+          <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8c8475", marginTop: 20, letterSpacing: "0.02em" }}>
+            Alătură-te chiar azi comunității
+          </div>
         </div>
         </Reveal>
       </section>
