@@ -1,4 +1,4 @@
-import { Activity, FileText, ImageIcon, Link as LinkIcon, MapPin, Snowflake } from "lucide-react";
+import { Activity, FileText, ImageIcon, Link as LinkIcon, Snowflake } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -49,7 +49,7 @@ const RESOURCE_ICON = {
 } as const;
 
 // Pagina unui detaliu (the «repo»): antet (autor+rol), imaginea 2D, validarea pe roluri,
-// teancul de schițe și dezbaterea — coloană principală + sidebar (autor / meta / regula de aur).
+// teancul de schițe și dezbaterea — o singură coloană lățită. Jos, full-width: detalii înrudite.
 export default async function DetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -102,9 +102,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
         <span className="truncate text-foreground/70">{detail.title}</span>
       </nav>
 
-      <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
-        {/* ===================== COLOANA PRINCIPALĂ ===================== */}
-        <div className="flex min-w-0 flex-col gap-7">
+      <div className="flex min-w-0 flex-col gap-7">
           {/* ===== ANTET DETALIU ===== */}
           <div>
             <h1 className="mb-4 font-heading text-[32px] font-extrabold leading-[1.14] tracking-tight text-balance">
@@ -247,116 +245,39 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             currentUserName={session.user.name}
             currentUserImage={session.user.image}
           />
-        </div>
-
-        {/* ===================== SIDEBAR ===================== */}
-        <aside className="flex flex-col gap-4 lg:sticky lg:top-[90px]">
-          {/* card autor */}
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="flex items-center gap-3">
-              <AvatarInitials name={detail.authorName} imageUrl={detail.authorImage} size={46} />
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-heading text-[15px] font-bold">
-                    {detail.authorName ?? "Anonim"}
-                  </span>
-                  {verified && (
-                    <span className="text-[#d99a2b]" title="Rol verificat" aria-label="Rol verificat">
-                      ★
-                    </span>
-                  )}
-                </div>
-                {detail.authorHeadline && (
-                  <div className="mt-0.5 truncate font-mono text-[11.5px] text-muted-foreground">
-                    {detail.authorHeadline}
-                  </div>
-                )}
-              </div>
-            </div>
-            {detail.authorLocation && (
-              <div className="mt-3 flex items-center gap-1.5 text-[13px] text-muted-foreground">
-                <MapPin className="size-3.5" strokeWidth={2} />
-                {detail.authorLocation}
-              </div>
-            )}
-            <Link
-              href={`/profile/${detail.authorId}`}
-              className="mt-4 flex items-center justify-center rounded-[9px] border border-[#d8cfc0] bg-card px-3.5 py-2.5 font-heading text-[13.5px] font-semibold transition-colors hover:border-primary"
-            >
-              Vezi profilul
-            </Link>
-          </div>
-
-          {/* card meta */}
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <div className="mb-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-              Despre detaliu
-            </div>
-            <dl className="flex flex-col">
-              <MetaRow label="Categorie" value={detail.categoryName ?? "—"} first />
-              {detail.climateZone && <MetaRow label="Zonă climatică" value={detail.climateZone} />}
-              {detail.seismicZone && <MetaRow label="Zonă seismică" value={detail.seismicZone} />}
-              <MetaRow label="Publicat" value={formatDate(detail.createdAt)} />
-            </dl>
-          </div>
-
-          {/* regula de aur */}
-          <div className="rounded-2xl border border-[#e6ddcf] bg-secondary p-5">
-            <div className="mb-1.5 font-heading text-[14.5px] font-bold">Regula de aur</div>
-            <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Butonul de validare e identic pentru toți. O dezaprobare vine mereu cu o justificare.
-              Cântărește rolul, nu un scor.
-            </p>
-          </div>
-
-          {/* detalii înrudite (aceeași categorie) */}
-          {related.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="mb-3.5 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
-                Detalii înrudite
-              </div>
-              <ul className="flex flex-col">
-                {related.map((r, i) => (
-                  <li key={r.id} className={i === 0 ? "" : "mt-3 border-t border-[#eee6da] pt-3"}>
-                    <Link href={`/details/${r.id}`} className="group block">
-                      <span className="block font-heading text-[13.5px] font-semibold leading-snug text-foreground/90 group-hover:text-primary">
-                        {r.title}
-                      </span>
-                      <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-                        {r.authorName && (
-                          <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
-                        )}
-                        <RolePill
-                          roleMain={r.authorRoleMain}
-                          verified={r.authorVerification === "VERIFIED"}
-                        />
-                        <span className="font-mono text-[11px] text-[#a59a88]">
-                          {r.commentCount} com · {r.sketchCount} schițe
-                        </span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </aside>
       </div>
-    </main>
-  );
-}
 
-function MetaRow({ label, value, first }: { label: string; value: string; first?: boolean }) {
-  return (
-    <div
-      className={
-        first
-          ? "flex items-center justify-between gap-3"
-          : "mt-3 flex items-center justify-between gap-3 border-t border-[#eee6da] pt-3"
-      }
-    >
-      <dt className="text-[13px] text-muted-foreground">{label}</dt>
-      <dd className="font-heading text-[13.5px] font-semibold">{value}</dd>
-    </div>
+      {/* ===================== DETALII ÎNRUDITE (full-width) ===================== */}
+      {related.length > 0 && (
+        <section className="mt-12 border-t border-[#e6ddcf] pt-8">
+          <div className="mb-4 font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+            Detalii înrudite
+          </div>
+          <ul className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+            {related.map((r) => (
+              <li key={r.id} className="rounded-2xl border border-border bg-card p-4">
+                <Link href={`/details/${r.id}`} className="group block">
+                  <span className="block font-heading text-[14px] font-semibold leading-snug text-foreground/90 group-hover:text-primary">
+                    {r.title}
+                  </span>
+                  <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {r.authorName && (
+                      <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
+                    )}
+                    <RolePill
+                      roleMain={r.authorRoleMain}
+                      verified={r.authorVerification === "VERIFIED"}
+                    />
+                    <span className="font-mono text-[11px] text-[#a59a88]">
+                      {r.commentCount} com · {r.sketchCount} schițe
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </main>
   );
 }
