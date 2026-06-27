@@ -111,6 +111,21 @@ const sketchCount = sql<number>`(select count(*)::int from ${sketches}
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
 const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${sketchCount})`;
 
+// Avatarele validatorilor (max 5, cei mai recenți) pentru stiva de pe cardul de feed —
+// „cine a luat poziție". Subquery corelat → array JSON, ca să nu dublăm rândurile detaliului.
+// Overflow-ul (+N) îl calculează UI-ul din validationCount, nu îl aducem aici.
+const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
+  select coalesce(json_agg(json_build_object('name', sub.name, 'image', sub.image)), '[]'::json)
+  from (
+    select ${users.name} as name, ${users.image} as image
+    from ${validations}
+    join ${users} on ${users.id} = ${validations.userId}
+    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id}
+    order by ${validations.createdAt} desc
+    limit 5
+  ) sub
+)`;
+
 // Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
 // Sortare după interacțiuni (caracter de comunitate), tie-break după dată descrescătoare.
 export async function listFeed(input: {
@@ -140,6 +155,7 @@ export async function listFeed(input: {
       validationCount,
       commentCount,
       sketchCount,
+      validatorAvatars,
       interactionCount: interactionScore,
     })
     .from(details)

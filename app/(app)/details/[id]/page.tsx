@@ -232,6 +232,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             imageUrl={detail.imageUrl}
             published={published}
             pending={pending}
+            currentUserId={session.user.id}
             currentUserName={session.user.name}
             currentUserImage={session.user.image}
           />
@@ -242,6 +243,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             targetId={detail.id}
             detailId={detail.id}
             comments={comments}
+            currentUserId={session.user.id}
             currentUserName={session.user.name}
             currentUserImage={session.user.image}
           />
