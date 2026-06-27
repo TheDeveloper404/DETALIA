@@ -6,6 +6,9 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-27
 
+### Deploy live pe Vercel (Neon branching + Blob)
+Proiectul e deployat pe Vercel: `main` = producție, `dev`/PR = preview. Integrarea nativă **Neon ↔ Vercel** face branching automat (prod = ramura principală, fiecare preview = ramură Neon efemeră) și injectează `DATABASE_URL`. **Vercel Blob** injectează automat `BLOB_READ_WRITE_TOKEN`. `AUTH_URL` = URL-ul `.vercel.app` (domeniul `detalia.ro` încă nelegat), `AUTH_TRUST_HOST=true`. **Resend încă nesetat** → login real (magic-link) blocat pe prod până la `AUTH_RESEND_KEY` + `EMAIL_FROM`. Schimbările de env vars cer redeploy.
+
 ### Șters dev-login (bypass auth) — re-adăugat din greșeală
 `app/dev/login/` (page + `devLoginAction`) re-apăruse prin commit `fac1249`. Eliminat din nou: folderul `app/dev/` șters, poarta publică `/dev` scoasă din `proxy.ts`, și **2 sesiuni reziduale** create de dev-login șterse din tabelul `sessions` (Neon). Login-ul rămâne doar magic-link real. (Eroarea tsc din `.next/dev/types/validator.ts` e generată, se regenerează la următorul dev/build.)
 
