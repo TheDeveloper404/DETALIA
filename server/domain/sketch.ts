@@ -34,6 +34,7 @@ export type Stroke = {
   points: Point[];
   kind?: StrokeKind;
   text?: string; // doar pt kind === "text"
+  angle?: number; // rotație în radiani, doar pt kind === "text" (în jurul ancorei points[0])
 };
 
 // Limite anti-abuz pentru payload-ul vectorial (bound pe mărimea jsonb).
@@ -83,6 +84,7 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 
     // `text` obligatoriu (și doar) pentru kind === "text": șir nevid, lungime mărginită.
     let text: string | undefined;
+    let angle: number | undefined;
     if (kind === "text") {
       if (typeof s.text !== "string") return { ok: false, error: "INVALID_STROKE" };
       const trimmed = s.text.trim();
@@ -90,6 +92,13 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
         return { ok: false, error: "INVALID_STROKE" };
       }
       text = trimmed;
+      // `angle` opțional (radiani). Acceptăm orice număr finit; îl normalizăm la [-2π, 2π].
+      if (s.angle !== undefined) {
+        if (typeof s.angle !== "number" || !Number.isFinite(s.angle)) {
+          return { ok: false, error: "INVALID_STROKE" };
+        }
+        angle = s.angle % (Math.PI * 2);
+      }
     }
 
     const points: Point[] = [];
@@ -99,7 +108,11 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
       }
       points.push([p[0], p[1]]);
     }
-    value.push(kind === "text" ? { color: s.color, size: s.size, points, kind, text } : { color: s.color, size: s.size, points, kind });
+    value.push(
+      kind === "text"
+        ? { color: s.color, size: s.size, points, kind, text, ...(angle !== undefined ? { angle } : {}) }
+        : { color: s.color, size: s.size, points, kind },
+    );
   }
   return { ok: true, value };
 }

@@ -1,5 +1,5 @@
 // Repo comentarii — singurul loc cu acces Drizzle pentru tabelul `comments` (polimorfic Detail/Sketch).
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, roles, users } from "@/db/schema";
@@ -48,3 +48,23 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
 }
 
 export type TargetComment = Awaited<ReturnType<typeof listCommentsForTarget>>[number];
+
+// Editează corpul unui comentariu — DOAR al autorului (condiție pe authorId → fără IDOR). True dacă a actualizat.
+export async function updateCommentByAuthor(id: string, authorId: string, body: string): Promise<boolean> {
+  const rows = await db
+    .update(comments)
+    .set({ body })
+    .where(and(eq(comments.id, id), eq(comments.authorId, authorId)))
+    .returning({ id: comments.id });
+  return rows.length > 0;
+}
+
+// Șterge un comentariu — DOAR al autorului ȘI doar comentariu LIBER (originValidationId null).
+// Justificările de dezaprobare nu se șterg singure (ar deveni „dezaprobare mută"). True dacă a șters.
+export async function deleteFreeCommentByAuthor(id: string, authorId: string): Promise<boolean> {
+  const rows = await db
+    .delete(comments)
+    .where(and(eq(comments.id, id), eq(comments.authorId, authorId), isNull(comments.originValidationId)))
+    .returning({ id: comments.id });
+  return rows.length > 0;
+}

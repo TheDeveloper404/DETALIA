@@ -4,10 +4,15 @@ import {
   ArrowUpRight,
   Circle,
   Eraser,
+  Minus,
   Pencil,
+  Plus,
   Redo2,
+  RotateCcw,
+  RotateCw,
   Slash,
   Square,
+  Trash2,
   Type,
   Undo2,
   ZoomIn,
@@ -30,7 +35,14 @@ import {
   TEXT_FONT_SCALE,
 } from "@/lib/sketch-render";
 import { cn } from "@/lib/utils";
-import { MAX_TEXT_LENGTH, STROKE_COLORS, STROKE_WIDTHS, type Stroke } from "@/server/domain/sketch";
+import {
+  MAX_STROKE_SIZE,
+  MAX_TEXT_LENGTH,
+  STROKE_COLORS,
+  STROKE_WIDTHS,
+  type Point,
+  type Stroke,
+} from "@/server/domain/sketch";
 
 // Uneltele de desen din rail. „pen" freehand · forme cu 2 capete (line/rect/ellipse/arrow) · „text" casetă · „eraser".
 type Tool = "pen" | "line" | "rect" | "ellipse" | "arrow" | "text" | "eraser";
@@ -113,6 +125,41 @@ function strokeHit(s: Stroke, px: number, py: number, th: number): boolean {
   return false;
 }
 
+// Caseta unui stroke de text în PX pe canvas (ancoră + lățime/înălțime măsurate cu fontul real).
+// Folosită pt hit-test (selecție/drag) și pt conturul de selecție. Rotația se aplică în jurul ancorei.
+function measureTextBox(
+  ctx: CanvasRenderingContext2D,
+  s: Stroke,
+  width: number,
+  height: number,
+): { x: number; y: number; w: number; h: number } {
+  const scale = width / REFERENCE_WIDTH;
+  const fontPx = s.size * scale * TEXT_FONT_SCALE;
+  ctx.font = `600 ${fontPx}px ${TEXT_FONT_FAMILY}`;
+  const lines = (s.text ?? "").split("\n");
+  const lineHeight = fontPx * 1.3;
+  let w = 0;
+  for (const l of lines) w = Math.max(w, ctx.measureText(l).width);
+  return {
+    x: (s.points[0]?.[0] ?? 0) * width,
+    y: (s.points[0]?.[1] ?? 0) * height,
+    w,
+    h: lines.length * lineHeight,
+  };
+}
+
+// Hit-test pe un text rotit: aducem punctul în spațiul ancorei + inverse-rotim, apoi verificăm caseta.
+function textHit(ctx: CanvasRenderingContext2D, s: Stroke, px: number, py: number, w: number, h: number): boolean {
+  const box = measureTextBox(ctx, s, w, h);
+  const a = s.angle ?? 0;
+  const dx = px - box.x;
+  const dy = py - box.y;
+  const rx = dx * Math.cos(-a) - dy * Math.sin(-a);
+  const ry = dx * Math.sin(-a) + dy * Math.cos(-a);
+  const pad = 6;
+  return rx >= -pad && rx <= box.w + pad && ry >= -pad && ry <= box.h + pad;
+}
+
 // ── Istoric (undo/redo) ──────────────────────────────────────────────────────
 type History = { past: Stroke[][]; present: Stroke[]; future: Stroke[][] };
 type HistoryAction =
@@ -169,8 +216,10 @@ export const SketchCanvas = forwardRef<
   const [tool, setTool] = useState<Tool>("pen");
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(1);
-  // Caseta de text în curs de tastare (poziție normalizată 0..1 + valoare). null = niciuna deschisă.
-  const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string } | null>(null);
+  // Caseta de text în curs de tastare (poziție normalizată 0..1 + valoare + unghi la editare). null = niciuna.
+  const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string; angle?: number } | null>(null);
+  // Indexul textului selectat (în `present`) pentru mutare/rotire/redimensionare. null = nimic selectat.
+  const [selected, setSelected] = useState<number | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -179,6 +228,9 @@ export const SketchCanvas = forwardRef<
   const drawingRef = useRef<{ drawing: boolean; points: number[][] }>({ drawing: false, points: [] });
   // Radieră: setul de stroke-uri șterse într-o singură tragere (un singur pas de undo la final).
   const eraseRef = useRef<{ base: Stroke[]; removed: Set<number> } | null>(null);
+  // Mutarea textului selectat prin drag: ancora originală + flag „chiar s-a mutat" + previzualizarea live.
+  const dragRef = useRef<{ index: number; startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
+  const moveLiveRef = useRef<Stroke[] | null>(null);
 
   const present = history.present;
 
@@ -248,7 +300,7 @@ export const SketchCanvas = forwardRef<
   }, [imageUrl]);
 
   // Redesenează: imaginea-mamă estompată (fill slab 0.3) + stroke-urile + stroke-ul în lucru.
-  const redraw = useCallback((strokes: Stroke[], temp?: Stroke) => {
+  const redraw = useCallback((strokes: Stroke[], temp?: Stroke, selIndex?: number | null) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -276,6 +328,24 @@ export const SketchCanvas = forwardRef<
     }
     renderStrokes(ctx, strokes, canvas.width, canvas.height);
     if (temp) renderStrokes(ctx, [temp], canvas.width, canvas.height);
+
+    // Contur de selecție pentru textul ales (casetă punctată, rotită ca textul).
+    if (selIndex != null) {
+      const s = strokes[selIndex];
+      if (s && s.kind === "text") {
+        const box = measureTextBox(ctx, s, canvas.width, canvas.height);
+        const pad = 5;
+        ctx.save();
+        ctx.translate(box.x, box.y);
+        ctx.rotate(s.angle ?? 0);
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = "rgba(33,29,24,0.55)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-pad, -pad, box.w + pad * 2, box.h + pad * 2);
+        ctx.restore();
+        ctx.setLineDash([]);
+      }
+    }
   }, []);
 
   // Zoom cu Ctrl/Cmd + rotița mouse-ului (listener non-passive ca să putem preveni scroll-ul paginii).
@@ -291,9 +361,17 @@ export const SketchCanvas = forwardRef<
     return () => c.removeEventListener("wheel", onWheel);
   }, []);
 
+  // Arată conturul de selecție doar în modul text, când nu tastezi.
+  const selForDraw = tool === "text" && !textDraft ? selected : null;
   useEffect(() => {
-    redraw(present);
-  }, [dims, present, redraw]);
+    redraw(present, undefined, selForDraw);
+  }, [dims, present, redraw, selForDraw]);
+
+  // Schimbă unealta + deselectează textul când ieși din modul text.
+  const selectTool = useCallback((t: Tool) => {
+    setTool(t);
+    if (t !== "text") setSelected(null);
+  }, []);
 
   // ── Desen ──────────────────────────────────────────────────────────────────
   function normPoint(e: React.PointerEvent): number[] {
@@ -317,10 +395,35 @@ export const SketchCanvas = forwardRef<
         kind: "text",
         text: textDraft.value.trim().slice(0, MAX_TEXT_LENGTH),
         points: [[textDraft.x, textDraft.y]],
+        ...(textDraft.angle ? { angle: textDraft.angle } : {}),
       };
       dispatch({ type: "commit", present: [...present, stroke] });
     }
     setTextDraft(null);
+  }
+
+  // Aplică o transformare pe textul selectat și o comite (un pas de undo).
+  function updateSelectedText(fn: (s: Stroke) => Stroke) {
+    if (selected === null) return;
+    dispatch({ type: "commit", present: present.map((s, i) => (i === selected ? fn(s) : s)) });
+  }
+
+  // Reintră în editarea textului selectat (păstrează culoarea/mărimea/unghiul); scoate stroke-ul vechi.
+  function editSelectedText() {
+    if (selected === null) return;
+    const s = present[selected];
+    if (!s || s.kind !== "text") return;
+    setColor(s.color);
+    setSize(s.size);
+    setTextDraft({ x: s.points[0][0], y: s.points[0][1], value: s.text ?? "", angle: s.angle });
+    dispatch({ type: "commit", present: present.filter((_, i) => i !== selected) });
+    setSelected(null);
+  }
+
+  function deleteSelectedText() {
+    if (selected === null) return;
+    dispatch({ type: "commit", present: present.filter((_, i) => i !== selected) });
+    setSelected(null);
   }
 
   // Focus pe input-ul flotant când se deschide o casetă nouă.
@@ -343,8 +446,29 @@ export const SketchCanvas = forwardRef<
   function onPointerDown(e: React.PointerEvent) {
     const p = normPoint(e);
     if (tool === "text") {
-      // Click pe canvas: fixează caseta anterioară (dacă există) și deschide una nouă aici.
+      // Click pe un text existent → selectează-l + pregătește mutarea prin drag.
+      const ctx = canvasRef.current?.getContext("2d");
+      if (ctx && !textDraft) {
+        for (let i = present.length - 1; i >= 0; i--) {
+          const s = present[i];
+          if (s.kind === "text" && textHit(ctx, s, p[0] * dims.w, p[1] * dims.h, dims.w, dims.h)) {
+            setSelected(i);
+            dragRef.current = {
+              index: i,
+              startX: p[0],
+              startY: p[1],
+              origX: s.points[0][0],
+              origY: s.points[0][1],
+              moved: false,
+            };
+            canvasRef.current?.setPointerCapture(e.pointerId);
+            return;
+          }
+        }
+      }
+      // Click pe gol: fixează caseta anterioară, deselectează și deschide una nouă aici.
       commitText();
+      setSelected(null);
       setTextDraft({ x: p[0], y: p[1], value: "" });
       return;
     }
@@ -366,6 +490,20 @@ export const SketchCanvas = forwardRef<
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    // Mutarea textului selectat (drag) — independentă de desen.
+    if (dragRef.current) {
+      const d = dragRef.current;
+      const p = normPoint(e);
+      const nx = Math.min(1, Math.max(0, d.origX + (p[0] - d.startX)));
+      const ny = Math.min(1, Math.max(0, d.origY + (p[1] - d.startY)));
+      if (Math.abs(p[0] - d.startX) > 0.002 || Math.abs(p[1] - d.startY) > 0.002) d.moved = true;
+      const next = present.map((s, i) =>
+        i === d.index ? { ...s, points: [[nx, ny]] as Point[] } : s,
+      );
+      moveLiveRef.current = next;
+      redraw(next, undefined, d.index);
+      return;
+    }
     if (!drawingRef.current.drawing) return;
     const p = normPoint(e);
     if (tool === "eraser") {
@@ -382,6 +520,16 @@ export const SketchCanvas = forwardRef<
   }
 
   function onPointerUp() {
+    // Finalizează mutarea textului: comite doar dacă s-a mutat efectiv.
+    if (dragRef.current) {
+      const d = dragRef.current;
+      dragRef.current = null;
+      if (d.moved && moveLiveRef.current) {
+        dispatch({ type: "commit", present: moveLiveRef.current });
+      }
+      moveLiveRef.current = null;
+      return;
+    }
     const { drawing, points } = drawingRef.current;
     drawingRef.current = { drawing: false, points: [] };
     if (tool === "eraser") {
@@ -425,7 +573,7 @@ export const SketchCanvas = forwardRef<
                 aria-label={label}
                 title={label}
                 aria-pressed={active}
-                onClick={() => setTool(value)}
+                onClick={() => selectTool(value)}
                 className={cn(railBtn, "h-[38px] w-full", active ? "border-primary bg-[#f6ede4]" : "border-border")}
               >
                 <Icon className={cn("size-[18px]", active ? "text-primary" : "text-foreground/70")} strokeWidth={1.9} />
@@ -500,7 +648,7 @@ export const SketchCanvas = forwardRef<
           type="button"
           aria-label="Radieră"
           aria-pressed={tool === "eraser"}
-          onClick={() => setTool((t) => (t === "eraser" ? "pen" : "eraser"))}
+          onClick={() => selectTool(tool === "eraser" ? "pen" : "eraser")}
           className={cn(railBtn, "h-[46px] w-[52px]", tool === "eraser" ? "border-primary bg-[#f6ede4]" : "border-border")}
         >
           <Eraser className={cn("size-5", tool === "eraser" ? "text-primary" : "text-foreground/70")} strokeWidth={1.9} />
@@ -649,6 +797,40 @@ export const SketchCanvas = forwardRef<
               }}
             />
           )}
+
+          {/* Bara de control a textului selectat: rotire, mărime, editare, ștergere. Ancorată deasupra textului. */}
+          {selected !== null && !textDraft && present[selected]?.kind === "text" && (
+            <div
+              className="absolute z-[7] flex -translate-y-full items-center gap-0.5 rounded-lg border border-[#e6dccd] bg-white/95 p-1 shadow-md"
+              style={{
+                left: (present[selected].points[0]?.[0] ?? 0) * dims.w,
+                top: (present[selected].points[0]?.[1] ?? 0) * dims.h - 8,
+              }}
+              // Nu lăsa click-urile pe bară să ajungă la canvas (ar deselecta / crea text).
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <TextCtrlBtn label="Rotește stânga" onClick={() => updateSelectedText((s) => ({ ...s, angle: (s.angle ?? 0) - Math.PI / 12 }))}>
+                <RotateCcw className="size-4" strokeWidth={2} />
+              </TextCtrlBtn>
+              <TextCtrlBtn label="Rotește dreapta" onClick={() => updateSelectedText((s) => ({ ...s, angle: (s.angle ?? 0) + Math.PI / 12 }))}>
+                <RotateCw className="size-4" strokeWidth={2} />
+              </TextCtrlBtn>
+              <span className="mx-0.5 h-5 w-px bg-[#e6dccd]" />
+              <TextCtrlBtn label="Micșorează" onClick={() => updateSelectedText((s) => ({ ...s, size: Math.max(4, s.size / 1.2) }))}>
+                <Minus className="size-4" strokeWidth={2} />
+              </TextCtrlBtn>
+              <TextCtrlBtn label="Mărește" onClick={() => updateSelectedText((s) => ({ ...s, size: Math.min(MAX_STROKE_SIZE, s.size * 1.2) }))}>
+                <Plus className="size-4" strokeWidth={2} />
+              </TextCtrlBtn>
+              <span className="mx-0.5 h-5 w-px bg-[#e6dccd]" />
+              <TextCtrlBtn label="Editează textul" onClick={editSelectedText}>
+                <Pencil className="size-4" strokeWidth={2} />
+              </TextCtrlBtn>
+              <TextCtrlBtn label="Șterge" onClick={deleteSelectedText}>
+                <Trash2 className="size-4 text-[#b0463c]" strokeWidth={2} />
+              </TextCtrlBtn>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -662,4 +844,27 @@ function RailLabel({ children }: { children: React.ReactNode }) {
 }
 function RailDivider() {
   return <div className="h-px w-[46px] flex-none bg-[#eee6da]" />;
+}
+
+// Buton din bara de control a textului selectat (rotire/mărime/editare/ștergere).
+function TextCtrlBtn({
+  label,
+  onClick,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="flex size-7 items-center justify-center rounded-md text-foreground/75 transition-colors hover:bg-secondary"
+    >
+      {children}
+    </button>
+  );
 }

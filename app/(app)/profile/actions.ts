@@ -90,7 +90,7 @@ export async function updateCoverAction(
   return { error: null, ok: true };
 }
 
-// Editează câmpurile de text ale profilului (nume, headline, locație, website). NU atinge rolul (definitiv).
+// Editează câmpurile de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
 // Numele e obligatoriu; restul opțional (gol → null). Website fără schemă → prefixăm https://.
 export async function updateProfileDetailsAction(
   _prev: ProfileFormState,
@@ -107,11 +107,12 @@ export async function updateProfileDetailsAction(
     return s.length === 0 ? null : s.slice(0, max);
   };
   const headline = clip(formData.get("headline"), 120);
+  const about = clip(formData.get("about"), 1000);
   const location = clip(formData.get("location"), 120);
   let website = clip(formData.get("website"), 200);
   if (website && !/^https?:\/\//i.test(website)) website = `https://${website}`;
 
-  await updateUserDetails(userId, { name, headline, location, website });
+  await updateUserDetails(userId, { name, headline, about, location, website });
 
   revalidatePath("/profile");
   revalidatePath("/profile/edit");

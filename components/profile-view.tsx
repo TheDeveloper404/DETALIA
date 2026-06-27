@@ -27,6 +27,7 @@ export type ProfileDetailItem = {
 
 export type ProfileSketchItem = {
   id: string;
+  detailId: string;
   parentTitle: string;
   title: string;
   statusLabel: string;
@@ -347,9 +348,10 @@ function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
       {items.map((s) => {
         const st = SKETCH_STATUS_STYLE[s.statusKind];
         return (
-          <div
+          <Link
             key={s.id}
-            className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10"
+            href={`/details/${s.detailId}`}
+            className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
           >
             <div className="flex h-[74px] w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary" />
             <div className="min-w-0 flex-1">
@@ -364,7 +366,7 @@ function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
                 {s.statusLabel}
               </span>
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>

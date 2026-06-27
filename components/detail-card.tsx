@@ -18,6 +18,43 @@ function initials(name: string | null): string {
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
 }
 
+// Stivă de avatare ale validatorilor — cercuri suprapuse (cine a luat poziție pe detaliu).
+// Aducem max 5 avatare din DB; dacă sunt mai mulți validatori, ultimul cerc devine „+N".
+function ValidatorStack({
+  avatars,
+  total,
+}: {
+  avatars: { name: string | null; image: string | null }[];
+  total: number;
+}) {
+  if (total <= 0 || avatars.length === 0) return null;
+  const overflow = total - avatars.length;
+
+  return (
+    <div className="mb-3 flex items-center">
+      {avatars.map((v, i) => (
+        <span
+          key={i}
+          title={v.name ?? "Validator"}
+          className="flex size-6 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[9px] text-muted-foreground ring-2 ring-card first:ml-0 -ml-2"
+        >
+          {v.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={v.image} alt="" className="size-full object-cover" />
+          ) : (
+            initials(v.name)
+          )}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="-ml-2 flex size-6 items-center justify-center rounded-full bg-secondary font-mono text-[9px] font-semibold text-muted-foreground ring-2 ring-card">
+          +{overflow}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export function DetailCard({
   detail,
   myPosition,
@@ -77,6 +114,9 @@ export function DetailCard({
             verified={detail.authorVerification === "VERIFIED"}
           />
         </div>
+
+        {/* Stivă de validatori — avatarele celor care au luat poziție, suprapuse (cine a contribuit). */}
+        <ValidatorStack avatars={detail.validatorAvatars} total={detail.validationCount} />
 
         {/* Stats. */}
         <div className="mb-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
