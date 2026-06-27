@@ -60,6 +60,14 @@ async function main() {
     return r.id;
   };
 
+  // 🔴 BARIERĂ conținut demo: userii/detaliile/validările/schițele demo se seamănă DOAR cu opt-in explicit
+  // `SEED_DEMO=true`. Implicit OFF → rulând `db:seed` pe Neon (prod) NU mai bagi demo accidental.
+  // (NODE_ENV nu e de încredere aici: db:seed rulează local chiar și când ținta e DB-ul de prod.)
+  if (process.env.SEED_DEMO !== "true") {
+    console.log("SEED_DEMO != true → sar peste conținutul demo. Rămân doar adminul (A) + categoriile.");
+    return;
+  }
+
   // Useri demo cu roluri (idempotent pe email).
   const userDefs = [
     {
