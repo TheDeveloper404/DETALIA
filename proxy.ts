@@ -11,8 +11,6 @@ const PUBLIC_PATHS = [
   "/", // landing
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
-  // 🔴 Dev-login (bypass auth) — public DOAR pe non-producție. DE ȘTERS înainte de prod (vezi handoff).
-  ...(process.env.NODE_ENV !== "production" ? ["/dev"] : []),
 ];
 
 export default auth((req) => {
