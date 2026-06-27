@@ -2,7 +2,7 @@
 
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
-> _Ultima verificare față de cod: pre-scaffold (codul încă nu există)._
+> _Ultima verificare față de cod: 2026-06-27 — codul EXISTĂ (`db/schema.ts`). La orice divergență, codul câștigă._
 >
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.
@@ -33,10 +33,19 @@ notification_type      : SKETCH_PROPOSED | SKETCH_ACCEPTED | SKETCH_REJECTED | .
 |---|---|---|
 | `id` | uuid PK | `gen_random_uuid()` |
 | `email` | text | **UNIQUE**, not null |
-| `name` | text | |
-| `status` | `user_status` | default `ACTIVE` (creat la accept invitație) |
-| `invited_by_id` | uuid FK→users.id | nullable; **index** |
-| `created_at` / `updated_at` | timestamptz | |
+| `email_verified` | timestamptz | standard Auth.js |
+| `name` | text | nullable (compus din `first_name` + `last_name` la onboarding) |
+| `image` | text | avatar (Blob) |
+| `status` | `user_status` | default `ACTIVE` |
+| `invited_by_id` | uuid | nullable |
+| `first_name` / `last_name` | text | profil extins (onboarding) |
+| `headline` | text | profil public (titlu/headline) |
+| `about` | text | descriere profil |
+| `location` / `website` | text | profil public |
+| `cover_image` | text | copertă profil (Blob) |
+| `created_at` | timestamptz | (NU există `updated_at` pe `users`) |
+
+> Tabelele Auth.js (`accounts`, `sessions`, `verification_tokens`) sunt gestionate de adapterul Drizzle — vezi `db/schema.ts`, nu le mâna manual.
 
 ### `roles` (un singur rol per user — declarat la signup)
 | coloană | tip | note |
