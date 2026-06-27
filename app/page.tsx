@@ -1,11 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 
 import { HeroPreview } from "@/components/hero-preview";
 import { IntroSplash } from "@/components/intro-splash";
 import { Reveal } from "@/components/reveal";
-import { auth } from "@/lib/auth";
 
 // Landing public DETALIA — import din Claude Design („Detalia Landing.dc.html"), hero varianta B
 // (planșă în panou + voturi pe roluri) + CTA final dark. Paletă proprie de brand (bej cald / teracotă)
@@ -162,12 +160,9 @@ function Eyebrow({ children }: { children: ReactNode }) {
   );
 }
 
-export default async function Home() {
-  const session = await auth();
-  // Un user logat n-are ce căuta pe landing-ul de marketing → direct în app.
-  // Landing-ul de mai jos randează DOAR pentru anonimi.
-  if (session?.user) redirect("/feed");
-
+export default function Home() {
+  // Landing public (anonim). Redirectul user-logat → /feed se face în `proxy.ts` (307 curat,
+  // fără meta-refresh) — un user autentificat nu ajunge niciodată să randeze pagina asta.
   return (
     <div
       className="dc-landing"
