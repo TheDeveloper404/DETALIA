@@ -37,6 +37,26 @@
 
 ---
 
+## 2b. Medii & baze de date — separare dev/prod (NON-NEGOCIABIL)
+
+Regula de aur: **datele demo/de test NU ajung niciodată în producție.** Trei medii = trei ramuri Neon:
+
+| Mediu | Ramura Neon | Cine o folosește | `DATABASE_URL` |
+|---|---|---|---|
+| **Local** (`npm run dev`) | `dev-local` (persistentă, No auto-delete) | laptopul tău | în `.env.local`, manual |
+| **Preview** (push pe `dev`/PR) | `preview/dev` (efemeră) | Vercel preview | injectat de integrare |
+| **Producție** (`main`) | `production` | Vercel prod | injectat de integrare |
+
+Reguli:
+- **`.env.local` arată DOAR spre `dev-local`**, niciodată spre `production`. (Cauza incidentului din 2026-06-27: `.env.local`
+  arăta spre prod → `db:seed` local a băgat date demo în producție.)
+- **Demo seed = opt-in:** `db/seed.ts` seamănă conținut demo DOAR cu `SEED_DEMO=true`. Implicit OFF. Rulează demo **doar** local.
+  Pe prod, `db:seed` (fără flag) creează doar adminul (`ADMIN_EMAILS`) + categoriile.
+- **Niciodată `db:seed`/`db:push` cu `SEED_DEMO` spre `production`.** Dacă trebuie schema pe prod → `db:push` curat (fără demo).
+- Curățare prod (dacă se murdărește): Neon → SQL Editor → ramura `production` → `DELETE FROM ...` (păstrând `categories`).
+
+---
+
 ## 3. Mută DNS-ul pe Cloudflare (o singură dată)
 
 1. **Cloudflare → Add a site** → `detalia.ro` → planul **Free**.
