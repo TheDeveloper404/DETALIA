@@ -1,6 +1,6 @@
 // Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -97,6 +97,41 @@ export async function getDetailById(id: string) {
     .where(and(eq(details.id, id), eq(details.status, DETAIL_STATUS.PUBLISHED)))
     .limit(1);
   return row ?? null;
+}
+
+// Șterge un detaliu + tot ce atârnă de el, ATOMIC. `detail_resources` și `sketches` cad în cascadă
+// (FK onDelete: cascade). DAR validările și comentariile sunt POLIMORFICE (target_type/target_id, fără
+// FK către details/sketches) → trebuie șterse manual: cele de pe detaliu ȘI cele de pe schițele lui.
+// Neon HTTP n-are tranzacții interactive → folosim `db.batch` (un singur batch atomic).
+// Întoarce URL-urile de thumbnail ale schițelor (pt curățarea blob best-effort din service).
+export async function deleteDetailCascade(detailId: string): Promise<string[]> {
+  const sketchRows = await db
+    .select({ id: sketches.id, thumbnailUrl: sketches.thumbnailUrl })
+    .from(sketches)
+    .where(eq(sketches.detailId, detailId));
+  const sketchIds = sketchRows.map((s) => s.id);
+
+  const valWhere = sketchIds.length
+    ? or(
+        and(eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId)),
+        and(eq(validations.targetType, "SKETCH"), inArray(validations.targetId, sketchIds)),
+      )
+    : and(eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId));
+
+  const comWhere = sketchIds.length
+    ? or(
+        and(eq(comments.targetType, "DETAIL"), eq(comments.targetId, detailId)),
+        and(eq(comments.targetType, "SKETCH"), inArray(comments.targetId, sketchIds)),
+      )
+    : and(eq(comments.targetType, "DETAIL"), eq(comments.targetId, detailId));
+
+  await db.batch([
+    db.delete(validations).where(valWhere),
+    db.delete(comments).where(comWhere),
+    db.delete(details).where(eq(details.id, detailId)), // cascade → detail_resources + sketches
+  ]);
+
+  return sketchRows.map((s) => s.thumbnailUrl).filter((u): u is string => !!u);
 }
 
 // Counts de interacțiune per detaliu (polimorfice, pe DETAIL) — subquery-uri corelate (nu join-uri)

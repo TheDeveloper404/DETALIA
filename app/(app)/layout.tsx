@@ -1,22 +1,13 @@
-import { redirect } from "next/navigation";
-
 import { AppHeader } from "@/components/app-header";
-import { auth } from "@/lib/auth";
-import { userHasRole } from "@/server/services/roleService";
 
 // Layout al zonei autentificate (feed, details, profile, sketches, notifications): aici trăiește
 // header-ul global. Landing/login/signup/onboarding stau în root layout (au header propriu sau niciunul),
 // ca să nu se dubleze bara — un user logat pe „/" vedea AppHeader peste header-ul propriu al landing-ului.
 //
-// GATING DE ONBOARDING: deny-by-default (auth) e în `proxy.ts`. Aici a doua poartă — un user logat dar
-// FĂRĂ rol declarat NU poate intra în zona autentificată; e trimis să-și declare rolul întâi.
-// (`/onboarding` e la root, nu sub `(app)`, deci nu se face buclă.)
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (session?.user?.id && !(await userHasRole(session.user.id))) {
-    redirect("/onboarding");
-  }
-
+// GATING (deny-by-default auth + poarta de onboarding) trăiește acum în `proxy.ts` ca redirect 307 curat.
+// NU îl reintroduce aici: un `redirect()` din layout în timpul streaming-ului RSC degenerează în
+// meta-refresh → buclă de loading (onboarding ⇄ feed). Vezi comentariul din proxy.ts.
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppHeader />

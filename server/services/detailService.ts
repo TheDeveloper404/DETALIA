@@ -13,8 +13,10 @@ import {
   type DetailValidationError,
   validateDetailInput,
 } from "@/server/domain/detail";
+import { deleteBlobs } from "@/lib/storage";
 import { getCategoryById } from "@/server/repos/categoriesRepo";
 import {
+  deleteDetailCascade,
   getDetailById,
   getDetailResources,
   insertDetail,
@@ -92,6 +94,30 @@ export async function getDetail(id: string) {
   if (!detail) return null;
   const resources = await getDetailResources(id);
   return { ...detail, resources };
+}
+
+export type DeleteDetailResult =
+  | { ok: true }
+  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" };
+
+// Ștergerea unui detaliu de către AUTORUL lui (enforce pe SERVER — ownership, nu frontend).
+//  - id malformat / inexistent → NOT_FOUND (nu dezvăluim existența).
+//  - alt user decât autorul → FORBIDDEN (niciodată 404 ca să ascundem; vezi convențiile de authz).
+// Curățarea în cascadă (resurse, schițe, validări, comentarii polimorfice) o face repo-ul, atomic.
+// Blob-urile (imaginea detaliului + thumbnail-urile schițelor) le ștergem best-effort după.
+export async function deleteDetail(input: {
+  detailId: string;
+  userId: string;
+}): Promise<DeleteDetailResult> {
+  if (!UUID_RE.test(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+
+  const detail = await getDetailById(input.detailId);
+  if (!detail) return { ok: false, error: "NOT_FOUND" };
+  if (detail.authorId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+
+  const sketchThumbnails = await deleteDetailCascade(input.detailId);
+  await deleteBlobs([detail.imageUrl, ...sketchThumbnails]);
+  return { ok: true };
 }
 
 export type FeedSort = "debated" | "recent";
