@@ -318,14 +318,20 @@ Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
 
 5. **SEC-10 — Runner de teste + teste de securitate.** Instalează `vitest` (acum lipsește); scrie teste authz/IDOR,
    concurență, upload, rate-limit. *Pus devreme: prinde regresii pe tot ce urmează.*
-6. **SEC-07 — Tranziții atomice.** Accept/reject schiță cu `WHERE id=? AND status='PENDING_ACCEPTANCE'` + verificare
-   rânduri afectate; notificări idempotente (outbox/dedup).
-7. **SEC-06 — Ștergere cont + lifecycle date.** Export/ștergere; strategie FK `details.authorId`/`sketches.authorId`
-   (anonimizare/cascade); cleanup blob avatar/cover la înlocuire/ștergere.
+6. ✅ **SEC-07 — Tranziții atomice** (rezolvat 2026-06-28, vezi CHANGELOG). Accept/reject erau deja atomice;
+   adăugat guard atomic și pe SEND (`transitionFromDraft`, `WHERE author_id AND status='DRAFT'`) → notificare doar pe
+   câștigătorul tranziției (idempotent, fără email dublu). Outbox = nenecesar la altitudinea asta.
+7. ✅ **SEC-06 — Ștergere cont + lifecycle date** (rezolvat 2026-06-28, vezi CHANGELOG). Ștergere cont = anonimizare
+   (tombstone păstrează rândul → FK `details.authorId`/`sketches.authorId` rămân valide); cleanup blob avatar/cover la
+   înlocuire ȘI la ștergere. *Export date (portabilitate) = încă manual.*
 8. ✅ **SEC-08 — Security headers** (rezolvat 2026-06-28, vezi CHANGELOG). `next.config.ts headers()`: CSP +
    nosniff + Referrer-Policy + X-Frame-Options DENY + Permissions-Policy + HSTS, pe toate rutele. CSP cu
    `script-src 'unsafe-inline'` (nonce = hardening ulterior). *DE VERIFICAT în consola preview-ului.*
-9. **SEC-09 — Dependențe.** Update sau risk-acceptance documentat pentru advisories-urile moderate; fără downgrade major automat.
+9. ✅ **SEC-09 — Dependențe** (evaluat 2026-06-28). `npm audit` = 6 moderate, **toate dev/build-time, zero în runtime**:
+   (a) `esbuild ≤0.24.2` via `@esbuild-kit` → `drizzle-kit`; (b) `postcss <8.5.10` bundle-uit în `next`. Suntem pe
+   **latest** la ambele (drizzle-kit 0.31.10, next 16.2.9) → niciun upgrade nu rezolvă; `--force` ar face downgrade
+   major (drizzle-kit 0.18 / next 9), inacceptabil. **RISK-ACCEPTANCE:** fără modificări; tranzitive de tooling, nu
+   ajung la useri. De re-evaluat când Next/drizzle-kit își update-ază tranzitivele.
 10. **SEC-05 — PII verificare rol** *(cuplat cu feature-ul „verificare rol", acum PE HOLD).* Dacă feature-ul rămâne
     dezactivat, **ascunde fluxul de trimitere dovezi** ca să nu colectezi PII deloc. Dacă se activează: limită + structurare
     + flux admin de review + retenție/ștergere după decizie.
