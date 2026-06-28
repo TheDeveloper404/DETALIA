@@ -42,6 +42,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Pre-paint: dacă intro-ul de brand trebuie arătat (prima vizită din sesiune, fără reduced-motion),
+            marcăm <html data-intro="show"> ÎNAINTE de prima pictare. CSS-ul (html[data-intro=show]::before)
+            acoperă landing-ul până montează overlay-ul React → fără flash de landing. IntroSplash scoate
+            atributul la dismiss. Script sincron, în capul body-ului, rulează înainte de restul conținutului. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var s=sessionStorage.getItem('detalia_intro_seen');var r=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(!s&&!r)document.documentElement.setAttribute('data-intro','show');}catch(e){}})();",
+          }}
+        />
         {children}
       </body>
     </html>

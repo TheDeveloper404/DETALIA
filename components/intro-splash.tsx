@@ -40,10 +40,12 @@ export function IntroSplash() {
     };
   }, []);
 
-  // La dismiss: marcăm „văzut" (o singură dată pe sesiune) și demontăm după fade-out.
+  // La dismiss: marcăm „văzut", scoatem cover-ul pre-paint (data-intro) ca fade-ul overlay-ului să
+  // dezvăluie landing-ul, apoi demontăm după fade-out.
   useEffect(() => {
     if (phase !== "hiding") return;
     sessionStorage.setItem(SEEN_KEY, "1");
+    document.documentElement.removeAttribute("data-intro");
     const t = setTimeout(() => setPhase("done"), FADE_MS);
     return () => clearTimeout(t);
   }, [phase]);
