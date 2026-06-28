@@ -1,7 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
+import { uploadImageToBlob } from "@/lib/blob-upload";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 import {
   ROLE_MAINS,
   ROLE_MAIN_LABELS,
@@ -43,6 +45,13 @@ export function OnboardingForm() {
   const [subrol, setSubrol] = useState<string>(SUBROLES.PROIECTANT[0]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [clientErr, setClientErr] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const avatarUrlRef = useRef<HTMLInputElement>(null);
+  const coverUrlRef = useRef<HTMLInputElement>(null);
 
   const subroluri = SUBROLES[rol];
 
@@ -68,13 +77,76 @@ export function OnboardingForm() {
     setSubrol(SUBROLES[next][0] ?? "");
   }
 
-  function onPickImage(file: File | undefined, set: (url: string | null) => void, prev: string | null) {
+  // Alege o imagine (avatar/cover): validare client (doar UX) + preview. Upload-ul efectiv în Blob
+  // se face la submit. `null` curăță. Câmpul ascuns de URL se golește → forțează re-upload la o imagine nouă.
+  function pickImage(file: File | undefined, kind: "avatar" | "cover") {
+    const prev = kind === "avatar" ? avatarUrl : coverUrl;
     if (prev) URL.revokeObjectURL(prev);
-    set(file ? URL.createObjectURL(file) : null);
+    if (!file) {
+      if (kind === "avatar") {
+        setAvatarUrl(null);
+        setAvatarFile(null);
+      } else {
+        setCoverUrl(null);
+        setCoverFile(null);
+      }
+      return;
+    }
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      setClientErr("Poza trebuie să fie PNG, JPG, WebP sau AVIF.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setClientErr(`Poza e prea mare (max ${MAX_IMAGE_MB} MB).`);
+      return;
+    }
+    setClientErr(null);
+    const url = URL.createObjectURL(file);
+    if (kind === "avatar") {
+      setAvatarUrl(url);
+      setAvatarFile(file);
+      if (avatarUrlRef.current) avatarUrlRef.current.value = "";
+    } else {
+      setCoverUrl(url);
+      setCoverFile(file);
+      if (coverUrlRef.current) coverUrlRef.current.value = "";
+    }
+  }
+
+  // Avatar/cover sunt opționale. La submit, urcăm DIRECT în Blob fișierele alese (ne-urcate încă),
+  // punem URL-urile în câmpurile ascunse, apoi re-trimitem formularul către server action.
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const needAvatar = avatarFile && !avatarUrlRef.current?.value;
+    const needCover = coverFile && !coverUrlRef.current?.value;
+    if (needAvatar || needCover) {
+      e.preventDefault();
+      if (uploading) return;
+      setUploading(true);
+      setClientErr(null);
+      try {
+        if (needAvatar) {
+          const u = await uploadImageToBlob("avatars", avatarFile!);
+          if (avatarUrlRef.current) avatarUrlRef.current.value = u;
+        }
+        if (needCover) {
+          const u = await uploadImageToBlob("covers", coverFile!);
+          if (coverUrlRef.current) coverUrlRef.current.value = u;
+        }
+        formRef.current?.requestSubmit();
+      } catch {
+        setClientErr("Încărcarea imaginii a eșuat. Încearcă din nou.");
+      } finally {
+        setUploading(false);
+      }
+    }
+    // fără imagini de urcat → lăsăm submit-ul să ajungă la server action.
   }
 
   return (
-    <form action={formAction} className="dt-onb">
+    <form ref={formRef} action={formAction} onSubmit={onSubmit} className="dt-onb">
+      {/* URL-urile imaginilor (completate după upload-ul client în Blob). */}
+      <input type="hidden" name="avatarUrl" ref={avatarUrlRef} />
+      <input type="hidden" name="coverUrl" ref={coverUrlRef} />
       {/* CARD */}
       <div
         style={{
@@ -166,7 +238,7 @@ export function OnboardingForm() {
 
         {/* FORM BODY */}
         <div style={{ padding: "28px 32px 32px" }}>
-          {state.error && (
+          {(clientErr ?? state.error) && (
             <p
               role="alert"
               style={{
@@ -179,7 +251,7 @@ export function OnboardingForm() {
                 color: "#b0463c",
               }}
             >
-              {state.error}
+              {clientErr ?? state.error}
             </p>
           )}
 
@@ -352,10 +424,9 @@ export function OnboardingForm() {
               </label>
               <input
                 id="dt-avatar"
-                name="avatar"
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/avif"
-                onChange={(e) => onPickImage(e.target.files?.[0], setAvatarUrl, avatarUrl)}
+                onChange={(e) => pickImage(e.target.files?.[0], "avatar")}
                 style={{ display: "none" }}
               />
             </div>
@@ -422,10 +493,9 @@ export function OnboardingForm() {
               </label>
               <input
                 id="dt-cover"
-                name="cover"
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/avif"
-                onChange={(e) => onPickImage(e.target.files?.[0], setCoverUrl, coverUrl)}
+                onChange={(e) => pickImage(e.target.files?.[0], "cover")}
                 style={{ display: "none" }}
               />
             </div>
@@ -434,7 +504,7 @@ export function OnboardingForm() {
           {/* CTA */}
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || uploading}
             className="dt-cta"
             style={{
               width: "100%",
@@ -450,12 +520,12 @@ export function OnboardingForm() {
               padding: "15px 20px",
               borderRadius: "var(--radius)",
               border: "1px solid #95492e",
-              cursor: pending ? "default" : "pointer",
-              opacity: pending ? 0.75 : 1,
+              cursor: pending || uploading ? "default" : "pointer",
+              opacity: pending || uploading ? 0.75 : 1,
             }}
           >
-            {pending ? "Se salvează…" : "Continuă în feed"}
-            {!pending && (
+            {uploading ? "Se încarcă imaginile…" : pending ? "Se salvează…" : "Continuă în feed"}
+            {!pending && !uploading && (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14" />
                 <path d="m12 5 7 7-7 7" />

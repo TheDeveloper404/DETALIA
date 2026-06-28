@@ -1,9 +1,10 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
-import { uploadDetailImage } from "@/lib/storage";
+import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail } from "@/server/services/detailService";
 
@@ -71,18 +72,17 @@ export async function createDetailAction(
   if (title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
   if (categoryId.trim().length === 0) return { error: ERROR_MESSAGES.CATEGORY_REQUIRED };
 
-  // Upload imaginii (validare tip/dimensiune pe server).
-  const file = formData.get("image");
-  if (!(file instanceof File)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
-  const upload = await uploadDetailImage(file);
-  if (!upload.ok) return { error: ERROR_MESSAGES[upload.error] ?? "Imaginea nu a putut fi încărcată." };
+  // Imaginea s-a urcat CLIENT direct în Blob (vezi /api/blob/upload). Aici primim doar URL-ul →
+  // acceptăm DOAR un URL de Blob al store-ului nostru (tipul/mărimea au fost impuse la token).
+  const imageUrl = String(formData.get("imageUrl") ?? "");
+  if (!BLOB_URL_RE.test(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   const result = await createDetail({
     authorId: session.user.id,
     title,
     description,
     categoryId,
-    imageUrl: upload.url,
+    imageUrl,
     climateZone,
     seismicZone,
     resources,
@@ -95,6 +95,9 @@ export async function createDetailAction(
     }
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
+
+  // Detaliul nou apare în feed (listă + counts pe categorie) → invalidează cache-ul feed-ului.
+  revalidatePath("/feed");
 
   // Publicat → ducem userul direct la pagina noului detaliu.
   redirect(`/details/${result.detailId}`);
