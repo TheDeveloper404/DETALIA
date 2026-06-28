@@ -29,6 +29,8 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   un `::before` CSS (fundal identic cu intro-ul) acoperă landing-ul până montează overlay-ul React.
   `IntroSplash` scoate atributul la dismiss → fade-ul dezvăluie landing-ul. Cei care au văzut deja /
   reduced-motion: scriptul nu pune atributul → landing direct.
+- Adăugat `suppressHydrationWarning` pe `<html>` (`app/layout.tsx`) — scriptul pre-paint mută `data-intro`
+  înainte de hidratare, deci atributul diferă de SSR; e mismatch-ul intenționat (ca next-themes), nu un bug.
 
 ### Profil edit: header editabil „in place" + verificare integrată în „Rolul tău"
 - **Avatar + cover editabile direct din antet** — scoase cele două carduri separate „Poză de profil" și
