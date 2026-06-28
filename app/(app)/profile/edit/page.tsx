@@ -13,7 +13,6 @@ import {
   AvatarForm,
   CoverForm,
   EditDetailsForm,
-  SignOutButton,
   VerificationSection,
 } from "../profile-forms";
 
@@ -38,6 +37,7 @@ export default async function ProfileEditPage() {
   const email = profile?.email ?? session.user.email ?? null;
   const image = profile?.image ?? session.user.image ?? null;
   const cover = profile?.coverImage ?? null;
+  const coverPosition = profile?.coverPosition ?? 50;
   const roleLabel = `${ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain}${role.subRole ? ` · ${role.subRole}` : ""}`;
 
   return (
@@ -52,7 +52,16 @@ export default async function ProfileEditPage() {
       {/* Antet cu cover + avatar (preview live al imaginilor curente). */}
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         <div className="relative h-[120px] bg-gradient-to-br from-secondary to-[#ece1d3]">
-          {cover && <Image src={cover} alt="" fill sizes="768px" className="object-cover" />}
+          {cover && (
+            <Image
+              src={cover}
+              alt=""
+              fill
+              sizes="768px"
+              className="object-cover"
+              style={{ objectPosition: `50% ${coverPosition}%` }}
+            />
+          )}
         </div>
         <div className="flex items-end gap-4 px-5 pb-4">
           <div className="-mt-9">
@@ -97,7 +106,7 @@ export default async function ProfileEditPage() {
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Imagine de cover</h2>
-          <CoverForm current={cover} />
+          <CoverForm current={cover} position={coverPosition} />
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
@@ -124,12 +133,6 @@ export default async function ProfileEditPage() {
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Verificarea rolului</h2>
           <VerificationSection status={role.verificationStatus} />
-        </section>
-
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Cont</h2>
-          <p className="text-xs text-muted-foreground">Te deconectezi de pe acest dispozitiv.</p>
-          <SignOutButton />
         </section>
       </div>
     </main>
