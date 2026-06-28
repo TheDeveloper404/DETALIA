@@ -19,7 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 // ───────────────────────────── Enum-uri ─────────────────────────────
-export const userStatus = pgEnum("user_status", ["INVITED", "ACTIVE", "SUSPENDED", "DELETED"]);
+export const userStatus = pgEnum("user_status", ["ACTIVE", "SUSPENDED", "DELETED"]);
 export const roleMain = pgEnum("role_main", [
   "PROIECTANT",
   "EXECUTANT",
@@ -64,7 +64,6 @@ export const users = pgTable("users", {
   image: text(),
   // Extensii DETALIA peste tabelul standard Auth.js:
   status: userStatus().notNull().default("ACTIVE"),
-  invitedById: uuid(),
   // Profil extins (colectat la onboarding, editabil din /profile). `name` rămâne (Auth.js) și e
   // compus din firstName + lastName la onboarding pentru compatibilitate cu codul care-l citește.
   firstName: text(),
@@ -147,24 +146,6 @@ export const roles = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [index("roles_verified_by_admin_id_idx").on(t.verifiedByAdminId)],
-);
-
-// Invitație = dă DOAR acces la beta închis; NU atribuie rolul. (Poarta 1 — ÎN HOLD.)
-export const invitations = pgTable(
-  "invitations",
-  {
-    id: uuid().defaultRandom().primaryKey(),
-    token: text().notNull().unique(), // one-time, expirare — PII, nu se loghează
-    email: text().notNull(),
-    expiresAt: timestamp({ withTimezone: true }).notNull(),
-    usedAt: timestamp({ withTimezone: true }),
-    createdByAdminId: uuid().references(() => users.id),
-    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-  },
-  (t) => [
-    index("invitations_email_idx").on(t.email),
-    index("invitations_created_by_admin_id_idx").on(t.createdByAdminId),
-  ],
 );
 
 // Categorii (arbore, self-FK) pentru filtre.
@@ -313,5 +294,5 @@ export const notifications = pgTable(
   (t) => [index("notifications_recipient_user_id_idx").on(t.recipientUserId)],
 );
 
-// Notă: FK `invited_by_id` (self pe users) și `target_id` (polimorfic) nu au .references() forțat
-// — integritatea lor se asigură în services (vezi docs/SECURITATE.md §4).
+// Notă: FK `target_id` (polimorfic, validări/comentarii) nu are .references() forțat
+// — integritatea lui se asigură în services (vezi docs/SECURITATE.md §4).

@@ -6,7 +6,7 @@ declare module "next-auth" {
   interface Session {
     user: {
       id: string;
-      status: "INVITED" | "ACTIVE" | "SUSPENDED" | "DELETED";
+      status: "ACTIVE" | "SUSPENDED" | "DELETED";
     } & DefaultSession["user"];
   }
 }

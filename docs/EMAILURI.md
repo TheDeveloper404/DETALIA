@@ -1,6 +1,6 @@
 # DETALIA — Copy emailuri (Resend)
 
-> Textele emailurilor trimise de la început (magic link + invitație + notificări schiță). Parte de **brand**
+> Textele emailurilor trimise de la început (magic link + notificări schiță). Parte de **brand**
 > (Edi le vrea pentru awareness/recall), nu doar funcțional. Trimitere via **Resend**, de pe domeniul deținut.
 > Status: draft de copy — se rafinează cu Edi pe ton. Variabilele `{{...}}` se completează la trimitere.
 
@@ -9,7 +9,7 @@
 ## Reguli (din securitate)
 
 - **PII (email, tokenuri, dovezi) NU se loghează** — doar metadate (tip email, timestamp, status livrare).
-- **Linkurile cu token sunt one-time, cu expirare** (magic link scurt; invitație cu TTL din env).
+- **Linkul cu token e one-time, cu expirare** (magic link scurt; TTL din env).
 - Expeditor: `EMAIL_FROM` (verificat SPF/DKIM în Resend) → ajunge în inbox, nu spam.
 - Fiecare email: subiect clar + un singur CTA principal + footer cu identitate. Fără atașamente, fără tracking agresiv.
 
@@ -35,33 +35,7 @@ Dacă nu ai cerut tu acest link, poți ignora liniștit acest email.
 
 ---
 
-## 2. Invitație în beta închis
-
-> ⚠️ Acces = **PUBLIC** (Edi, iunie 2026) → invitația e **DORMANTĂ** (necablată în signup). Copy-ul rămâne doar pentru un eventual reuse.
-
-- **Subiect:** `Ai fost invitat în DETALIA`
-- **Preheader:** `Comunitatea profesională din construcții, organizată pe detaliul de execuție.`
-
-```
-Salut,
-
-Ai fost invitat să intri în DETALIA — comunitatea unde detaliile de execuție
-sunt aprobate, contestate cu argument și îmbunătățite prin schiță, de către
-profesioniștii care le proiectează, le execută sau le trăiesc.
-
-Invitația ta este personală și expiră în {{ttl_hours}} ore.
-
-[ Acceptă invitația ]  → {{invite_url}}
-
-La prima intrare îți vei declara rolul (proiectant, executant, furnizor sau
-beneficiar). Accesul e imediat.
-
-— Echipa DETALIA
-```
-
----
-
-## 3. Notificare: schiță propusă (către autorul detaliului-mamă)
+## 2. Notificare: schiță propusă (către autorul detaliului-mamă)
 
 - **Subiect:** `{{author_name}} a propus o modificare pe detaliul tău`
 - **Preheader:** `O nouă schiță așteaptă să fie acceptată în teancul tău.`
@@ -81,7 +55,7 @@ Vizualizeaz-o și decide dacă o accepți în teanc (devine publică) sau o resp
 
 ---
 
-## 4. Notificare: schiță acceptată (către autorul schiței)
+## 3. Notificare: schiță acceptată (către autorul schiței)
 
 - **Subiect:** `Schița ta a fost acceptată`
 
@@ -98,7 +72,7 @@ E acum publică, în teancul detaliului — oricine o poate vedea și dezbate.
 
 ---
 
-## 5. Notificare: schiță respinsă (către autorul schiței)
+## 4. Notificare: schiță respinsă (către autorul schiței)
 
 - **Subiect:** `Actualizare la schița ta`
 
