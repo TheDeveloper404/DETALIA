@@ -80,7 +80,7 @@ export function SketchSection({
               Propuneri desenate peste detaliul-mamă — fiecare cu validările ei.
             </p>
           </div>
-          {startSketchBtn}
+          {published.length > 0 && startSketchBtn}
         </div>
 
         {published.length > 0 && active ? (

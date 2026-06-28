@@ -10,6 +10,7 @@ import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import { type FeedSort, getActiveAuthors, getFeed } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
+import { getRecentSketches } from "@/server/services/sketchService";
 import { getMyPositions } from "@/server/services/validationService";
 
 import { FeedEmpty } from "./feed-empty";
@@ -30,10 +31,11 @@ export default async function FeedPage({
   const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
-  const [categories, role, authors] = await Promise.all([
+  const [categories, role, authors, recentSketches] = await Promise.all([
     listCategoriesWithCounts(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
+    getRecentSketches(4),
   ]);
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
@@ -58,6 +60,17 @@ export default async function FeedPage({
       commentCount: d.commentCount,
       sketchCount: d.sketchCount,
     }));
+
+  const sketches = recentSketches.map((s) => ({
+    id: s.id,
+    detailId: s.detailId,
+    thumbnailUrl: s.thumbnailUrl,
+    detailTitle: s.detailTitle,
+    authorName: s.authorName,
+    authorImage: s.authorImage,
+    authorRoleMain: s.authorRoleMain,
+    authorVerified: s.authorVerification === "VERIFIED",
+  }));
 
   // Linkuri de sortare care păstrează filtrul de categorie + căutarea.
   const sortHref = (value: FeedSort) => {
@@ -125,7 +138,7 @@ export default async function FeedPage({
         )}
       </main>
 
-      <FeedRail authors={authors} debated={debated} />
+      <FeedRail authors={authors} debated={debated} sketches={sketches} />
     </div>
   );
 }

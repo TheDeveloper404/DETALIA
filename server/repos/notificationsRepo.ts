@@ -46,3 +46,17 @@ export async function markAllRead(userId: string) {
     .set({ readAt: new Date() })
     .where(and(eq(notifications.recipientUserId, userId), isNull(notifications.readAt)));
 }
+
+// Marchează citită o singură notificare (scoped pe recipient → fără IDOR).
+export async function markOneRead(userId: string, id: string) {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(
+      and(
+        eq(notifications.id, id),
+        eq(notifications.recipientUserId, userId),
+        isNull(notifications.readAt),
+      ),
+    );
+}

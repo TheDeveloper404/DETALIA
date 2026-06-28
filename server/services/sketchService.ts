@@ -14,8 +14,9 @@ import {
   listDraftsByAuthor,
   listPendingByDetail,
   listPublishedByDetail,
+  listRecentPublished,
+  transitionFromDraft,
   transitionFromPending,
-  updateStatus,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
@@ -101,10 +102,12 @@ export async function send(input: {
   const detail = await getDetailById(sketch.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
-  await updateStatus(input.sketchId, {
-    status: SKETCH_STATUS.PENDING_ACCEPTANCE,
+  // Tranziție atomică DRAFT → PENDING (guard pe status + autor). Două SEND-uri concurente: doar primul prinde
+  // rândul → doar el notifică (notificare idempotentă fără outbox). Al doilea iese cu INVALID_STATE, fără email dublu.
+  const transitioned = await transitionFromDraft(input.sketchId, input.authorId, {
     thumbnailUrl: input.thumbnailUrl ?? null,
   });
+  if (!transitioned) return { ok: false, error: "INVALID_STATE" };
 
   const author = await getNotificationActor(sketch.authorId);
   await notifySketchProposed({
@@ -163,6 +166,11 @@ export function reject(input: { sketchId: string; actorUserId: string }): Promis
 // Teancul public (schițele PUBLISHED ale unui detaliu).
 export function getTeanc(detailId: string) {
   return listPublishedByDetail(detailId);
+}
+
+// Schițe noi în teanc, din toată platforma (rail feed) — cele mai recent publicate.
+export function getRecentSketches(limit = 4) {
+  return listRecentPublished(limit);
 }
 
 // Ciornele userului curent (DRAFT) — pentru pagina „Ciornele mele" (reluare oricând).
