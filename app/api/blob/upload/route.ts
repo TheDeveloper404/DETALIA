@@ -38,6 +38,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (err) {
     // Fără internals în răspuns (convenția de erori a proiectului).
     const unauthorized = err instanceof Error && err.message === "UNAUTHORIZED";
+    if (!unauthorized) {
+      // Motivul real (eroare SDK/config Blob — NU PII) → vizibil în Vercel Logs ca să diagnosticăm 400-ul.
+      console.error("blob upload route 400:", err instanceof Error ? err.message : String(err));
+    }
     return NextResponse.json(
       {
         error: {

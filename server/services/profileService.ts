@@ -152,6 +152,7 @@ export async function getProfileView(
     viewerIsOwner: userId === viewerId,
     name: profile.name ?? "Anonim",
     image: profile.image,
+    coverImage: profile.coverImage,
     roleLabel,
     location: profile.location,
     website: safeWebsite(profile.website),
