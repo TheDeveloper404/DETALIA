@@ -13,6 +13,8 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { headers } from "next/headers";
 
+import { audit } from "@/lib/audit";
+
 const url = process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -52,6 +54,11 @@ export const limiters = {
   upload: make(30, "1 h", "upload"),
 } as const;
 
+// SEC-14: hartă inversă limiter→nume, ca să etichetăm evenimentul de audit FĂRĂ a schimba call-site-urile.
+const LIMITER_NAMES = new Map<Ratelimit, string>(
+  Object.entries(limiters).flatMap(([k, v]) => (v ? [[v, k] as const] : [])),
+);
+
 export type LimitResult = { ok: boolean; retryAfterSec?: number };
 
 // Verifică un limiter pentru un identificator. Fail-open la limiter dezactivat sau eroare Redis.
@@ -63,6 +70,12 @@ export async function checkLimit(
   try {
     const res = await limiter.limit(identifier);
     if (res.success) return { ok: true };
+    // SEC-14: cotă depășită → audit (id hash-uit, fără PII brut). Semnal de abuz/volum anormal.
+    audit(
+      "rate_limited",
+      { limiter: LIMITER_NAMES.get(limiter) ?? "unknown", idHash: hashAuditId(identifier) },
+      "warning",
+    );
     const retryAfterSec = Math.max(1, Math.ceil((res.reset - Date.now()) / 1000));
     return { ok: false, retryAfterSec };
   } catch (err) {
@@ -75,6 +88,11 @@ export async function checkLimit(
 // Hash SHA-256 pentru email — nu stocăm PII în Redis. Normalizăm (lowercase/trim) ca să fie stabil.
 export function hashEmail(email: string): string {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
+}
+
+// SEC-14: hash scurt al unui identificator (IP/email/userId) pentru audit → corelabil, dar opac (fără PII brut).
+export function hashAuditId(value: string): string {
+  return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
 // IP-ul clientului din headerele de proxy (Vercel pune x-forwarded-for). Primul IP din listă.

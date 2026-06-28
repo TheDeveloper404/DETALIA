@@ -1,26 +1,8 @@
 import type { NextConfig } from "next";
 
-// SEC-08 — Content-Security-Policy. `unsafe-inline` pe script e necesar pt scriptul de pre-paint (intro) +
-// bootstrap-ul Next (nonce ar cere middleware dedicat — hardening ulterior). Suprafața XSS e mică (React
-// escapează, fără HTML user, SVG blocat, imagini re-encodate). Permitem Vercel Blob (img/upload) și toolbar-ul
-// `vercel.live` (preview comments). Verifică pe preview că nimic nu e blocat în consolă.
-const csp = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "script-src 'self' 'unsafe-inline' https://vercel.live",
-  "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://vercel.live https://vercel.com",
-  "font-src 'self' data: https://vercel.live",
-  "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://vercel.live wss://*.pusher.com https://*.pusher.com",
-  "frame-src https://vercel.live",
-  "upgrade-insecure-requests",
-].join("; ");
-
+// SEC-08 — Headere de securitate statice (aceleași pe toate rutele). CSP-ul NU mai e aici: are nonce per
+// request → e setat în `proxy.ts` (vezi `lib/csp.ts`). Restul headerelor nu depind de request, deci rămân aici.
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },

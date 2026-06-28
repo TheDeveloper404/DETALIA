@@ -41,7 +41,7 @@ fără FK forțat pe `target_id` → integritate în service + indici compuși. 
 **Decizie:** construim doar **afișarea transparentă a rolului** lângă fiecare poziție; zero scor/reputație.
 **Consecințe:** simplifică enorm inima aplicației; scoring = backlog, decizie de produs separată. _(ARHITECTURA §6)_
 
-## ADR-007 — „Două porți": acces (invitație) vs. credibilitate (verificare rol)
+## ADR-007 — „Două porți": acces vs. credibilitate (verificare rol)
 **Context:** confuzie frecventă între cine intră și cât „cântărește" odată intrat.
 **Decizie:** le tratăm ca mecanisme **independente**. Verificarea = „pull, nu push" (opțională, fără blocare,
 nudge blând, badge la verificat). Rol auto-declarat la signup.
@@ -50,7 +50,7 @@ nudge blând, badge la verificat). Rol auto-declarat la signup.
 ## ADR-008 — Poarta de acces = PUBLIC (înregistrare deschisă)
 **Context:** confirmat de Edi (iunie 2026) — minimizăm frecarea la primul contact; lansare = acces public deschis.
 **Decizie:** înregistrare liberă, fără invitație. Flux: landing → creare cont → magic link → onboarding (rol+subrol) → feed.
-**Consecințe:** schela de invitație (`Invitation`, token one-time) rămâne **dormantă în cod** pentru eventual reuse, NEcablată în signup. _(CLAUDE.md „Decizii confirmate de Edi")_
+**Consecințe:** logica de invitații a fost **eliminată complet** (2026-06-28, vezi CHANGELOG) — niciun cod dormant. Dacă se vrea vreodată acces restricționat, se construiește un mecanism nou. _(CLAUDE.md „Decizii confirmate de Edi")_
 
 ## ADR-009 — Upload de detalii DESCHIS userilor cu rol declarat
 **Context:** confirmat de Edi (iunie 2026) — orice user autentificat cu rol declarat poate publica detalii (nu doar admin/seed).

@@ -14,6 +14,16 @@ import sharp from "sharp";
 
 import { BLOB_URL_RE, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
+// §11c#4 / SEC-02: ștergere best-effort a unui blob orfan, dar cu LOG la eșec (altfel orfanul rămâne fără
+// urmă → risipă de storage invizibilă). URL-ul de blob nu e PII (cale random).
+async function delOrphan(url: string): Promise<void> {
+  try {
+    await del(url);
+  } catch (err) {
+    console.warn("blob: ștergere orfan eșuată:", err instanceof Error ? err.message : String(err));
+  }
+}
+
 const MAX_INPUT_PIXELS = 50_000_000; // ~50MP la intrare → respinge bombele de decompresie înainte de decodare.
 const MAX_DIMENSION = 4096; // latura cea mai lungă a imaginii finale.
 
@@ -79,18 +89,18 @@ export async function reprocessBlobImage(url: string, folder: string): Promise<R
   try {
     const res = await fetch(url);
     if (!res.ok) {
-      await del(url).catch(() => {});
+      await delOrphan(url);
       return { ok: false };
     }
     input = Buffer.from(await res.arrayBuffer());
   } catch {
-    await del(url).catch(() => {});
+    await delOrphan(url);
     return { ok: false };
   }
 
   const clean = await cleanImageBuffer(input);
   if (!clean) {
-    await del(url).catch(() => {}); // imagine invalidă → curăță orfanul.
+    await delOrphan(url); // imagine invalidă → curăță orfanul.
     return { ok: false };
   }
 
@@ -100,11 +110,11 @@ export async function reprocessBlobImage(url: string, folder: string): Promise<R
       addRandomSuffix: false,
       contentType: clean.contentType,
     });
-    await del(url).catch(() => {}); // originalul necurat → orfan, îl ștergem.
+    await delOrphan(url); // originalul necurat → orfan, îl ștergem.
     return { ok: true, url: uploaded.url };
   } catch (err) {
     console.error("reprocess: re-upload Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
-    await del(url).catch(() => {});
+    await delOrphan(url);
     return { ok: false };
   }
 }

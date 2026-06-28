@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Archivo, Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,11 +32,15 @@ export const metadata: Metadata = {
     "Comunitatea profesională din construcții, organizată în jurul detaliului de execuție.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // SEC-08: nonce-ul CSP pus de proxy pe x-nonce. Îl citim aici (face layout-ul dinamic → nonce mereu proaspăt,
+  // potrivit cu headerul CSP) și îl aplicăm pe scriptul inline de pre-paint de mai jos.
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+
   return (
     <html
       lang="ro"
@@ -49,6 +54,7 @@ export default function RootLayout({
             Pentru cine l-a văzut deja / reduced-motion, marcăm <html data-intro="seen"> ÎNAINTE de prima
             pictare → CSS-ul îl ascunde instant (fără flash). Script sincron, în capul body-ului. */}
         <script
+          nonce={nonce}
           dangerouslySetInnerHTML={{
             __html:
               "(function(){try{var s=sessionStorage.getItem('detalia_intro_seen');var r=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(s||r)document.documentElement.setAttribute('data-intro','seen');}catch(e){}})();",
