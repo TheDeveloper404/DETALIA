@@ -6,6 +6,29 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-28
 
+### Fix: count-uri categorii „0" în feed după creare detaliu (cache stale)
+- La crearea unui detaliu, feed-ul (listă + counts pe categorie) rămânea pe valorile vechi — `createDetailAction`
+  făcea redirect spre `/details/<id>` fără `revalidatePath("/feed")` (spre deosebire de ștergere/validare care
+  revalidau). Pe prod-ul golit → toate categoriile arătau 0 chiar după publicare. Fix: revalidare `/feed` la creare.
+
+### Upload imagini profil rescris: client direct în Blob + UX Încarcă→preview→Salvează + limită 25MB
+- **Root cause (de ce coverul „dădea verde" dar nu se salva):** avatar/cover urcau prin **server action** →
+  limitat la **1MB** (default Next, `bodySizeLimit` nesetat) și **~4.5MB** (plafon funcții Vercel). Pozele reale
+  (telefon) erau respinse de framework înainte de cod.
+- **Fix:** upload **client direct în Vercel Blob** (`@vercel/blob/client.upload` → `/api/blob/upload` cu
+  `handleUpload`). Ocolește ambele limite (până la 5TB). Securitate: `onBeforeGenerateToken` cere sesiune +
+  restrânge tip (doar imagini) și mărime pe SERVER înainte de emiterea tokenului. URL-ul întors se persistă
+  printr-un server action (`saveAvatarUrl`/`saveCoverUrl`) care acceptă DOAR URL-uri de Blob ale store-ului nostru.
+- **UX nou (cerut):** buton „Încarcă" → **preview** al imaginii alese (sau cea curentă) → buton „Salvează".
+  Componentă partajată `ImageUploadForm` (avatar = cerc, cover = bandă).
+- **Limită ridicată 8MB → 25MB.** Constante mutate în `lib/upload-limits.ts` (client-safe, fără SDK Blob).
+- **Revalidare:** acțiunile revalidează acum și `/profile/edit` (înainte doar `/profile` → preview-ul de pe
+  pagina de edit nu se reîmprospăta).
+- ✅ **Restanță rezolvată (același flux):** upload-ul de avatar/cover la **onboarding** și **imaginea de detaliu**
+  (`details/new`) migrate și ele la client upload (helper comun `lib/blob-upload.ts`). Forma de detaliu/onboarding
+  urcă imaginea în Blob înainte de submit, apoi trimit doar URL-ul (validat `BLOB_URL_RE` pe server). Cod mort
+  curățat din `lib/storage.ts` (`uploadDetailImage`/`uploadAvatarImage`/`uploadCoverImage`/`validateImageFile`).
+
 ### Fix buclă onboarding⇄feed + tool text revine la creion + ștergere detaliu de către autor
 - **Buclă de loading onboarding⇄feed (prod):** user nou (fără rol) după magic link rămânea în buclă infinită
   de loading. Cauză: `redirect("/onboarding")` din `app/(app)/layout.tsx` se producea în timpul streaming-ului
@@ -13,9 +36,10 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   rezolvată acolo pentru landing). **Fix:** poarta de onboarding mutată din layout în `proxy.ts` ca redirect
   307 curat (logat fără rol → `/onboarding`; logat cu rol pe `/onboarding` → `/feed`). Layout simplificat,
   fără redirect. (NU era Turbopack — prod rulează webpack.)
-- **Tool de text (schiță):** după ce scrii un comentariu și confirmi (Enter / click în afară), unealta revine
-  automat la **creion** — înainte rămânea pe „text" și deschidea o casetă la fiecare click. Pentru alt comentariu
-  se reselectează tool-ul Text. (`components/sketch/sketch-canvas.tsx`.)
+- **Tool de text (schiță):** după ce scrii un comentariu și confirmi (Enter / click în afară), tool-ul se
+  **deselectează** (mouse neutru — `tool = null`, canvas-ul nu mai desenează), nu trece pe creion. Înainte rămânea
+  pe „text" și deschidea o casetă la fiecare click. Pentru alt comentariu se reselectează Text.
+  (`components/sketch/sketch-canvas.tsx`.)
 - **Ștergere detaliu de către autor:** buton „Șterge" pe pagina detaliului, vizibil DOAR autorului. Authz pe
   server (ownership în `detailService.deleteDetail`; FORBIDDEN/NOT_FOUND fără a dezvălui existența). Ștergere
   atomică prin `db.batch`: resurse+schițe cad în cascadă (FK), validările/comentariile polimorfice (detaliu +

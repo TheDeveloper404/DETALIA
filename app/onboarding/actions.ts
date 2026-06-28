@@ -3,11 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
-import {
-  uploadAvatarImage,
-  uploadCoverImage,
-  validateImageFile,
-} from "@/lib/storage";
+import { BLOB_URL_RE } from "@/lib/upload-limits";
 import {
   updateUserCoverImage,
   updateUserImage,
@@ -73,22 +69,15 @@ export async function onboardingAction(
     return { error: ERROR_MESSAGES.FIELD_TOO_LONG };
   }
 
-  // ── Imagini (opționale) — validăm tipul/dimensiunea ÎNAINTE de orice scriere ────
-  const avatarFile = formData.get("avatar");
-  const hasAvatar = avatarFile instanceof File && avatarFile.size > 0;
-  if (hasAvatar) {
-    const valid = validateImageFile(avatarFile);
-    if (!valid.ok) {
-      return { error: ERROR_MESSAGES[valid.error] ?? "Poza nu a putut fi încărcată." };
-    }
+  // ── Imagini (opționale) — urcate CLIENT direct în Blob; aici primim doar URL-urile ────
+  // Acceptăm DOAR URL-uri de Blob ale store-ului nostru (tipul/mărimea impuse la emiterea tokenului).
+  const avatarUrl = clean(formData.get("avatarUrl"));
+  const coverUrl = clean(formData.get("coverUrl"));
+  if (avatarUrl && !BLOB_URL_RE.test(avatarUrl)) {
+    return { error: ERROR_MESSAGES.INVALID_TYPE };
   }
-  const coverFile = formData.get("cover");
-  const hasCover = coverFile instanceof File && coverFile.size > 0;
-  if (hasCover) {
-    const valid = validateImageFile(coverFile);
-    if (!valid.ok) {
-      return { error: ERROR_MESSAGES[valid.error] ?? "Imaginea nu a putut fi încărcată." };
-    }
+  if (coverUrl && !BLOB_URL_RE.test(coverUrl)) {
+    return { error: ERROR_MESSAGES.INVALID_TYPE };
   }
 
   // ── Profil text PRIMUL ────
@@ -101,19 +90,9 @@ export async function onboardingAction(
     website,
   });
 
-  // ── Upload imagini (best-effort — opționale, se pot adăuga ulterior din profil) ────
-  if (hasAvatar) {
-    const upload = await uploadAvatarImage(avatarFile);
-    if (upload.ok) {
-      await updateUserImage(userId, upload.url);
-    }
-  }
-  if (hasCover) {
-    const upload = await uploadCoverImage(coverFile);
-    if (upload.ok) {
-      await updateUserCoverImage(userId, upload.url);
-    }
-  }
+  // ── URL-urile imaginilor (opționale, deja în Blob) ────
+  if (avatarUrl) await updateUserImage(userId, avatarUrl);
+  if (coverUrl) await updateUserCoverImage(userId, coverUrl);
 
   // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există rol).
   // Dacă orice scriere de mai sus eșuează, rolul NU se creează → următoarea accesare reia onboardingul,

@@ -4,6 +4,8 @@ import { ChevronDown, Info, Plus, RotateCcw, Send, Trash2, Upload, X } from "luc
 import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 
+import { uploadImageToBlob } from "@/lib/blob-upload";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 import { cn } from "@/lib/utils";
 import { DESCRIPTION_MAX_LENGTH, MAX_DETAIL_RESOURCES, TITLE_MAX_LENGTH } from "@/server/domain/detail";
 
@@ -53,16 +55,69 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 export function DetailForm({ categories }: { categories: CategoryOption[] }) {
   const [state, formAction, pending] = useActionState(createDetailAction, initialState);
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const imageUrlRef = useRef<HTMLInputElement>(null);
 
   function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    setPreview(file ? { url: URL.createObjectURL(file), name: file.name } : null);
+    if (!file) {
+      setPreview(null);
+      setImageFile(null);
+      return;
+    }
+    // Validare client = doar UX (serverul impune tipul/mărimea la emiterea tokenului de upload).
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      setClientError("Imaginea trebuie să fie PNG, JPG, WebP sau AVIF.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setClientError(`Imaginea e prea mare (max ${MAX_IMAGE_MB} MB).`);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    setClientError(null);
+    setImageFile(file);
+    setPreview({ url: URL.createObjectURL(file), name: file.name });
+    if (imageUrlRef.current) imageUrlRef.current.value = ""; // imagine nouă → forțează re-upload
   }
   function removeImage() {
     setPreview(null);
+    setImageFile(null);
     if (fileRef.current) fileRef.current.value = "";
+    if (imageUrlRef.current) imageUrlRef.current.value = "";
+  }
+
+  // Imaginea se urcă DIRECT în Blob înainte de a trimite formularul (ocolește limita de body a
+  // server action-ului). Flux: 1) submit → urc imaginea → pun URL-ul în câmpul ascuns → re-submit;
+  // 2) la al doilea submit URL-ul există → lăsăm server action-ul să creeze detaliul.
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    if (!imageFile && !imageUrlRef.current?.value) {
+      e.preventDefault();
+      setClientError("Alege o imagine pentru detaliu.");
+      return;
+    }
+    if (imageFile && !imageUrlRef.current?.value) {
+      e.preventDefault();
+      if (uploading) return;
+      setUploading(true);
+      setClientError(null);
+      try {
+        const url = await uploadImageToBlob("details", imageFile);
+        if (imageUrlRef.current) imageUrlRef.current.value = url;
+        formRef.current?.requestSubmit();
+      } catch {
+        setClientError("Încărcarea imaginii a eșuat. Încearcă din nou.");
+      } finally {
+        setUploading(false);
+      }
+    }
+    // URL prezent → lăsăm submit-ul să ajungă la server action.
   }
 
   const addDisabled = resources.length >= MAX_DETAIL_RESOURCES;
@@ -82,15 +137,17 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
   );
 
   return (
-    <form action={formAction} className="flex flex-col">
+    <form ref={formRef} action={formAction} onSubmit={onSubmit} className="flex flex-col">
       <input type="hidden" name="resources" value={resourcesJson} />
+      {/* URL-ul imaginii, completat după upload-ul client direct în Blob. */}
+      <input type="hidden" name="imageUrl" ref={imageUrlRef} />
 
-      {state.error && (
+      {(clientError ?? state.error) && (
         <p
           role="alert"
           className="mb-5 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
         >
-          {state.error}
+          {clientError ?? state.error}
         </p>
       )}
 
@@ -187,9 +244,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
           <input
             ref={fileRef}
             id="image"
-            name="image"
             type="file"
-            required
             accept="image/png,image/jpeg,image/webp,image/avif"
             onChange={onPickImage}
             className="sr-only"
@@ -219,7 +274,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
               <span className="relative text-center font-mono text-[11.5px] leading-relaxed text-muted-foreground">
                 Secțiune sau plan de detaliu — PNG, JPG, WebP sau AVIF
                 <br />
-                max 8 MB · ideal min. 1200 px pe latura mare
+                max {MAX_IMAGE_MB} MB · ideal min. 1200 px pe latura mare
               </span>
             </button>
           ) : (
@@ -363,11 +418,11 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
         </Link>
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || uploading}
           className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#95492e] bg-primary px-6 py-3 font-heading text-[15px] font-bold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-60"
         >
           <Send className="size-4" strokeWidth={2} />
-          {pending ? "Se publică…" : "Publică detaliul"}
+          {uploading ? "Se încarcă imaginea…" : pending ? "Se publică…" : "Publică detaliul"}
         </button>
       </div>
     </form>
