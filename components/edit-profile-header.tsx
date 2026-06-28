@@ -64,7 +64,9 @@ function useImageTarget(
         setError(res.error);
         return;
       }
-      setUrl(uploaded);
+      // Afișăm URL-ul CURAT întors de server (reprocesat). `uploaded` a fost deja șters la reprocesare,
+      // deci nu îl putem folosi pentru preview — altfel imaginea apare spartă până la refresh.
+      setUrl(res.url ?? uploaded);
     } catch {
       setError("Încărcarea a eșuat. Încearcă din nou.");
     } finally {

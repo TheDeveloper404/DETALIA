@@ -4,6 +4,22 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-28 (noapte — 2 fix-uri UI)
+
+### fix — poza de profil/cover apărea doar după refresh
+- La editarea „in place" din profil, clientul afișa `setUrl(uploaded)` = URL-ul **original**, dar serverul
+  reprocesa imaginea (SEC-02), urca un blob NOU curat și **ștergea originalul** → preview-ul arăta un blob șters
+  până la refresh. Acum `saveAvatarUrl`/`saveCoverUrl` întorc `url: processed.url`, iar `edit-profile-header.tsx`
+  face `setUrl(res.url ?? uploaded)`. Securitate neschimbată (URL-ul întors e tot blob-ul validat + reprocesat).
+  (Onboarding/detaliu nou nu erau afectate — fac redirect, se reîncarcă din DB.)
+
+### fix — flash de „ecran gol" la intrarea pe login/signup din landing
+- `app/loading.tsx` (Suspense root) se aplica și pe `/login`/`/signup` (dinamice via `searchParams`) → la navigare
+  apărea câteva ms scheletul generic. Adăugat `app/login/loading.tsx` + `app/signup/loading.tsx` care randează
+  ACELAȘI `AuthShell` ca paginile (header + panou + card cu zona de formular ca schelet) → tranziție imperceptibilă.
+
+---
+
 ## 2026-06-28 (seară — fix-uri UI + feed rail)
 
 ### fix — CSP bloca uploadul de imagini (SEC-08 regresie)
