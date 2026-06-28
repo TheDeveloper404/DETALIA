@@ -390,15 +390,11 @@
   }
 }
 
-/* Acoperă landing-ul ÎNAINTE de hidratare, ca să nu „clipească" până montează overlay-ul React.
-   data-intro=show e pus de un script inline sincron (app/layout.tsx) înainte de prima pictare și
-   scos de IntroSplash la dismiss. Fundal identic cu intro-ul → tranziția spre overlay e invizibilă. */
-html[data-intro="show"]::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  background: #faf8f4;
+/* Overlay-ul de intro se randează din SSR (e cover-ul cu logo din prima pictare → fără flash de landing
+   și fără gap gol). Pentru cine l-a văzut deja / reduced-motion, scriptul pre-paint (app/layout.tsx) pune
+   data-intro="seen" → ascundem overlay-ul instant, înainte de prima pictare. */
+html[data-intro="seen"] .dt-intro {
+  display: none !important;
 }
 
 /* Intro de brand (logo animat DETALIA) — adaptat din animatie_logo_detalia.html. Literele „DETALI"

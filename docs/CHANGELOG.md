@@ -13,6 +13,13 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - Folosite ca fișier (`<img>`), nu reconstruite: `BrandLogo` (→ AppHeader + paginile de auth),
   header + footer landing (`app/page.tsx`), header onboarding. Footer/CTA dark folosesc varianta dark.
 - `IntroSplash` păstrează deocamdată marca animată proprie — de aliniat separat dacă se dorește.
+- **Al doilea logo pe login/signup** (deasupra cardului de formular, în `auth-shell.tsx`) era încă rombul
+  vechi → înlocuit cu `/logo.svg`. Acum nu mai există niciun wordmark text+romb în `.tsx` (toate = SVG).
+- **Dimensiune logo uniformizată la 26px** peste tot (header/footer landing, onboarding, `BrandLogo` default
+  → app header + login/signup). Ulterior, header + footer landing crescute (vezi mai jos).
+- **Header & footer landing — mărite**: header înălțime 64→76px, logo 26→32px, „Autentificare" 16px, buton
+  „Creează cont" 15.5px/padding mai mare; footer padding vertical → 30px, logo 32px, tagline 16px, copyright
+  13.5px + text „© {an} DETALIA — Toate drepturile rezervate."
 - **Favicon**: `app/icon.svg` = simbolul „A" (din `icon.svg` furnizat), curățat de panou + viewBox pătrat pe
   simbol. Șters `app/favicon.ico` (default Next) ca SVG-ul să fie iconița. login/signup foloseau deja
   logo-ul nou via `AuthShell`→`BrandLogo`. Emailul (`lib/email.ts`) rămâne cu wordmark CSS (decizie: SVG
@@ -31,6 +38,11 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   reduced-motion: scriptul nu pune atributul → landing direct.
 - Adăugat `suppressHydrationWarning` pe `<html>` (`app/layout.tsx`) — scriptul pre-paint mută `data-intro`
   înainte de hidratare, deci atributul diferă de SSR; e mismatch-ul intenționat (ca next-themes), nu un bug.
+- **Fix #2 (welcome nu mai apărea):** abordarea cu cover `::before` lăsa un ecran gol crem până monta overlay-ul
+  React (în dev, lent → welcome-ul nu se vedea). Rescris: overlay-ul de intro se randează acum **din SSR**
+  (e el însuși cover-ul, cu logo, din prima pictare). `IntroSplash` pornește în faza „show"; pentru cine l-a
+  văzut deja / reduced-motion, scriptul pre-paint pune `html[data-intro="seen"]` → CSS îl ascunde instant
+  (`.dt-intro { display:none }`) și efectul îl demontează. Fără flash de landing ȘI fără ecran gol.
 
 ### Profil edit: header editabil „in place" + verificare integrată în „Rolul tău"
 - **Avatar + cover editabile direct din antet** — scoase cele două carduri separate „Poză de profil" și

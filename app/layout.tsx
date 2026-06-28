@@ -45,14 +45,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {/* Pre-paint: dacă intro-ul de brand trebuie arătat (prima vizită din sesiune, fără reduced-motion),
-            marcăm <html data-intro="show"> ÎNAINTE de prima pictare. CSS-ul (html[data-intro=show]::before)
-            acoperă landing-ul până montează overlay-ul React → fără flash de landing. IntroSplash scoate
-            atributul la dismiss. Script sincron, în capul body-ului, rulează înainte de restul conținutului. */}
+        {/* Pre-paint: overlay-ul de intro se randează din SSR (e cover-ul, cu logo, din prima pictare).
+            Pentru cine l-a văzut deja / reduced-motion, marcăm <html data-intro="seen"> ÎNAINTE de prima
+            pictare → CSS-ul îl ascunde instant (fără flash). Script sincron, în capul body-ului. */}
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var s=sessionStorage.getItem('detalia_intro_seen');var r=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(!s&&!r)document.documentElement.setAttribute('data-intro','show');}catch(e){}})();",
+              "(function(){try{var s=sessionStorage.getItem('detalia_intro_seen');var r=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(s||r)document.documentElement.setAttribute('data-intro','seen');}catch(e){}})();",
           }}
         />
         {children}
