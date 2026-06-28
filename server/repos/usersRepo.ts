@@ -5,7 +5,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { details, roles, users } from "@/db/schema";
 
-export async function updateUserImage(userId: string, imageUrl: string) {
+export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
 }
 
@@ -26,8 +26,13 @@ export async function updateUserProfile(
 }
 
 // Setează URL-ul cover-ului după upload (best-effort, ca și avatarul).
-export async function updateUserCoverImage(userId: string, coverUrl: string) {
+export async function updateUserCoverImage(userId: string, coverUrl: string | null) {
   await db.update(users).set({ coverImage: coverUrl }).where(eq(users.id, userId));
+}
+
+// Poziția verticală a cover-ului (0..100). Clamp-ul îl face service-ul/action-ul.
+export async function updateUserCoverPosition(userId: string, position: number) {
+  await db.update(users).set({ coverPosition: position }).where(eq(users.id, userId));
 }
 
 // Datele de profil pentru /profile/edit (nume, email, poză, cover + headline/locație/website). Email = PII.
@@ -38,6 +43,7 @@ export async function getUserProfile(userId: string) {
       email: users.email,
       image: users.image,
       coverImage: users.coverImage,
+      coverPosition: users.coverPosition,
       headline: users.headline,
       about: users.about,
       location: users.location,
@@ -71,6 +77,7 @@ export async function getPublicProfile(userId: string) {
       name: users.name,
       image: users.image,
       coverImage: users.coverImage,
+      coverPosition: users.coverPosition,
       headline: users.headline,
       about: users.about,
       location: users.location,

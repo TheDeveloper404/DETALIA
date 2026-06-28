@@ -74,6 +74,8 @@ export const users = pgTable("users", {
   location: text(),
   website: text(),
   coverImage: text(),
+  // Poziția verticală a imaginii de cover (object-position Y, 0..100). Permite mutarea sus/jos a benzii.
+  coverPosition: integer().notNull().default(50),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
