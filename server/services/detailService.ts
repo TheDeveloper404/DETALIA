@@ -25,10 +25,8 @@ import {
   listRelatedDetails,
 } from "@/server/repos/detailsRepo";
 import { listTopAuthors } from "@/server/repos/usersRepo";
+import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
-
-// Validare format UUID — un id malformat trebuie să dea „not found", nu o eroare SQL (500).
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY";
 
@@ -65,6 +63,8 @@ export async function createDetail(input: {
   const value = validation.value;
 
   // 3) Integritate FK polimorfică verificată în service (categoria trebuie să existe).
+  // SEC-11: categoryId malformat → INVALID_CATEGORY (nu eroare SQL pe coloana uuid).
+  if (!isUuid(value.categoryId)) return { ok: false, error: "INVALID_CATEGORY" };
   const category = await getCategoryById(value.categoryId);
   if (!category) return { ok: false, error: "INVALID_CATEGORY" };
 
@@ -89,7 +89,7 @@ export async function createDetail(input: {
 
 // Citire pagină de detaliu (doar PUBLISHED) + resursele atașate. null dacă nu există / id invalid.
 export async function getDetail(id: string) {
-  if (!UUID_RE.test(id)) return null;
+  if (!isUuid(id)) return null;
   const detail = await getDetailById(id);
   if (!detail) return null;
   const resources = await getDetailResources(id);
@@ -109,7 +109,7 @@ export async function deleteDetail(input: {
   detailId: string;
   userId: string;
 }): Promise<DeleteDetailResult> {
-  if (!UUID_RE.test(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+  if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
 
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "NOT_FOUND" };

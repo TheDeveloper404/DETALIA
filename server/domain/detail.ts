@@ -14,6 +14,9 @@ export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 5000;
 export const MAX_DETAIL_RESOURCES = 3;
 export const DEFAULT_FEED_SIZE = 20; // feed finit, fără scroll infinit (caracter de comunitate)
+// SEC-11 — plafoane de lungime pe stringurile libere (frontend-ul nu e sursă de adevăr).
+export const MAX_ZONE_LENGTH = 64; // climateZone / seismicZone (listă fixă pe HOLD → acceptăm string liber mărginit)
+export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonabilă de browser/DB)
 
 // Tipuri de resurse opționale (oglindesc enum-ul DB detail_resource_type).
 export const RESOURCE_TYPES = ["IMAGE", "LINK", "TEXT", "PDF"] as const;
@@ -103,17 +106,22 @@ export function validateDetailInput(input: {
     const body = r.body?.trim() || null;
     // IMAGE/LINK/PDF au nevoie de URL; TEXT are nevoie de body.
     if (r.type === "TEXT") {
-      if (!body) return { ok: false, error: "INVALID_RESOURCE" };
+      // SEC-11: body mărginit (aceeași limită ca descrierea).
+      if (!body || body.length > DESCRIPTION_MAX_LENGTH) return { ok: false, error: "INVALID_RESOURCE" };
       resources.push({ type: "TEXT", url: null, body });
     } else {
-      if (!url || !isHttpUrl(url)) return { ok: false, error: "INVALID_RESOURCE" };
+      // SEC-11: URL mărginit + allowlist http/https.
+      if (!url || url.length > MAX_RESOURCE_URL_LENGTH || !isHttpUrl(url)) {
+        return { ok: false, error: "INVALID_RESOURCE" };
+      }
       resources.push({ type: r.type, url, body: null });
     }
   }
 
-  // Zone climatice/seismice: listă fixă pe HOLD → acceptăm string liber cu default „General".
-  const climateZone = input.climateZone?.trim() || "General";
-  const seismicZone = input.seismicZone?.trim() || "General";
+  // Zone climatice/seismice: listă fixă pe HOLD → acceptăm string liber cu default „General",
+  // dar SEC-11 îl plafonăm (frontend-ul nu e sursă de adevăr).
+  const climateZone = (input.climateZone?.trim() || "General").slice(0, MAX_ZONE_LENGTH);
+  const seismicZone = (input.seismicZone?.trim() || "General").slice(0, MAX_ZONE_LENGTH);
 
   return {
     ok: true,

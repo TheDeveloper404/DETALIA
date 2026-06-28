@@ -17,7 +17,7 @@
 | Nume + rol declarat | afișare transparentă lângă contribuții (inima produsului) | execuția serviciului | cât e contul activ |
 | Dovezi verificare (nr. OAR / CUI) | verificarea rolului → badge | consimțământ (userul vine singur) | până la verificare + termen rezonabil |
 | Conținut (validări, comentarii, schițe) | funcționarea comunității | execuția serviciului | cât e contul activ |
-| Token invitație / magic link | acces / login | execuția serviciului | one-time, expiră (TTL din env) |
+| Token magic link | login | execuția serviciului | one-time, expiră (TTL din env) |
 | Metadate tehnice (loguri) | securitate, debugging | interes legitim | scurt; **fără PII în loguri** |
 
 **Principii deja aplicate în arhitectură:**

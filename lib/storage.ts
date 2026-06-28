@@ -32,7 +32,7 @@ export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResu
 // Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile
 // schițelor). NU aruncă: o eroare de storage nu trebuie să rateze ștergerea logică din DB (un blob
 // orfan = doar risipă de storage, nu o eroare de utilizator). Acceptăm doar URL-uri Blob (https) —
-// asset-urile seed din /public (ex: "/seed/...") sunt ignorate, nu sunt în Blob.
+// căile relative / asset-urile din /public nu sunt în Blob și se ignoră.
 export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<void> {
   const valid = urls.filter((u): u is string => !!u && u.startsWith("https://"));
   if (valid.length === 0) return;

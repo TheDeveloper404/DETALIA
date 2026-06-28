@@ -4,6 +4,7 @@
 //  - Publică DOAR cu send + accept. Un singur autor pe foaie. Stroke-uri normalizate 0..1, validate.
 //  - actorUserId vine ÎNTOTDEAUNA din sesiune (apelantul) — fără IDOR.
 
+import { isUuid } from "@/server/domain/ids";
 import { SKETCH_STATUS, type Stroke, validateStrokes } from "@/server/domain/sketch";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
@@ -43,6 +44,7 @@ export async function createDraft(input: {
   detailId: string;
   authorId: string;
 }): Promise<SketchResult<{ sketchId: string }>> {
+  if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" }; // SEC-11
   if (!(await getRoleByUserId(input.authorId))) return { ok: false, error: "NO_ROLE" };
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
@@ -61,6 +63,7 @@ export async function saveStrokes(input: {
   authorId: string;
   strokes: unknown;
 }): Promise<SketchResult> {
+  if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(input.sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
   if (sketch.authorId !== input.authorId) return { ok: false, error: "FORBIDDEN" };
@@ -82,6 +85,7 @@ export async function send(input: {
   strokes?: unknown;
   thumbnailUrl?: string | null;
 }): Promise<SketchResult> {
+  if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(input.sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
   if (sketch.authorId !== input.authorId) return { ok: false, error: "FORBIDDEN" };
@@ -127,6 +131,7 @@ async function decide(
   input: { sketchId: string; actorUserId: string },
   accepted: boolean,
 ): Promise<SketchResult> {
+  if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(input.sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
   if (sketch.status !== SKETCH_STATUS.PENDING_ACCEPTANCE) return { ok: false, error: "INVALID_STATE" };
@@ -165,6 +170,7 @@ export function reject(input: { sketchId: string; actorUserId: string }): Promis
 
 // Teancul public (schițele PUBLISHED ale unui detaliu).
 export function getTeanc(detailId: string) {
+  if (!isUuid(detailId)) return Promise.resolve([]); // SEC-11
   return listPublishedByDetail(detailId);
 }
 
@@ -180,11 +186,13 @@ export function getMyDrafts(userId: string) {
 
 // Șterge o ciornă a userului curent (doar DRAFT, doar a lui). Întoarce dacă s-a șters ceva.
 export function deleteDraft(input: { sketchId: string; authorId: string }): Promise<boolean> {
+  if (!isUuid(input.sketchId)) return Promise.resolve(false); // SEC-11
   return deleteDraftByAuthor(input.sketchId, input.authorId);
 }
 
 // Coada de review — DOAR autorul detaliului-mamă vede schițele PENDING.
 export async function getPendingForOwner(detailId: string, actorUserId: string) {
+  if (!isUuid(detailId)) return []; // SEC-11
   const detail = await getDetailById(detailId);
   if (!detail || detail.authorId !== actorUserId) return [];
   return listPendingByDetail(detailId);
@@ -195,6 +203,7 @@ export async function getDraftForEdit(
   sketchId: string,
   authorId: string,
 ): Promise<SketchResult<{ detailId: string; strokes: Stroke[] }>> {
+  if (!isUuid(sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
   if (sketch.authorId !== authorId) return { ok: false, error: "FORBIDDEN" };
@@ -207,6 +216,7 @@ export async function getDraftForEdit(
 
 // Schița pentru vizualizare (publicată) — stroke-uri pentru randare peste imaginea-mamă.
 export async function getPublishedSketch(sketchId: string) {
+  if (!isUuid(sketchId)) return null; // SEC-11
   const sketch = await getSketchById(sketchId);
   if (!sketch || sketch.status !== SKETCH_STATUS.PUBLISHED) return null;
   return sketch;

@@ -17,7 +17,7 @@
 | **Unit** | `server/services`, `server/domain` | reguli de business + state machines, izolat (DB mock/in-memory) |
 | **Integration** | route handlers + DB de test | fluxul handler→service→repo, cu reguli enforce-uite pe server |
 | **Security** | authz pe endpoint-uri sensibile | IDOR, privilege escalation, deny-by-default |
-| **E2E** (Playwright) | fluxurile critice cap-coadă | invitație→login→validare→schiță→accept |
+| **E2E** (Playwright) | fluxurile critice cap-coadă | signup→login→validare→schiță→accept |
 
 ---
 
@@ -37,12 +37,12 @@
 ## Scenarii de securitate (CRITICAL — authz)
 
 - **IDOR:** user A nu poate edita/șterge validarea, comentariul sau schița lui user B.
-- **Privilege escalation:** user normal nu accesează `/api/admin/*` (invitații, seed detalii, aprobare verificare).
+- **Privilege escalation:** user normal nu accesează viitoare rute `/api/admin/*` (aprobare verificare rol etc.).
 - **Deny-by-default:** orice rută `(app)` fără sesiune → 401 (nu 200, nu 404 mascat).
 - **Authz corect:** rol greșit → 403, lipsă auth → 401 — **niciodată 404** ca să ascundă existența.
-- **Invitație/magic link:** token expirat/folosit → respins; one-time use chiar e one-time.
+- **Magic link:** token expirat/folosit → respins; one-time use chiar e one-time.
 - **Fără leak:** răspunsurile de eroare nu conțin stack-trace / SQL / căi.
-- **Rate-limit:** endpoint-urile sensibile (login, invitație, verificare) limitate.
+- **Rate-limit:** endpoint-urile sensibile (login, mutații, upload, creare detaliu) limitate.
 
 ---
 
