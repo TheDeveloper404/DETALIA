@@ -6,6 +6,58 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-28
 
+### Ștergere cont (GDPR „dreptul de a fi uitat") — anonimizare
+- Buton „Șterge contul" în `/profile/edit` (confirmare în 2 pași + tastare „ȘTERGE"). Politică = **anonimizare
+  (tombstone)**, confirmată de Liviu: ștergem PII din DB, păstrăm conținutul comunitar.
+- Șterse: email (→ placeholder non-PII), nume real (firstName/lastName + `name`→„Utilizator șters"), avatar+cover
+  (inclusiv blob-uri), website/headline/about/locație/emailVerified, **dovezile de rol** (`verificationEvidence`).
+  Sesiuni + accounts șterse (logout). Status nou `DELETED` → re-login imposibil (SEC-04 îl blochează).
+- Păstrate: detalii/schițe/comentarii/validări (atribuite „Utilizator șters") + rol main/sub (non-PII).
+- Cod: `server/services/accountService.ts`, repo-uri `usersRepo`/`rolesRepo`, `deleteAccountAction`,
+  `delete-account-section.tsx`. Enum `user_status` extins cu `DELETED` → **necesită `db:push`**.
+- Doc GDPR actualizat (`docs/CONFIDENTIALITATE-GDPR.md §2`).
+
+### SEC-04 — Blocare conturi suspendate (FAZA 1 securitate)
+- `lib/auth.ts`: callback `signIn` refuză conturile cu `status ≠ ACTIVE` (se cheamă de 2 ori la email provider:
+  la trimiterea magic link-ului ȘI la click → blocat în ambele; user nou n-are status → permis, devine ACTIVE).
+  `pages.error = /login` → refuzul ajunge ca `?error=AccessDenied`.
+- `status` expus pe sesiune (callback `session`) + augmentare tip `types/next-auth.d.ts`. Proxy-ul (strategie
+  `database` → status proaspăt din DB la fiecare request) redirectează sesiunile non-ACTIVE de pe rutele protejate
+  către `/login?error=AccessDenied` (acoperă și server actions, care lovesc rute protejate prin POST).
+- Mesaj „cont suspendat" pe login + signup. *Nu există încă UI de suspendare; enforcement-ul e gata pt când se setează.*
+
+### SEC-03 — Allowlist URL pe website (FAZA 1 securitate)
+- Resursele detaliului erau deja validate la input (`isHttpUrl` = `new URL()` + allowlist http/https), iar
+  website-ul era sanitizat la randare (`safeWebsite`). Gap rămas: `website` se stoca **brut** la input.
+- Adăugat `lib/url.ts` (`normalizeWebsite`, pur): allowlist strict http/https la INPUT (defense-in-depth, nu
+  doar la output). Schemă nepermisă (`javascript:`, `data:`, `file:`…) → respinsă, nu stocată.
+- Cablat în `onboarding/actions.ts` și `profile/actions.ts` (înlocuiește vechiul prefix-regex care stoca gunoi).
+
+### SEC-02 — Upload sigur: validare reală + re-encodare fără metadata (FAZA 1 securitate)
+- Adăugat `lib/image-processing.ts` (sharp). Upload-ul rămâne client-direct în Blob (necesar pt fișiere mari),
+  dar la **persistare** pe server: descărcăm blob-ul (doar din store-ul nostru → anti-SSRF) → `sharp.metadata()`
+  validează formatul REAL din header (magic bytes, nu `file.type` client) → `limitInputPixels` ~50MP (anti-bombă
+  decompresie) → `.rotate()` aplică EXIF orientation apoi **re-encodare** (sharp strip-uiește EXIF/GPS/ICC/XMP
+  implicit) → plafon 4096px latura lungă → re-urcăm imaginea curată și **ștergem originalul**. Eșec → ștergem orfanul.
+- Formate acceptate la ieșire: jpeg/png/webp/avif (svg/gif/heic/tiff respinse). Helper și pt bytes deja pe server
+  (`processAndUploadImage`, folosit la thumbnail-ul de schiță).
+- Cablat la toate punctele de persistare URL imagine: `details/new/actions.ts`, `profile/actions.ts`
+  (avatar+cover), `onboarding/actions.ts` (avatar+cover), `lib/storage.ts` (thumbnail schiță).
+- Dependență nouă: `sharp`.
+
+### SEC-01 — Rate limiting distribuit (FAZA 1 securitate)
+- Adăugat `lib/rate-limit.ts`: limitere sliding-window peste **Upstash Redis** (`@upstash/ratelimit` +
+  `@upstash/redis`). Serverless n-are memorie partajată → store distribuit. **Fail-open**: dacă Redis lipsește
+  (dev fără env) sau pică, cererea trece + se loghează (disponibilitate > enforce strict pentru MVP). PII (email)
+  NU intră în Redis — hash SHA-256. IP din `x-forwarded-for`.
+- Limite (centralizate, ușor de ajustat): magic link 5/h/email + 20/h/IP · mutații (validare/comentariu/
+  send schiță/accept-reject/start sketch) 40/min/user · publicare detaliu 10/h/user · upload (token Blob) 30/h/user.
+- Cablat în: `auth-actions.ts` (răspuns generic `RateLimited`, anti-enumerare), `validation-actions.ts`,
+  `comment-actions.ts`, `sketch-actions.ts` (doar SEND, nu autosave), `sketch-review-actions.ts`,
+  `details/new/actions.ts`, `api/blob/upload/route.ts` (429 `RATE_LIMITED`). Mesaj `RateLimited` adăugat pe login/signup.
+- **Prerequisit prod/local:** integrarea Upstash for Redis pe proiectul Vercel pune `UPSTASH_REDIS_REST_URL`
+  + `UPSTASH_REDIS_REST_TOKEN`. Local: copiate în `.env.local` (altfel limiter dezactivat = fail-open).
+
 ### Logo oficial de brand (SVG) în loc de rombul placeholder
 - Adăugate variantele oficiale: `public/logo.svg` (fundal deschis, wordmark negru) și
   `public/logo-dark.svg` (fundal închis, wordmark alb), derivate din SVG-urile furnizate

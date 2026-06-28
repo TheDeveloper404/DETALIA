@@ -14,7 +14,7 @@
 ## Enum-uri
 
 ```
-user_status            : INVITED | ACTIVE | SUSPENDED
+user_status            : INVITED | ACTIVE | SUSPENDED | DELETED
 role_main              : PROIECTANT | EXECUTANT | FURNIZOR | BENEFICIAR
 verification_status    : DECLARED | PENDING | VERIFIED | REJECTED
 target_type            : DETAIL | SKETCH        -- polimorfism validare/comentariu

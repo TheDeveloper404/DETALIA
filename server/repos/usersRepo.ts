@@ -3,7 +3,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { details, roles, users } from "@/db/schema";
+import { accounts, details, roles, sessions, users } from "@/db/schema";
 
 export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
@@ -112,6 +112,45 @@ export async function listTopAuthors(limit: number) {
     .where(sql`${detailCount} > 0`)
     .orderBy(sql`${detailCount} desc`)
     .limit(limit);
+}
+
+// Media (avatar + cover) pentru ștergerea blob-urilor la ștergerea contului.
+export async function getUserMedia(userId: string) {
+  const [row] = await db
+    .select({ image: users.image, coverImage: users.coverImage })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row ?? null;
+}
+
+// GDPR — ștergere cont (tombstone): șterge PII din rândul user. `email` e NOT NULL unique → îl înlocuim cu un
+// placeholder non-PII (emailul real dispare). `name` devine o etichetă generică (nu numele real). Restul → null.
+// `status = DELETED` → blocat de SEC-04 (signIn + proxy). Conținutul (detalii/schițe/comentarii/validări) rămâne.
+export async function anonymizeUserRow(userId: string, placeholderEmail: string) {
+  await db
+    .update(users)
+    .set({
+      email: placeholderEmail,
+      emailVerified: null,
+      name: "Utilizator șters",
+      firstName: null,
+      lastName: null,
+      image: null,
+      coverImage: null,
+      headline: null,
+      about: null,
+      location: null,
+      website: null,
+      status: "DELETED",
+    })
+    .where(eq(users.id, userId));
+}
+
+// Revocă autentificarea: șterge sesiunile (logout imediat) și conturile OAuth legate.
+export async function deleteUserAuth(userId: string) {
+  await db.delete(sessions).where(eq(sessions.userId, userId));
+  await db.delete(accounts).where(eq(accounts.userId, userId));
 }
 
 // Email + nume pentru notificări (email = PII, NU se loghează).
