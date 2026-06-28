@@ -322,8 +322,9 @@ Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
    rânduri afectate; notificări idempotente (outbox/dedup).
 7. **SEC-06 — Ștergere cont + lifecycle date.** Export/ștergere; strategie FK `details.authorId`/`sketches.authorId`
    (anonimizare/cascade); cleanup blob avatar/cover la înlocuire/ștergere.
-8. **SEC-08 — Security headers.** CSP, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, frame policy;
-   HSTS verificat pe platformă. Verifică pe răspunsurile reale de staging.
+8. ✅ **SEC-08 — Security headers** (rezolvat 2026-06-28, vezi CHANGELOG). `next.config.ts headers()`: CSP +
+   nosniff + Referrer-Policy + X-Frame-Options DENY + Permissions-Policy + HSTS, pe toate rutele. CSP cu
+   `script-src 'unsafe-inline'` (nonce = hardening ulterior). *DE VERIFICAT în consola preview-ului.*
 9. **SEC-09 — Dependențe.** Update sau risk-acceptance documentat pentru advisories-urile moderate; fără downgrade major automat.
 10. **SEC-05 — PII verificare rol** *(cuplat cu feature-ul „verificare rol", acum PE HOLD).* Dacă feature-ul rămâne
     dezactivat, **ascunde fluxul de trimitere dovezi** ca să nu colectezi PII deloc. Dacă se activează: limită + structurare

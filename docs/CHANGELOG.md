@@ -6,6 +6,14 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-28
 
+### SEC-08 — Security headers (FAZA 2 securitate)
+- `next.config.ts headers()`: CSP + `X-Content-Type-Options: nosniff` + `Referrer-Policy` + `X-Frame-Options: DENY`
+  + `Permissions-Policy` (camera/mic/geo/topics off) + HSTS (2 ani, subdomenii, preload), pe toate rutele.
+- CSP: `default-src 'self'`, `object-src none`, `frame-ancestors none`, `base-uri/form-action self`. `script-src`
+  cu `'unsafe-inline'` (script pre-paint intro + bootstrap Next; nonce = hardening ulterior). Permise: Vercel Blob
+  (img + upload `connect-src`), toolbar `vercel.live` (preview). **De verificat în consola preview-ului** că nimic
+  legit nu e blocat.
+
 ### Ștergere cont (GDPR „dreptul de a fi uitat") — anonimizare
 - Buton „Șterge contul" în `/profile/edit` (confirmare în 2 pași + tastare „ȘTERGE"). Politică = **anonimizare
   (tombstone)**, confirmată de Liviu: ștergem PII din DB, păstrăm conținutul comunitar.
