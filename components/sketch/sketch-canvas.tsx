@@ -47,8 +47,8 @@ import {
 // Uneltele de desen din rail. „pen" freehand · forme cu 2 capete (line/rect/ellipse/arrow) · „text" casetă · „eraser".
 type Tool = "pen" | "line" | "rect" | "ellipse" | "arrow" | "text" | "eraser";
 const SHAPE_TOOLS = ["line", "rect", "ellipse", "arrow"] as const;
-function isShapeTool(t: Tool): t is (typeof SHAPE_TOOLS)[number] {
-  return (SHAPE_TOOLS as readonly string[]).includes(t);
+function isShapeTool(t: Tool | null): t is (typeof SHAPE_TOOLS)[number] {
+  return t !== null && (SHAPE_TOOLS as readonly string[]).includes(t);
 }
 
 const ZOOM_MIN = 0.4;
@@ -213,7 +213,9 @@ export const SketchCanvas = forwardRef<
   });
   const [color, setColor] = useState<string>(STROKE_COLORS[0]);
   const [size, setSize] = useState<number>(STROKE_WIDTHS[1]);
-  const [tool, setTool] = useState<Tool>("pen");
+  // `null` = niciun tool selectat (mouse neutru — canvas-ul nu desenează). Stare în care intri
+  // automat după ce fixezi un text: vrei să revii la cursor, nu să rămâi pe o unealtă de desen.
+  const [tool, setTool] = useState<Tool | null>("pen");
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(1);
   // Caseta de text în curs de tastare (poziție normalizată 0..1 + valoare + unghi la editare). null = niciuna.
@@ -367,8 +369,8 @@ export const SketchCanvas = forwardRef<
     redraw(present, undefined, selForDraw);
   }, [dims, present, redraw, selForDraw]);
 
-  // Schimbă unealta + deselectează textul când ieși din modul text.
-  const selectTool = useCallback((t: Tool) => {
+  // Schimbă unealta (sau o deselectează cu `null` = mouse neutru) + deselectează textul când ieși din modul text.
+  const selectTool = useCallback((t: Tool | null) => {
     setTool(t);
     if (t !== "text") setSelected(null);
   }, []);
@@ -444,13 +446,14 @@ export const SketchCanvas = forwardRef<
   }
 
   function onPointerDown(e: React.PointerEvent) {
+    if (!tool) return; // mouse neutru (niciun tool) → canvas-ul nu reacționează
     const p = normPoint(e);
     if (tool === "text") {
-      // Tastezi deja o casetă → orice click o fixează și revine la creion (NU deschide alta).
-      // Ca să adaugi alt comentariu, reselectezi tool-ul Text. (UX cerut: un comentariu = un select de tool.)
+      // Tastezi deja o casetă → orice click o fixează și DESELECTEAZĂ tool-ul (mouse neutru — NU
+      // deschide alta, nu trece pe creion). Ca să adaugi alt comentariu, reselectezi tool-ul Text.
       if (textDraft) {
         commitText();
-        selectTool("pen");
+        selectTool(null);
         return;
       }
       // Click pe un text existent → selectează-l + pregătește mutarea prin drag.
@@ -759,7 +762,13 @@ export const SketchCanvas = forwardRef<
             style={{
               width: dims.w,
               height: dims.h,
-              cursor: tool === "eraser" ? "cell" : tool === "text" ? "text" : "crosshair",
+              cursor: !tool
+                ? "default"
+                : tool === "eraser"
+                  ? "cell"
+                  : tool === "text"
+                    ? "text"
+                    : "crosshair",
             }}
           />
 
@@ -779,16 +788,16 @@ export const SketchCanvas = forwardRef<
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   commitText();
-                  selectTool("pen"); // după un comentariu → înapoi la creion
+                  selectTool(null); // după un comentariu → mouse neutru (deselectează tool-ul)
                 } else if (e.key === "Escape") {
                   e.preventDefault();
                   setTextDraft(null);
-                  selectTool("pen");
+                  selectTool(null);
                 }
               }}
               onBlur={() => {
                 commitText();
-                selectTool("pen");
+                selectTool(null);
               }}
               placeholder="scrie…"
               className="absolute z-[6] resize-none overflow-hidden whitespace-pre rounded-[2px] p-0 outline-none placeholder:text-foreground/25"

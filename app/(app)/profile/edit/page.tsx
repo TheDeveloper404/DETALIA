@@ -92,12 +92,12 @@ export default async function ProfileEditPage() {
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Poză de profil</h2>
-          <AvatarForm />
+          <AvatarForm current={image} />
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Imagine de cover</h2>
-          <CoverForm />
+          <CoverForm current={cover} />
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
