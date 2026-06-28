@@ -6,10 +6,22 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-28
 
-### Fix: count-uri categorii „0" în feed după creare detaliu (cache stale)
-- La crearea unui detaliu, feed-ul (listă + counts pe categorie) rămânea pe valorile vechi — `createDetailAction`
-  făcea redirect spre `/details/<id>` fără `revalidatePath("/feed")` (spre deosebire de ștergere/validare care
-  revalidau). Pe prod-ul golit → toate categoriile arătau 0 chiar după publicare. Fix: revalidare `/feed` la creare.
+### Profil: cover repoziționabil + ștergere imagini + curățare UI + text verificare
+- **Cover repoziționabil sus/jos** — coloană nouă `users.cover_position` (int 0..100, default 50, **necesită `db:push`**).
+  Slider în `/profile/edit` (preview live cu `object-position`), salvat prin `saveCoverPosition` (clamp pe server).
+  Aplicat în banner-ul profilului + preview-ul din edit.
+- **Ștergere imagini** — buton „Șterge" la avatar și cover (`deleteAvatar`/`deleteCover`): golesc coloana + șterg
+  blob-ul best-effort. `updateUserImage`/`updateUserCoverImage` acceptă acum `null`.
+- **Cover afișat în profil** — `ProfileView` randează imaginea de cover în banner (înainte era doar grilă decorativă;
+  coverul se salva dar nu apărea). `coverImage` + `coverPosition` aduse în `getProfileView`.
+- **Scos secțiunea „Cont" (deconectare) din `/profile/edit`** — redundantă; deconectarea există în meniul din header.
+- **Text verificare rol explicit** — „Această funcție nu este încă disponibilă." atât în `/profile` cât și în `/profile/edit`.
+
+### Fix: count-uri categorii „0" în feed
+- La crearea unui detaliu lipsea `revalidatePath("/feed")` (spre deosebire de ștergere/validare) → feed cache-uit. Adăugat.
+- În plus, `listCategoriesWithCounts` folosea un subquery corelat scris cu `sql` template care returna 0 chiar când
+  existau detalii PUBLISHED (detaliul apărea în listă, dar count-ul rămânea 0 în același render). Rescris în forma
+  canonică **LEFT JOIN + GROUP BY** (`count(details.id)`), care numără corect.
 
 ### Upload imagini profil rescris: client direct în Blob + UX Încarcă→preview→Salvează + limită 25MB
 - **Root cause (de ce coverul „dădea verde" dar nu se salva):** avatar/cover urcau prin **server action** →

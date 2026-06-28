@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
+import { deleteBlobs } from "@/lib/storage";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
 import {
+  getUserProfile,
   updateUserCoverImage,
+  updateUserCoverPosition,
   updateUserDetails,
   updateUserImage,
 } from "@/server/repos/usersRepo";
@@ -52,6 +55,38 @@ export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
     return { error: "Imaginea nu a putut fi salvată.", ok: false };
   }
   await updateUserCoverImage(userId, url);
+  revalidatePath("/profile");
+  revalidatePath("/profile/edit");
+  return { error: null, ok: true };
+}
+
+// Șterge poza de profil: golește coloana + șterge blob-ul (best-effort). Reversibil prin re-upload.
+export async function deleteAvatar(): Promise<ProfileFormState> {
+  const userId = await requireUserId();
+  const profile = await getUserProfile(userId);
+  if (profile?.image) await deleteBlobs([profile.image]);
+  await updateUserImage(userId, null);
+  revalidatePath("/profile");
+  revalidatePath("/profile/edit");
+  return { error: null, ok: true };
+}
+
+// Salvează poziția verticală a cover-ului (0..100). Clamp pe server (frontend-ul nu e sursă de adevăr).
+export async function saveCoverPosition(position: number): Promise<ProfileFormState> {
+  const userId = await requireUserId();
+  const clamped = Math.round(Math.min(100, Math.max(0, Number.isFinite(position) ? position : 50)));
+  await updateUserCoverPosition(userId, clamped);
+  revalidatePath("/profile");
+  revalidatePath("/profile/edit");
+  return { error: null, ok: true };
+}
+
+// Șterge imaginea de cover.
+export async function deleteCover(): Promise<ProfileFormState> {
+  const userId = await requireUserId();
+  const profile = await getUserProfile(userId);
+  if (profile?.coverImage) await deleteBlobs([profile.coverImage]);
+  await updateUserCoverImage(userId, null);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };

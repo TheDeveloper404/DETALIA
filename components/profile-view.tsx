@@ -47,6 +47,7 @@ export type ProfileViewData = {
   name: string;
   image: string | null;
   coverImage: string | null;
+  coverPosition: number; // object-position Y (0..100) pentru banner
   roleLabel: string; // ex: „Proiectant · Arhitect"
   location: string | null;
   website: { href: string; label: string } | null;
@@ -80,7 +81,12 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       <div className="relative h-[180px] overflow-hidden rounded-b-lg bg-[#ece1d3]">
         {data.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={data.coverImage} alt="" className="absolute inset-0 size-full object-cover" />
+          <img
+            src={data.coverImage}
+            alt=""
+            className="absolute inset-0 size-full object-cover"
+            style={{ objectPosition: `50% ${data.coverPosition}%` }}
+          />
         ) : (
           <div
             aria-hidden

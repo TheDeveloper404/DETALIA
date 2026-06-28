@@ -153,6 +153,7 @@ export async function getProfileView(
     name: profile.name ?? "Anonim",
     image: profile.image,
     coverImage: profile.coverImage,
+    coverPosition: profile.coverPosition,
     roleLabel,
     location: profile.location,
     website: safeWebsite(profile.website),

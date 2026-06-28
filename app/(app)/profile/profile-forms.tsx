@@ -12,7 +12,10 @@ import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload
 
 import {
   type ProfileFormState,
+  deleteAvatar,
+  deleteCover,
   saveAvatarUrl,
+  saveCoverPosition,
   saveCoverUrl,
   signOutAction,
   updateProfileDetailsAction,
@@ -57,23 +60,44 @@ function ImageUploadForm({
   current,
   folder,
   save,
+  remove,
   okText,
   ctaLabel,
   shape,
+  initialPosition,
+  onSavePosition,
 }: {
   current: string | null;
   folder: string;
   save: (url: string) => Promise<ProfileFormState>;
+  remove: () => Promise<ProfileFormState>;
   okText: string;
   ctaLabel: string;
   shape: "circle" | "wide";
+  initialPosition?: number;
+  onSavePosition?: (pos: number) => Promise<ProfileFormState>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(current);
+  const [pos, setPos] = useState<number>(initialPosition ?? 50);
   const [state, setState] = useState<ProfileFormState>(initialProfileState);
   const [busy, setBusy] = useState(false);
+
+  async function onSavePos() {
+    if (!onSavePosition) return;
+    setBusy(true);
+    setState(initialProfileState);
+    try {
+      const res = await onSavePosition(pos);
+      setState(res.ok ? { error: null, ok: true } : { error: res.error, ok: false });
+    } catch {
+      setState({ error: "Nu s-a putut salva poziția.", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -117,6 +141,29 @@ function ImageUploadForm({
     }
   }
 
+  async function onRemove() {
+    if (!window.confirm("Ștergi imaginea?")) return;
+    setBusy(true);
+    setState(initialProfileState);
+    try {
+      const res = await remove();
+      if (!res.ok) {
+        setState({ error: res.error, ok: false });
+        return;
+      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setSavedUrl(null);
+      setPicked(null);
+      setPreviewUrl(null);
+      if (inputRef.current) inputRef.current.value = "";
+      setState({ error: null, ok: true });
+    } catch {
+      setState({ error: "Ștergerea a eșuat. Încearcă din nou.", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const shown = previewUrl ?? savedUrl;
 
   return (
@@ -137,6 +184,17 @@ function ImageUploadForm({
         {picked && (
           <Button type="button" onClick={onSave} disabled={busy} className="h-10">
             {busy ? "Se încarcă…" : "Salvează"}
+          </Button>
+        )}
+        {!picked && savedUrl && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onRemove}
+            disabled={busy}
+            className="h-10 border-[#e6c9c4] text-[#b0463c] hover:bg-[#fbf1ef]"
+          >
+            {busy ? "Se șterge…" : "Șterge"}
           </Button>
         )}
       </div>
@@ -162,12 +220,34 @@ function ImageUploadForm({
               fill
               sizes="400px"
               className="object-cover"
+              style={onSavePosition ? { objectPosition: `50% ${pos}%` } : undefined}
               unoptimized={!!previewUrl}
             />
           </div>
         )
       ) : (
         <p className="text-xs text-muted-foreground">Nicio imagine încă.</p>
+      )}
+
+      {/* Repoziționare verticală (doar cover, când există imagine). Trage de slider → preview live → Salvează. */}
+      {onSavePosition && shown && (
+        <div className="flex items-center gap-3">
+          <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+            Poziție
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={pos}
+            onChange={(e) => setPos(Number(e.target.value))}
+            className="h-2 flex-1 cursor-pointer accent-primary"
+            aria-label="Poziția verticală a cover-ului"
+          />
+          <Button type="button" variant="outline" onClick={onSavePos} disabled={busy} className="h-9">
+            {busy ? "…" : "Salvează poziția"}
+          </Button>
+        </div>
       )}
 
       <span className="text-xs text-muted-foreground">
@@ -184,6 +264,7 @@ export function AvatarForm({ current }: { current: string | null }) {
       current={current}
       folder="avatars"
       save={saveAvatarUrl}
+      remove={deleteAvatar}
       okText="Poza a fost actualizată."
       ctaLabel="Încarcă poză"
       shape="circle"
@@ -191,15 +272,24 @@ export function AvatarForm({ current }: { current: string | null }) {
   );
 }
 
-export function CoverForm({ current }: { current: string | null }) {
+export function CoverForm({
+  current,
+  position,
+}: {
+  current: string | null;
+  position: number;
+}) {
   return (
     <ImageUploadForm
       current={current}
       folder="covers"
       save={saveCoverUrl}
+      remove={deleteCover}
       okText="Imaginea de cover a fost actualizată."
       ctaLabel="Încarcă cover"
       shape="wide"
+      initialPosition={position}
+      onSavePosition={saveCoverPosition}
     />
   );
 }
@@ -309,8 +399,8 @@ export function VerificationSection({ status }: { status: VerificationStatus }) 
   // Rolul declarat rămâne funcțional 100%. (Re-activare: readuci formularul de cerere de verificare.)
   return (
     <p className="text-sm text-muted-foreground">
-      Verificarea rolului va fi disponibilă în curând. Până atunci, rolul declarat este
-      funcțional integral.
+      <strong className="font-semibold text-foreground">Această funcție nu este încă disponibilă.</strong>{" "}
+      Până atunci, rolul declarat este funcțional integral.
     </p>
   );
 }
