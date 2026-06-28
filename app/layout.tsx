@@ -39,6 +39,9 @@ export default function RootLayout({
   return (
     <html
       lang="ro"
+      // Scriptul pre-paint de mai jos pune `data-intro` pe <html> înainte de hidratare (vezi IntroSplash) →
+      // diferă de SSR. suppressHydrationWarning silențiază exact acest mismatch intenționat (ca next-themes).
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
