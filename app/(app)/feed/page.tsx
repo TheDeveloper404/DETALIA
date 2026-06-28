@@ -115,7 +115,7 @@ export default async function FeedPage({
         </div>
 
         {details.length === 0 ? (
-          <FeedEmpty filtered={!!activeId || !!q} />
+          <FeedEmpty filtered={!!activeId || !!q} search={!!q} />
         ) : (
           <div className="flex flex-col gap-4">
             {details.map((d) => (
