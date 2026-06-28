@@ -1,19 +1,24 @@
 "use client";
 
-import { useActionState } from "react";
+import Image from "next/image";
+import { useActionState, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { uploadImageToBlob } from "@/lib/blob-upload";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 
 import {
   type ProfileFormState,
+  saveAvatarUrl,
+  saveCoverUrl,
   signOutAction,
-  updateAvatarAction,
-  updateCoverAction,
   updateProfileDetailsAction,
 } from "./actions";
+
+const ACCEPT = ALLOWED_IMAGE_TYPES.join(",");
 
 // Starea inițială a formularelor — definită aici (client), NU în „use server" (care exportă doar funcții async).
 const initialProfileState: ProfileFormState = { error: null, ok: false };
@@ -44,47 +49,158 @@ function Feedback({ error, ok, okText }: { error: string | null; ok: boolean; ok
   return null;
 }
 
-export function AvatarForm() {
-  const [state, formAction, pending] = useActionState(updateAvatarAction, initialProfileState);
+// Flux upload imagine: „Încarcă" (alege fișier) → vezi PREVIEW-ul a ce ai ales → „Salvează".
+// Upload-ul merge DIRECT din browser în Vercel Blob (`@vercel/blob/client`) → ocolește limitele
+// de body (1MB server action / ~4.5MB funcție Vercel). URL-ul întors se persistă apoi în DB via
+// server action (`save`). Validarea reală (tip/mărime/auth) e pe server, la /api/blob/upload.
+function ImageUploadForm({
+  current,
+  folder,
+  save,
+  okText,
+  ctaLabel,
+  shape,
+}: {
+  current: string | null;
+  folder: string;
+  save: (url: string) => Promise<ProfileFormState>;
+  okText: string;
+  ctaLabel: string;
+  shape: "circle" | "wide";
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [picked, setPicked] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [savedUrl, setSavedUrl] = useState<string | null>(current);
+  const [state, setState] = useState<ProfileFormState>(initialProfileState);
+  const [busy, setBusy] = useState(false);
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0] ?? null;
+    if (!f) return;
+    // Validare client = doar UX (serverul re-validează la emiterea tokenului).
+    if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(f.type)) {
+      setState({ error: "Format neacceptat (PNG, JPG, WebP, AVIF).", ok: false });
+      return;
+    }
+    if (f.size > MAX_IMAGE_BYTES) {
+      setState({ error: `Imaginea e prea mare (max ${MAX_IMAGE_MB} MB).`, ok: false });
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPicked(f);
+    setPreviewUrl(URL.createObjectURL(f));
+    setState(initialProfileState);
+  }
+
+  async function onSave() {
+    if (!picked) return;
+    setBusy(true);
+    setState(initialProfileState);
+    try {
+      const url = await uploadImageToBlob(folder, picked);
+      const res = await save(url);
+      if (!res.ok) {
+        setState({ error: res.error, ok: false });
+        return;
+      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setSavedUrl(url);
+      setPicked(null);
+      setPreviewUrl(null);
+      if (inputRef.current) inputRef.current.value = "";
+      setState({ error: null, ok: true });
+    } catch {
+      setState({ error: "Încărcarea a eșuat. Încearcă din nou.", ok: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const shown = previewUrl ?? savedUrl;
 
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <Feedback error={state.error} ok={state.ok} okText="Poza a fost actualizată." />
-      <Input
-        name="image"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/avif"
-        required
-        className="h-10"
-      />
-      <span className="text-xs text-muted-foreground">PNG, JPG, WebP sau AVIF · max 8 MB</span>
-      <Button type="submit" disabled={pending} className="h-10 self-start">
-        {pending ? "Se încarcă…" : "Schimbă poza"}
-      </Button>
-    </form>
+    <div className="flex flex-col gap-3">
+      <Feedback error={state.error} ok={state.ok} okText={okText} />
+
+      <input ref={inputRef} type="file" accept={ACCEPT} onChange={onPick} className="hidden" />
+
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => inputRef.current?.click()}
+          className="h-10"
+        >
+          {ctaLabel}
+        </Button>
+        {picked && (
+          <Button type="button" onClick={onSave} disabled={busy} className="h-10">
+            {busy ? "Se încarcă…" : "Salvează"}
+          </Button>
+        )}
+      </div>
+
+      {/* Previzualizare: ce-ai ales acum, altfel imaginea curentă. */}
+      {shown ? (
+        shape === "circle" ? (
+          <div className="relative size-24 overflow-hidden rounded-full border border-border bg-secondary">
+            <Image
+              src={shown}
+              alt=""
+              fill
+              sizes="96px"
+              className="object-cover"
+              unoptimized={!!previewUrl}
+            />
+          </div>
+        ) : (
+          <div className="relative h-28 w-full overflow-hidden rounded-lg border border-border bg-secondary">
+            <Image
+              src={shown}
+              alt=""
+              fill
+              sizes="400px"
+              className="object-cover"
+              unoptimized={!!previewUrl}
+            />
+          </div>
+        )
+      ) : (
+        <p className="text-xs text-muted-foreground">Nicio imagine încă.</p>
+      )}
+
+      <span className="text-xs text-muted-foreground">
+        PNG, JPG, WebP sau AVIF · max {MAX_IMAGE_MB} MB
+        {picked ? ` · ales: ${picked.name}` : ""}
+      </span>
+    </div>
   );
 }
 
-export function CoverForm() {
-  const [state, formAction, pending] = useActionState(updateCoverAction, initialProfileState);
-
+export function AvatarForm({ current }: { current: string | null }) {
   return (
-    <form action={formAction} className="flex flex-col gap-3">
-      <Feedback error={state.error} ok={state.ok} okText="Imaginea de cover a fost actualizată." />
-      <Input
-        name="cover"
-        type="file"
-        accept="image/png,image/jpeg,image/webp,image/avif"
-        required
-        className="h-10"
-      />
-      <span className="text-xs text-muted-foreground">
-        Banda de sus a profilului · PNG, JPG, WebP sau AVIF · max 8 MB
-      </span>
-      <Button type="submit" disabled={pending} className="h-10 self-start">
-        {pending ? "Se încarcă…" : "Schimbă coperta"}
-      </Button>
-    </form>
+    <ImageUploadForm
+      current={current}
+      folder="avatars"
+      save={saveAvatarUrl}
+      okText="Poza a fost actualizată."
+      ctaLabel="Încarcă poză"
+      shape="circle"
+    />
+  );
+}
+
+export function CoverForm({ current }: { current: string | null }) {
+  return (
+    <ImageUploadForm
+      current={current}
+      folder="covers"
+      save={saveCoverUrl}
+      okText="Imaginea de cover a fost actualizată."
+      ctaLabel="Încarcă cover"
+      shape="wide"
+    />
   );
 }
 
