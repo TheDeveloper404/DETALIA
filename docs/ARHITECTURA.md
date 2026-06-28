@@ -10,7 +10,9 @@
 
 > 🔄 **DECIZII SUPRASCRISE (iunie 2026) — citește înainte.** Acest doc conceptual rămâne valid pe stack/straturi/schiță,
 > dar 3 decizii s-au schimbat de la scriere (vezi `CLAUDE.md` + `ADR.md`):
-> 1. **Acces = PUBLIC** (înregistrare deschisă), NU „beta închis pe invitație". Invitația = schelă dormantă.
+> 1. **Acces = PUBLIC** (înregistrare deschisă), NU „beta închis pe invitație". **Logica de invitații a fost
+>    ELIMINATĂ complet** (2026-06-28, vezi CHANGELOG) — orice mențiune de mai jos despre `Invitation` /
+>    `InvitationService` / „invite-only" e ISTORICĂ; codul nu mai există.
 > 2. **Upload de detalii = DESCHIS** userilor cu rol declarat (moderare post-publicare), NU „seed-only v1".
 > 3. **Verificarea rolului = PE HOLD** (metoda în regândire). Restul (magic link, fără scoring, schiță async) — confirmat.
 > Unde textul de mai jos zice „invite-only" / „seed-only", aplică deciziile de aici.

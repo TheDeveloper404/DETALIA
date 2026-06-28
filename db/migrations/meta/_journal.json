@@ -29,6 +29,20 @@
       "when": 1782569263056,
       "tag": "0003_nappy_ozymandias",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1782679303065,
+      "tag": "0004_drop_invitations",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1782679774606,
+      "tag": "0005_cleanup_invitation_remnants",
+      "breakpoints": true
     }
   ]
 }

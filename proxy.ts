@@ -4,7 +4,11 @@
 //
 // Rulează configul Auth.js complet (edge-safe — vezi lib/auth.ts).
 
+import { NextResponse } from "next/server";
+
+import { audit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
+import { buildCspHeader } from "@/lib/csp";
 import { userHasRole } from "@/server/services/roleService";
 
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
@@ -32,6 +36,12 @@ export default auth(async (req) => {
   // SEC-04: cont suspendat (status ≠ ACTIVE). Strategie `database` → status proaspăt din DB la fiecare
   // request. Blocăm tot ce nu e public (inclusiv server actions, care lovesc rutele protejate prin POST).
   if (isLoggedIn && !isPublic && req.auth?.user?.status && req.auth.user.status !== "ACTIVE") {
+    // SEC-14: cont non-ACTIVE a încercat o rută protejată → audit (userId = uuid intern, fără PII brut).
+    audit(
+      "access_denied_suspended",
+      { userId: req.auth.user.id, status: req.auth.user.status, path: pathname },
+      "warning",
+    );
     return Response.redirect(new URL("/login?error=AccessDenied", origin));
   }
 
@@ -61,11 +71,25 @@ export default auth(async (req) => {
     }
   }
 
-  return; // lasă să treacă
+  // SEC-08 hardening: CSP cu nonce per request. Generăm nonce, îl punem pe x-nonce (citit de RSC/layout pt
+  // scripturile inline) ȘI pe headerul CSP (request + response) → Next aplică nonce-ul pe scripturile lui.
+  const nonce = btoa(crypto.randomUUID());
+  const csp = buildCspHeader(nonce, process.env.NODE_ENV === "development");
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", csp);
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set("content-security-policy", csp);
+  return res;
 });
 
-// Matcher: aplicăm peste tot, MAI PUȚIN rutele Auth.js (/api/auth/*), asset-urile
-// Next și fișierele statice (evită overhead + bucle de redirect).
+// Matcher: aplicăm peste tot, MAI PUȚIN rutele Auth.js (/api/auth/*), asset-urile Next și fișierele
+// statice. SEC-13: excludem extensii statice EXPLICITE (la finalul căii), NU orice cale care conține un
+// punct (`.*\..*`) — altfel o rută viitoare cu punct în segment ar scăpa tăcut de poarta de auth.
+// Regula de aur: orice rută nouă e protejată by default (deny-by-default via PUBLIC_PATHS) — adaug-o în
+// PUBLIC_PATHS DOAR dacă trebuie să fie publică; NU adăuga extensii noi aici fără motiv de asset static.
 export const config = {
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: [
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|woff|woff2|ttf|otf)$).*)",
+  ],
 };

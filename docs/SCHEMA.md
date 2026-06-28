@@ -63,16 +63,8 @@ notification_type      : SKETCH_PROPOSED | SKETCH_ACCEPTED | SKETCH_REJECTED | .
 > (env, vezi `lib/admin.ts`). FK-urile `verified_by_admin_id` / `created_by_admin_id` arată spre rândul `users` al
 > acelui admin (care e tot un user normal).
 
-### `invitations` (dă DOAR acces — NU atribuie rolul)
-| coloană | tip | note |
-|---|---|---|
-| `id` | uuid PK | |
-| `token` | text | **UNIQUE**, one-time — **PII, nu se loghează** |
-| `email` | text | not null; **index** |
-| `expires_at` | timestamptz | not null |
-| `used_at` | timestamptz | nullable (one-time use) |
-| `created_by_admin_id` | uuid FK→users.id | **index** |
-| `created_at` | timestamptz | |
+> **`invitations` — ELIMINAT** (2026-06-28, vezi CHANGELOG): tabelul + tot codul de invitații au fost șterse
+> (acces public prin magic link). Migrația `0004_drop_invitations.sql` face `DROP TABLE`.
 
 ### `categories` (arbore, self-FK)
 | coloană | tip | note |

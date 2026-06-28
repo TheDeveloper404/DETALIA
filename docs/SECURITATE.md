@@ -73,33 +73,41 @@ Tot restul aplicației: onboarding, feed, detalii, profil, notificări, validăr
 
 ### Admin
 
-`lib/admin.ts` oferă allowlist `ADMIN_EMAILS` și `requireAdmin()`, deny-by-default. Nu există însă rute sau Server Actions admin active. Reviewul invitațiilor și verificarea rolurilor sunt doar planificate.
+`lib/admin.ts` oferă allowlist `ADMIN_EMAILS` și `requireAdmin()`, deny-by-default. Nu există însă rute sau Server Actions admin active. Verificarea rolurilor este doar planificată.
 
 ### Dormant
 
-Serviciul de invitații există, dar nu este cablat în signup. Înregistrarea curentă este publică.
+Înregistrarea este publică (magic link). Logica de invitații a fost **eliminată complet** (2026-06-28, vezi CHANGELOG) — nu mai există cod dormant.
 
 ## 5. Matricea suprafeței active
 
+> **Audit de rute (2026-06-28):** întreaga suprafață a fost reparcursă. **Nu există rute neprotejate sau API
+> descoperite.** Public INTENȚIONAT: `/`, `/login`, `/signup`, `/api/auth/*` (Auth.js), magic-link send
+> (rate-limited). TOT restul (toate paginile `(app)`, `/onboarding`, `/api/blob/upload`, toate server actions) e
+> protejat de proxy deny-by-default **și** de un check `auth()` propriu. Fiecare action ia userId din sesiune
+> (anti-IDOR). Coloanele Anti-abuz/Test reflectă FAZA 1+2+3 (SEC-01/07/10/11 rezolvate).
+
 | Suprafață reală | Auth | Validare server | Authz/ownership | Anti-abuz | Test | Stare |
 |---|---|---|---|---|---|---|
-| Magic link — `signInWithEmailAction` | public | Auth.js + input HTML | n/a | ❌ | ❌ | **BLOCKER:** fără rate limit/cooldown |
-| `onboardingAction` | ✅ | manual + domain role | user din sesiune | ❌ | ❌ | ⚠️ rol și profil neatomice |
-| `updateAvatarAction` | ✅ | MIME declarat + mărime | user din sesiune | ❌ | ❌ | ⚠️ validare fișier insuficientă |
-| `updateRoleAction` | ✅ | domain role/subrol | rolul userului | ❌ | ❌ | ⚠️ structural corect |
-| `requestVerificationAction` | ✅ | doar non-empty | rolul userului | ❌ | ❌ | ❌ fără review admin/limită/retention |
-| `createDetailAction` | ✅ | manual + domain | autor din sesiune, rol cerut | ❌ | ❌ | ⚠️ upload înainte de validarea completă |
-| `approveAction` | ✅ | target type/existență | poziția userului | ❌ | ❌ | ⚠️ structural corect |
-| `retractAction` | ✅ | target type | șterge numai poziția userului | ❌ | ❌ | ⚠️ structural corect |
-| `disapproveAction` | ✅ | target + justificare | poziția userului | ❌ | ❌ | ⚠️ justificare corect impusă |
-| `addCommentAction` | ✅ | target + corp | autor din sesiune | ❌ | ❌ | ⚠️ structural corect |
-| `startSketchAction` | ✅ | rol + detaliu existent | autor din sesiune | ❌ | ❌ | ⚠️ fără cotă de ciorne |
-| `saveStrokesAction` | ✅ | structură/limite strokes | numai autorul schiței | ❌ | ❌ | ⚠️ structural corect |
-| `sendSketchAction` | ✅ | strokes + state machine | numai autorul schiței | ❌ | ❌ | **BLOCKER:** thumbnail urcat înainte de authz |
-| `accept/rejectSketchAction` | ✅ | stare schiță | autorul detaliului-mamă | ❌ | ❌ | ⚠️ tranziție neatomică |
-| `markReadAction` | ✅ | n/a | notificările userului | ❌ | ❌ | ✅ scope anti-IDOR corect |
-| Pagini protejate | ✅ | params parțial | guards locale | n/a | ❌ | ⚠️ neverificat end-to-end |
-| Rute/actions admin | n/a | n/a | helper existent | n/a | ❌ | ❌ neimplementate |
+| Magic link send (`auth-actions.ts`) | public (intenționat) | Auth.js + input | n/a | ✅ `authPerEmail`+`authPerIp` | ⚠️ | ✅ rate-limited (SEC-01) |
+| `/api/blob/upload` (token upload) | ✅ sesiune | tip+mărime pe token | user din sesiune | ✅ `upload` | ⚠️ | ✅ 401/429, fără internals |
+| `onboardingAction` | ✅ | manual + domain role | user din sesiune | ✅ | ⚠️ | ✅ |
+| `saveAvatarUrl`/`saveCoverUrl` | ✅ | `BLOB_URL_RE` + reprocess sharp | user din sesiune | ✅ | ✅ upload-limits | ✅ (SEC-02) |
+| `updateProfileDetailsAction` | ✅ | manual + allowlist URL | user din sesiune | ✅ | ✅ url | ✅ |
+| `requestVerificationAction` | ✅ | non-empty | rolul userului | ✅ | ⚠️ | ⏸️ feature PE HOLD |
+| `createDetailAction` | ✅ | domain + UUID categorie | autor din sesiune, rol cerut | ✅ `createDetail` | ✅ detail | ✅ (SEC-11) |
+| `deleteDetailAction` | ✅ | UUID | numai autorul detaliului | ✅ | ⚠️ | ✅ ownership |
+| `approveAction` | ✅ | target existență + UUID | poziția userului | ✅ | ✅ validation | ✅ |
+| `retractAction` | ✅ | UUID | șterge numai poziția userului | ✅ | ✅ | ✅ |
+| `disapproveAction` | ✅ | target + justificare | poziția userului | ✅ | ✅ | ✅ justificare impusă |
+| `addComment/edit/deleteCommentAction` | ✅ | target/corp + UUID | autor din sesiune | ✅ | ✅ | ✅ |
+| `startSketchAction` (createDraft) | ✅ | rol + detaliu + UUID | autor din sesiune | ✅ | ✅ sketch | ✅ |
+| `saveStrokesAction` | ✅ | structură/limite strokes + UUID | numai autorul schiței | ✅ | ✅ | ✅ |
+| `sendSketchAction` | ✅ | strokes + state machine + UUID | numai autorul schiței | ✅ | ✅ | ✅ atomic (SEC-07) |
+| `accept/rejectSketchAction` | ✅ | stare + UUID | autorul detaliului-mamă | ✅ | ✅ | ✅ atomic (SEC-07) |
+| `markReadAction` | ✅ | n/a | notificările userului | ✅ | ⚠️ | ✅ scope anti-IDOR |
+| Pagini protejate `(app)` + `/onboarding` | ✅ | UUID pe params (SEC-11) | guards în services | n/a | ⚠️ E2E | ✅ deny-by-default |
+| Rute/actions admin | n/a | n/a | `requireAdmin()` | n/a | n/a | ❌ neimplementate |
 
 ## 6. Controale confirmate în cod
 
@@ -117,7 +125,7 @@ Serviciul de invitații există, dar nu este cablat în signup. Înregistrarea c
 - SVG nu este permis la upload.
 - Magic linkul are TTL configurabil; Auth.js aplică redirect same-origin implicit.
 - Fișierele env sunt ignorate de Git; scanarea fișierelor urmărite a găsit doar placeholders în `.env.example`.
-- Preview-urile `/dev` sunt blocate în producție prin două bariere.
+- Nu există rute de dev/bypass: `app/dev/` și dev-login au fost eliminate complet (vezi CHANGELOG).
 
 ## 7. Constatările auditului
 
@@ -232,13 +240,12 @@ Nu există fișiere de test. `npm test` cere Vitest, dar `vitest` nu este instal
 
 **Remediere:** scheme server-side centralizate, UUID parsing și limite pentru fiecare string.
 
-#### SEC-12 — Invitațiile dormante au token în clar și consum neatomic
+#### SEC-12 — Invitații (ELIMINAT)
 
-Nu există rută activă, dar activarea codului curent ar permite ca două consumări concurente să treacă validarea; tokenul este stocat în clar.
-
-**Dovezi:** `db/schema.ts:150-160`, `server/services/invitationService.ts:48-66`, `server/repos/invitationsRepo.ts:27-37`.
-
-**Remediere înainte de activare:** stocarea hashului și update atomic cu `used_at IS NULL AND expires_at > now()`.
+~~Invitațiile dormante aveau token în clar și consum neatomic.~~ **Rezolvat prin eliminare** (2026-06-28, vezi
+CHANGELOG): tot codul de invitații a fost șters (serviciu, repo, tabel DB, env). Înregistrarea e public/magic-link.
+Constatarea nu mai are obiect. Dacă invitațiile se reintroduc vreodată, se construiesc de la zero, sigur (hash token
++ consum atomic).
 
 #### SEC-13 — Matcherul proxy exclude generic căile care conțin punct
 
@@ -256,9 +263,10 @@ PII nu este logat, ceea ce este corect, dar lipsesc evenimente pentru volum anor
 
 ### Informativ
 
-#### INFO-01 — Signupul este public; invitațiile sunt inactive
+#### INFO-01 — Signupul este public (invitațiile au fost eliminate)
 
-Acesta este comportament declarat, nu bypass. Dacă produsul trebuie să rămână beta închis, invitațiile trebuie finalizate înainte de publicarea domeniului.
+Comportament declarat (decizie Edi): înregistrare publică prin magic link. Logica de invitații a fost eliminată
+complet (2026-06-28). Dacă produsul ar trebui vreodată să fie beta închis, se reconstruiește un mecanism de acces nou.
 
 #### INFO-02 — `trustHost: true` depinde de deployment
 
@@ -288,7 +296,7 @@ Este uzual în Vercel, dar presupune host controlat și `AUTH_URL` canonic. Pe s
 - Ownership-ul schiței are două reguli diferite: edit/send = autorul schiței; accept/reject = autorul detaliului.
 - Poziția este unică și reversibilă per user/țintă; constrângerea DB trebuie păstrată.
 - Dezaprobarea fără justificare este întotdeauna respinsă server-side.
-- Tokenurile de invitație și magic link trebuie să fie one-time și să expire.
+- Tokenul de magic link trebuie să fie one-time și să expire.
 - Orice viitoare suprafață `/admin` trebuie să cheme `requireAdmin()` server-side; ascunderea UI nu este authz.
 
 ## 10. Plan de implementare pe faze (în ordinea de făcut)
@@ -316,17 +324,24 @@ Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
 
 ### FAZA 2 — înainte de production-ready
 
-5. **SEC-10 — Runner de teste + teste de securitate.** Instalează `vitest` (acum lipsește); scrie teste authz/IDOR,
-   concurență, upload, rate-limit. *Pus devreme: prinde regresii pe tot ce urmează.*
+5. ✅ **SEC-10 — Runner de teste + teste de securitate** (rezolvat 2026-06-28, vezi CHANGELOG). Instalat `vitest`
+   + `vite-tsconfig-paths` (`vitest.config.ts`, env node, alias `@/`). Suită de securitate (54 aserțiuni):
+   domeniu pur (`validateStrokes` coordonate 0..1/limite, `validateJustification` „fără dezaprobare mută",
+   `validateDetailInput`/`isHttpUrl` allowlist URL, `normalizeWebsite`, `BLOB_URL_RE` allowlist Blob anti-SSRF,
+   `hashEmail`/`checkLimit` fail-open) + servicii cu repo-uri mock-uite (`sketchService`: IDOR autor schiță/autor
+   mamă + atomicitate send/accept/reject fără notificare la cursă pierdută; `validationService`: NO_ROLE,
+   justificare obligatorie, fără comentariu duplicat). `HUMAN_RUNS_TESTS` → Liviu rulează `npm test`.
 6. ✅ **SEC-07 — Tranziții atomice** (rezolvat 2026-06-28, vezi CHANGELOG). Accept/reject erau deja atomice;
    adăugat guard atomic și pe SEND (`transitionFromDraft`, `WHERE author_id AND status='DRAFT'`) → notificare doar pe
    câștigătorul tranziției (idempotent, fără email dublu). Outbox = nenecesar la altitudinea asta.
 7. ✅ **SEC-06 — Ștergere cont + lifecycle date** (rezolvat 2026-06-28, vezi CHANGELOG). Ștergere cont = anonimizare
    (tombstone păstrează rândul → FK `details.authorId`/`sketches.authorId` rămân valide); cleanup blob avatar/cover la
    înlocuire ȘI la ștergere. *Export date (portabilitate) = încă manual.*
-8. ✅ **SEC-08 — Security headers** (rezolvat 2026-06-28, vezi CHANGELOG). `next.config.ts headers()`: CSP +
-   nosniff + Referrer-Policy + X-Frame-Options DENY + Permissions-Policy + HSTS, pe toate rutele. CSP cu
-   `script-src 'unsafe-inline'` (nonce = hardening ulterior). *DE VERIFICAT în consola preview-ului.*
+8. ✅ **SEC-08 — Security headers** (rezolvat 2026-06-28; **CSP întărit cu nonce 2026-06-29**, vezi CHANGELOG).
+   Statice în `next.config.ts headers()`: nosniff + Referrer-Policy + X-Frame-Options DENY + Permissions-Policy +
+   HSTS. **CSP cu NONCE per request** (`lib/csp.ts` + `proxy.ts`): `script-src` fără `'unsafe-inline'` (doar nonce
+   + host vercel.live). Excepție deliberată: `style-src 'unsafe-inline'` (atributele `style` din React nu pot fi
+   noncuite). *DE VERIFICAT în consola preview-ului (inclusiv toolbar-ul vercel.live).*
 9. ✅ **SEC-09 — Dependențe** (evaluat 2026-06-28). `npm audit` = 6 moderate, **toate dev/build-time, zero în runtime**:
    (a) `esbuild ≤0.24.2` via `@esbuild-kit` → `drizzle-kit`; (b) `postcss <8.5.10` bundle-uit în `next`. Suntem pe
    **latest** la ambele (drizzle-kit 0.31.10, next 16.2.9) → niciun upgrade nu rezolvă; `--force` ar face downgrade
@@ -338,19 +353,31 @@ Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
 
 ### FAZA 3 — hardening (înainte și imediat după lansare)
 
-11. **SEC-11 — Validare centralizată inputuri.** Scheme server-side unice; UUID parsing (UUID malformat să nu dea 500);
-    limite de lungime pe fiecare string (`climateZone`/`seismicZone` etc.).
-12. **SEC-13 — Matcher proxy.** Excluderi explicite pentru asseturi (în loc de `.*\..*`) + guard local obligatoriu pe orice rută nouă.
-13. **SEC-14 — Audit trail + alerte.** Evenimente structurate fără PII brut, correlation ID, alerte pe rate/cost, retenție controlată.
-14. **SEC-12 — Hardening invitații** *(doar dacă se reactivează invitația — acum dormantă).* Stochează hash-ul tokenului
-    + consum atomic `WHERE used_at IS NULL AND expires_at > now()`. De făcut ÎNAINTE de orice activare.
+11. ✅ **SEC-11 — Validare centralizată inputuri** (rezolvat 2026-06-28, vezi CHANGELOG). Helper central `isUuid`
+    (`server/domain/ids.ts`) aplicat la fiecare graniță de serviciu care primește un id de la client
+    (detail/validation/comment/sketch) → UUID malformat dă „not found"/no-op, nu eroare SQL (500). Limite de
+    lungime: `climateZone`/`seismicZone` (`MAX_ZONE_LENGTH=64`), URL resursă (`MAX_RESOURCE_URL_LENGTH=2048`),
+    body TEXT (`DESCRIPTION_MAX_LENGTH`). Teste în `server/domain/ids.test.ts` + extinse detail/sketch/validation.
+12. ✅ **SEC-13 — Matcher proxy** (rezolvat 2026-06-28, vezi CHANGELOG). `proxy.ts` exclude acum extensii statice
+    EXPLICITE la finalul căii (svg/png/.../woff2) în loc de `.*\..*` → o rută viitoare cu punct în segment nu mai
+    scapă tăcut de poarta de auth. Notă deny-by-default + „adaugă rute publice doar în PUBLIC_PATHS" în comentariu.
+13. ✅ **SEC-14 — Audit trail** (rezolvat 2026-06-28, vezi CHANGELOG). Helper `lib/audit.ts` (edge-safe, fără
+    `node:crypto`) emite evenimente JSON structurate în Vercel Runtime Logs, **fără PII brut** (id-uri hash-uite /
+    userId uuid). Cablat central: `checkLimit` → `rate_limited` (cotă depășită, toate buckets, idHash); `proxy.ts`
+    → `access_denied_suspended` (cont non-ACTIVE). **Alertele (rate/cost) se configurează în dashboard-urile Vercel
+    Logs + Upstash** pe baza acestor evenimente (operațional, nu cod). Extensibil: suspendări/decizii admin când apar.
+14. ✅ **SEC-12 — Invitații ELIMINATE** (2026-06-28, vezi CHANGELOG). Tot codul de invitații (serviciu/repo/tabel/env)
+    a fost șters → constatarea nu mai are obiect. Dacă se reintroduc vreodată, se construiesc de la zero, sigur.
 
 ### FAZA 4 — igienă cod / corectitudine / UX (§11c, non-blocante)
 
 15. **§11c #1** — mută profile actions prin `profileService` (nu direct în `usersRepo`).
 16. **§11c #2** — elimină `zod` nefolosit din `package.json` (sau adoptă-l pentru validările din `domain`).
 17. **§11c #3** — afișează validările istorice cu `roleSnapshot` (fallback la rolul curent doar pentru cele vechi).
-18. **§11c #4** — erori silențioase: logging/handling explicit + cleanup resurse orfane (legat de SEC-02).
+18. ✅ **§11c #4 — erori silențioase** (rezolvat 2026-06-29, vezi CHANGELOG). `sendEmail` loghează eșecurile
+    (config lipsă / Resend respins / rețea) fără PII; cleanup-ul de blob orfan din `image-processing` (5 locuri)
+    trece prin `delOrphan` care loghează eșecul (nu mai e `.catch(()=>{})` tăcut). Restul catch-urilor sunt
+    validare pură de input (isHttpUrl/normalizeWebsite/parseStrokes/sharp) — corecte, lăsate.
 19. **§11c #5** — UX: `maxLength` pe textarea de justificare + loading states pe butoanele de formular.
 
 > **CI permanent (transversal):** `npm audit` + scanare de secrete + rularea testelor pe fiecare PR (SEC-09/10/14).

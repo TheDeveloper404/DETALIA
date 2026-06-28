@@ -4,6 +4,7 @@
 //  - Corpul e obligatoriu (non-vid, ≤ limită). authorId vine din sesiune (apelantul) — fără IDOR.
 //  - Ținta trebuie să existe și să fie publică.
 
+import { isUuid } from "@/server/domain/ids";
 import { type TargetType, validateCommentBody } from "@/server/domain/validation";
 import {
   deleteFreeCommentByAuthor,
@@ -51,6 +52,7 @@ export async function addComment(input: {
 }
 
 export async function getComments(targetType: TargetType, targetId: string) {
+  if (!isUuid(targetId)) return []; // SEC-11: id malformat → fără comentarii (nu eroare SQL)
   return listCommentsForTarget(targetType, targetId);
 }
 
@@ -64,6 +66,7 @@ export async function editComment(input: {
   commentId: string;
   body: string;
 }): Promise<EditCommentResult> {
+  if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
   const v = validateCommentBody(input.body);
   if (!v.ok) {
     return { ok: false, error: v.error === "REQUIRED" ? "BODY_REQUIRED" : "BODY_TOO_LONG" };
@@ -79,6 +82,7 @@ export async function deleteComment(input: {
   userId: string;
   commentId: string;
 }): Promise<DeleteCommentResult> {
+  if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
   const deleted = await deleteFreeCommentByAuthor(input.commentId, input.userId);
   return deleted ? { ok: true } : { ok: false, error: "NOT_FOUND" };
 }

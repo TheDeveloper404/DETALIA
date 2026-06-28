@@ -6,6 +6,7 @@
 //  - Poziția aparține ÎNTOTDEAUNA userului din sesiune (apelantul dă userId din sesiune) — fără IDOR.
 //  - Doar useri cu ROL DECLARAT pot lua o poziție (poziția „cântărește" prin rol).
 
+import { isUuid } from "@/server/domain/ids";
 import {
   type RoleSnapshot,
   type TargetType,
@@ -34,6 +35,8 @@ export type ValidationResult = { ok: true } | { ok: false; error: ValidationErro
 
 // Ținta trebuie să existe (și să fie publică) înainte de a accepta o poziție / un comentariu.
 export async function targetExists(targetType: TargetType, targetId: string): Promise<boolean> {
+  // SEC-11: id malformat → „not found" (nu eroare SQL pe coloana uuid). Gate central pt approve/disapprove/comment.
+  if (!isUuid(targetId)) return false;
   if (targetType === "DETAIL") {
     return (await getDetailById(targetId)) !== null; // getDetailById întoarce doar PUBLISHED
   }
@@ -128,6 +131,8 @@ export async function retract(input: {
   targetType: TargetType;
   targetId: string;
 }): Promise<ValidationResult> {
+  // SEC-11: id malformat → no-op idempotent (nimic de retras), nu eroare SQL.
+  if (!isUuid(input.targetId)) return { ok: true };
   await deletePosition(input.userId, input.targetType, input.targetId);
   return { ok: true };
 }
@@ -138,7 +143,10 @@ export async function getMyPositions(
   targetType: TargetType,
   targetIds: string[],
 ): Promise<Map<string, ValidationPosition>> {
-  const rows = await listUserPositionsForTargets(userId, targetType, targetIds);
+  // SEC-11: filtrăm id-urile malformate înainte de query (un singur id stricat n-ar trebui să dea 500 pe tot feed-ul).
+  const ids = targetIds.filter(isUuid);
+  if (ids.length === 0) return new Map();
+  const rows = await listUserPositionsForTargets(userId, targetType, ids);
   return new Map(rows.map((r) => [r.targetId, r.position]));
 }
 
@@ -148,6 +156,8 @@ export async function getTargetValidationView(
   targetId: string,
   currentUserId: string,
 ) {
+  // SEC-11: id malformat → vedere goală (nu eroare SQL).
+  if (!isUuid(targetId)) return { positions: [], counts: { approve: 0, disapprove: 0 }, myPosition: null };
   const positions = await listPositionsForTarget(targetType, targetId);
   const approve = positions.filter((p) => p.position === "APPROVE").length;
   const myPosition = positions.find((p) => p.userId === currentUserId)?.position ?? null;

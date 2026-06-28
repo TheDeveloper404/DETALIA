@@ -33,7 +33,6 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
 - **Schiță** (`Sketch`) — o „foaie" desenată peste un detaliu-mamă, cu **un singur autor** (~fork+PR).
 - **Validare** (`Validation`) — poziția unui user pe un detaliu SAU pe o schiță: **Aprob** / **Dezaprob**.
 - **Rol / Subrol** — PROIECTANT / EXECUTANT / FURNIZOR / BENEFICIAR + subrol (arhitect, inginer, etc.).
-- **Invitație** (`Invitation`) — token one-time. **Dormant în MVP** (accesul e public, nu pe invitație) — schela rămâne în cod pentru un eventual reuse.
 - **Teanc** — totalitatea schițelor PUBLISHED ale unui detaliu (navigabile prin taburi).
 
 ---
@@ -72,13 +71,13 @@ DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
 - `Validation` și `Comment` sunt **polimorfice** (Detail SAU Sketch) → dezbaterea per schiță vine gratis.
 
 ### Acces & roluri
-> **Două porți distincte, nu le confunda:** Poarta 1 = **accesul** (cine intră în platformă → invitația).
+> **Două porți distincte, nu le confunda:** Poarta 1 = **accesul** (cine intră în platformă).
 > Poarta 2 = **credibilitatea** (cât „cântărești" odată intrat → rol declarat → verificat). Sunt independente.
 
 - **Poarta 1 — acces: PUBLIC (confirmat de Edi, iunie 2026).** Înregistrare deschisă, fără invitație. Flux:
-  landing → „creare cont" → email → magic link → onboarding profil (rol, subrol, poză) → feed. Schela de
-  invitație (`Invitation`, token one-time) **rămâne dormantă în cod** (neutilizată), pentru un eventual
-  reuse — NU o cabla în fluxul de signup.
+  landing → „creare cont" → email → magic link → onboarding profil (rol, subrol, poză) → feed. *(Logica de
+  invitații a fost eliminată complet — 2026-06-28, vezi CHANGELOG; dacă vreodată se vrea acces restricționat,
+  se construiește un mecanism nou de la zero.)*
 - **Rolul e auto-declarat de user la signup** (categorie + subrol). Acces imediat după declarare → minimizează
   frecarea la primul contact. Rolul e **vizibil permanent** lângă nume.
 - **Poarta 2 — verificare rolului = „pull, nu push":** flux separat în platformă ("Verificare rol", inițiat de
@@ -112,7 +111,7 @@ lib/        auth, email, storage, utils
 - Fără secrete în cod → env (`vercel env`). PII (email, tokenuri, OTP, dovezi rol) **nu se loghează** — doar
   metadate. (Hook `block-pii-log` blochează încălcările.)
 - Toate regulile de business de mai sus = enforce pe server. Frontend-ul nu e sursă de adevăr.
-- Magic link: token scurt, one-time. Invitație: one-time, cu expirare.
+- Magic link: token scurt, one-time.
 
 ---
 
@@ -129,7 +128,7 @@ Sursa de adevăr pentru inginerie/securitate. Skill-urile globale (`security-aud
   `CONFLICT`(409) · `UNPROCESSABLE`(422) · `RATE_LIMITED`(429) · `INTERNAL_ERROR`(500, fără internals).
 - Authz: `401` (lipsă auth) / `403` (rol greșit) — **niciodată `404` ca să ascunzi existența**.
   Fără stack-trace / erori SQL / căi în răspuns. Rate-limit pe endpoint-urile sensibile.
-- Valori tunable (TTL tokenuri invitație/magic-link etc.) **în env, niciodată hardcodate**.
+- Valori tunable (TTL token magic-link etc.) **în env, niciodată hardcodate**.
 
 **DB (Drizzle / Postgres):**
 - Tabele `snake_case` plural; coloane `snake_case` singular. PK `uuid DEFAULT gen_random_uuid()`.

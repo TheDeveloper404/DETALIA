@@ -4,6 +4,143 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-29 — erori silențioase (§11c #4)
+
+### fix(security) — logging explicit pe căile înghițite + cleanup orfani observabil
+- `lib/email.ts` (`sendEmail`): cele 3 căi tăcute (chei de mediu lipsă / Resend respinge / eroare rețea) acum
+  loghează (fără PII — niciun destinatar/subiect). Rămâne best-effort (nu aruncă, notificarea in-app primează).
+- `lib/image-processing.ts`: cele 5 `del(url).catch(()=>{})` (cleanup blob orfan) trec prin `delOrphan()` care
+  loghează eșecul → orfanii nu mai dispar fără urmă (SEC-02). URL blob = cale random, nu PII.
+- Restul catch-urilor (isHttpUrl, normalizeWebsite, parseStrokes, sharp, audit) = validare pură / best-effort
+  intenționat → lăsate.
+
+---
+
+## 2026-06-29 — CSP întărit cu nonce (SEC-08 hardening)
+
+### fix(security) — CSP nonce per request, fără `script-src 'unsafe-inline'`
+- `lib/csp.ts` (nou): construiește headerul CSP cu `'nonce-${nonce}'` pe `script-src` (fără `'unsafe-inline'`).
+- `proxy.ts`: generează nonce per request (`btoa(crypto.randomUUID())`), îl pune pe `x-nonce` + headerul CSP
+  (request + response) → Next aplică nonce-ul pe scripturile lui; pattern oficial Next 16.
+- `app/layout.tsx`: devine async, citește `x-nonce` (→ rendering dinamic, nonce mereu proaspăt) și îl pune pe
+  scriptul inline de pre-paint.
+- `next.config.ts`: CSP scos din headerele statice (rămâne în proxy); restul (HSTS/nosniff/etc.) neschimbat.
+- **Excepție deliberată:** `style-src` păstrează `'unsafe-inline'` — `style={{}}` din React = atribute `style`,
+  pe care un nonce nu le acoperă. Fără `strict-dynamic` (ar rupe toolbar-ul vercel.live pe preview).
+- ⚠️ DE VERIFICAT în consola preview-ului că nimic nu e blocat (inclusiv vercel.live).
+
+---
+
+## 2026-06-29 — doc nou: evaluare MVP prod-readiness
+- `docs/EVALUARE-MVP.md` (nou): ~88% prod-ready, note pe capitole (securitate 9, perf 8, scalabilitate 8.5, clean
+  arch 9, testare 6.5, observabilitate 7, accesibilitate 5) + **pași concreți de îmbunătățire** pentru fiecare +
+  ordinea recomandată cost/impact. Exclude din scor holds/blocante/intenționate.
+
+---
+
+## 2026-06-28 (noapte — eliminare completă logică invitații + SEC-12 închis)
+
+### chore(security) — invitațiile ȘTERSE complet (cod mort)
+- Șters: `server/services/invitationService.ts`, `server/repos/invitationsRepo.ts`, tabelul `invitations`
+  (`db/schema.ts`), `INVITATION_TTL_HOURS` din `.env.example`. Nimic din app nu le importa (cod 100% mort).
+- Resturi de schemă curățate: coloana `users.invited_by_id` + valoarea de enum `user_status` „INVITED"
+  (niciodată atribuită — default e ACTIVE). Tipul TS din `types/next-auth.d.ts` aliniat.
+- Migrații: `0004_drop_invitations.sql` (DROP TABLE) + `0005_cleanup_invitation_remnants.sql` (recreare enum fără
+  INVITED + DROP COLUMN invited_by_id). **De aplicat manual pe ambele ramuri Neon** (vezi DEPLOY/handoff — DB-urile
+  live au drift: enum `DELETED` + `cover_position` deja aplicate manual, deci rulează DOAR delta de invitații).
+- **SEC-12 închis prin eliminare** (constatarea nu mai are obiect). Docs actualizate: SECURITATE, SCHEMA, CLAUDE.md,
+  ADR, ARHITECTURA (banner istoric), EMAILURI (șters template invitație), PLAN-TESTE, CONFIDENTIALITATE-GDPR.
+
+### docs(security) — audit suprafață de rute + refresh §5
+- Reparcursă întreaga suprafață: **nicio rută neprotejată / API descoperit**. Public intenționat: `/`, `/login`,
+  `/signup`, `/api/auth/*`, magic-link send (rate-limited). Tot restul (pagini `(app)`, `/onboarding`,
+  `/api/blob/upload`, toate cele 10 fișiere de server actions) = proxy deny-by-default + check `auth()` propriu,
+  userId din sesiune (anti-IDOR). `SECURITATE.md §5` rescris la starea reală (FAZA 1+2+3; BLOCKER-ele vechi închise).
+
+---
+
+## 2026-06-28 (noapte — SEC-13 + SEC-14: matcher proxy + audit trail)
+
+### fix(security) — SEC-13: matcher proxy cu excluderi de asset explicite
+- `proxy.ts` matcher: înlocuit `.*\..*` (orice cale cu punct) cu extensii statice EXPLICITE la finalul căii
+  (`svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|woff|woff2|ttf|otf` + `robots.txt`/`sitemap.xml`). O rută
+  viitoare cu punct în segment nu mai scapă tăcut de poarta de auth. Comentariu: deny-by-default, rute publice
+  DOAR în `PUBLIC_PATHS`.
+
+### feat(security) — SEC-14: audit trail de securitate (fără PII brut)
+- `lib/audit.ts` (nou, **edge-safe** — fără `node:crypto`): `audit(event, fields, severity)` emite o linie JSON
+  structurată în Vercel Runtime Logs (decizie: rămânem pe logurile native Vercel). Best-effort (nu aruncă).
+- Cablat **central**, fără a atinge call-site-urile:
+  - `checkLimit` (`lib/rate-limit.ts`) → eveniment `rate_limited` la cotă depășită, cu numele bucket-ului
+    (hartă inversă limiter→nume) + `idHash` (SHA-256 scurt al identificatorului — fără email/IP brut). Acoperă
+    auth/mutație/upload/creare detaliu dintr-un singur loc.
+  - `proxy.ts` → eveniment `access_denied_suspended` când un cont non-ACTIVE lovește o rută protejată (SEC-04).
+- **Alertele rate/cost** se configurează în dashboard-urile Vercel Logs + Upstash pe baza acestor evenimente
+  (operațional). Extensibil la suspendări/decizii admin când fluxurile apar.
+- Teste: `lib/audit.test.ts` (structură, severity, best-effort la serializare eșuată). Type-check + lint verzi.
+
+---
+
+## 2026-06-28 (noapte — SEC-11: validare centralizată inputuri)
+
+### fix(security) — UUID malformat nu mai dă 500; limite de lungime pe stringuri (FAZA 3, parțial)
+- **Helper central `isUuid`** (`server/domain/ids.ts`, pur) — înlocuiește `UUID_RE` local din `detailService`.
+  Un id extern malformat lovea coloane Postgres `uuid` → „invalid input syntax for type uuid" → 500.
+- **Aplicat la fiecare graniță de serviciu** care primește un id de la client, întorcând codul de not-found/no-op
+  existent (nu 500):
+  - `validationService`: `targetExists` (gate pt approve/disapprove/comment), `retract` (no-op), `getMyPositions`
+    (filtrează id-urile rele din feed), `getTargetValidationView` (vedere goală).
+  - `commentService`: `editComment`/`deleteComment` → NOT_FOUND, `getComments` → [].
+  - `sketchService`: `createDraft`, `saveStrokes`, `send`, `accept/reject`, `getDraftForEdit`,
+    `getPublishedSketch`, `getPendingForOwner`, `deleteDraft`, `getTeanc`.
+  - `detailService`: `getDetail`/`deleteDetail` (refolosesc helper-ul) + guard nou pe `categoryId` la `createDetail`.
+- **Limite de lungime** în `validateDetailInput`: `climateZone`/`seismicZone` plafonate la `MAX_ZONE_LENGTH=64`;
+  URL resursă ≤ `MAX_RESOURCE_URL_LENGTH=2048`; body TEXT ≤ `DESCRIPTION_MAX_LENGTH`.
+- **Teste:** `server/domain/ids.test.ts` (nou) + extinse `detail.test.ts` (plafoane), `sketchService.test.ts` /
+  `validationService.test.ts` (id malformat → not found, fără atingere DB). Type-check + lint verzi.
+
+---
+
+## 2026-06-28 (noapte — curățare date demo înainte de prod)
+
+### chore — eliminat conținutul demo din seed
+- `db/seed.ts` curățat: păstrează DOAR bootstrap-ul necesar pe orice mediu — (A) admin din `ADMIN_EMAILS`,
+  (B) categoriile (idempotent pe slug). Eliminat tot blocul demo (useri/detalii/validări/comentarii/schițe +
+  heatmap) și flag-ul `SEED_DEMO`. Seed-ul real de lansare se face prin conturi reale.
+- Șters `public/seed/detail.svg` (imaginea demo a detaliilor seed). `lib/storage.ts` păstrează guard-ul care
+  ignoră URL-uri `/seed/...` la ștergere din Blob (inofensiv, neatins).
+- `db:seed` rămâne în `package.json` (necesar pe prod pt admin + categorii). DEPLOY.md actualizat (fără `SEED_DEMO`).
+
+---
+
+## 2026-06-28 (noapte — SEC-10: runner de teste + teste de securitate)
+
+### test — Vitest + suită de securitate (FAZA 2 completă)
+- Instalat `vitest` + `vite-tsconfig-paths` (dev). `vitest.config.ts`: env node, `include` `{server,lib}/**/*.test.ts`,
+  alias `@/` din tsconfig. `npm test` rula deja `vitest run` (acum funcțional).
+- **Teste pure (domeniu/lib):**
+  - `server/domain/sketch.test.ts` — `validateStrokes`: EMPTY/TOO_MANY, culoare ne-hex, size invalid,
+    **puncte ne-normalizate (0..1)**, prea multe puncte, kind necunoscut, reguli `text` (nevid, ≤ limită, trim).
+  - `server/domain/validation.test.ts` — `validateJustification`/`validateCommentBody`: gol/whitespace → REQUIRED
+    („nu există dezaprobare mută"), TOO_LONG, trim.
+  - `server/domain/detail.test.ts` — `validateDetailInput` + `isHttpUrl`: titlu/imagine/categorie, >3 resurse,
+    **allowlist URL la input** (blochează `javascript:`/`data:`/`file:`), TEXT cere body.
+  - `lib/url.test.ts` — `normalizeWebsite` (SEC-03): gol→null, prefix https, blochează scheme periculoase.
+  - `lib/upload-limits.test.ts` — `BLOB_URL_RE`: acceptă DOAR store-ul nostru Blob (anti-SSRF/URL arbitrar);
+    respinge alt host, lookalike, http, scheme periculoase.
+  - `lib/rate-limit.test.ts` — `hashEmail` (PII hash-uit, stabil) + `checkLimit` fail-open la limiter null.
+- **Teste de serviciu (repo-uri mock-uite, fără DB):**
+  - `server/services/sketchService.test.ts` — **IDOR**: doar autorul schiței o atinge cât e DRAFT (saveStrokes/
+    getDraftForEdit/send → FORBIDDEN); doar autorul detaliului-mamă acceptă/respinge (autorul schiței/străin →
+    FORBIDDEN). State machine (INVALID_STATE). **Atomicitate**: la `transitionFromDraft/Pending=false` (cursă
+    pierdută) → INVALID_STATE și NU se notifică (fără email dublu); succes → notificare exact o dată.
+  - `server/services/validationService.test.ts` — NO_ROLE fără rol; dezaprobare fără justificare →
+    JUSTIFICATION_REQUIRED (fără scriere); dezaprobare nouă → poziție + comentariu o dată; re-dezaprobare → fără
+    comentariu duplicat; approve = upsert APPROVE.
+- Type-check + lint verzi. `HUMAN_RUNS_TESTS` activ → Liviu rulează `npm test`.
+
+---
+
 ## 2026-06-28 (noapte — 2 fix-uri UI)
 
 ### fix — poza de profil/cover apărea doar după refresh

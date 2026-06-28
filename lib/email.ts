@@ -70,8 +70,14 @@ export async function sendEmail(input: {
 }): Promise<boolean> {
   const key = process.env.AUTH_RESEND_KEY;
   const from = process.env.EMAIL_FROM;
-  if (!key || !from) return false;
+  if (!key || !from) {
+    // Misconfigurare (chei de mediu lipsă) → vizibil în loguri, nu tăcut. Fără PII.
+    console.warn("Resend: chei de mediu absente — mesajul NU se trimite.");
+    return false;
+  }
 
+  // Mesajul e secundar (notificarea in-app rămâne) → NU aruncăm, dar LOGĂM eșecurile (fără PII: niciun
+  // destinatar/subiect în loguri) ca să fie observabile (Resend down, cheie greșită, domeniu neverificat etc.).
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -87,9 +93,10 @@ export async function sendEmail(input: {
         ...(input.text ? { text: input.text } : {}),
       }),
     });
+    if (!res.ok) console.error("Resend: trimitere respinsă, status", res.status);
     return res.ok;
-  } catch {
-    // Înghițim eroarea intenționat — emailul e secundar față de notificarea in-app.
+  } catch (err) {
+    console.error("Resend: eroare de rețea la trimitere:", err instanceof Error ? err.message : String(err));
     return false;
   }
 }
