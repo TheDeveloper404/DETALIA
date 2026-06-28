@@ -184,7 +184,7 @@ export default function Home() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          height: 64,
+          height: 76,
           display: "flex",
           alignItems: "center",
           background: "rgba(250,248,244,0.86)",
@@ -205,13 +205,13 @@ export default function Home() {
         >
           <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-            <img src="/logo.svg" alt="DETALIA" style={{ height: 26, width: "auto", display: "block" }} />
+            <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
           </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-            <Link href="/login" className="dc-link" style={{ fontSize: 14.5, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            <Link href="/login" className="dc-link" style={{ fontSize: 16, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
               Autentificare
             </Link>
-            <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 14, padding: "9px 16px", borderRadius: "var(--radius)" }}>
+            <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 15.5, padding: "11px 20px", borderRadius: "var(--radius)" }}>
               Creează cont
             </Link>
           </div>
@@ -483,7 +483,7 @@ export default function Home() {
           style={{
             maxWidth: MAXW,
             margin: "0 auto",
-            padding: "46px 24px",
+            padding: "30px 24px",
             display: "flex",
             flexWrap: "wrap",
             alignItems: "center",
@@ -494,12 +494,12 @@ export default function Home() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center" }}>
               {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-              <img src="/logo-dark.svg" alt="DETALIA" style={{ height: 24, width: "auto", display: "block" }} />
+              <img src="/logo-dark.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
             </div>
-            <span style={{ fontSize: 14, color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
+            <span style={{ fontSize: 16, color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
-            <span style={{ fontFamily: MONO, fontSize: 12.5, color: "#6f685e" }}>© {new Date().getFullYear()} DETALIA</span>
+            <span style={{ fontFamily: MONO, fontSize: 13.5, color: "#6f685e" }}>© {new Date().getFullYear()} DETALIA — Toate drepturile rezervate.</span>
           </div>
         </div>
       </footer>

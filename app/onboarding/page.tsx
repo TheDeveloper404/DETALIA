@@ -55,7 +55,7 @@ export default async function OnboardingPage() {
         >
           <span style={{ display: "flex", alignItems: "center" }}>
             {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-            <img src="/logo.svg" alt="DETALIA" style={{ height: 24, width: "auto", display: "block" }} />
+            <img src="/logo.svg" alt="DETALIA" style={{ height: 26, width: "auto", display: "block" }} />
           </span>
           {email && (
             <span

@@ -15,37 +15,38 @@ const FADE_MS = 600; // fade-out lin spre landing
 const LETTERS = ["D", "E", "T", "A", "L", "I"];
 
 export function IntroSplash() {
-  // „pending" = încă nu am decis → randăm NIMIC (fără overlay în SSR/primul render, deci fără flash
-  // la refresh pentru cine a văzut deja intro-ul). Trecem în „show" doar la prima vizită a sesiunii.
-  const [phase, setPhase] = useState<"pending" | "show" | "hiding" | "done">("pending");
+  // Pornim direct în „show": overlay-ul se randează din SSR/primul render → e cover-ul (cu logo) din prima
+  // pictare, deci fără flash de landing și fără gap gol până la hidratare. Pentru cine l-a văzut deja /
+  // reduced-motion, scriptul pre-paint pune html[data-intro="seen"] → CSS îl ascunde instant; efectul de
+  // mai jos îl și demontează. setState-ul ăsta NU produce mismatch (SSR și primul render client = „show").
+  const [phase, setPhase] = useState<"show" | "hiding" | "done">("show");
 
-  // Decizie la montare. Dacă a fost deja văzut / reduced-motion → rămânem „pending" (nu arătăm nimic,
-  // niciun setState). Altfel programăm afișarea + auto-dismiss. NU marcăm „văzut" aici: în React Strict
-  // Mode (dev) efectul rulează de două ori; flag-ul l-am scrie prematur și al doilea pas ar sări intro-ul.
-  // Marcăm „văzut" abia la dismiss (efectul de mai jos). setState e programat (timeout) — nu sincron în effect.
+  // Decizie la montare. Văzut deja / reduced-motion → demontăm imediat (era deja ascuns de CSS, fără flash).
+  // Altfel programăm auto-dismiss-ul. „Văzut" se marchează abia la dismiss (în StrictMode efectul rulează
+  // de două ori; dacă l-am scrie aici, al doilea pas ar sări intro-ul).
   useEffect(() => {
     const seen = sessionStorage.getItem(SEEN_KEY);
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (seen || reduce) return; // rămâne „pending" → render null, fără flash
-    const show = setTimeout(() => setPhase("show"), 0);
+    if (seen || reduce) {
+      // Deja ascuns de CSS (data-intro="seen") → demontăm amânat (nu sincron în effect).
+      const skip = setTimeout(() => setPhase("done"), 0);
+      return () => clearTimeout(skip);
+    }
     const hide = setTimeout(() => setPhase("hiding"), DURATION_MS);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPhase("hiding");
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      clearTimeout(show);
       clearTimeout(hide);
       window.removeEventListener("keydown", onKey);
     };
   }, []);
 
-  // La dismiss: marcăm „văzut", scoatem cover-ul pre-paint (data-intro) ca fade-ul overlay-ului să
-  // dezvăluie landing-ul, apoi demontăm după fade-out.
+  // La dismiss: marcăm „văzut" (o singură dată pe sesiune) și demontăm după fade-out.
   useEffect(() => {
     if (phase !== "hiding") return;
     sessionStorage.setItem(SEEN_KEY, "1");
-    document.documentElement.removeAttribute("data-intro");
     const t = setTimeout(() => setPhase("done"), FADE_MS);
     return () => clearTimeout(t);
   }, [phase]);
@@ -60,7 +61,7 @@ export function IntroSplash() {
     };
   }, [phase]);
 
-  if (phase === "pending" || phase === "done") return null;
+  if (phase === "done") return null;
 
   return (
     <div
