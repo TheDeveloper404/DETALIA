@@ -7,6 +7,7 @@ import {
   insertNotification,
   listByRecipient,
   markAllRead,
+  markOneRead,
   type NotificationType,
 } from "@/server/repos/notificationsRepo";
 import { getUserContact } from "@/server/repos/usersRepo";
@@ -62,6 +63,10 @@ export function getUnreadCount(userId: string) {
 // Marchează citite toate notificările userului (la vizitarea paginii). userId din sesiune = anti-IDOR.
 export function markNotificationsRead(userId: string) {
   return markAllRead(userId);
+}
+
+export function markNotificationRead(userId: string, id: string) {
+  return markOneRead(userId, id);
 }
 
 // Către autorul detaliului-mamă: cineva a propus o schiță (SEND).

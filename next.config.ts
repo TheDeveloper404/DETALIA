@@ -14,7 +14,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://vercel.live https://vercel.com",
   "font-src 'self' data: https://vercel.live",
-  "connect-src 'self' https://*.vercel-storage.com https://vercel.live wss://*.pusher.com https://*.pusher.com",
+  "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://vercel.live wss://*.pusher.com https://*.pusher.com",
   "frame-src https://vercel.live",
   "upgrade-insecure-requests",
 ].join("; ");

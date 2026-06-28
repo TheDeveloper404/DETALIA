@@ -31,18 +31,19 @@ export async function updateStrokes(id: string, strokesJson: Stroke[]) {
   await db.update(sketches).set({ strokesJson }).where(eq(sketches.id, id));
 }
 
-export async function updateStatus(
+// Tranziție condiționată DRAFT → PENDING_ACCEPTANCE (SEND). Guard atomic pe status + autor: două SEND-uri
+// concurente nu pot notifica ambele — doar primul prinde rândul în DRAFT. Întoarce true dacă a tranziționat.
+export async function transitionFromDraft(
   id: string,
-  input: { status: SketchStatus; thumbnailUrl?: string | null; acceptedAt?: Date | null },
-) {
-  await db
+  authorId: string,
+  input: { thumbnailUrl: string | null },
+): Promise<boolean> {
+  const rows = await db
     .update(sketches)
-    .set({
-      status: input.status,
-      ...(input.thumbnailUrl !== undefined ? { thumbnailUrl: input.thumbnailUrl } : {}),
-      ...(input.acceptedAt !== undefined ? { acceptedAt: input.acceptedAt } : {}),
-    })
-    .where(eq(sketches.id, id));
+    .set({ status: "PENDING_ACCEPTANCE", thumbnailUrl: input.thumbnailUrl })
+    .where(and(eq(sketches.id, id), eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
+    .returning({ id: sketches.id });
+  return rows.length > 0;
 }
 
 // Tranziție condiționată PENDING_ACCEPTANCE → PUBLISHED/REJECTED.
@@ -98,6 +99,32 @@ export function listPendingByDetail(detailId: string) {
 }
 
 export type SketchWithAuthor = Awaited<ReturnType<typeof listPublishedByDetail>>[number];
+
+// Cele mai recente schițe PUBLISHED din toată platforma (pentru rail-ul feed-ului „Schițe noi în teanc").
+// Doar metadate de afișare (fără strokesJson) — randăm thumbnail-ul deja generat la publicare.
+export function listRecentPublished(limit: number) {
+  return db
+    .select({
+      id: sketches.id,
+      detailId: sketches.detailId,
+      thumbnailUrl: sketches.thumbnailUrl,
+      acceptedAt: sketches.acceptedAt,
+      detailTitle: details.title,
+      authorName: users.name,
+      authorImage: users.image,
+      authorRoleMain: roles.roleMain,
+      authorVerification: roles.verificationStatus,
+    })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .leftJoin(users, eq(users.id, sketches.authorId))
+    .leftJoin(roles, eq(roles.userId, sketches.authorId))
+    .where(eq(sketches.status, "PUBLISHED"))
+    .orderBy(desc(sketches.acceptedAt))
+    .limit(limit);
+}
+
+export type RecentPublishedSketch = Awaited<ReturnType<typeof listRecentPublished>>[number];
 
 // Ciornele (DRAFT) ale unui autor — cu titlul + imaginea detaliului-mamă, pentru a le relua din „Ciornele mele".
 export function listDraftsByAuthor(authorId: string) {

@@ -10,6 +10,7 @@ import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { normalizeWebsite } from "@/lib/url";
 import { deleteAccount } from "@/server/services/accountService";
 import {
+  getUserMedia,
   getUserProfile,
   updateUserCoverImage,
   updateUserCoverPosition,
@@ -48,7 +49,10 @@ export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
   // SEC-02: validează + re-encodează (strip EXIF/GPS) + plafonează. URL curat în DB.
   const processed = await reprocessBlobImage(url, "avatars");
   if (!processed.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
+  const old = (await getUserMedia(userId))?.image ?? null;
   await updateUserImage(userId, processed.url);
+  // SEC-06: poza veche devine orfană în Blob → o ștergem (best-effort).
+  if (old && old !== processed.url) await deleteBlobs([old]);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
@@ -62,7 +66,10 @@ export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
   }
   const processed = await reprocessBlobImage(url, "covers");
   if (!processed.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
+  const old = (await getUserMedia(userId))?.coverImage ?? null;
   await updateUserCoverImage(userId, processed.url);
+  // SEC-06: cover-ul vechi devine orfan în Blob → îl ștergem (best-effort).
+  if (old && old !== processed.url) await deleteBlobs([old]);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
