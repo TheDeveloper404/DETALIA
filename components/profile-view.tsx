@@ -46,6 +46,7 @@ export type ProfileActivityItem = {
 export type ProfileViewData = {
   name: string;
   image: string | null;
+  coverImage: string | null;
   roleLabel: string; // ex: „Proiectant · Arhitect"
   location: string | null;
   website: { href: string; label: string } | null;
@@ -75,20 +76,25 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
-      {/* Banner — grilă blueprint mascată radial. */}
+      {/* Banner — imaginea de cover dacă există, altfel grilă blueprint mascată radial. */}
       <div className="relative h-[180px] overflow-hidden rounded-b-lg bg-[#ece1d3]">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            backgroundImage:
-              "linear-gradient(#dccdb3 1px,transparent 1px),linear-gradient(90deg,#dccdb3 1px,transparent 1px)",
-            backgroundSize: "34px 34px",
-            opacity: 0.65,
-            WebkitMaskImage: "radial-gradient(120% 120% at 70% 0%,#000,transparent 75%)",
-            maskImage: "radial-gradient(120% 120% at 70% 0%,#000,transparent 75%)",
-          }}
-        />
+        {data.coverImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={data.coverImage} alt="" className="absolute inset-0 size-full object-cover" />
+        ) : (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                "linear-gradient(#dccdb3 1px,transparent 1px),linear-gradient(90deg,#dccdb3 1px,transparent 1px)",
+              backgroundSize: "34px 34px",
+              opacity: 0.65,
+              WebkitMaskImage: "radial-gradient(120% 120% at 70% 0%,#000,transparent 75%)",
+              maskImage: "radial-gradient(120% 120% at 70% 0%,#000,transparent 75%)",
+            }}
+          />
+        )}
       </div>
 
       {/* Header de profil. */}
@@ -242,8 +248,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                   </div>
                 </div>
                 <p className="text-[13px] leading-relaxed text-muted-foreground">
-                  Cont complet funcțional: poate publica detalii, propune schițe și valida fără nicio
-                  restricție. Verificarea rolului va fi disponibilă în curând (adaugă steluța ★ lângă nume).
+                  Cont complet funcțional: poți publica detalii, propune schițe și valida fără nicio
+                  restricție. <strong className="font-semibold text-foreground">Verificarea rolului nu este
+                  încă disponibilă</strong> — o activăm în curând (va adăuga steluța ★ lângă nume).
                 </p>
               </>
             )}
