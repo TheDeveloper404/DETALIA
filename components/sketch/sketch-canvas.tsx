@@ -446,9 +446,16 @@ export const SketchCanvas = forwardRef<
   function onPointerDown(e: React.PointerEvent) {
     const p = normPoint(e);
     if (tool === "text") {
+      // Tastezi deja o casetă → orice click o fixează și revine la creion (NU deschide alta).
+      // Ca să adaugi alt comentariu, reselectezi tool-ul Text. (UX cerut: un comentariu = un select de tool.)
+      if (textDraft) {
+        commitText();
+        selectTool("pen");
+        return;
+      }
       // Click pe un text existent → selectează-l + pregătește mutarea prin drag.
       const ctx = canvasRef.current?.getContext("2d");
-      if (ctx && !textDraft) {
+      if (ctx) {
         for (let i = present.length - 1; i >= 0; i--) {
           const s = present[i];
           if (s.kind === "text" && textHit(ctx, s, p[0] * dims.w, p[1] * dims.h, dims.w, dims.h)) {
@@ -466,8 +473,7 @@ export const SketchCanvas = forwardRef<
           }
         }
       }
-      // Click pe gol: fixează caseta anterioară, deselectează și deschide una nouă aici.
-      commitText();
+      // Click pe gol (fără casetă activă) → deschide o casetă nouă aici.
       setSelected(null);
       setTextDraft({ x: p[0], y: p[1], value: "" });
       return;
@@ -773,12 +779,17 @@ export const SketchCanvas = forwardRef<
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   commitText();
+                  selectTool("pen"); // după un comentariu → înapoi la creion
                 } else if (e.key === "Escape") {
                   e.preventDefault();
                   setTextDraft(null);
+                  selectTool("pen");
                 }
               }}
-              onBlur={commitText}
+              onBlur={() => {
+                commitText();
+                selectTool("pen");
+              }}
               placeholder="scrie…"
               className="absolute z-[6] resize-none overflow-hidden whitespace-pre rounded-[2px] p-0 outline-none placeholder:text-foreground/25"
               style={{

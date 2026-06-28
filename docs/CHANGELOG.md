@@ -6,6 +6,22 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-28
 
+### Fix buclă onboarding⇄feed + tool text revine la creion + ștergere detaliu de către autor
+- **Buclă de loading onboarding⇄feed (prod):** user nou (fără rol) după magic link rămânea în buclă infinită
+  de loading. Cauză: `redirect("/onboarding")` din `app/(app)/layout.tsx` se producea în timpul streaming-ului
+  RSC → Next emite meta-refresh → buclă de reîncărcare (exact clasa de bug documentată deja în `proxy.ts`,
+  rezolvată acolo pentru landing). **Fix:** poarta de onboarding mutată din layout în `proxy.ts` ca redirect
+  307 curat (logat fără rol → `/onboarding`; logat cu rol pe `/onboarding` → `/feed`). Layout simplificat,
+  fără redirect. (NU era Turbopack — prod rulează webpack.)
+- **Tool de text (schiță):** după ce scrii un comentariu și confirmi (Enter / click în afară), unealta revine
+  automat la **creion** — înainte rămânea pe „text" și deschidea o casetă la fiecare click. Pentru alt comentariu
+  se reselectează tool-ul Text. (`components/sketch/sketch-canvas.tsx`.)
+- **Ștergere detaliu de către autor:** buton „Șterge" pe pagina detaliului, vizibil DOAR autorului. Authz pe
+  server (ownership în `detailService.deleteDetail`; FORBIDDEN/NOT_FOUND fără a dezvălui existența). Ștergere
+  atomică prin `db.batch`: resurse+schițe cad în cascadă (FK), validările/comentariile polimorfice (detaliu +
+  schițele lui) curățate manual. Blob-uri (imagine detaliu + thumbnail schițe) șterse best-effort. Notificările
+  (referă prin payload, fără FK) rămân — link stale minor.
+
 ### Fix gating onboarding + separare dev/prod DB (date demo în prod)
 - **Bug grav:** user logat fără rol intra direct în feed ca „anonim". Cauză: `app/(app)/layout.tsx` nu verifica rolul.
   Fix: layout async → logat fără rol → redirect `/onboarding` (un singur loc, acoperă toată zona autentificată).

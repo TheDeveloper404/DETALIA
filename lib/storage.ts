@@ -2,7 +2,7 @@
 // Tokenul BLOB_READ_WRITE_TOKEN e citit automat de `put()` din env (vezi .env.example).
 //
 // Securitate: validăm tipul și dimensiunea pe SERVER înainte de upload (frontend-ul nu e sursă de adevăr).
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 
 // Limite upload imagine (server-side, sursa de adevăr).
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024; // 8 MB
@@ -76,5 +76,19 @@ export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResu
   } catch (err) {
     console.error("Upload thumbnail Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
     return { ok: false, error: "UPLOAD_FAILED" };
+  }
+}
+
+// Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile
+// schițelor). NU aruncă: o eroare de storage nu trebuie să rateze ștergerea logică din DB (un blob
+// orfan = doar risipă de storage, nu o eroare de utilizator). Acceptăm doar URL-uri Blob (https) —
+// asset-urile seed din /public (ex: "/seed/...") sunt ignorate, nu sunt în Blob.
+export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<void> {
+  const valid = urls.filter((u): u is string => !!u && u.startsWith("https://"));
+  if (valid.length === 0) return;
+  try {
+    await del(valid);
+  } catch (err) {
+    console.error("Ștergere Blob eșuată:", err instanceof Error ? err.message : "necunoscut");
   }
 }

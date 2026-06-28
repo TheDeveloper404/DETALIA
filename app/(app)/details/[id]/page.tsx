@@ -14,6 +14,7 @@ import { getPendingForOwner, getTeanc } from "@/server/services/sketchService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
 import { CommentsSection } from "./comments-section";
+import { DeleteDetailButton } from "./delete-detail-button";
 import { SketchSection, type SketchItem } from "./sketch-section";
 import { ValidationPanel } from "./validation-panel";
 
@@ -126,6 +127,11 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               <span className="font-mono text-xs text-muted-foreground">
                 · publicat {formatDate(detail.createdAt)}
               </span>
+              {detail.authorId === userId && (
+                <span className="ml-auto">
+                  <DeleteDetailButton detailId={detail.id} />
+                </span>
+              )}
             </div>
 
             {/* zone climatice / seismice */}
