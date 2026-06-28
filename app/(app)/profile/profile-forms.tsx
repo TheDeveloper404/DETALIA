@@ -166,6 +166,28 @@ function ImageUploadForm({
 
   const shown = previewUrl ?? savedUrl;
 
+  // Repoziționare LinkedIn-style: tragi imaginea direct în container, sus/jos. La eliberare se salvează.
+  const coverRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; startPos: number } | null>(null);
+
+  function onCoverPointerDown(e: React.PointerEvent) {
+    if (!onSavePosition || !shown) return;
+    dragRef.current = { startY: e.clientY, startPos: pos };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function onCoverPointerMove(e: React.PointerEvent) {
+    if (!dragRef.current) return;
+    const h = coverRef.current?.offsetHeight ?? 112;
+    // Tragi în jos → vezi partea de sus a imaginii → object-position scade.
+    const delta = ((e.clientY - dragRef.current.startY) / h) * 100;
+    setPos(Math.round(Math.min(100, Math.max(0, dragRef.current.startPos - delta))));
+  }
+  function onCoverPointerUp() {
+    if (!dragRef.current) return;
+    dragRef.current = null;
+    void onSavePos();
+  }
+
   return (
     <div className="flex flex-col gap-3">
       <Feedback error={state.error} ok={state.ok} okText={okText} />
@@ -213,41 +235,34 @@ function ImageUploadForm({
             />
           </div>
         ) : (
-          <div className="relative h-28 w-full overflow-hidden rounded-lg border border-border bg-secondary">
+          <div
+            ref={coverRef}
+            onPointerDown={onCoverPointerDown}
+            onPointerMove={onCoverPointerMove}
+            onPointerUp={onCoverPointerUp}
+            className={`relative h-36 w-full overflow-hidden rounded-lg border border-border bg-secondary ${
+              onSavePosition ? "cursor-grab touch-none active:cursor-grabbing" : ""
+            }`}
+          >
             <Image
               src={shown}
               alt=""
               fill
-              sizes="400px"
-              className="object-cover"
+              sizes="700px"
+              draggable={false}
+              className="select-none object-cover"
               style={onSavePosition ? { objectPosition: `50% ${pos}%` } : undefined}
               unoptimized={!!previewUrl}
             />
+            {onSavePosition && (
+              <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-1 font-mono text-[10.5px] text-white">
+                trage sus/jos pentru a repoziționa
+              </span>
+            )}
           </div>
         )
       ) : (
         <p className="text-xs text-muted-foreground">Nicio imagine încă.</p>
-      )}
-
-      {/* Repoziționare verticală (doar cover, când există imagine). Trage de slider → preview live → Salvează. */}
-      {onSavePosition && shown && (
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
-            Poziție
-          </span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={pos}
-            onChange={(e) => setPos(Number(e.target.value))}
-            className="h-2 flex-1 cursor-pointer accent-primary"
-            aria-label="Poziția verticală a cover-ului"
-          />
-          <Button type="button" variant="outline" onClick={onSavePos} disabled={busy} className="h-9">
-            {busy ? "…" : "Salvează poziția"}
-          </Button>
-        </div>
       )}
 
       <span className="text-xs text-muted-foreground">
