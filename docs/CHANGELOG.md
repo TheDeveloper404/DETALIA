@@ -6,6 +6,39 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ## 2026-06-28
 
+### Logo oficial de brand (SVG) în loc de rombul placeholder
+- Adăugate variantele oficiale: `public/logo.svg` (fundal deschis, wordmark negru) și
+  `public/logo-dark.svg` (fundal închis, wordmark alb), derivate din SVG-urile furnizate
+  (`logowhite.svg` / `logodark.svg`): scos panoul/chenarul crem (artboard), strâns viewBox-ul pe conținut.
+- Folosite ca fișier (`<img>`), nu reconstruite: `BrandLogo` (→ AppHeader + paginile de auth),
+  header + footer landing (`app/page.tsx`), header onboarding. Footer/CTA dark folosesc varianta dark.
+- `IntroSplash` păstrează deocamdată marca animată proprie — de aliniat separat dacă se dorește.
+- **Favicon**: `app/icon.svg` = simbolul „A" (din `icon.svg` furnizat), curățat de panou + viewBox pătrat pe
+  simbol. Șters `app/favicon.ico` (default Next) ca SVG-ul să fie iconița. login/signup foloseau deja
+  logo-ul nou via `AuthShell`→`BrandLogo`. Emailul (`lib/email.ts`) rămâne cu wordmark CSS (decizie: SVG
+  nesuportat în clienți de email).
+- **Organizare assets**: sursele de logo mutate din root în `public/brand/` (`logowhite.svg`, `logodark.svg`).
+  Active rămân `public/logo.svg` + `public/logo-dark.svg` (căi neschimbate). `app/icon.svg` rămâne în `app/`
+  (convenția de favicon Next — nu se mută).
+
+### Fix: flash de landing înainte de intro-ul de brand
+- La prima vizită, landing-ul clipea ~1s înainte să apară overlay-ul de welcome, fiindcă `IntroSplash`
+  decidea afișarea abia într-un `useEffect` (după hidratare) → SSR picta landing-ul complet întâi.
+- Fix fără flash în niciun sens: script inline sincron în `<body>` (`app/layout.tsx`) pune
+  `html[data-intro="show"]` înainte de prima pictare (doar prima vizită din sesiune, fără reduced-motion);
+  un `::before` CSS (fundal identic cu intro-ul) acoperă landing-ul până montează overlay-ul React.
+  `IntroSplash` scoate atributul la dismiss → fade-ul dezvăluie landing-ul. Cei care au văzut deja /
+  reduced-motion: scriptul nu pune atributul → landing direct.
+
+### Profil edit: header editabil „in place" + verificare integrată în „Rolul tău"
+- **Avatar + cover editabile direct din antet** — scoase cele două carduri separate „Poză de profil" și
+  „Imagine de cover". Schimbi/ștergi imaginile din butoanele (cameră/coș) suprapuse pe avatar și pe banner.
+  Componentă nouă `components/edit-profile-header.tsx` (combină cover repoziționabil + avatar + identitate).
+  **Schimbare de UX:** upload direct la alegerea fișierului (fără pasul intermediar preview→Salvează), UI mai curat.
+- **„Verificarea rolului" integrată în secțiunea „Rolul tău"** — nu mai e card separat; apare ca subsecțiune cu separator.
+- **Cod mort curățat** — eliminate `ImageUploadForm`/`AvatarForm`/`CoverForm` din `profile-forms.tsx` și
+  șters `components/edit-cover-band.tsx` (logica de repoziționare e acum în noul header).
+
 ### Profil: cover repoziționabil + ștergere imagini + curățare UI + text verificare
 - **Cover repoziționabil sus/jos** — coloană nouă `users.cover_position` (int 0..100, default 50, **necesită `db:push`**).
   Slider în `/profile/edit` (preview live cu `object-position`), salvat prin `saveCoverPosition` (clamp pe server).
