@@ -58,7 +58,9 @@ async function cleanImageBuffer(input: Buffer): Promise<CleanImage | null> {
       default:
         return null;
     }
-    return { data, contentType: fmt.ct, ext: fmt.ext };
+    // sharp poate întoarce un Buffer backat de SharedArrayBuffer (memoria libvips) → undici/`put` îl refuză
+    // („SharedArrayBuffer is not allowed"). Copiem bytes-urile într-un Buffer normal (ArrayBuffer ne-shared).
+    return { data: Buffer.from(data), contentType: fmt.ct, ext: fmt.ext };
   } catch {
     // sharp aruncă la input necorespunzător / peste limita de pixeli → tratăm ca invalid.
     return null;
