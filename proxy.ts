@@ -29,6 +29,12 @@ export default auth(async (req) => {
     (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
   );
 
+  // SEC-04: cont suspendat (status ≠ ACTIVE). Strategie `database` → status proaspăt din DB la fiecare
+  // request. Blocăm tot ce nu e public (inclusiv server actions, care lovesc rutele protejate prin POST).
+  if (isLoggedIn && !isPublic && req.auth?.user?.status && req.auth.user.status !== "ACTIVE") {
+    return Response.redirect(new URL("/login?error=AccessDenied", origin));
+  }
+
   // Neautentificat pe rută protejată → redirect la login, cu callback de revenire.
   if (!isPublic && !isLoggedIn) {
     const loginUrl = new URL("/login", origin);

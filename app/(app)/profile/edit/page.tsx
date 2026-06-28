@@ -8,6 +8,7 @@ import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { getUserProfile } from "@/server/repos/usersRepo";
 import { getUserRole } from "@/server/services/roleService";
 
+import { DeleteAccountSection } from "../delete-account-section";
 import { EditDetailsForm, VerificationSection } from "../profile-forms";
 
 // Setările proprii de profil (editare). Vizualizarea publică e la /profile (read) și /profile/[userId].
@@ -98,6 +99,9 @@ export default async function ProfileEditPage() {
             <VerificationSection status={role.verificationStatus} />
           </div>
         </section>
+
+        {/* Zonă periculoasă — ștergerea contului (GDPR). */}
+        <DeleteAccountSection />
       </div>
     </main>
   );

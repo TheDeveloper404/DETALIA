@@ -39,6 +39,15 @@ export async function updateRoleClaim(
   await db.update(roles).set(fields).where(eq(roles.userId, userId));
 }
 
+// GDPR — la ștergerea contului: șterge dovada de rol (PII) + resetează verificarea. Rolul (main/sub) rămâne
+// ca atribut non-PII al conținutului păstrat.
+export async function clearRoleVerification(userId: string) {
+  await db
+    .update(roles)
+    .set({ verificationStatus: "DECLARED", verificationEvidence: null, verifiedByAdminId: null })
+    .where(eq(roles.userId, userId));
+}
+
 // Cerere de verificare (Poarta 2): trece pe PENDING + stochează dovada (OAR/CUI = PII, nu se loghează).
 export async function setRoleVerificationPending(userId: string, evidence: string) {
   await db

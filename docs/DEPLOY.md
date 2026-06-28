@@ -57,6 +57,21 @@ Reguli:
 
 ---
 
+## 2c. Reguli de release (flux dev → PR → main, fără local)
+
+Lucrăm **direct pe preview Vercel**, nu local. Testarea oricărei schimbări se face pe URL-ul de preview al PR-ului.
+Trei lucruri pot trimite cod prost în prod — astea le închidem:
+
+1. **CI blocant pe `main`** — ✅ activ (branch protection): merge în `main` permis DOAR cu CI `build` verde
+   (type-check + lint + build) și branch la zi. Force-push/ștergere `main` interzise. *CI verde = „compilează", NU „funcționează".*
+2. **Schema drift preview↔prod** — preview și prod sunt **baze Neon diferite**. Orice schimbare de schemă
+   (coloană/enum/tabel) trebuie aplicată pe **AMBELE** ramuri (vezi 2b). Aplicată doar pe una → merge pe un mediu,
+   crapă pe celălalt. Aplici pe `preview/dev` când testezi PR-ul, pe `production` înainte/la merge-ul în `main`.
+3. **Probează preview-ul înainte de merge** — deschizi URL-ul de preview al PR-ului și **apeși efectiv pe ce ai schimbat**.
+   Nu da merge bazându-te doar pe CI verde.
+
+---
+
 ## 3. Mută DNS-ul pe Cloudflare (o singură dată)
 
 1. **Cloudflare → Add a site** → `detalia.ro` → planul **Free**.

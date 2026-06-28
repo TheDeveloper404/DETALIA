@@ -2,8 +2,9 @@
 // Tokenul BLOB_READ_WRITE_TOKEN e citit automat de `put()` din env (vezi .env.example).
 //
 // Securitate: validăm tipul și dimensiunea pe SERVER înainte de upload (frontend-ul nu e sursă de adevăr).
-import { del, put } from "@vercel/blob";
+import { del } from "@vercel/blob";
 
+import { processAndUploadImage } from "@/lib/image-processing";
 // Limitele de upload trăiesc în `lib/upload-limits.ts` (partajate client+server, fără SDK Blob).
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
@@ -17,21 +18,15 @@ export type UploadImageResult = { ok: true; url: string } | { ok: false; error: 
 // și a funcțiilor Vercel (~4.5MB). Aici a rămas doar upload-ul thumbnail-ului de schiță, care e un
 // Blob mic randat client-side și trimis printr-un server action (sub limită).
 
-// Thumbnail PNG al unei schițe (randat client-side la SEND). Primește un Blob, validăm doar dimensiunea.
+// Thumbnail al unei schițe (randat client-side la SEND). Primește un Blob; deși îl generăm noi din canvas,
+// câmpul de fișier al unui server action e controlat de client → SEC-02: validăm real + re-encodăm cu sharp
+// (magic bytes + strip metadata + plafon dimensiuni) înainte de a-l urca.
 export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
   if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
   if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
-  try {
-    const result = await put(`sketches/${crypto.randomUUID()}.png`, blob, {
-      access: "public",
-      addRandomSuffix: false,
-      contentType: "image/png",
-    });
-    return { ok: true, url: result.url };
-  } catch (err) {
-    console.error("Upload thumbnail Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
-    return { ok: false, error: "UPLOAD_FAILED" };
-  }
+  const processed = await processAndUploadImage(blob, "sketches");
+  if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
+  return { ok: true, url: processed.url };
 }
 
 // Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile

@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { reprocessBlobImage } from "@/lib/image-processing";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
+import { normalizeWebsite } from "@/lib/url";
 import {
   updateUserCoverImage,
   updateUserImage,
@@ -22,6 +24,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   MISSING_NAME: "Completează prenumele și numele.",
   NAME_TOO_LONG: "Numele e prea lung.",
   FIELD_TOO_LONG: "Unul dintre câmpuri e prea lung.",
+  INVALID_WEBSITE: "Website-ul trebuie să înceapă cu http:// sau https://.",
 };
 
 // Limite server-side (sursa de adevăr — frontend-ul nu validează singur).
@@ -52,7 +55,7 @@ export async function onboardingAction(
   const subRole = subRoleRaw || null;
   const headline = clean(formData.get("headline")) || null;
   const location = clean(formData.get("location")) || null;
-  const website = clean(formData.get("website")) || null;
+  const websiteRaw = clean(formData.get("website")) || null;
 
   // Nume = minimul real (magic link nu-l capturează → fără el profilul rămâne fără nume).
   if (!firstName || !lastName) {
@@ -64,10 +67,15 @@ export async function onboardingAction(
   if (
     (headline && headline.length > MAX_HEADLINE) ||
     (location && location.length > MAX_LOCATION) ||
-    (website && website.length > MAX_WEBSITE)
+    (websiteRaw && websiteRaw.length > MAX_WEBSITE)
   ) {
     return { error: ERROR_MESSAGES.FIELD_TOO_LONG };
   }
+
+  // SEC-03: allowlist http/https pe website (nu doar la randare). Schemă nepermisă → respinge.
+  const websiteRes = normalizeWebsite(websiteRaw);
+  if (!websiteRes.ok) return { error: ERROR_MESSAGES.INVALID_WEBSITE };
+  const website = websiteRes.value;
 
   // ── Imagini (opționale) — urcate CLIENT direct în Blob; aici primim doar URL-urile ────
   // Acceptăm DOAR URL-uri de Blob ale store-ului nostru (tipul/mărimea impuse la emiterea tokenului).
@@ -91,8 +99,17 @@ export async function onboardingAction(
   });
 
   // ── URL-urile imaginilor (opționale, deja în Blob) ────
-  if (avatarUrl) await updateUserImage(userId, avatarUrl);
-  if (coverUrl) await updateUserCoverImage(userId, coverUrl);
+  // SEC-02: validează + re-encodează (strip metadata) + plafonează; salvăm DOAR URL-ul curat. Eșec → respinge.
+  if (avatarUrl) {
+    const p = await reprocessBlobImage(avatarUrl, "avatars");
+    if (!p.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
+    await updateUserImage(userId, p.url);
+  }
+  if (coverUrl) {
+    const p = await reprocessBlobImage(coverUrl, "covers");
+    if (!p.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
+    await updateUserCoverImage(userId, p.url);
+  }
 
   // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există rol).
   // Dacă orice scriere de mai sus eșuează, rolul NU se creează → următoarea accesare reia onboardingul,
