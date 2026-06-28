@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { reprocessBlobImage } from "@/lib/image-processing";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail } from "@/server/services/detailService";
@@ -49,6 +51,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_CATEGORY: "Categoria aleasă nu există.",
   TOO_MANY_RESOURCES: "Prea multe resurse atașate (max 3).",
   INVALID_RESOURCE: "O resursă atașată e invalidă.",
+  RATE_LIMITED: "Prea multe detalii publicate într-un timp scurt. Încearcă mai târziu.",
 };
 
 export async function createDetailAction(
@@ -59,6 +62,11 @@ export async function createDetailAction(
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
+  }
+
+  // SEC-01: publicarea e costisitoare (imagine + scrieri DB) → limită dedicată per user.
+  if (!(await checkLimit(limiters.createDetail, session.user.id)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
   const title = String(formData.get("title") ?? "");
@@ -77,12 +85,16 @@ export async function createDetailAction(
   const imageUrl = String(formData.get("imageUrl") ?? "");
   if (!BLOB_URL_RE.test(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
+  // SEC-02: validează real + re-encodează (fără metadata) + plafonează dimensiuni. Returnează un URL curat.
+  const processed = await reprocessBlobImage(imageUrl, "details");
+  if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
+
   const result = await createDetail({
     authorId: session.user.id,
     title,
     description,
     categoryId,
-    imageUrl,
+    imageUrl: processed.url,
     climateZone,
     seismicZone,
     resources,

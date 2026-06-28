@@ -30,8 +30,18 @@
 ## 2. Drepturile persoanei (de implementat înainte de public)
 
 Acces · rectificare · ștergere („dreptul de a fi uitat") · portabilitate · retragerea consimțământului
-(pentru dovezile de verificare). În MVP beta închis: tratate **manual** (cerere → admin). Înainte de public:
-fluxuri auto (ștergere cont + date asociate).
+(pentru dovezile de verificare).
+
+**Ștergerea contului — IMPLEMENTAT (self-service, 2026-06-28).** `/profile/edit` → „Șterge contul" (confirmare în
+2 pași). Politică = **anonimizare (tombstone)**, nu hard-delete:
+- **Șterse din DB:** email (→ placeholder non-PII `deleted-<id>@deleted.invalid`), nume real (firstName/lastName,
+  `name` → eticheta „Utilizator șters"), poze (avatar + cover, inclusiv blob-urile), website, headline, about,
+  locație, emailVerified, **dovezile de rol** (`verificationEvidence`). Sesiuni + conturi OAuth șterse (logout).
+- **Păstrate:** detaliile, schițele, comentariile, validările — atribuite „Utilizator șters" (altfel s-ar distruge
+  teancul și dezbaterile altor useri). Rolul declarat (main/sub, non-PII) rămâne ca context al conținutului.
+- **Status `DELETED`** → re-login imposibil (blocat de SEC-04). Cod: `server/services/accountService.ts`.
+
+Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în MVP.
 
 ---
 
@@ -80,5 +90,5 @@ fluxuri auto (ștergere cont + date asociate).
 
 - [x] Principii aplicate în arhitectură (minimizare, fără PII în loguri, tokenuri one-time).
 - [ ] **Înainte de Val 2 / public:** publicare Notă confidențialitate + ToS (revizuite de jurist).
-- [ ] Flux automat de ștergere cont + date.
+- [x] Flux automat de ștergere cont + date (anonimizare, 2026-06-28 — vezi §2).
 - [ ] Confirmare regiune UE pentru Neon + entitatea operator → vezi `docs/DECIZII-EDI.md`.

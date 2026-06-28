@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import { uploadSketchThumbnail } from "@/lib/storage";
 import { saveStrokes, send } from "@/server/services/sketchService";
 
@@ -16,6 +17,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   EMPTY_STROKES: "Desenează ceva înainte de a trimite.",
   INVALID_STROKES: "Desenul nu a putut fi salvat.",
   NO_ROLE: "Ai nevoie de un rol declarat.",
+  RATE_LIMITED: "Prea multe trimiteri. Așteaptă un moment.",
 };
 
 function parseStrokes(raw: string): unknown {
@@ -47,6 +49,11 @@ export async function saveStrokesAction(
 export async function sendSketchAction(formData: FormData): Promise<SketchActionResult> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  // SEC-01: SEND declanșează scrieri DB + email către autorul-mamă → limită per user.
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
 
   const sketchId = String(formData.get("sketchId") ?? "");
   const detailId = String(formData.get("detailId") ?? "");

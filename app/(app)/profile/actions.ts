@@ -4,8 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
+import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
+import { normalizeWebsite } from "@/lib/url";
+import { deleteAccount } from "@/server/services/accountService";
 import {
   getUserProfile,
   updateUserCoverImage,
@@ -42,7 +45,10 @@ export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
   if (!BLOB_URL_RE.test(url)) {
     return { error: "Imaginea nu a putut fi salvată.", ok: false };
   }
-  await updateUserImage(userId, url);
+  // SEC-02: validează + re-encodează (strip EXIF/GPS) + plafonează. URL curat în DB.
+  const processed = await reprocessBlobImage(url, "avatars");
+  if (!processed.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
+  await updateUserImage(userId, processed.url);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
@@ -54,7 +60,9 @@ export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
   if (!BLOB_URL_RE.test(url)) {
     return { error: "Imaginea nu a putut fi salvată.", ok: false };
   }
-  await updateUserCoverImage(userId, url);
+  const processed = await reprocessBlobImage(url, "covers");
+  if (!processed.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
+  await updateUserCoverImage(userId, processed.url);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
@@ -111,8 +119,10 @@ export async function updateProfileDetailsAction(
   const headline = clip(formData.get("headline"), 120);
   const about = clip(formData.get("about"), 1000);
   const location = clip(formData.get("location"), 120);
-  let website = clip(formData.get("website"), 200);
-  if (website && !/^https?:\/\//i.test(website)) website = `https://${website}`;
+  // SEC-03: allowlist http/https la input (nu doar la randare). Schemă nepermisă → respinge.
+  const websiteRes = normalizeWebsite(clip(formData.get("website"), 200));
+  if (!websiteRes.ok) return { error: "Website-ul trebuie să înceapă cu http:// sau https://.", ok: false };
+  const website = websiteRes.value;
 
   await updateUserDetails(userId, { name, headline, about, location, website });
 
@@ -143,5 +153,13 @@ export async function requestVerificationAction(
 
 // Sign out → înapoi la landing.
 export async function signOutAction() {
+  await signOut({ redirectTo: "/" });
+}
+
+// Ștergere cont (GDPR) — anonimizează contul (șterge PII, păstrează conținutul) + revocă accesul, apoi logout.
+// Ireversibilă. userId vine din sesiune (anti-IDOR).
+export async function deleteAccountAction(): Promise<void> {
+  const userId = await requireUserId();
+  await deleteAccount(userId);
   await signOut({ redirectTo: "/" });
 }

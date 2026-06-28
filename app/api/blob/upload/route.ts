@@ -2,6 +2,7 @@ import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
 // Emite tokenul pentru upload CLIENT direct în Blob (browser → Blob). Ocolește limita de body a
@@ -24,6 +25,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (!session?.user?.id) {
           throw new Error("UNAUTHORIZED");
         }
+        // SEC-01: cotă de upload per user (emiterea tokenului = poarta).
+        if (!(await checkLimit(limiters.upload, session.user.id)).ok) {
+          throw new Error("RATE_LIMITED");
+        }
         return {
           allowedContentTypes: [...ALLOWED_IMAGE_TYPES],
           maximumSizeInBytes: MAX_IMAGE_BYTES,
@@ -38,9 +43,16 @@ export async function POST(request: Request): Promise<NextResponse> {
   } catch (err) {
     // Fără internals în răspuns (convenția de erori a proiectului).
     const unauthorized = err instanceof Error && err.message === "UNAUTHORIZED";
-    if (!unauthorized) {
+    const rateLimited = err instanceof Error && err.message === "RATE_LIMITED";
+    if (!unauthorized && !rateLimited) {
       // Motivul real (eroare SDK/config Blob — NU PII) → vizibil în Vercel Logs ca să diagnosticăm 400-ul.
       console.error("blob upload route 400:", err instanceof Error ? err.message : String(err));
+    }
+    if (rateLimited) {
+      return NextResponse.json(
+        { error: { code: "RATE_LIMITED", message: "Prea multe încărcări. Așteaptă un moment." } },
+        { status: 429 },
+      );
     }
     return NextResponse.json(
       {

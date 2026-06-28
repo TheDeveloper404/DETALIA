@@ -298,13 +298,21 @@ Ordinea de mai jos acoperă **toate** constatările (SEC-01..14 + §11c). Numero
 ### FAZA 1 — BLOCANTE (înainte de ORICE trafic public)
 Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
 
-1. **SEC-01 — Rate limiting + cote.** Limiter distribuit (serverless): login pe IP + hash email; mutații (validare,
-   comentariu, schiță, upload) pe user/acțiune; cote de upload; dedup/limită la emailuri; răspunsuri generice anti-enumerare.
-2. **SEC-02 — Upload sigur.** Mută authz + validările ieftine ÎNAINTE de upload; verifică magic bytes + decodare +
-   re-encodare fără metadata; limite dimensiuni/pixeli; cote; cleanup blob orfan la eșec; verifică headerele reale Blob.
-3. **SEC-03 — Allowlist URL.** `new URL()` + allowlist strict `http:`/`https:` + normalizare + limită lungime, pe
-   resursele detaliului ȘI pe `website` din profil.
-4. **SEC-04 — Blochează conturile `SUSPENDED`.** Refuz la sign-in și la sesiune dacă status ≠ `ACTIVE`; revocă sesiunile existente; test dedicat.
+1. ✅ **SEC-01 — Rate limiting + cote** (rezolvat 2026-06-28, vezi CHANGELOG). Limiter distribuit Upstash Redis
+   (`lib/rate-limit.ts`, fail-open): login pe IP + hash email; mutații + publicare + cotă upload pe user/acțiune;
+   răspunsuri generice anti-enumerare. *Email bombing acoperit indirect prin limitarea mutațiilor care trimit email
+   (send/accept/reject), nu printr-un limiter de email separat.*
+2. ✅ **SEC-02 — Upload sigur** (rezolvat 2026-06-28, vezi CHANGELOG). `lib/image-processing.ts` (sharp): la
+   persistare descărcăm + validăm format real (magic bytes) + `limitInputPixels` (anti-bombă) + re-encodare fără
+   metadata (strip EXIF/GPS) + plafon dimensiuni + cleanup blob orfan la eșec. Fetch restrâns la store-ul nostru
+   (anti-SSRF). Cablat în details/profile/onboarding/thumbnail. *authz + cota de upload deja la token (SEC-01).*
+3. ✅ **SEC-03 — Allowlist URL** (rezolvat 2026-06-28, vezi CHANGELOG). Resurse detaliu: `isHttpUrl` la input (deja).
+   Website: `lib/url.ts normalizeWebsite` — allowlist http/https la INPUT (onboarding + profil), nu doar la randare
+   (`safeWebsite`). Scheme periculoase respinse, nu stocate.
+4. ✅ **SEC-04 — Blochează conturile `SUSPENDED`** (rezolvat 2026-06-28, vezi CHANGELOG). `signIn` callback refuză
+   status ≠ ACTIVE (la trimitere magic link + la click); proxy blochează sesiunile non-ACTIVE (status proaspăt din
+   DB, strategie database) → re-login imposibil + sesiuni existente moarte la următorul request. *Revocarea explicită
+   a rândurilor din `sessions` se face la ștergerea contului (vezi mai jos); UI de suspendare încă nu există.*
 
 ### FAZA 2 — înainte de production-ready
 

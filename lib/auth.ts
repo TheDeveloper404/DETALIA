@@ -9,7 +9,7 @@
 // AUTH_SECRET / AUTH_RESEND_KEY / AUTH_URL le citește Auth.js automat din env.
 
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import NextAuth from "next-auth";
+import NextAuth, { type Session } from "next-auth";
 import Resend from "next-auth/providers/resend";
 
 import { db } from "@/db";
@@ -33,6 +33,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // verifyRequest („verifică email-ul") rămâne pe default-ul Auth.js deocamdată.
   pages: {
     signIn: "/login",
+    // signIn callback care întoarce false (cont suspendat) → Auth.js redirectează aici cu ?error=AccessDenied.
+    error: "/login",
   },
   providers: [
     Resend({
@@ -52,11 +54,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Google OAuth scos pentru MVP (rămâne doar magic link). Schela de provider se poate readăuga ulterior.
   ],
   callbacks: {
+    // SEC-04: blochează conturile non-ACTIVE (suspendate). La email provider, signIn se cheamă de două ori
+    // (la trimiterea magic link-ului ȘI la click) → refuzăm în ambele. `user` vine din DB (strategie database);
+    // un user NOU (signup) n-are încă `status` aici → permis (adapterul îl creează cu default ACTIVE).
+    signIn({ user }) {
+      const status = (user as { status?: string } | null)?.status;
+      if (status && status !== "ACTIVE") return false;
+      return true;
+    },
     // Cu strategie `database`, callback-ul primește user-ul din DB.
-    // Expunem `user.id` în sesiune — necesar pentru authz pe server (deny-by-default).
+    // Expunem `user.id` (authz server, deny-by-default) și `user.status` (SEC-04: gating în proxy).
     session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
+        session.user.status = (user as { status?: Session["user"]["status"] }).status ?? "ACTIVE";
       }
       return session;
     },

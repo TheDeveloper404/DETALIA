@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import type { TargetType } from "@/server/domain/validation";
 import { createDraft } from "@/server/services/sketchService";
 import { approve, disapprove, retract } from "@/server/services/validationService";
@@ -14,6 +15,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   TARGET_NOT_FOUND: "Conținutul nu mai există.",
   JUSTIFICATION_REQUIRED: "Dezaprobarea cere o justificare.",
   JUSTIFICATION_TOO_LONG: "Justificarea e prea lungă (max 5000 de caractere).",
+  RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
 };
 
 // targetType/targetId = ținta poziției (DETAIL sau SKETCH); detailId = pagina de revalidat (detaliul-părinte).
@@ -34,6 +36,9 @@ export async function approveAction(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  // SEC-01: limită de mutații per user. Acțiune 1-click → la depășire ieșim tăcut (fără mutație).
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) return;
+
   const { targetType, targetId, detailId } = readTarget(formData);
   const res = await approve({ userId: session.user.id, targetType, targetId });
   if (!res.ok && res.error === "NO_ROLE") redirect("/onboarding");
@@ -45,6 +50,8 @@ export async function approveAction(formData: FormData): Promise<void> {
 export async function retractAction(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) return;
 
   const { targetType, targetId, detailId } = readTarget(formData);
   await retract({ userId: session.user.id, targetType, targetId });
@@ -59,6 +66,10 @@ export async function disapproveAction(
 ): Promise<DisapproveState> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED };
+  }
 
   const { targetType, targetId, detailId } = readTarget(formData);
   const justification = String(formData.get("justification") ?? "");
