@@ -14,6 +14,7 @@ import Resend from "next-auth/providers/resend";
 
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
+import { magicLinkEmailHtml, magicLinkEmailText, sendEmail } from "@/lib/email";
 
 // TTL magic link (minute) → secunde. Default prudent: 15 min dacă env lipsește.
 const magicLinkTtlMinutes = Number(process.env.MAGIC_LINK_TTL_MINUTES ?? "15");
@@ -37,6 +38,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Resend({
       from: process.env.EMAIL_FROM,
       maxAge: magicLinkMaxAgeSeconds,
+      // Email brand DETALIA pentru magic link (înlocuiește template-ul default Resend).
+      async sendVerificationRequest({ identifier: email, url }) {
+        const ok = await sendEmail({
+          to: email,
+          subject: "Conectează-te în DETALIA",
+          html: magicLinkEmailHtml(url, magicLinkTtlMinutes),
+          text: magicLinkEmailText(url, magicLinkTtlMinutes),
+        });
+        if (!ok) throw new Error("MAGIC_LINK_EMAIL_FAILED");
+      },
     }),
     // Google OAuth scos pentru MVP (rămâne doar magic link). Schela de provider se poate readăuga ulterior.
   ],
