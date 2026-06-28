@@ -2,19 +2,13 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { AvatarInitials } from "@/components/avatar-initials";
-import { EditCoverBand } from "@/components/edit-cover-band";
+import { EditProfileHeader } from "@/components/edit-profile-header";
 import { auth } from "@/lib/auth";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { getUserProfile } from "@/server/repos/usersRepo";
 import { getUserRole } from "@/server/services/roleService";
 
-import {
-  AvatarForm,
-  CoverForm,
-  EditDetailsForm,
-  VerificationSection,
-} from "../profile-forms";
+import { EditDetailsForm, VerificationSection } from "../profile-forms";
 
 // Setările proprii de profil (editare). Vizualizarea publică e la /profile (read) și /profile/[userId].
 export default async function ProfileEditPage() {
@@ -49,32 +43,20 @@ export default async function ProfileEditPage() {
         <ArrowLeft className="size-3.5" /> Înapoi la profil
       </Link>
 
-      {/* Antet cu cover + avatar (preview live). Cover-ul se repoziționează trăgând direct de el. */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <EditCoverBand cover={cover} position={coverPosition} />
-        <div className="flex items-end gap-4 px-5 pb-4">
-          <div className="-mt-9">
-            <AvatarInitials
-              name={name}
-              imageUrl={image}
-              size={72}
-              className="border-4 border-card"
-            />
-          </div>
-          <div className="min-w-0 pb-1">
-            <div className="truncate text-lg font-bold">{name ?? "Profilul tău"}</div>
-            <div className="truncate font-mono text-[12px] text-muted-foreground">
-              {roleLabel}
-              {role.verificationStatus === "VERIFIED" && <span className="text-[#d99a2b]"> ★</span>}
-            </div>
-            {email && <div className="truncate text-[12px] text-muted-foreground">{email}</div>}
-          </div>
-        </div>
-      </div>
+      {/* Antet cu cover + avatar editabile „in place" (click pe imagine → schimbă/șterge). */}
+      <EditProfileHeader
+        name={name}
+        email={email}
+        roleLabel={roleLabel}
+        verified={role.verificationStatus === "VERIFIED"}
+        image={image}
+        cover={cover}
+        coverPosition={coverPosition}
+      />
 
-      {/* Carduri de editare — grid pe 2 coloane pe ecrane mari, mai puțin spațiu mort. */}
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
+      {/* Carduri de editare. */}
+      <div className="mt-5 flex flex-col gap-4">
+        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Detalii profil</h2>
           <p className="text-xs text-muted-foreground">
             Numele, titlul, secțiunea „Despre”, locația și website-ul apar pe profilul tău public.
@@ -89,16 +71,6 @@ export default async function ProfileEditPage() {
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Poză de profil</h2>
-          <AvatarForm current={image} />
-        </section>
-
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Imagine de cover</h2>
-          <CoverForm current={cover} />
-        </section>
-
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
           <h2 className="text-sm font-semibold">Rolul tău</h2>
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[12px] text-primary">
@@ -117,11 +89,14 @@ export default async function ProfileEditPage() {
             </a>{" "}
             cu rolul dorit și motivul.
           </p>
-        </section>
 
-        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
-          <h2 className="text-sm font-semibold">Verificarea rolului</h2>
-          <VerificationSection status={role.verificationStatus} />
+          {/* Verificarea rolului — integrată în „Rolul tău" (nu mai e card separat). */}
+          <div className="mt-1 border-t border-border pt-3">
+            <h3 className="mb-1.5 text-xs font-semibold text-muted-foreground">
+              Verificarea rolului
+            </h3>
+            <VerificationSection status={role.verificationStatus} />
+          </div>
         </section>
       </div>
     </main>
