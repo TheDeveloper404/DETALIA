@@ -103,59 +103,57 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         )}
       </div>
 
-      {/* Header de profil. */}
-      <div className="relative -mt-[46px] px-2">
-        <div className="flex flex-wrap items-end justify-between gap-5">
-          <div className="flex min-w-0 items-end gap-[18px]">
-            <span className="flex size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-[#d9cab6] font-mono text-[30px] text-muted-foreground">
-              {data.image ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={data.image} alt="" className="size-full object-cover" />
-              ) : (
-                initials(data.name)
-              )}
-            </span>
-            <div className="min-w-0 pb-1.5">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-[27px] font-extrabold tracking-tight">{data.name}</h1>
-                {data.verified && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f0e0b4] bg-[#fbf2da] px-2.5 py-1 font-mono text-[11.5px] text-[#9a7b1f]">
-                    <Star className="text-[#d99a2b]" /> Verificat
-                  </span>
-                )}
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
-                <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
-                  {data.roleLabel}
+      {/* Header de profil. Avatarul iese peste banner; numele/rolul stau SUB banner, pe fundal —
+          așa un cover închis sau aglomerat nu mai acoperă numele. */}
+      <div className="relative px-2">
+        <span className="-mt-[46px] flex size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-[#d9cab6] font-mono text-[30px] text-muted-foreground">
+          {data.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={data.image} alt="" className="size-full object-cover" />
+          ) : (
+            initials(data.name)
+          )}
+        </span>
+
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[27px] font-extrabold tracking-tight">{data.name}</h1>
+              {data.verified && (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f0e0b4] bg-[#fbf2da] px-2.5 py-1 font-mono text-[11.5px] text-[#9a7b1f]">
+                  <Star className="text-[#d99a2b]" /> Verificat
                 </span>
-                {data.location && (
-                  <span className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground">
-                    <Pin /> {data.location}
-                  </span>
-                )}
-                {data.website && (
-                  <a
-                    href={data.website.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[13.5px] text-primary underline-offset-2 hover:underline"
-                  >
-                    {data.website.label}
-                  </a>
-                )}
-              </div>
+              )}
+            </div>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
+              <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
+                {data.roleLabel}
+              </span>
+              {data.location && (
+                <span className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground">
+                  <Pin /> {data.location}
+                </span>
+              )}
+              {data.website && (
+                <a
+                  href={data.website.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[13.5px] text-primary underline-offset-2 hover:underline"
+                >
+                  {data.website.label}
+                </a>
+              )}
             </div>
           </div>
 
           {data.viewerIsOwner && (
-            <div className="flex items-center gap-2.5 pb-1.5">
-              <a
-                href={data.editHref}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
-              >
-                <Pencil /> Editează profil
-              </a>
-            </div>
+            <a
+              href={data.editHref}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
+            >
+              <Pencil /> Editează profil
+            </a>
           )}
         </div>
 

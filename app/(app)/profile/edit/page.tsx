@@ -1,9 +1,9 @@
 import { ArrowLeft } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { EditCoverBand } from "@/components/edit-cover-band";
 import { auth } from "@/lib/auth";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { getUserProfile } from "@/server/repos/usersRepo";
@@ -49,20 +49,9 @@ export default async function ProfileEditPage() {
         <ArrowLeft className="size-3.5" /> Înapoi la profil
       </Link>
 
-      {/* Antet cu cover + avatar (preview live al imaginilor curente). */}
+      {/* Antet cu cover + avatar (preview live). Cover-ul se repoziționează trăgând direct de el. */}
       <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="relative h-[120px] bg-gradient-to-br from-secondary to-[#ece1d3]">
-          {cover && (
-            <Image
-              src={cover}
-              alt=""
-              fill
-              sizes="768px"
-              className="object-cover"
-              style={{ objectPosition: `50% ${coverPosition}%` }}
-            />
-          )}
-        </div>
+        <EditCoverBand cover={cover} position={coverPosition} />
         <div className="flex items-end gap-4 px-5 pb-4">
           <div className="-mt-9">
             <AvatarInitials
@@ -106,7 +95,7 @@ export default async function ProfileEditPage() {
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5">
           <h2 className="text-sm font-semibold">Imagine de cover</h2>
-          <CoverForm current={cover} position={coverPosition} />
+          <CoverForm current={cover} />
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 sm:col-span-2">
