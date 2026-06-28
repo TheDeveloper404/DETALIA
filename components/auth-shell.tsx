@@ -105,14 +105,9 @@ export function AuthShell({
           {/* Coloana cu formular — logo de brand peste card. */}
           <div className="flex w-full justify-center">
             <div className="w-full max-w-[420px]">
-              <div className="mb-7 flex items-center gap-2.5">
-                <span aria-hidden className="inline-block size-[11px] rotate-45 bg-primary" />
-                <span
-                  className="font-extrabold text-foreground"
-                  style={{ letterSpacing: "0.2em", fontSize: 19 }}
-                >
-                  DETALIA
-                </span>
+              <div className="mb-7 flex items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
+                <img src="/logo.svg" alt="DETALIA" style={{ height: 26, width: "auto", display: "block" }} />
               </div>
               {children}
             </div>

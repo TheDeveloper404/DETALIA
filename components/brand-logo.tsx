@@ -6,7 +6,7 @@ import Link from "next/link";
 // `size` = înălțimea logo-ului în px. Aspect ~3.96 (logo orizontal: text + simbol).
 export function BrandLogo({
   href = "/",
-  size = 24,
+  size = 26,
   variant = "light",
 }: {
   href?: string;
