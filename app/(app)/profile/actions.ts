@@ -21,7 +21,9 @@ import { requestRoleVerification } from "@/server/services/roleService";
 
 // NOTĂ: un fișier „use server" poate exporta DOAR funcții async (Next 16). Starea inițială a formularelor
 // (`initialProfileState`) trăiește în `profile-forms.tsx`, nu aici. Tipul îl exportăm (tipurile se șterg).
-export type ProfileFormState = { error: string | null; ok: boolean };
+// `url` e populat doar de acțiunile de upload (avatar/cover) → URL-ul curat (reprocesat) pe care
+// clientul îl afișează după salvare. Restul acțiunilor îl lasă nedefinit.
+export type ProfileFormState = { error: string | null; ok: boolean; url?: string };
 
 const VERIFICATION_ERRORS: Record<string, string> = {
   NO_ROLE: "Nu ai încă un rol declarat.",
@@ -55,7 +57,8 @@ export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
   if (old && old !== processed.url) await deleteBlobs([old]);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
-  return { error: null, ok: true };
+  // Întoarcem URL-ul CURAT (originalul tocmai a fost șters) → clientul afișează imaginea corectă fără refresh.
+  return { error: null, ok: true, url: processed.url };
 }
 
 // Idem pentru imaginea de cover (banda de sus a profilului).
@@ -72,7 +75,7 @@ export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
   if (old && old !== processed.url) await deleteBlobs([old]);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
-  return { error: null, ok: true };
+  return { error: null, ok: true, url: processed.url };
 }
 
 // Șterge poza de profil: golește coloana + șterge blob-ul (best-effort). Reversibil prin re-upload.
