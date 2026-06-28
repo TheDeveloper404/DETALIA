@@ -15,7 +15,6 @@ import {
   deleteAvatar,
   deleteCover,
   saveAvatarUrl,
-  saveCoverPosition,
   saveCoverUrl,
   signOutAction,
   updateProfileDetailsAction,
@@ -64,8 +63,6 @@ function ImageUploadForm({
   okText,
   ctaLabel,
   shape,
-  initialPosition,
-  onSavePosition,
 }: {
   current: string | null;
   folder: string;
@@ -74,30 +71,13 @@ function ImageUploadForm({
   okText: string;
   ctaLabel: string;
   shape: "circle" | "wide";
-  initialPosition?: number;
-  onSavePosition?: (pos: number) => Promise<ProfileFormState>;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [picked, setPicked] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [savedUrl, setSavedUrl] = useState<string | null>(current);
-  const [pos, setPos] = useState<number>(initialPosition ?? 50);
   const [state, setState] = useState<ProfileFormState>(initialProfileState);
   const [busy, setBusy] = useState(false);
-
-  async function onSavePos() {
-    if (!onSavePosition) return;
-    setBusy(true);
-    setState(initialProfileState);
-    try {
-      const res = await onSavePosition(pos);
-      setState(res.ok ? { error: null, ok: true } : { error: res.error, ok: false });
-    } catch {
-      setState({ error: "Nu s-a putut salva poziția.", ok: false });
-    } finally {
-      setBusy(false);
-    }
-  }
 
   function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
@@ -166,28 +146,6 @@ function ImageUploadForm({
 
   const shown = previewUrl ?? savedUrl;
 
-  // Repoziționare LinkedIn-style: tragi imaginea direct în container, sus/jos. La eliberare se salvează.
-  const coverRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startY: number; startPos: number } | null>(null);
-
-  function onCoverPointerDown(e: React.PointerEvent) {
-    if (!onSavePosition || !shown) return;
-    dragRef.current = { startY: e.clientY, startPos: pos };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function onCoverPointerMove(e: React.PointerEvent) {
-    if (!dragRef.current) return;
-    const h = coverRef.current?.offsetHeight ?? 112;
-    // Tragi în jos → vezi partea de sus a imaginii → object-position scade.
-    const delta = ((e.clientY - dragRef.current.startY) / h) * 100;
-    setPos(Math.round(Math.min(100, Math.max(0, dragRef.current.startPos - delta))));
-  }
-  function onCoverPointerUp() {
-    if (!dragRef.current) return;
-    dragRef.current = null;
-    void onSavePos();
-  }
-
   return (
     <div className="flex flex-col gap-3">
       <Feedback error={state.error} ok={state.ok} okText={okText} />
@@ -235,30 +193,15 @@ function ImageUploadForm({
             />
           </div>
         ) : (
-          <div
-            ref={coverRef}
-            onPointerDown={onCoverPointerDown}
-            onPointerMove={onCoverPointerMove}
-            onPointerUp={onCoverPointerUp}
-            className={`relative h-36 w-full overflow-hidden rounded-lg border border-border bg-secondary ${
-              onSavePosition ? "cursor-grab touch-none active:cursor-grabbing" : ""
-            }`}
-          >
+          <div className="relative h-28 w-full overflow-hidden rounded-lg border border-border bg-secondary">
             <Image
               src={shown}
               alt=""
               fill
-              sizes="700px"
-              draggable={false}
-              className="select-none object-cover"
-              style={onSavePosition ? { objectPosition: `50% ${pos}%` } : undefined}
+              sizes="400px"
+              className="object-cover"
               unoptimized={!!previewUrl}
             />
-            {onSavePosition && (
-              <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-1 font-mono text-[10.5px] text-white">
-                trage sus/jos pentru a repoziționa
-              </span>
-            )}
           </div>
         )
       ) : (
@@ -287,13 +230,7 @@ export function AvatarForm({ current }: { current: string | null }) {
   );
 }
 
-export function CoverForm({
-  current,
-  position,
-}: {
-  current: string | null;
-  position: number;
-}) {
+export function CoverForm({ current }: { current: string | null }) {
   return (
     <ImageUploadForm
       current={current}
@@ -303,8 +240,6 @@ export function CoverForm({
       okText="Imaginea de cover a fost actualizată."
       ctaLabel="Încarcă cover"
       shape="wide"
-      initialPosition={position}
-      onSavePosition={saveCoverPosition}
     />
   );
 }
