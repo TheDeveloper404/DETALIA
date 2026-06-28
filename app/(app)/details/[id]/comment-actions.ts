@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import type { TargetType } from "@/server/domain/validation";
 import { addComment, deleteComment, editComment } from "@/server/services/commentService";
 
@@ -14,6 +15,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   BODY_REQUIRED: "Scrie ceva înainte de a trimite.",
   BODY_TOO_LONG: "Comentariul e prea lung (max 5000 de caractere).",
   NOT_FOUND: "Comentariul nu mai există sau nu îți aparține.",
+  RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
 };
 
 export async function addCommentAction(
@@ -22,6 +24,10 @@ export async function addCommentAction(
 ): Promise<AddCommentState> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED, ok: false };
+  }
 
   const tt = String(formData.get("targetType") ?? "DETAIL");
   const targetType: TargetType = tt === "SKETCH" ? "SKETCH" : "DETAIL";
@@ -49,6 +55,10 @@ export async function editCommentAction(
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+
   const res = await editComment({ userId: session.user.id, commentId, body });
   if (!res.ok) {
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
@@ -64,6 +74,10 @@ export async function deleteCommentAction(
 ): Promise<{ error: string | null }> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED };
+  }
 
   const res = await deleteComment({ userId: session.user.id, commentId });
   if (!res.ok) {

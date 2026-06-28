@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import { accept, createDraft, reject } from "@/server/services/sketchService";
 
 // Accept/respinge propunere — doar autorul detaliului-mamă (authz în service). Fără justificare.
@@ -15,6 +16,11 @@ async function review(formData: FormData, decision: "accept" | "reject") {
 
   const sketchId = String(formData.get("sketchId") ?? "");
   const detailId = String(formData.get("detailId") ?? "");
+
+  // SEC-01: decizia trimite email autorului schiței → limită per user; la depășire, no-op.
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    redirect(`/details/${detailId}`);
+  }
 
   if (decision === "accept") {
     await accept({ sketchId, actorUserId: session.user.id });
@@ -39,6 +45,11 @@ export async function startSketchAction(formData: FormData): Promise<void> {
   if (!session?.user?.id) redirect("/login");
 
   const detailId = String(formData.get("detailId") ?? "");
+
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    redirect(`/details/${detailId}`);
+  }
+
   const draft = await createDraft({ detailId, authorId: session.user.id });
   if (!draft.ok) {
     if (draft.error === "NO_ROLE") redirect("/onboarding");

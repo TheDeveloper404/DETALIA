@@ -19,7 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 // ───────────────────────────── Enum-uri ─────────────────────────────
-export const userStatus = pgEnum("user_status", ["INVITED", "ACTIVE", "SUSPENDED"]);
+export const userStatus = pgEnum("user_status", ["INVITED", "ACTIVE", "SUSPENDED", "DELETED"]);
 export const roleMain = pgEnum("role_main", [
   "PROIECTANT",
   "EXECUTANT",
