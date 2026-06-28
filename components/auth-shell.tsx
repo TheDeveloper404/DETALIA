@@ -114,17 +114,6 @@ export function AuthShell({
           </div>
         </div>
       </main>
-
-      <footer className="flex-none border-t border-border">
-        <div className="mx-auto flex w-full max-w-[var(--container-max)] flex-wrap items-center justify-between gap-4 px-6 py-5">
-          <span className="font-mono text-xs text-muted-foreground">
-            © {new Date().getFullYear()} DETALIA
-          </span>
-          <span className="text-[13px] text-muted-foreground">
-            Detaliul de execuție, pus la dezbatere pe roluri.
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }

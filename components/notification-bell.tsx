@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { markReadAction } from "@/app/(app)/notifications/actions";
+import { markOneReadAction, markReadAction } from "@/app/(app)/notifications/actions";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +75,7 @@ export function NotificationBell({
 }) {
   const [open, setOpen] = useState(false);
   const [allRead, setAllRead] = useState(false);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -95,13 +96,25 @@ export function NotificationBell({
     };
   }, [open]);
 
-  const unreadCount = allRead ? 0 : count;
+  const unreadCount = allRead
+    ? 0
+    : Math.max(
+        0,
+        count - notifications.filter((n) => n.unread && readIds.has(n.id)).length,
+      );
   const hasItems = notifications.length > 0;
 
   async function markAll() {
     setAllRead(true); // optimist
     await markReadAction();
     router.refresh();
+  }
+
+  // Clic pe o notificare → o marchează citită (optimist) + navighează (Link-ul gestionează ruta).
+  function markOne(id: string) {
+    setOpen(false);
+    setReadIds((prev) => new Set(prev).add(id));
+    void markOneReadAction(id).then(() => router.refresh());
   }
 
   return (
@@ -154,7 +167,7 @@ export function NotificationBell({
           {hasItems ? (
             <ul className="max-h-[70vh] divide-y divide-[#eee6da] overflow-y-auto">
               {notifications.map((n) => {
-                const unread = n.unread && !allRead;
+                const unread = n.unread && !allRead && !readIds.has(n.id);
                 const ts = TYPE_STYLE[n.type];
                 const row = (
                   <div
@@ -201,7 +214,7 @@ export function NotificationBell({
                 return (
                   <li key={n.id}>
                     {n.href ? (
-                      <Link href={n.href} onClick={() => setOpen(false)} className="block">
+                      <Link href={n.href} onClick={() => markOne(n.id)} className="block">
                         {row}
                       </Link>
                     ) : (

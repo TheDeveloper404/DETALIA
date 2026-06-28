@@ -69,7 +69,7 @@ export function DetailCard({
       {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. */}
       <Link
         href={href}
-        className="relative block aspect-[4/3] w-full shrink-0 border-b border-border bg-secondary sm:aspect-auto sm:w-[200px] sm:border-b-0 sm:border-r"
+        className="relative block aspect-[4/3] w-full shrink-0 self-stretch border-b border-border bg-secondary sm:w-[200px] sm:self-start sm:border-b-0 sm:border-r"
       >
         <Image
           src={detail.imageUrl}

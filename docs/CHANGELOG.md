@@ -4,7 +4,53 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
-## 2026-06-28
+## 2026-06-28 (seară — fix-uri UI + feed rail)
+
+### fix — CSP bloca uploadul de imagini (SEC-08 regresie)
+- PUT-urile de upload client→Blob merg la `https://vercel.com/api/blob/...`, domeniu lipsă din `connect-src` →
+  „Refused to connect", uploadul de poze (profil/cover/detaliu) pica. Adăugat `https://vercel.com` în `connect-src`
+  (`next.config.ts`). Asta era „SEC-08 de verificat pe preview" din handoff.
+
+### fix — imaginea cardului din feed creștea la Aprob/Dezaprob
+- Thumbnail-ul avea `sm:aspect-auto` + `fill` → urma înălțimea cardului; când apare stiva de validatori cardul
+  crește și imaginea se mărea. Acum aspect 4/3 fix + `sm:self-start` → rămâne 200×150 (`detail-card.tsx`).
+
+### fix — buton „Schițează peste detaliu" duplicat în empty state
+- În „Teancul de schițe", butonul din header apărea și în empty state lângă cel din centru. Header-ul apare acum
+  doar când teancul are schițe (`sketch-section.tsx`).
+
+### fix — notificarea rămânea necitită la clic pe ea
+- Clicul pe o notificare doar naviga; doar „Marchează toate" o marca citită. Adăugat marcare per-notificare:
+  `markOneRead` (repo, scoped pe recipient → fără IDOR) → `markNotificationRead` (service) → `markOneReadAction`
+  (action) → handler optimist în `notification-bell.tsx` (scade badge-ul + scoate punctul, apoi `router.refresh()`).
+
+### fix — footer scos de pe login/signup
+- Eliminat footerul din `auth-shell.tsx` (afecta ambele pagini).
+
+### feat(feed) — card „Schițe noi în teanc" în rail-ul din dreapta
+- Ultimele 4 schițe PUBLISHED din toată platforma (thumbnail + titlu detaliu + autor cu rol și steluță dacă e
+  verificat), link spre detaliul-mamă. `listRecentPublished` (repo) → `getRecentSketches` (service) → cablat în
+  `feed/page.tsx` + `feed-rail.tsx`. Apare doar dacă există schițe publicate. („În dezbatere acum" + „Autori
+  activi" existau deja în rail.)
+
+### SEC-09 — Audit dependențe: risk-acceptance (FAZA 2 securitate)
+- `npm audit` = 6 moderate, toate dev/build-time (esbuild via drizzle-kit; postcss bundle-uit în next), zero în
+  runtime-ul livrat. Deja pe latest la ambele (drizzle-kit 0.31.10, next 16.2.9) → niciun upgrade nu rezolvă;
+  `--force` = downgrade major inacceptabil. **Decizie: risk-acceptance, fără modificări** (vezi `SECURITATE.md §10`).
+
+### SEC-06 — Cleanup blob la înlocuire avatar/cover (FAZA 2 securitate)
+- La schimbarea pozei de profil/cover (`saveAvatarUrl`/`saveCoverUrl`), poza veche rămânea orfană în Blob. Acum
+  citim URL-ul vechi și îl ștergem (best-effort) după ce salvăm noul, dacă diferă.
+- Restul SEC-06 era deja acoperit: ștergere cont + strategie FK (anonimizare/tombstone păstrează rândul user →
+  `details.authorId`/`sketches.authorId` rămân valide) + cleanup blob la ștergere (deleteAvatar/deleteCover/cont).
+  *Export date (portabilitate GDPR) rămâne manual (cerere → admin).*
+
+### SEC-07 — Tranziție atomică la SEND schiță (FAZA 2 securitate)
+- Accept/reject erau deja atomice (`transitionFromPending`, guard `WHERE status='PENDING_ACCEPTANCE'`). Gap: **SEND**
+  (DRAFT→PENDING) folosea un update necondiționat → două SEND-uri concurente notificau autorul-mamă de 2 ori (email dublu).
+- Adăugat `transitionFromDraft` (guard atomic `WHERE id=? AND author_id=? AND status='DRAFT'`); `send()` notifică
+  DOAR dacă tranziția a prins rândul → notificare idempotentă fără outbox. Al doilea SEND → `INVALID_STATE`, fără email.
+- Curățat codul mort (`updateStatus`).
 
 ### SEC-08 — Security headers (FAZA 2 securitate)
 - `next.config.ts headers()`: CSP + `X-Content-Type-Options: nosniff` + `Referrer-Policy` + `X-Frame-Options: DENY`
