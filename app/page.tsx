@@ -203,11 +203,9 @@ export default function Home() {
             justifyContent: "space-between",
           }}
         >
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <span style={{ width: 9, height: 9, background: "#a9573a", transform: "rotate(45deg)", display: "inline-block" }} />
-            <span style={{ fontFamily: SANS, fontWeight: 800, letterSpacing: "0.2em", fontSize: 18, color: "#211d18" }}>
-              DETALIA
-            </span>
+          <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
+            <img src="/logo.svg" alt="DETALIA" style={{ height: 26, width: "auto", display: "block" }} />
           </Link>
           <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
             <Link href="/login" className="dc-link" style={{ fontSize: 14.5, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
@@ -494,9 +492,9 @@ export default function Home() {
           }}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ width: 9, height: 9, background: "#a9573a", transform: "rotate(45deg)", display: "inline-block" }} />
-              <span style={{ fontFamily: SANS, fontWeight: 800, letterSpacing: "0.2em", fontSize: 17, color: "#faf6ef" }}>DETALIA</span>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
+              <img src="/logo-dark.svg" alt="DETALIA" style={{ height: 24, width: "auto", display: "block" }} />
             </div>
             <span style={{ fontSize: 14, color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
           </div>

@@ -53,19 +53,9 @@ export default async function OnboardingPage() {
             justifyContent: "space-between",
           }}
         >
-          <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span
-              style={{
-                width: 9,
-                height: 9,
-                background: "#a9573a",
-                transform: "rotate(45deg)",
-                display: "inline-block",
-              }}
-            />
-            <span style={{ fontWeight: 800, letterSpacing: "0.2em", fontSize: 18, color: "#211d18" }}>
-              DETALIA
-            </span>
+          <span style={{ display: "flex", alignItems: "center" }}>
+            {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
+            <img src="/logo.svg" alt="DETALIA" style={{ height: 24, width: "auto", display: "block" }} />
           </span>
           {email && (
             <span
