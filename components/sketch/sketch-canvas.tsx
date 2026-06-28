@@ -363,8 +363,8 @@ export const SketchCanvas = forwardRef<
     return () => c.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Arată conturul de selecție doar în modul text, când nu tastezi.
-  const selForDraw = tool === "text" && !textDraft ? selected : null;
+  // Conturul de selecție apare în modul de selecție (mouse neutru sau tool Text), când nu tastezi.
+  const selForDraw = (tool === null || tool === "text") && !textDraft ? selected : null;
   useEffect(() => {
     redraw(present, undefined, selForDraw);
   }, [dims, present, redraw, selForDraw]);
@@ -446,11 +446,12 @@ export const SketchCanvas = forwardRef<
   }
 
   function onPointerDown(e: React.PointerEvent) {
-    if (!tool) return; // mouse neutru (niciun tool) → canvas-ul nu reacționează
     const p = normPoint(e);
-    if (tool === "text") {
-      // Tastezi deja o casetă → orice click o fixează și DESELECTEAZĂ tool-ul (mouse neutru — NU
-      // deschide alta, nu trece pe creion). Ca să adaugi alt comentariu, reselectezi tool-ul Text.
+    // Mouse neutru (tool null) SAU tool Text = mod de SELECȚIE: poți prinde/muta un text existent
+    // și apare bara de editare (poziție/mărime/editare). Diferența: doar tool-ul Text deschide o casetă
+    // nouă la click pe gol; în neutru, click pe gol doar deselectează.
+    if (tool === null || tool === "text") {
+      // Tastezi deja o casetă → orice click o fixează și deselectează tool-ul (mouse neutru).
       if (textDraft) {
         commitText();
         selectTool(null);
@@ -476,9 +477,9 @@ export const SketchCanvas = forwardRef<
           }
         }
       }
-      // Click pe gol (fără casetă activă) → deschide o casetă nouă aici.
+      // Click pe gol: tool Text → deschide o casetă nouă; neutru → doar deselectează.
       setSelected(null);
-      setTextDraft({ x: p[0], y: p[1], value: "" });
+      if (tool === "text") setTextDraft({ x: p[0], y: p[1], value: "" });
       return;
     }
     canvasRef.current?.setPointerCapture(e.pointerId);
