@@ -13,11 +13,12 @@
 // NU importă `node:crypto` (sau alt API node-only) → sigur și în runtime edge (ex. `proxy.ts`).
 // Hash-uirea unui identificator sensibil se face de apelant (vezi `hashEmail`/hashing din `lib/rate-limit.ts`).
 
-export type AuditSeverity = "info" | "warning";
+export type AuditSeverity = "info" | "warning" | "error";
 
 // Evenimente cunoscute (extinde pe măsură ce apar fluxuri: suspendări, decizii admin etc.).
 export type AuditEvent =
   | "rate_limited" // cotă depășită (auth/mutație/upload/creare detaliu) — semnal de abuz/volum anormal
+  | "rate_limit_unavailable" // Redis indisponibil/outage — limiterul nu a putut decide (fail-open/closed după mediu)
   | "access_denied_suspended"; // cont non-ACTIVE a încercat o rută protejată (SEC-04)
 
 export function audit(

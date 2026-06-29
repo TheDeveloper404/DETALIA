@@ -23,6 +23,14 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   Tokenul rămâne în istoricul git dar e neutralizat prin revocare (e session token).
 - **Gap CI închis:** `ci.yml` rulează acum **secret scan (gitleaks)** pe tot istoricul + **`npm audit --audit-level=high`**
   (cele 6 moderate = risk-acceptance MVP; high/critical blochează). Aliniază realitatea cu `SECURITATE.md` SEC-09/10/14.
+- **PII verificare rol (SEC-05) închis pe HOLD:** `requestVerificationAction` neutralizat la nivel de server —
+  păstrează gate-ul de auth dar NU mai citește/persistă dovada (PII fără retenție/review/limită). UI-ul era deja ascuns
+  (`VerificationSection` = „nedisponibil"). Schela `requestRoleVerification` rămâne în service pentru re-activare.
+- **Rate-limit fail-closed în producție:** `lib/rate-limit.ts` — lipsă env Upstash sau outage Redis ⇒ **blochează**
+  cererile sensibile în prod (un control de securitate nu se dezactivează tăcut), **fail-open în dev/preview**. Escape
+  hatch `RATE_LIMIT_FAIL_OPEN=true`. Audit `rate_limit_unavailable` la outage. `AuditSeverity` capătă `"error"`.
+- **Rămase din audit (NU cod):** `trustHost` (bifă la poarta §11) · 6 deps moderate (risk-acceptance, deja pe latest,
+  fix = downgrade major) · vezi handoff pentru detalii.
 
 ---
 
