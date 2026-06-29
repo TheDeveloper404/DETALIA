@@ -117,7 +117,7 @@ export async function listTopAuthors(limit: number) {
 // Media (avatar + cover) pentru ștergerea blob-urilor la ștergerea contului.
 export async function getUserMedia(userId: string) {
   const [row] = await db
-    .select({ image: users.image, coverImage: users.coverImage })
+    .select({ image: users.image, coverImage: users.coverImage, coverPosition: users.coverPosition })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
