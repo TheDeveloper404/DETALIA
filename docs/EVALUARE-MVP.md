@@ -10,19 +10,19 @@
 
 ## Verdict
 
-**MVP prod-ready: ~88%.** Funcționalul și securitatea de bază sunt acolo. Restul până la 100% e **călire**, nu
-construcție: accesibilitate, poarta finală de securitate pe staging (§11), teste de integrare/E2E, smoke-test.
-Niciun datorie tehnică structurală. Riscul de lansare nu e în cod, ci în lipsa validării end-to-end.
+**MVP prod-ready: ~91%** *(ridicat 2026-06-29 — E2E verde + §11c igienă închisă).* Funcționalul și securitatea
+sunt acolo, validate end-to-end pe preview. Rămas până la 100%: **poarta finală §11** (manuală) și smoke-test;
+accesibilitatea = pe HOLD (decizie Liviu, nu blochează). Niciun datorie tehnică structurală.
 
 | Capitol | Notă | Direcția |
 |---|---|---|
 | Securitate | 9.5/10 | doar poarta §11 manuală |
 | Performanță | 8/10 | profilare la date reale |
 | Scalabilitate | 8.5/10 | OK pentru fază |
-| Clean architecture / principii | 9/10 | menținere |
-| Testare | 6.5/10 | **cea mai mare pârghie** |
+| Clean architecture / principii | 9.5/10 | §11c igienă închisă |
+| Testare | 8/10 | E2E verde; rămâne schiță + integrare |
 | Observabilitate | 7/10 | alerte + (later) Sentry |
-| Accesibilitate | 5/10 | **necesar înainte de public** |
+| Accesibilitate | 5/10 | **PE HOLD** (decizie Liviu) |
 
 ---
 
@@ -33,7 +33,7 @@ Niciun datorie tehnică structurală. Riscul de lansare nu e în cod, ci în lip
 centralizată, audit trail fără PII, ștergere cont GDPR. Acoperit cu teste. FAZA 1+2+3 (SEC-01..14, mai puțin SEC-05
 HOLD) închise.
 
-✅ **CSP nonce** (2026-06-29) + ✅ **erori silențioase loggate** (§11c #4, 2026-06-29) — făcute, vezi CHANGELOG.
+✅ **CSP nonce** + ✅ **erori silențioase loggate** + ✅ **§11c igienă #1/#2/#3/#5** (toate 2026-06-29) — făcute, vezi CHANGELOG.
 
 **Cum ajunge la 10 (rămas):**
 1. Rulează **poarta finală §11** pe staging: 3 conturi (autor / străin / suspendat), IDOR manual pe fiecare server
@@ -80,25 +80,24 @@ izolat în `server/` → extragere spre API separat fără rescriere.
 **De ce:** stratificare curată (domain pur → services → repos → UI subțire), zero business în handlere, DRY/KISS,
 glosar de domeniu consecvent, docs + changelog disciplinate.
 
-**Cum ajunge la 10:**
-1. **§11c #1** — mută profile actions prin `profileService` (acum lovesc direct `usersRepo`).
-2. **§11c #2** — decide pe `zod`: adoptă-l pentru validările din `domain` (scheme unice) sau scoate-l din deps.
-3. **§11c #3** — afișează validările istorice cu `roleSnapshot` (fallback la rolul curent doar pentru cele vechi).
+**Cum ajunge la 10:** ✅ **§11c #1/#2/#3/#5 făcute (2026-06-29, vezi CHANGELOG)** — profile actions prin
+`profileService`, `zod` scos, validări istorice cu `roleSnapshot`, `maxLength` pe textarea + loading states.
+Igiena de cod e închisă; restul drumului spre 10 = doar rafinări marginale pe măsură ce crește baza de cod.
 
 ---
 
-## Testare — 6.5/10  *(cea mai mare pârghie de creștere)*
+## Testare — 8/10  *(ridicat 2026-06-29 — E2E verde)*
 
-**De ce:** unit + domain + servicii (cu repo-uri mock) solide (~66 aserțiuni pe căile critice). DAR zero integrare
-cu DB real și zero E2E (Playwright instalat, nefolosit). Verde la unit ≠ verde end-to-end.
+**De ce:** unit + domain + servicii (cu repo-uri mock) solide (~66 aserțiuni) **+ E2E Playwright VERDE 15/15 pe
+preview** (9 public + 6 authed): landing/auth UI, deny-by-default, 404, feed authed, profil, **validarea pe roluri**
+(aprob 1 click + dezaprob cu justificare → comentariu), comentariu. Authed via sesiune seedată în DB (fără bypass în
+producție). E2E-ul a și prins un drift real (`users.cover_position` lipsă pe `preview/dev`). Vezi `e2e/README.md`.
 
-**Cum ajunge la 8-9:**
-1. **E2E Playwright** pe fluxurile critice: signup→magic-link→onboarding→feed; creare detaliu; validare (aprob/
-   dezaprob cu justificare); schiță draft→send→accept→teanc.
-2. **Teste de integrare** handler→service→repo pe o bază de test (Neon branch dedicat) — prinde ce mock-urile ascund
-   (constrângeri DB, cascade, polimorfism).
-3. **Teste de securitate E2E**: IDOR pe fiecare action cu 3 conturi, deny-by-default pe rute, non-enumerare 401/403.
-4. **CI**: rulează testele pe fiecare PR (acum CI face doar type-check + lint + build).
+**Cum ajunge la 9-10:**
+1. **E2E pe schiță** draft→send→accept→teanc — rămas (flaky pe canvas, necesită helper de stroke-uri).
+2. **Teste de integrare** handler→service→repo pe o bază de test — prinde ce mock-urile ascund (constrângeri DB,
+   cascade, polimorfism). E2E acoperă acum parțial asta prin fluxul real pe preview.
+3. **CI**: rulează testele pe fiecare PR (acum CI face doar type-check + lint + build); E2E poate rula pe preview cu bypass.
 
 ---
 
@@ -114,9 +113,10 @@ amânat) și fără dashboard de alerte încă.
 
 ---
 
-## Accesibilitate — 5/10  *(necesar înainte de acces public real)*
+## Accesibilitate — 5/10  *(PE HOLD — decizie Liviu 2026-06-29)*
 
-**De ce:** singurul capitol neatins, marcat „pe later".
+**De ce:** singurul capitol neatins. NU e cerută de client (evaluare internă) și nu e critică acum → **pusă pe HOLD**,
+nu se implementează în această fază. Lista de mai jos rămâne ca plan de reluare.
 
 **Cum ajunge la 8-9:**
 1. **Contrast** AA pe text/butoane (verifică paleta caldă pe fundalurile crem).
@@ -129,8 +129,9 @@ amânat) și fără dashboard de alerte încă.
 
 ## Ordinea recomandată (cost/impact)
 
-1. **Accesibilitate minimă** — blochează accesul public, efort mic.
-2. **E2E Playwright** pe fluxurile critice — cea mai mare pârghie de încredere.
-3. **Poarta de securitate §11** pe staging — verdict APPROVED.
-4. **Profilare feed + buget perf** — înainte de creștere.
-5. Restul (§11c, Sentry, alerte, load-test) — pe măsură ce apar useri reali.
+1. **Poarta de securitate §11** pe preview — verdict APPROVED (singurul lucru între noi și „gata de lansare").
+2. **Smoke-test vizual** pe preview.
+3. **Profilare feed + buget perf** — înainte de creștere.
+4. Restul (E2E schiță, Sentry, alerte, load-test) — pe măsură ce apar useri reali.
+
+> ✅ **Făcute 2026-06-29:** E2E Playwright (verde pe preview), §11c igienă cod. **HOLD:** accesibilitate (decizie Liviu).
