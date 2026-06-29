@@ -4,6 +4,19 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-29 — E2E: suită VERDE pe preview (15/15) + fix-uri selectoare
+
+### test(e2e) — rulat pe preview, toate verzi
+- 9 public + 6 authed = **15/15 verzi** pe preview-ul de `dev`. Fix-uri de selectoare descoperite la rulare:
+  `CardTitle` e `<div>` (nu heading) → `getByText`; 404 testat sub prefix public (`/signup/...`, altfel poarta
+  deny-by-default redirectează la `/login`); `getByRole('button',{name:'Aprob'})` prindea și „Dez**aprob**" → `exact:true`.
+- **Drift DB prins de E2E:** `users.cover_position` lipsea pe ramura Neon `preview/dev` → reparat manual
+  (`ALTER TABLE users ADD COLUMN IF NOT EXISTS cover_position integer NOT NULL DEFAULT 50;`). Cod neatins.
+- Rulare necesită `VERCEL_AUTOMATION_BYPASS_SECRET` în `.env.e2e` (preview-urile = Deployment Protection); headerul
+  `x-vercel-protection-bypass` e trimis automat din `playwright.config.ts`.
+
+---
+
 ## 2026-06-29 — E2E Playwright: fluxuri authed (increment 2)
 
 ### test(e2e) — autentificare via sesiune seedată în DB + fluxuri authed
