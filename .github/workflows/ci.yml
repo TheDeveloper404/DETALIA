@@ -1,6 +1,7 @@
 name: CI
 
-# Verifica la fiecare push SI PR pe dev / main: type-check + lint + test (vitest) + build.
+# Verifica la fiecare push SI PR pe dev / main: secret scan (gitleaks) + npm audit (high/critical)
+# + type-check + lint + test (vitest) + build.
 # Teste verzi nu inseamna build verde - vitest ignora erorile de tip; build-ul prinde ce pica la deploy.
 # Testele = unit/domain/securitate (repo-uri mock, fara DB/secrete). E2E NU ruleaza in CI (cere preview + bypass).
 # Pre-scaffold (fara package.json) ruleaza gol si trece - devine activ automat dupa Faza 0.
@@ -17,6 +18,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          # Istoric complet → secret scanning vede toate commit-urile, nu doar HEAD.
+          fetch-depth: 0
+
+      # Scanare de secrete pe tot istoricul + diff-ul PR-ului (SEC-10). Ar fi prins tokenul
+      # de sesiune comis în e2e/.auth/. Licență cerută DOAR pe conturi de organizație; pe cont
+      # personal rulează liber. Rulează indiferent de scaffold (fișierele există mereu).
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Detectează proiect scaffold-at
         id: detect
@@ -37,6 +49,12 @@ jobs:
       - name: Install
         if: steps.detect.outputs.ready == 'true'
         run: npm ci
+
+      # Fail DOAR pe high/critical → cele 6 moderate (postcss/esbuild) rămân risk-acceptance MVP,
+      # dar orice vulnerabilitate nouă high/critical blochează PR-ul.
+      - name: Audit dependențe
+        if: steps.detect.outputs.ready == 'true'
+        run: npm audit --audit-level=high
 
       - name: Type-check
         if: steps.detect.outputs.ready == 'true'

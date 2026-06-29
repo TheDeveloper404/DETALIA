@@ -4,6 +4,28 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-29 — fix-uri UX (profil/detaliu/feed) + remediere audit securitate (Codex)
+
+### fix(ui) — câteva fix-uri de interfață
+- `profile-view.tsx`: buton „Adaugă detaliu" în empty state-ul tab-ului Detalii (doar pe profilul propriu);
+  cardul de detaliu afișează acum imaginea 2D (`details.imageUrl`), nu mai e placeholder gol.
+- `details/[id]/page.tsx`: scos `max-w-[64ch]` de pe descriere → umple lățimea, fără gol lateral.
+- `detail-card.tsx`: rândul de avataruri validatori are înălțime rezervată (`h-6`) → cardul nu mai „crește"
+  când treci de la 0 validări la ≥1 (Aprob/Dezaprob).
+
+### fix(auth) — eroarea de signup rămâne pe /signup
+- `auth-actions.ts`: `signIn` cu `redirect: false` → citim `?error` din URL-ul întors și redirectăm pe `authPath`,
+  în loc ca Auth.js să sară singur pe `pages.error` (=/login). Bug: o eroare la signup ducea userul pe login.
+
+### security — remediere audit read-only (Codex)
+- **CRITICAL închis:** `e2e/.auth/state.json` + `seed.json` (cookie de sesiune real) erau urmărite de git →
+  scoase din tracking + `e2e/.auth/` adăugat în `.gitignore`. Sesiunea compromisă revocată din DB (`preview/dev`).
+  Tokenul rămâne în istoricul git dar e neutralizat prin revocare (e session token).
+- **Gap CI închis:** `ci.yml` rulează acum **secret scan (gitleaks)** pe tot istoricul + **`npm audit --audit-level=high`**
+  (cele 6 moderate = risk-acceptance MVP; high/critical blochează). Aliniază realitatea cu `SECURITATE.md` SEC-09/10/14.
+
+---
+
 ## 2026-06-29 — header auth aliniat la landing + fix hidratare toploader
 
 ### fix(ui) — header login/signup/verify-request aliniat la landing
