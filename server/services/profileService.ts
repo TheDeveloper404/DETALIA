@@ -1,10 +1,16 @@
-// Service profil — construiește datele pentru ProfileView (header + stats + taburi), pe date REALE.
-// Stats/activitate derivate din tabelele existente (vezi profileRepo). Citiri (fără mutații).
+// Service profil — citiri (datele pentru ProfileView) + mutații (avatar/cover/poziție/detalii).
+// Toată logica de business (validare, reprocesare imagine, cleanup blob, scriere DB) stă AICI;
+// Server Actions rămân subțiri (extrag input din FormData → deleagă → revalidatePath).
 import type {
   ProfileActivityItem,
   ProfileViewData,
 } from "@/components/profile-view";
+import { reprocessBlobImage } from "@/lib/image-processing";
+import { deleteBlobs } from "@/lib/storage";
+import { normalizeWebsite } from "@/lib/url";
+import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
+import type { RoleSnapshot } from "@/server/domain/validation";
 import {
   getContributionCounts,
   getProfileStats,
@@ -12,7 +18,15 @@ import {
   listAuthorDetails,
   listAuthorSketches,
 } from "@/server/repos/profileRepo";
-import { getPublicProfile } from "@/server/repos/usersRepo";
+import {
+  getPublicProfile,
+  getUserMedia,
+  getUserProfile,
+  updateUserCoverImage,
+  updateUserCoverPosition,
+  updateUserDetails,
+  updateUserImage,
+} from "@/server/repos/usersRepo";
 
 const ACTIVITY_LIMIT = 20;
 const DAY_MS = 86_400_000;
@@ -109,13 +123,16 @@ export async function getProfileView(
   const stamped: Stamped[] = [];
 
   for (const v of activity.vRows) {
+    // Rolul afișat = snapshot-ul de la momentul votului; doar validările vechi (fără snapshot) cad
+    // pe rolul curent. Altfel schimbarea rolului ar rescrie retroactiv istoricul (§11c #3).
+    const snap = v.roleSnapshot as RoleSnapshot | null;
     stamped.push({
       at: v.createdAt,
       item: {
         id: `v-${v.id}`,
         kind: v.position === "APPROVE" ? "approve" : "disapprove",
         target: v.detailTitle ?? v.sketchParentTitle ?? "un detaliu",
-        asRole: roleLabel,
+        asRole: snap ? roleLabelOf(snap.roleMain, snap.subRole) : roleLabel,
         time: relativeTime(v.createdAt),
       },
     });
@@ -175,4 +192,88 @@ export async function getProfileView(
     contributions,
     contributionsTotal,
   };
+}
+
+// ---- Mutații profil ----------------------------------------------------------------------------
+// Limite de lungime pentru câmpurile de text (domeniu, nu UI).
+const NAME_MAX = 100;
+const HEADLINE_MAX = 120;
+const ABOUT_MAX = 1000;
+const LOCATION_MAX = 120;
+const WEBSITE_MAX = 200;
+
+// trim + plafon; gol → null (semantica „șters" în DB).
+function clip(raw: string, max: number): string | null {
+  const s = raw.trim();
+  return s.length === 0 ? null : s.slice(0, max);
+}
+
+export type SaveImageResult = { ok: true; url: string } | { ok: false };
+
+// Persistă poza de profil/cover DUPĂ ce clientul a urcat fișierul direct în Blob. Acceptăm DOAR un URL
+// de Blob al store-ului nostru (anti-SSRF). SEC-02: re-encodare (strip EXIF/GPS) + plafon. SEC-06: cleanup orfan.
+export async function setAvatar(userId: string, url: string): Promise<SaveImageResult> {
+  if (!BLOB_URL_RE.test(url)) return { ok: false };
+  const processed = await reprocessBlobImage(url, "avatars");
+  if (!processed.ok) return { ok: false };
+  const old = (await getUserMedia(userId))?.image ?? null;
+  await updateUserImage(userId, processed.url);
+  if (old && old !== processed.url) await deleteBlobs([old]);
+  return { ok: true, url: processed.url };
+}
+
+export async function setCover(userId: string, url: string): Promise<SaveImageResult> {
+  if (!BLOB_URL_RE.test(url)) return { ok: false };
+  const processed = await reprocessBlobImage(url, "covers");
+  if (!processed.ok) return { ok: false };
+  const old = (await getUserMedia(userId))?.coverImage ?? null;
+  await updateUserCoverImage(userId, processed.url);
+  if (old && old !== processed.url) await deleteBlobs([old]);
+  return { ok: true, url: processed.url };
+}
+
+// Șterge poza de profil/cover: golește coloana + șterge blob-ul (best-effort). Reversibil prin re-upload.
+export async function removeAvatar(userId: string): Promise<void> {
+  const profile = await getUserProfile(userId);
+  if (profile?.image) await deleteBlobs([profile.image]);
+  await updateUserImage(userId, null);
+}
+
+export async function removeCover(userId: string): Promise<void> {
+  const profile = await getUserProfile(userId);
+  if (profile?.coverImage) await deleteBlobs([profile.coverImage]);
+  await updateUserCoverImage(userId, null);
+}
+
+// Poziția verticală a cover-ului (0..100). Clamp pe server — frontend-ul nu e sursă de adevăr.
+export async function setCoverPosition(userId: string, position: number): Promise<void> {
+  const clamped = Math.round(Math.min(100, Math.max(0, Number.isFinite(position) ? position : 50)));
+  await updateUserCoverPosition(userId, clamped);
+}
+
+export type UpdateDetailsResult =
+  | { ok: true }
+  | { ok: false; reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" };
+
+// Editează câmpurile de text ale profilului (NU rolul, definitiv). Numele obligatoriu; restul opțional.
+// SEC-03: website cu allowlist http/https la INPUT (nu doar la randare). Primește string-uri brute din action.
+export async function updateProfileDetails(
+  userId: string,
+  input: { name: string; headline: string; about: string; location: string; website: string },
+): Promise<UpdateDetailsResult> {
+  const name = input.name.trim();
+  if (name.length === 0) return { ok: false, reason: "EMPTY_NAME" };
+  if (name.length > NAME_MAX) return { ok: false, reason: "NAME_TOO_LONG" };
+
+  const websiteRes = normalizeWebsite(clip(input.website, WEBSITE_MAX));
+  if (!websiteRes.ok) return { ok: false, reason: "INVALID_WEBSITE" };
+
+  await updateUserDetails(userId, {
+    name,
+    headline: clip(input.headline, HEADLINE_MAX),
+    about: clip(input.about, ABOUT_MAX),
+    location: clip(input.location, LOCATION_MAX),
+    website: websiteRes.value,
+  });
+  return { ok: true };
 }

@@ -16,6 +16,7 @@ next-env.d.ts
 .env.*.local
 .env.development
 .env.production
+.env.e2e
 # .env.example SE comite (template fără valori reale) — vezi mai jos că NU e ignorat
 
 # === Vercel ===

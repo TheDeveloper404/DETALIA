@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
 
@@ -68,6 +69,7 @@ export function CommentsSection({
             name="body"
             required
             rows={2}
+            maxLength={COMMENT_MAX_LENGTH}
             placeholder="Adaugă la dezbatere — părerea ta apare cu rolul tău lângă nume…"
           />
           {state.error && (
@@ -190,6 +192,7 @@ function CommentItem({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               rows={3}
+              maxLength={COMMENT_MAX_LENGTH}
               autoFocus
             />
             <div className="mt-2 flex items-center gap-2">
