@@ -62,8 +62,12 @@ export default auth(async (req) => {
   if (isLoggedIn && userId) {
     const onOnboarding = pathname === "/onboarding";
     const hasRole = await userHasRole(userId);
+    // Excepție la poarta de rol: uploadul de imagine (avatar/cover) se face CHIAR în onboarding,
+    // înainte de a avea rol. Ruta `/api/blob/upload` cere oricum sesiune (deny-by-default în handler),
+    // deci e sigur s-o lăsăm să treacă fără rol — altfel poza din onboarding e redirectată (302) și eșuează.
+    const onboardingAllowedApi = pathname === "/api/blob/upload";
     // Logat fără rol, oriunde în zona protejată → trimis să-și declare rolul întâi.
-    if (!hasRole && !onOnboarding && !isPublic) {
+    if (!hasRole && !onOnboarding && !isPublic && !onboardingAllowedApi) {
       return Response.redirect(new URL("/onboarding", origin));
     }
     // Logat cu rol care nimerește pe onboarding → direct în feed (nu mai are ce căuta acolo).

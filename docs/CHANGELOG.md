@@ -17,6 +17,11 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - `auth-actions.ts`: `signIn` cu `redirect: false` → citim `?error` din URL-ul întors și redirectăm pe `authPath`,
   în loc ca Auth.js să sară singur pe `pages.error` (=/login). Bug: o eroare la signup ducea userul pe login.
 
+### fix(onboarding) — uploadul de avatar/cover în onboarding nu mai e blocat
+- `proxy.ts`: poarta de rol redirecta `POST /api/blob/upload` către `/onboarding` (302) fiindcă userul încă n-are rol
+  în timpul onboarding-ului → poza eșua („Încărcarea imaginii a eșuat"). Excepție: `/api/blob/upload` trece prin poarta
+  de rol (ruta cere oricum sesiune în handler, deci sigur). Descoperit la testul de magic link pe `detalia.ro` live.
+
 ### security — remediere audit read-only (Codex)
 - **CRITICAL închis:** `e2e/.auth/state.json` + `seed.json` (cookie de sesiune real) erau urmărite de git →
   scoase din tracking + `e2e/.auth/` adăugat în `.gitignore`. Sesiunea compromisă revocată din DB (`preview/dev`).
