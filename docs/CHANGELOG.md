@@ -4,6 +4,86 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-29 — E2E Playwright: fluxuri authed (increment 2)
+
+### test(e2e) — autentificare via sesiune seedată în DB + fluxuri authed
+- `playwright.config.ts`: restructurat în 3 proiecte — `public` (anonim, fără DB), `setup` (`auth.setup.ts`),
+  `authed` (`authed.spec.ts`, `dependencies: ['setup']`, `storageState` din setup).
+- `e2e/auth.setup.ts`: seedează în DB-ul mediului-țintă user ACTIVE + rol (PROIECTANT/Arhitect) + rând în
+  `sessions` + cookie de sesiune Auth.js (`__Secure-authjs.session-token` pe https, `authjs.session-token` pe http)
+  → `storageState`. **ZERO cod de bypass în producție** (modelul de sesiune Auth.js, doar pre-populat). Seedează și
+  un detaliu țintă (imageUrl pe host `*.public.blob.vercel-storage.com` ca next/image să nu dea 500); id în `seed.json`.
+- `e2e/authed.spec.ts`: feed authed, profil propriu, **validarea pe roluri** (Aprob 1 click = upsert idempotent;
+  Dezaprob cu justificare obligatorie → comentariu argumentat, serial), comentariu pe detaliu.
+- `e2e/README.md`: actualizat (necesită `DATABASE_URL` al mediului-țintă în `.env.e2e`). Schița = TODO (canvas).
+
+---
+
+## 2026-06-29 — E2E Playwright: scaffold + fluxuri publice (increment 1)
+
+### test(e2e) — fundație Playwright targetată pe mediu pornit (preview)
+- `@playwright/test@^1.61.0` + scripturi `e2e` / `e2e:ui`. `playwright.config.ts`: `baseURL` din `E2E_BASE_URL`
+  (din `.env.e2e`, negitat), **fără `webServer`** (rulează pe preview-ul deja pornit), chromium, anonim implicit.
+- `e2e/public.spec.ts`: fluxuri PUBLICE fără auth — landing + CTA signup/login, formular `/login` și `/signup`
+  (magic link), link-uri reciproce, `/verify-request` brandat, **poarta deny-by-default** (rută protejată ca
+  anonim → `/login?callbackUrl=`), 404. NU trimite signup-ul (ar declanșa email real + rate limit).
+- `e2e/README.md`: cum se rulează (`npx playwright install chromium`, `E2E_BASE_URL`, `npm run e2e`).
+- `.gitignore`: `.env.e2e` (artefactele Playwright erau deja ignorate).
+- **Următor increment:** fluxuri authed via sesiune seedată în DB (`globalSetup` inserează rând în `sessions` +
+  cookie, fără cod de bypass în producție). `HUMAN_RUNS_TESTS` → Liviu rulează.
+
+---
+
+## 2026-06-29 — §11c igienă cod închisă (#1/#2/#3/#5)
+
+### refactor(profile) — §11c #1: mutații prin profileService
+- `server/services/profileService.ts`: adăugate mutațiile `setAvatar`/`setCover`/`removeAvatar`/`removeCover`/
+  `setCoverPosition`/`updateProfileDetails` (validare + reprocesare imagine SEC-02 + cleanup blob SEC-06 + allowlist
+  website SEC-03 + scriere DB). `app/(app)/profile/actions.ts` deleagă acum la service și rămâne subțire (extrage
+  FormData → service → revalidatePath + mapare erori). Comportament identic, doar mutat stratul.
+
+### chore(deps) — §11c #2: scos zod nefolosit
+- `zod` (zero importuri în cod) eliminat din `package.json` + `package-lock.json`.
+
+### fix(profile) — §11c #3: rol istoric corect în activity
+- `server/repos/profileRepo.ts` (`listAuthorActivity`) aduce `roleSnapshot`; `profileService` afișează rolul de la
+  momentul votului, cu fallback la rolul curent DOAR pentru validările vechi fără snapshot. Schimbarea rolului nu mai
+  rescrie retroactiv istoricul propriu. (Afișarea poziţiilor pe detaliu folosea deja snapshot-ul.)
+
+### fix(ux) — §11c #5: maxLength pe textareele de justificare/comentariu
+- `maxLength={COMMENT_MAX_LENGTH}` (5000) pe textareele din `validation-panel`, `feed-validation-actions` și
+  `comments-section` (creare + editare) → utilizatorul nu mai poate depăși limita server. Loading states existau deja.
+
+---
+
+## 2026-06-29 — fix UX flash/welcome + verify-request brandat + copyright feed + runbook §11
+
+### fix(ux) — eliminat flash-ul „blank" la navigare + welcome o dată per dispozitiv
+- `app/template.tsx` + `globals.css`: scos fade-ul `.dt-page` (opacity 0→1) care făcea conținutul să pornească
+  invizibil pe fiecare navigare → se percepea ca „pagină blank, apoi apare".
+- Șterse `app/loading.tsx` (generic root) + `app/login/loading.tsx` + `app/signup/loading.tsx`: pagini fără DB →
+  Next ține pagina anterioară până e gata noua și schimbă direct, fără skeleton. Skeletoanele grele
+  (feed/detaliu/profil) rămân. Cauza de fond: `layout.tsx` dinamic (nonce CSP) forța round-trip pe fiecare navigare.
+- `intro-splash.tsx` + scriptul pre-paint din `layout.tsx`: `sessionStorage` → `localStorage` pentru
+  `detalia_intro_seen` → welcome-ul apare o singură dată **per dispozitiv** (persistă peste refresh/tab/logout).
+  (Reset la test: șterge cheia `detalia_intro_seen` din localStorage.)
+
+### feat(auth) — ecran „verifică-ți email-ul" brandat
+- `app/verify-request/page.tsx` (nou): înlocuiește pagina default Auth.js (întunecată, engleză) cu limbajul
+  vizual DETALIA (`AuthShell` + card, copy română, iconiță `MailCheck`). Cablat în `lib/auth.ts`
+  (`pages.verifyRequest`) + adăugat în `PUBLIC_PATHS` (`proxy.ts`, e pre-auth).
+
+### feat(feed) — copyright în rail-ul feed-ului
+- `components/feed-rail.tsx`: „© <an> Detalia.ro — Toate drepturile rezervate." ca ultim element din rail →
+  în flow normal e împins în jos pe măsură ce apar containere noi (stil footer LinkedIn). An dinamic.
+
+### docs(security) — §11 rescris ca runbook executabil
+- `docs/SECURITATE.md §11`: lista de bullets → checklist pas-cu-pas (setup 3 conturi, payload-uri concrete,
+  rezultat așteptat, bife) pe 10 secțiuni: IDOR/authz, cont suspendat, magic link & rate limit, upload, URL-uri,
+  concurență, headers/CSP/cookie, infra/deps, verdict. Mapat la SEC-01..14. Nu schimbă codul.
+
+---
+
 ## 2026-06-29 — erori silențioase (§11c #4)
 
 ### fix(security) — logging explicit pe căile înghițite + cleanup orfani observabil

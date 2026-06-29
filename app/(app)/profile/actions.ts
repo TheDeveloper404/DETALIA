@@ -4,19 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
-import { reprocessBlobImage } from "@/lib/image-processing";
-import { deleteBlobs } from "@/lib/storage";
-import { BLOB_URL_RE } from "@/lib/upload-limits";
-import { normalizeWebsite } from "@/lib/url";
 import { deleteAccount } from "@/server/services/accountService";
 import {
-  getUserMedia,
-  getUserProfile,
-  updateUserCoverImage,
-  updateUserCoverPosition,
-  updateUserDetails,
-  updateUserImage,
-} from "@/server/repos/usersRepo";
+  removeAvatar,
+  removeCover,
+  setAvatar,
+  setCover,
+  setCoverPosition,
+  updateProfileDetails,
+} from "@/server/services/profileService";
 import { requestRoleVerification } from "@/server/services/roleService";
 
 // NOTĂ: un fișier „use server" poate exporta DOAR funcții async (Next 16). Starea inițială a formularelor
@@ -45,55 +41,37 @@ async function requireUserId() {
 // arbitrare în DB). Tipul/mărimea au fost deja impuse la emiterea tokenului, pe server.
 export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
   const userId = await requireUserId();
-  if (!BLOB_URL_RE.test(url)) {
-    return { error: "Imaginea nu a putut fi salvată.", ok: false };
-  }
-  // SEC-02: validează + re-encodează (strip EXIF/GPS) + plafonează. URL curat în DB.
-  const processed = await reprocessBlobImage(url, "avatars");
-  if (!processed.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
-  const old = (await getUserMedia(userId))?.image ?? null;
-  await updateUserImage(userId, processed.url);
-  // SEC-06: poza veche devine orfană în Blob → o ștergem (best-effort).
-  if (old && old !== processed.url) await deleteBlobs([old]);
+  const res = await setAvatar(userId, url);
+  if (!res.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   // Întoarcem URL-ul CURAT (originalul tocmai a fost șters) → clientul afișează imaginea corectă fără refresh.
-  return { error: null, ok: true, url: processed.url };
+  return { error: null, ok: true, url: res.url };
 }
 
 // Idem pentru imaginea de cover (banda de sus a profilului).
 export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
   const userId = await requireUserId();
-  if (!BLOB_URL_RE.test(url)) {
-    return { error: "Imaginea nu a putut fi salvată.", ok: false };
-  }
-  const processed = await reprocessBlobImage(url, "covers");
-  if (!processed.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
-  const old = (await getUserMedia(userId))?.coverImage ?? null;
-  await updateUserCoverImage(userId, processed.url);
-  // SEC-06: cover-ul vechi devine orfan în Blob → îl ștergem (best-effort).
-  if (old && old !== processed.url) await deleteBlobs([old]);
+  const res = await setCover(userId, url);
+  if (!res.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
-  return { error: null, ok: true, url: processed.url };
+  return { error: null, ok: true, url: res.url };
 }
 
-// Șterge poza de profil: golește coloana + șterge blob-ul (best-effort). Reversibil prin re-upload.
+// Șterge poza de profil. Reversibil prin re-upload.
 export async function deleteAvatar(): Promise<ProfileFormState> {
   const userId = await requireUserId();
-  const profile = await getUserProfile(userId);
-  if (profile?.image) await deleteBlobs([profile.image]);
-  await updateUserImage(userId, null);
+  await removeAvatar(userId);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
 }
 
-// Salvează poziția verticală a cover-ului (0..100). Clamp pe server (frontend-ul nu e sursă de adevăr).
+// Salvează poziția verticală a cover-ului (0..100).
 export async function saveCoverPosition(position: number): Promise<ProfileFormState> {
   const userId = await requireUserId();
-  const clamped = Math.round(Math.min(100, Math.max(0, Number.isFinite(position) ? position : 50)));
-  await updateUserCoverPosition(userId, clamped);
+  await setCoverPosition(userId, position);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
@@ -102,39 +80,32 @@ export async function saveCoverPosition(position: number): Promise<ProfileFormSt
 // Șterge imaginea de cover.
 export async function deleteCover(): Promise<ProfileFormState> {
   const userId = await requireUserId();
-  const profile = await getUserProfile(userId);
-  if (profile?.coverImage) await deleteBlobs([profile.coverImage]);
-  await updateUserCoverImage(userId, null);
+  await removeCover(userId);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };
 }
 
+const DETAILS_ERRORS: Record<string, string> = {
+  EMPTY_NAME: "Numele nu poate fi gol.",
+  NAME_TOO_LONG: "Numele e prea lung (max 100).",
+  INVALID_WEBSITE: "Website-ul trebuie să înceapă cu http:// sau https://.",
+};
+
 // Editează câmpurile de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
-// Numele e obligatoriu; restul opțional (gol → null). Website fără schemă → prefixăm https://.
 export async function updateProfileDetailsAction(
   _prev: ProfileFormState,
   formData: FormData,
 ): Promise<ProfileFormState> {
   const userId = await requireUserId();
-
-  const name = String(formData.get("name") ?? "").trim();
-  if (name.length === 0) return { error: "Numele nu poate fi gol.", ok: false };
-  if (name.length > 100) return { error: "Numele e prea lung (max 100).", ok: false };
-
-  const clip = (v: FormDataEntryValue | null, max: number) => {
-    const s = String(v ?? "").trim();
-    return s.length === 0 ? null : s.slice(0, max);
-  };
-  const headline = clip(formData.get("headline"), 120);
-  const about = clip(formData.get("about"), 1000);
-  const location = clip(formData.get("location"), 120);
-  // SEC-03: allowlist http/https la input (nu doar la randare). Schemă nepermisă → respinge.
-  const websiteRes = normalizeWebsite(clip(formData.get("website"), 200));
-  if (!websiteRes.ok) return { error: "Website-ul trebuie să înceapă cu http:// sau https://.", ok: false };
-  const website = websiteRes.value;
-
-  await updateUserDetails(userId, { name, headline, about, location, website });
+  const res = await updateProfileDetails(userId, {
+    name: String(formData.get("name") ?? ""),
+    headline: String(formData.get("headline") ?? ""),
+    about: String(formData.get("about") ?? ""),
+    location: String(formData.get("location") ?? ""),
+    website: String(formData.get("website") ?? ""),
+  });
+  if (!res.ok) return { error: DETAILS_ERRORS[res.reason] ?? "Profilul n-a putut fi salvat.", ok: false };
 
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
