@@ -6,6 +6,8 @@ export type SidebarCategory = { id: string; name: string; count: number };
 export type SidebarProfile = {
   name: string | null;
   image: string | null;
+  coverImage: string | null;
+  coverPosition: number | null;
   roleLabel: string | null;
   verified: boolean;
 };
@@ -38,7 +40,17 @@ export function FeedSidebar({
         href="/profile"
         className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10"
       >
-        <div className="h-[54px] bg-gradient-to-br from-secondary to-[#ece1d3]" />
+        <div className="h-[54px] overflow-hidden bg-gradient-to-br from-secondary to-[#ece1d3]">
+          {profile.coverImage && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={profile.coverImage}
+              alt=""
+              className="size-full object-cover"
+              style={{ objectPosition: `50% ${profile.coverPosition ?? 50}%` }}
+            />
+          )}
+        </div>
         <div className="px-[18px] pb-[18px]">
           <span className="-mt-[26px] flex size-[52px] items-center justify-center overflow-hidden rounded-full border-[3px] border-card bg-secondary font-mono text-base text-muted-foreground">
             {profile.image ? (

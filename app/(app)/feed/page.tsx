@@ -6,6 +6,7 @@ import { FeedRail } from "@/components/feed-rail";
 import { FeedSidebar } from "@/components/feed-sidebar";
 import { cn } from "@/lib/utils";
 import { auth } from "@/lib/auth";
+import { getUserMedia } from "@/server/repos/usersRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import { type FeedSort, getActiveAuthors, getFeed } from "@/server/services/detailService";
@@ -31,11 +32,12 @@ export default async function FeedPage({
   const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
-  const [categories, role, authors, recentSketches] = await Promise.all([
+  const [categories, role, authors, recentSketches, media] = await Promise.all([
     listCategoriesWithCounts(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
     getRecentSketches(4),
+    getUserMedia(session.user.id),
   ]);
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
@@ -87,7 +89,9 @@ export default async function FeedPage({
       <FeedSidebar
         profile={{
           name: session.user.name ?? null,
-          image: session.user.image ?? null,
+          image: media?.image ?? session.user.image ?? null,
+          coverImage: media?.coverImage ?? null,
+          coverPosition: media?.coverPosition ?? null,
           roleLabel,
           verified: role?.verificationStatus === "VERIFIED",
         }}
