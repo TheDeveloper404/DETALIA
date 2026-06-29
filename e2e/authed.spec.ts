@@ -39,14 +39,15 @@ test.describe("Acces authed", () => {
 test.describe.serial("Validare pe rol", () => {
   test("Aprob = 1 click → poziția devine activă", async ({ page }) => {
     await page.goto(detailUrl());
-    const aprob = page.getByRole("button", { name: "Aprob" });
+    // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.
+    const aprob = page.getByRole("button", { name: "Aprob", exact: true });
     await aprob.click();
     await expect(aprob).toHaveAttribute("aria-pressed", "true");
   });
 
   test("Dezaprob cere justificare → devine comentariu argumentat", async ({ page }) => {
     await page.goto(detailUrl());
-    const dezaprob = page.getByRole("button", { name: "Dezaprob" });
+    const dezaprob = page.getByRole("button", { name: "Dezaprob", exact: true });
     await dezaprob.click();
 
     const justif = `E2E justificare ${Date.now()}`;

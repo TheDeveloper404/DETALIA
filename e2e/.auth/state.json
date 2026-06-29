@@ -1,0 +1,15 @@
+{
+  "cookies": [
+    {
+      "name": "__Secure-authjs.session-token",
+      "value": "16654a692f843897da2390b83d207cf49ed14cf9ce241502fa7f3a18d2229025",
+      "domain": "detalia-eg16wlaha-livius-projects-1af30dca.vercel.app",
+      "path": "/",
+      "expires": 1785304091,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
