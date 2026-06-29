@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
 import { headers } from "next/headers";
+import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -50,6 +51,17 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Bară de progres la navigare (feedback instant pe fiecare click) — maschează round-trip-ul
+            de la layout-ul dinamic (nonce CSP) și paginile grele (profil). Culoare brand.
+            FĂRĂ `nonce`: browserul golește atributul nonce din DOM → mismatch de hidratare pe <style>-ul
+            injectat. CSP-ul nostru are deja `style-src 'unsafe-inline'` → stilul nprogress trece fără nonce. */}
+        <NextTopLoader
+          color="#95492e"
+          height={3}
+          shadow="0 0 8px #95492e,0 0 4px #95492e"
+          showSpinner={false}
+          speed={300}
+        />
         {/* Pre-paint: overlay-ul de intro se randează din SSR (e cover-ul, cu logo, din prima pictare).
             Pentru cine l-a văzut deja / reduced-motion, marcăm <html data-intro="seen"> ÎNAINTE de prima
             pictare → CSS-ul îl ascunde instant (fără flash). Script sincron, în capul body-ului. */}

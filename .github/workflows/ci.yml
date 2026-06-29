@@ -1,7 +1,8 @@
 name: CI
 
-# Verifica build verde la fiecare push SI PR pe dev / main: type-check + lint + build.
-# Teste verzi nu inseamna build verde - vitest ignora erorile de tip; aici prindem ce pica la deploy.
+# Verifica la fiecare push SI PR pe dev / main: type-check + lint + test (vitest) + build.
+# Teste verzi nu inseamna build verde - vitest ignora erorile de tip; build-ul prinde ce pica la deploy.
+# Testele = unit/domain/securitate (repo-uri mock, fara DB/secrete). E2E NU ruleaza in CI (cere preview + bypass).
 # Pre-scaffold (fara package.json) ruleaza gol si trece - devine activ automat dupa Faza 0.
 
 on:
@@ -44,6 +45,10 @@ jobs:
       - name: Lint
         if: steps.detect.outputs.ready == 'true'
         run: npm run lint --if-present
+
+      - name: Test (vitest — unit/domain/securitate)
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run test --if-present
 
       - name: Build
         if: steps.detect.outputs.ready == 'true'

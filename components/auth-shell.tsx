@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { BrandLogo } from "@/components/brand-logo";
@@ -49,9 +50,15 @@ export function AuthShell({
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-50 flex h-16 flex-none items-center border-b border-border bg-background/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center px-6">
-          <BrandLogo />
+      <header className="sticky top-0 z-50 flex h-[76px] flex-none items-center border-b border-border bg-background/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
+          <BrandLogo size={32} />
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-[15px] font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
+          >
+            <span aria-hidden>←</span> Înapoi la site
+          </Link>
         </div>
       </header>
 
