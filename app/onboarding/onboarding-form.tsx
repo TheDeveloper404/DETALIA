@@ -41,10 +41,12 @@ export function OnboardingForm() {
 
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
-  const [rol, setRol] = useState<RoleMain>("PROIECTANT");
-  const [subrol, setSubrol] = useState<string>(SUBROLES.PROIECTANT[0]);
+  // Fără preselecție: userul ALEGE explicit rolul și subrolul (placeholder „Alege…").
+  const [rol, setRol] = useState<RoleMain | "">("");
+  const [subrol, setSubrol] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverPos, setCoverPos] = useState(50); // poziția verticală cover (0..100), ca în profile edit
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -52,8 +54,11 @@ export function OnboardingForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const avatarUrlRef = useRef<HTMLInputElement>(null);
   const coverUrlRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const coverBandRef = useRef<HTMLDivElement>(null);
+  const coverDrag = useRef<{ startY: number; startPos: number } | null>(null);
 
-  const subroluri = SUBROLES[rol];
+  const subroluri = rol ? SUBROLES[rol] : [];
 
   // Curăță object URL-urile de preview (evită leak de memorie).
   useEffect(() => {
@@ -67,14 +72,31 @@ export function OnboardingForm() {
   const displayName = fullName || "Numele tău";
   const initials =
     ((first[0] ?? "") + (last[0] ?? "")).toUpperCase() || "—";
-  const pillText = subrol
-    ? `${ROLE_MAIN_LABELS[rol]} · ${subrol}`
-    : ROLE_MAIN_LABELS[rol];
+  const pillText = rol
+    ? subrol
+      ? `${ROLE_MAIN_LABELS[rol]} · ${subrol}`
+      : ROLE_MAIN_LABELS[rol]
+    : null;
 
   function onRol(value: string) {
-    const next = value as RoleMain;
+    const next = value as RoleMain | "";
     setRol(next);
-    setSubrol(SUBROLES[next][0] ?? "");
+    setSubrol(""); // schimbi rolul → re-alegi subrolul (fără predefinit)
+  }
+
+  // Repoziționare cover (LinkedIn-style, ca în profile edit): tragi sus/jos în bandă.
+  function onCoverPointerDown(e: React.PointerEvent) {
+    coverDrag.current = { startY: e.clientY, startPos: coverPos };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function onCoverPointerMove(e: React.PointerEvent) {
+    if (!coverDrag.current) return;
+    const h = coverBandRef.current?.offsetHeight ?? 72;
+    const delta = ((e.clientY - coverDrag.current.startY) / h) * 100;
+    setCoverPos(Math.round(Math.min(100, Math.max(0, coverDrag.current.startPos - delta))));
+  }
+  function onCoverPointerUp() {
+    coverDrag.current = null;
   }
 
   // Alege o imagine (avatar/cover): validare client (doar UX) + preview. Upload-ul efectiv în Blob
@@ -109,6 +131,7 @@ export function OnboardingForm() {
     } else {
       setCoverUrl(url);
       setCoverFile(file);
+      setCoverPos(50); // cover nou → poziție centrată implicit
       if (coverUrlRef.current) coverUrlRef.current.value = "";
     }
   }
@@ -147,6 +170,7 @@ export function OnboardingForm() {
       {/* URL-urile imaginilor (completate după upload-ul client în Blob). */}
       <input type="hidden" name="avatarUrl" ref={avatarUrlRef} />
       <input type="hidden" name="coverUrl" ref={coverUrlRef} />
+      <input type="hidden" name="coverPosition" value={coverPos} readOnly />
       {/* CARD */}
       <div
         style={{
@@ -219,19 +243,21 @@ export function OnboardingForm() {
               <span style={{ fontWeight: 700, fontSize: 17, color: "#211d18" }}>
                 {displayName}
               </span>
-              <span
-                style={{
-                  fontFamily: "var(--font-plex-mono), monospace",
-                  fontSize: 12,
-                  color: "#fff",
-                  background: "#a9573a",
-                  padding: "3px 10px",
-                  borderRadius: 999,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {pillText}
-              </span>
+              {pillText && (
+                <span
+                  style={{
+                    fontFamily: "var(--font-plex-mono), monospace",
+                    fontSize: 12,
+                    color: "#fff",
+                    background: "#a9573a",
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {pillText}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -302,9 +328,13 @@ export function OnboardingForm() {
                 name="roleMain"
                 value={rol}
                 onChange={(e) => onRol(e.target.value)}
+                required
                 className="dt-field dt-select"
-                style={{ ...inputStyle, cursor: "pointer", paddingRight: 38 }}
+                style={{ ...inputStyle, cursor: "pointer", paddingRight: 38, color: rol ? "var(--foreground)" : "#a59a88" }}
               >
+                <option value="" disabled>
+                  Alege rolul
+                </option>
                 {ROLE_MAINS.map((r) => (
                   <option key={r} value={r}>
                     {ROLE_MAIN_LABELS[r]}
@@ -321,9 +351,20 @@ export function OnboardingForm() {
                 name="subRole"
                 value={subrol}
                 onChange={(e) => setSubrol(e.target.value)}
+                required
+                disabled={!rol}
                 className="dt-field dt-select"
-                style={{ ...inputStyle, cursor: "pointer", paddingRight: 38 }}
+                style={{
+                  ...inputStyle,
+                  cursor: rol ? "pointer" : "not-allowed",
+                  paddingRight: 38,
+                  color: subrol ? "var(--foreground)" : "#a59a88",
+                  opacity: rol ? 1 : 0.6,
+                }}
               >
+                <option value="" disabled>
+                  {rol ? "Alege subrolul" : "Alege întâi rolul"}
+                </option>
                 {subroluri.map((s) => (
                   <option key={s} value={s}>
                     {s}
@@ -439,60 +480,105 @@ export function OnboardingForm() {
                   (opțional)
                 </span>
               </label>
-              <label htmlFor="dt-cover" style={{ display: "block", cursor: "pointer" }}>
-                <span
+              {coverUrl ? (
+                <div
+                  ref={coverBandRef}
+                  onPointerDown={onCoverPointerDown}
+                  onPointerMove={onCoverPointerMove}
+                  onPointerUp={onCoverPointerUp}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 9,
                     position: "relative",
                     height: 72,
                     borderRadius: "var(--radius)",
                     overflow: "hidden",
-                    background: "#f6f2ea",
-                    border: "1.5px dashed #cbbfa9",
+                    border: "1.5px solid #cbbfa9",
+                    cursor: "grab",
+                    touchAction: "none",
                   }}
                 >
-                  {coverUrl ? (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={coverUrl}
-                        alt=""
-                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                      <span
-                        style={{
-                          position: "relative",
-                          zIndex: 1,
-                          fontFamily: "var(--font-plex-mono), monospace",
-                          fontSize: 11,
-                          color: "#fff",
-                          background: "rgba(33,29,24,0.55)",
-                          padding: "4px 10px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        Schimbă banda
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a9573a" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="5" width="18" height="14" rx="2" />
-                        <circle cx="8.5" cy="10" r="1.6" />
-                        <path d="m21 16-5-5L5 19" />
-                      </svg>
-                      <span style={{ fontWeight: 600, fontSize: 14, color: "#a9573a" }}>
-                        Adaugă o bandă de cover
-                      </span>
-                    </>
-                  )}
-                </span>
-              </label>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={coverUrl}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      objectPosition: `50% ${coverPos}%`,
+                      userSelect: "none",
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: "absolute",
+                      bottom: 6,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      pointerEvents: "none",
+                      fontFamily: "var(--font-plex-mono), monospace",
+                      fontSize: 10.5,
+                      color: "#fff",
+                      background: "rgba(33,29,24,0.6)",
+                      padding: "3px 9px",
+                      borderRadius: 999,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    trage sus/jos pentru a repoziționa
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => coverInputRef.current?.click()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      fontFamily: "var(--font-plex-mono), monospace",
+                      fontSize: 10.5,
+                      color: "#fff",
+                      background: "rgba(33,29,24,0.6)",
+                      border: "none",
+                      padding: "4px 9px",
+                      borderRadius: 999,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Schimbă banda
+                  </button>
+                </div>
+              ) : (
+                <label htmlFor="dt-cover" style={{ display: "block", cursor: "pointer" }}>
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 9,
+                      height: 72,
+                      borderRadius: "var(--radius)",
+                      overflow: "hidden",
+                      background: "#f6f2ea",
+                      border: "1.5px dashed #cbbfa9",
+                    }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a9573a" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="5" width="18" height="14" rx="2" />
+                      <circle cx="8.5" cy="10" r="1.6" />
+                      <path d="m21 16-5-5L5 19" />
+                    </svg>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: "#a9573a" }}>
+                      Adaugă o bandă de cover
+                    </span>
+                  </span>
+                </label>
+              )}
               <input
                 id="dt-cover"
+                ref={coverInputRef}
                 type="file"
                 accept="image/png,image/jpeg,image/webp,image/avif"
                 onChange={(e) => pickImage(e.target.files?.[0], "cover")}
