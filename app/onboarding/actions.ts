@@ -8,6 +8,7 @@ import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { normalizeWebsite } from "@/lib/url";
 import {
   updateUserCoverImage,
+  updateUserCoverPosition,
   updateUserImage,
   updateUserProfile,
 } from "@/server/repos/usersRepo";
@@ -109,6 +110,9 @@ export async function onboardingAction(
     const p = await reprocessBlobImage(coverUrl, "covers");
     if (!p.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
     await updateUserCoverImage(userId, p.url);
+    // Poziția verticală a cover-ului (0..100); clamp server-side (frontend nu e sursa de adevăr).
+    const coverPosition = Math.min(100, Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)));
+    await updateUserCoverPosition(userId, coverPosition);
   }
 
   // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există rol).
