@@ -8,6 +8,7 @@ import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType, ValidationPosition } from "@/server/domain/validation";
 import type { TargetPosition } from "@/server/repos/validationsRepo";
 
@@ -105,6 +106,7 @@ export function ValidationPanel({
               name="justification"
               required
               rows={3}
+              maxLength={COMMENT_MAX_LENGTH}
               placeholder="Explică de ce dezaprobi — apare ca poziție argumentată în dezbatere…"
             />
           </label>

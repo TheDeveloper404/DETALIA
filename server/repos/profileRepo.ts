@@ -157,6 +157,7 @@ export async function listAuthorActivity(userId: string, limit: number) {
       id: validations.id,
       position: validations.position,
       createdAt: validations.createdAt,
+      roleSnapshot: validations.roleSnapshot, // rolul la momentul votului (afișare istorică)
       detailTitle: details.title,
       sketchParentTitle: sketchParent.title,
     })

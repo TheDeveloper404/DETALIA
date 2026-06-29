@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { ValidationPosition } from "@/server/domain/validation";
 
 const initialState: DisapproveState = { error: null };
@@ -111,6 +112,7 @@ export function FeedValidationActions({
                 required
                 autoFocus
                 rows={4}
+                maxLength={COMMENT_MAX_LENGTH}
                 placeholder="Explică de ce dezaprobi…"
               />
               {state.error && (
