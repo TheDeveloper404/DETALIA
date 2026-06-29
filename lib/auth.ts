@@ -29,12 +29,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   }),
   session: { strategy: "database" },
   trustHost: true,
-  // Pagini custom: folosim /login în loc de pagina default Auth.js (/api/auth/signin).
-  // verifyRequest („verifică email-ul") rămâne pe default-ul Auth.js deocamdată.
+  // Pagini custom: folosim ecrane proprii în limbajul vizual DETALIA în loc de cele default Auth.js.
   pages: {
     signIn: "/login",
     // signIn callback care întoarce false (cont suspendat) → Auth.js redirectează aici cu ?error=AccessDenied.
     error: "/login",
+    // „Verifică-ți email-ul" după cererea magic link-ului (înlocuiește pagina default întunecată/engleză).
+    verifyRequest: "/verify-request",
   },
   providers: [
     Resend({

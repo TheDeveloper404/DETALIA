@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 
-// template.tsx se remontează la fiecare navigare → animația de intrare se reia. Tranziție subtilă
-// (doar opacity, fără transform → nu strică position:fixed și e foarte ieftină la randare). Wrapper-ul
-// păstrează comportamentul de flex-item al paginii. Stilul + prefers-reduced-motion stau în globals.css.
+// template.tsx se remontează la fiecare navigare. Wrapper-ul păstrează comportamentul de flex-item
+// al paginii. NU mai animă opacity la intrare: un fade-de-la-0 pe fiecare navigare se percepea ca
+// flash de „pagină blank" (vezi globals.css .dt-page). Clasa rămâne doar ca hook, fără stil de animație.
 export default function Template({ children }: { children: ReactNode }) {
   // Flex inline (robust chiar dacă regula .dt-page n-ar fi încărcată); clasa duce doar animația.
   return (

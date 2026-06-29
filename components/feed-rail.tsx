@@ -146,6 +146,12 @@ export function FeedRail({
           O dezaprobare vine mereu cu o justificare. Părerea ta cântărește prin rolul afișat lângă nume.
         </p>
       </div>
+
+      {/* Copyright stil LinkedIn — ultimul element din rail. În flow normal stă mereu sub carduri,
+          deci pe măsură ce apar containere noi deasupra, e împins natural în jos. */}
+      <p className="px-1 pb-2 text-[11.5px] leading-relaxed text-muted-foreground">
+        © {new Date().getFullYear()} Detalia.ro — Toate drepturile rezervate.
+      </p>
     </aside>
   );
 }
