@@ -16,6 +16,7 @@ const PUBLIC_PATHS = [
   "/", // landing
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
+  "/verify-request", // „verifică-ți email-ul" după cererea magic link-ului (pre-auth)
 ];
 
 export default auth(async (req) => {
