@@ -241,24 +241,10 @@
   color: #5d564c;
   max-width: 54ch;
 }
-/* Tranziție între pagini (app/template.tsx) — fade subtil la fiecare navigare. Doar opacity (ieftin,
-   nu afectează position:fixed). Flex-ul stă inline pe wrapper; aici doar animația. */
-.dt-page {
-  animation: dt-page-enter 0.3s ease both;
-}
-@keyframes dt-page-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dt-page {
-    animation: none;
-  }
-}
+/* `.dt-page` = wrapper-ul de pagină din app/template.tsx. Fără animație de intrare: un fade
+   opacity-de-la-0 la fiecare navigare făcea conținutul să pornească invizibil → se percepea ca
+   „blank, apoi apare" (mai ales pe rutele care fac round-trip server din cauza layout-ului dinamic
+   cu nonce CSP). Flex-ul stă inline pe wrapper; clasa rămâne doar ca hook. */
 
 /* Reveal la scroll (componenta Reveal) — fade + ridicare ușoară la intrarea în vizor.
    Fără această regulă conținutul rămâne vizibil (degradare lină). */
