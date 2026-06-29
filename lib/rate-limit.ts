@@ -3,9 +3,12 @@
 // Serverless pe Vercel nu are memorie partajată între invocări → limiterul trebuie să fie distribuit.
 // Folosim @upstash/ratelimit cu sliding window (atomic în Redis).
 //
-// Filozofie de eșec: FAIL-OPEN. Dacă Redis nu e configurat (dev fără env) sau pică (outage),
-// lăsăm cererea să treacă și logăm — disponibilitatea aplicației > enforce-ul strict pentru un MVP.
-// Un blip Redis NU trebuie să blocheze tot login-ul/mutațiile. PII (email) NU intră în Redis: hash SHA-256.
+// Filozofie de eșec — depinde de mediu (un control de securitate care lipsește/pică NU trebuie să se
+// dezactiveze TĂCUT în producție):
+//   • producție  → FAIL-CLOSED: lipsa env-ului Upstash sau un outage Redis ⇒ blocăm (RateLimited).
+//   • dev/preview→ FAIL-OPEN: dezvoltarea locală fără Redis trebuie să meargă fără fricțiune.
+// Escape hatch: RATE_LIMIT_FAIL_OPEN=true forțează fail-open și în prod (decizie conștientă, documentată).
+// PII (email) NU intră în Redis: hash SHA-256.
 
 import { createHash } from "node:crypto";
 
@@ -20,9 +23,17 @@ const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
 const redis = url && token ? new Redis({ url, token }) : null;
 
+// Fail-open doar dacă NU suntem în producție SAU s-a cerut explicit prin env. Altfel fail-closed.
+const FAIL_OPEN =
+  process.env.RATE_LIMIT_FAIL_OPEN === "true" || process.env.NODE_ENV !== "production";
+
 if (!redis && process.env.NODE_ENV === "production") {
-  // În prod env-urile TREBUIE să existe (integrarea Upstash). Lipsa = misconfigurare → vizibil în loguri.
-  console.error("rate-limit: UPSTASH_REDIS_REST_URL/TOKEN absente în producție — limiter DEZACTIVAT (fail-open).");
+  // În prod env-urile TREBUIE să existe (integrarea Upstash). Lipsa = misconfigurare.
+  console.error(
+    FAIL_OPEN
+      ? "rate-limit: UPSTASH_REDIS_REST_URL/TOKEN absente în producție — FAIL-OPEN forțat din env (limiter dezactivat)."
+      : "rate-limit: UPSTASH_REDIS_REST_URL/TOKEN absente în producție — FAIL-CLOSED (cererile sensibile sunt blocate până se configurează Upstash).",
+  );
 }
 
 type Window = Parameters<typeof Ratelimit.slidingWindow>[1];
@@ -61,12 +72,16 @@ const LIMITER_NAMES = new Map<Ratelimit, string>(
 
 export type LimitResult = { ok: boolean; retryAfterSec?: number };
 
-// Verifică un limiter pentru un identificator. Fail-open la limiter dezactivat sau eroare Redis.
+// Rezultatul când limiterul nu poate decide (lipsă config / outage Redis): fail-open vs fail-closed după mediu.
+const UNAVAILABLE: LimitResult = FAIL_OPEN ? { ok: true } : { ok: false, retryAfterSec: 30 };
+
+// Verifică un limiter pentru un identificator. La limiter dezactivat sau eroare Redis → politica de mediu
+// (prod = fail-closed, dev = fail-open). PII (email) e deja hash-uit înainte de a ajunge aici.
 export async function checkLimit(
   limiter: Ratelimit | null,
   identifier: string,
 ): Promise<LimitResult> {
-  if (!limiter) return { ok: true };
+  if (!limiter) return UNAVAILABLE;
   try {
     const res = await limiter.limit(identifier);
     if (res.success) return { ok: true };
@@ -79,9 +94,17 @@ export async function checkLimit(
     const retryAfterSec = Math.max(1, Math.ceil((res.reset - Date.now()) / 1000));
     return { ok: false, retryAfterSec };
   } catch (err) {
-    // Outage Redis → fail-open, dar logăm (fără PII; identifier-ul de email e deja hash).
-    console.error("rate-limit: eroare la limiter, fail-open:", err instanceof Error ? err.message : String(err));
-    return { ok: true };
+    // Outage Redis → politica de mediu. Logăm + audităm (fără PII; identifier-ul de email e deja hash).
+    console.error(
+      `rate-limit: eroare la limiter, ${FAIL_OPEN ? "fail-open" : "fail-closed"}:`,
+      err instanceof Error ? err.message : String(err),
+    );
+    audit(
+      "rate_limit_unavailable",
+      { limiter: LIMITER_NAMES.get(limiter) ?? "unknown", failOpen: FAIL_OPEN },
+      "error",
+    );
+    return UNAVAILABLE;
   }
 }
 

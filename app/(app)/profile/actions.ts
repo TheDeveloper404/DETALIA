@@ -13,20 +13,12 @@ import {
   setCoverPosition,
   updateProfileDetails,
 } from "@/server/services/profileService";
-import { requestRoleVerification } from "@/server/services/roleService";
 
 // NOTĂ: un fișier „use server" poate exporta DOAR funcții async (Next 16). Starea inițială a formularelor
 // (`initialProfileState`) trăiește în `profile-forms.tsx`, nu aici. Tipul îl exportăm (tipurile se șterg).
 // `url` e populat doar de acțiunile de upload (avatar/cover) → URL-ul curat (reprocesat) pe care
 // clientul îl afișează după salvare. Restul acțiunilor îl lasă nedefinit.
 export type ProfileFormState = { error: string | null; ok: boolean; url?: string };
-
-const VERIFICATION_ERRORS: Record<string, string> = {
-  NO_ROLE: "Nu ai încă un rol declarat.",
-  ALREADY_VERIFIED: "Rolul tău e deja verificat.",
-  PENDING: "Ai deja o cerere de verificare în curs.",
-  EMPTY_EVIDENCE: "Adaugă o dovadă (nr. OAR, CUI etc.).",
-};
 
 async function requireUserId() {
   const session = await auth();
@@ -113,23 +105,17 @@ export async function updateProfileDetailsAction(
 }
 
 // Trimite o cerere de verificare a rolului (Poarta 2). Dovada (OAR/CUI) = PII, nu se loghează.
+//
+// PE HOLD: fluxul de verificare e dezactivat până definim o metodă sigură (vezi `VerificationSection`).
+// Neutralizat la nivel de SERVER (nu doar UI): păstrăm gate-ul de auth, dar NU citim/persistăm dovada
+// (evităm colectarea de PII fără retenție/review/limită). Re-activare: scoate short-circuit-ul de mai jos
+// + readu formularul în `profile-forms.tsx`. Schela (`requestRoleVerification`) rămâne în service.
 export async function requestVerificationAction(
   _prev: ProfileFormState,
-  formData: FormData,
+  _formData: FormData,
 ): Promise<ProfileFormState> {
-  const userId = await requireUserId();
-
-  const evidence = String(formData.get("evidence") ?? "");
-  const result = await requestRoleVerification({ userId, evidence });
-  if (!result.ok) {
-    return {
-      error: VERIFICATION_ERRORS[result.error] ?? "Cererea n-a putut fi trimisă.",
-      ok: false,
-    };
-  }
-
-  revalidatePath("/profile");
-  return { error: null, ok: true };
+  await requireUserId();
+  return { error: "Verificarea rolului nu este încă disponibilă.", ok: false };
 }
 
 // Sign out → înapoi la landing.
