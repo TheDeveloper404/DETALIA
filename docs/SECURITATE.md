@@ -371,32 +371,95 @@ Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
 
 ### FAZA 4 — igienă cod / corectitudine / UX (§11c, non-blocante)
 
-15. **§11c #1** — mută profile actions prin `profileService` (nu direct în `usersRepo`).
-16. **§11c #2** — elimină `zod` nefolosit din `package.json` (sau adoptă-l pentru validările din `domain`).
-17. **§11c #3** — afișează validările istorice cu `roleSnapshot` (fallback la rolul curent doar pentru cele vechi).
+15. ✅ **§11c #1** (rezolvat 2026-06-29, vezi CHANGELOG). Mutațiile de profil (avatar/cover/poziție/detalii) au
+    trecut din Server Actions în `profileService` (`setAvatar`/`setCover`/`removeAvatar`/`removeCover`/
+    `setCoverPosition`/`updateProfileDetails`); acțiunile rămân subțiri (extrag FormData → deleagă → revalidatePath).
+16. ✅ **§11c #2** (rezolvat 2026-06-29). `zod` (nefolosit, zero importuri) scos din `package.json` + lockfile.
+17. ✅ **§11c #3** (rezolvat 2026-06-29, vezi CHANGELOG). Activity-ul de profil afișează rolul din `roleSnapshot`
+    (de la momentul votului); fallback la rolul curent DOAR pentru validările vechi fără snapshot. (Afișarea pe
+    detaliu folosea deja snapshot-ul.)
 18. ✅ **§11c #4 — erori silențioase** (rezolvat 2026-06-29, vezi CHANGELOG). `sendEmail` loghează eșecurile
     (config lipsă / Resend respins / rețea) fără PII; cleanup-ul de blob orfan din `image-processing` (5 locuri)
     trece prin `delOrphan` care loghează eșecul (nu mai e `.catch(()=>{})` tăcut). Restul catch-urilor sunt
     validare pură de input (isHttpUrl/normalizeWebsite/parseStrokes/sharp) — corecte, lăsate.
-19. **§11c #5** — UX: `maxLength` pe textarea de justificare + loading states pe butoanele de formular.
+19. ✅ **§11c #5** (rezolvat 2026-06-29, vezi CHANGELOG). `maxLength={COMMENT_MAX_LENGTH}` pe toate textareele de
+    justificare/comentariu (validation-panel, feed-validation-actions, comments-section creare+editare). Loading
+    states pe butoane existau deja (`disabled={pending}` + text „Se trimite…/Se salvează…").
 
 > **CI permanent (transversal):** `npm audit` + scanare de secrete + rularea testelor pe fiecare PR (SEC-09/10/14).
 > **INFO-02** (`trustHost`) se validează în poarta de staging (§11), nu e un task separat.
 
 ## 11. Poarta finală de securitate pe staging
 
-Înainte de schimbarea verdictului în APPROVED:
+Ultima verificare **manuală, adversarială** înainte de a schimba verdictul din **BLOCAT** în **APPROVED**.
+NU e cod de scris — controalele (SEC-01..14) sunt deja implementate și testate unitar; aici **încerci efectiv
+să le spargi** pe preview, cu un checklist. Rulează pe URL-ul de preview al PR-ului (bază Neon `preview/dev`,
+separată de producție). Bifează fiecare pas; orice rezultat ≠ „așteptat" = constatare de închis înainte de APPROVED.
 
-- test cu minimum trei conturi: autor, utilizator străin și cont suspendat;
-- încercări IDOR pentru fiecare Server Action;
-- magic-link replay, expirare, enumerare și rate limiting;
-- upload MIME fals, fișiere corupte, imagini foarte mari și volum repetat;
-- URL-uri `javascript:`, `data:`, scheme necunoscute și URL-uri foarte lungi;
-- accept/reject concurent și duplicate submit;
-- verificarea cookie-urilor, CSP și a tuturor security headers;
-- verificarea rotației secretelor, backup/restore și regiunii procesatorilor;
-- rerulare `npm audit`, teste și scanare de secrete;
-- toate constatările High închise și Medium fie închise, fie acceptate explicit cu owner și termen.
+### 11.0 — Pregătire (o singură dată)
+- [ ] **3 conturi** pe preview, fiecare cu rol declarat (onboarding complet):
+  - **A = autor** (publică ≥1 detaliu + ≥1 schiță proprie),
+  - **B = străin** (alt user, fără legătură cu conținutul lui A),
+  - **C = suspendat** (în Neon SQL editor pe `preview/dev`: `UPDATE users SET status='SUSPENDED' WHERE email='<C>';`).
+- [ ] Notează ID-urile reale (detaliu, schiță, comentariu, validare) ale lui A — le folosești ca ținte IDOR.
+- [ ] Ai deschis **DevTools → Network + Console** și știi să citești `Set-Cookie`, headerele de răspuns și CSP.
+
+### 11.1 — Authz / IDOR (fiecare Server Action)  → *acoperă SEC-11, deny-by-default, audit.md #2/#4*
+Logat ca **B**, încearcă să operezi pe obiectele lui **A** (din UI și prin replay POST în Network):
+- [ ] ștergere detaliu al lui A → **403/NOT_FOUND**, nu 500, obiectul rămâne;
+- [ ] accept/reject pe o schiță unde A e autorul detaliului-mamă → **respins** (doar A poate);
+- [ ] editare profil / avatar / cover ale lui A → **respins**;
+- [ ] marcare „citită" pe notificarea lui A → **respins**;
+- [ ] vot/validare în numele altui user (modifică `userId` în payload) → **ignorat** (autorul vine din sesiune, nu din body);
+- [ ] **UUID malformat** pe orice id (`...&id=abc`) → **not-found/no-op**, NU 500 (SEC-11);
+- [ ] **deny-by-default**: deschis ca anonim (incognito) orice rută `(app)` → redirect `/login`, nu conținut.
+
+### 11.2 — Cont suspendat (C)  → *SEC-04*
+- [ ] login cu C → după magic link, orice rută protejată îl scoate cu `?error=AccessDenied`; nu poate publica/valida/comenta;
+- [ ] mutația prin Server Action (replay POST) ca C → **respins pe server** (nu doar ascuns în UI).
+
+### 11.3 — Magic link & rate limiting  → *SEC-01, INFO-02 (`trustHost`)*
+- [ ] **replay**: folosește un link de acces, apoi accesează același URL a doua oară → **respins** (one-time);
+- [ ] **expirare**: link mai vechi decât TTL → respins, mesaj „expirat", fără login;
+- [ ] **enumerare**: cere link pt email inexistent → același răspuns ca pt unul existent (fără diferență observabilă);
+- [ ] **rate limit**: cere repede >limită linkuri pe același email/IP → **429**; la fel pe validări/comentarii/upload;
+- [ ] verifică în Vercel Logs evenimentul `rate_limited` (audit trail, fără PII brut).
+
+### 11.4 — Upload (Blob)  → *SEC-02, SEC-06*
+- [ ] **MIME fals**: redenumește `payload.html`/`.svg` în `.png` și încarcă → respins (validare pe conținut, nu pe extensie);
+- [ ] **fișier corupt** (imagine trunchiată) → respins curat, fără 500;
+- [ ] **imagine foarte mare** (>limita configurată, ex. >25MB) → respins;
+- [ ] **volum repetat** (spam upload) → prins de rate limit;
+- [ ] după **înlocuirea** unei poze, vechiul blob nu mai e accesibil (cleanup, SEC-06).
+
+### 11.5 — URL-uri resurse  → *SEC-03*
+La adăugarea unei resurse pe detaliu, încearcă pe rând și confirmă **respins**:
+- [ ] `javascript:alert(1)` · `data:text/html,...` · `file:///etc/passwd` · scheme necunoscute (`foo://`);
+- [ ] URL valid dar **foarte lung** (>2048) → respins (limită lungime);
+- [ ] doar `http(s)://` trec.
+
+### 11.6 — Concurență & dublu-submit  → *SEC-07*
+- [ ] **accept + reject** pe aceeași schiță aproape simultan (2 taburi) → o singură tranziție de stare câștigă, fără stare coruptă;
+- [ ] **dublu „SEND"** pe aceeași ciornă → o singură notificare/tranziție, nu două;
+- [ ] dublu vot pe aceeași țintă → constrângerea unică `(userId,targetType,targetId)` ține (o poziție, reversibilă).
+
+### 11.7 — Headers / cookie / CSP  → *SEC-08, SEC-13*
+În Network, pe un răspuns de document:
+- [ ] **CSP** prezent, cu **nonce per request** (se schimbă la fiecare reload), `script-src` fără `unsafe-inline`;
+- [ ] Console **fără** erori CSP pe fluxurile reale (upload, vercel.live) — dacă apar, ceva legitim e blocat → de remediat;
+- [ ] `Set-Cookie` sesiune = **HttpOnly + Secure + SameSite**; tokenul nu apare în JS (`document.cookie` nu-l vede);
+- [ ] HSTS + celelalte security headers prezente.
+
+### 11.8 — Igienă infra & dependențe
+- [ ] `npm audit` rerulat → fără High neacceptat (vezi SEC-09 risk-acceptance);
+- [ ] scanare de secrete pe repo (hook `block-secrets` + grep manual) → niciun secret în cod/loguri;
+- [ ] `npm test` (suita de securitate) verde; `next build` verde;
+- [ ] **rotația secretelor** posibilă (AUTH_SECRET, chei Resend/Blob/Upstash) fără downtime; **backup/restore** Neon verificat; **regiunea** procesatorilor (Resend/Blob/Neon) confirmată (GDPR — date în UE/zonă acceptată).
+
+### 11.9 — Verdict
+- [ ] Toate constatările **High închise**; **Medium** închise SAU acceptate explicit cu **owner + termen** (în SEC-09);
+- [ ] SEC-05 (PII verificare rol) rămâne pe HOLD — nu blochează lansarea (fluxul de verificare e dezactivat în MVP);
+- [ ] Schimbă verdictul din **BLOCAT** în **APPROVED** (sus în acest document) + notează data și cine a rulat poarta.
 
 ## 11b. Crosswalk consolidare — fiecare constatare din audit.md + opencode.md (2026-06-27)
 
