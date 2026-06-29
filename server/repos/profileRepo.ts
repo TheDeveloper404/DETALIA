@@ -121,6 +121,7 @@ export function listAuthorDetails(userId: string) {
     .select({
       id: details.id,
       title: details.title,
+      imageUrl: details.imageUrl,
       categoryName: categories.name,
       validationCount: detailValidationCount,
       sketchCount: detailSketchCount,
