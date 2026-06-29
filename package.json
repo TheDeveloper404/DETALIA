@@ -32,6 +32,7 @@
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "next-auth": "^5.0.0-beta.31",
+    "nextjs-toploader": "^3.9.17",
     "perfect-freehand": "^1.2.3",
     "radix-ui": "^1.6.0",
     "react": "19.2.4",

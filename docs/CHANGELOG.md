@@ -4,6 +4,44 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-29 — header auth aliniat la landing + fix hidratare toploader
+
+### fix(ui) — header login/signup/verify-request aliniat la landing
+- `auth-shell.tsx`: înălțime `h-16`→`h-[76px]`, logo `BrandLogo size={32}` (era 26). Containerul era deja comun
+  (`--container-max` 1280px); fundal/bordură = aceiași tokeni. Dreapta = link discret „← Înapoi la site" (`/`)
+  (decizie Liviu).
+
+### fix(ux) — eliminat eroarea de hidratare a barei de progres
+- `layout.tsx`: scos `nonce` de pe `NextTopLoader`. Browserul golește atributul `nonce` din DOM (anti-exfiltrare CSP)
+  → server `nonce="..."` vs client `nonce=""` = mismatch de hidratare pe `<style>`-ul injectat. CSP-ul are deja
+  `style-src 'unsafe-inline'` → stilul nprogress trece fără nonce. Zero regresie de securitate.
+
+---
+
+## 2026-06-29 — fix cover în sidebar feed + bară de progres la navigare
+
+### fix(feed) — poza de cover în cardul de profil din sidebar
+- `feed-sidebar.tsx` afișa doar un gradient — `SidebarProfile` n-avea `coverImage`. Adăugat `coverImage` +
+  `coverPosition` în tip, randat `<img>` în bandă (fallback gradient), `object-position` din `coverPosition`.
+- `usersRepo.getUserMedia` întoarce și `coverPosition`; `feed/page.tsx` ia media via `getUserMedia` și o pasează
+  (folosește și `media.image` proaspăt din DB, fallback la `session.user.image`).
+
+### feat(ux) — bară de progres la navigare (nextjs-toploader)
+- `nextjs-toploader` în `layout.tsx` (culoare brand `#95492e`, 3px, fără spinner, `nonce` CSP). Feedback instant
+  la fiecare navigare → maschează round-trip-ul de la layout-ul dinamic (nonce) + paginile grele (profil), care se
+  percepea ca „blank / se încarcă greu" între feed ↔ profil/editare. NU re-introduce fade-ul `.dt-page` (scos azi).
+
+---
+
+## 2026-06-29 — CI rulează testele (vitest)
+
+### ci — pas de test pe fiecare push/PR
+- `.github/workflows/ci.yml`: adăugat pasul **Test** (`npm run test --if-present`) între Lint și Build → un PR cu
+  teste roșii (unit/domain/securitate) nu mai trece. `vitest` e scopat la `{server,lib}/**/*.test.ts`, deci NU
+  atinge `e2e/*.spec.ts`. E2E NU rulează în CI (cere preview live + bypass) — se rulează manual pe preview.
+
+---
+
 ## 2026-06-29 — E2E: suită VERDE pe preview (15/15) + fix-uri selectoare
 
 ### test(e2e) — rulat pe preview, toate verzi
