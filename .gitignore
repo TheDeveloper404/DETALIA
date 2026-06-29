@@ -33,6 +33,8 @@ pnpm-debug.log*
 coverage/
 playwright-report/
 test-results/
+# Stare de auth E2E (cookie de sesiune real + seed) — generată la runtime de auth.setup.ts, NU se comite
+e2e/.auth/
 playwright/.cache/
 .playwright-mcp/
 .nyc_output/

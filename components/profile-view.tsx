@@ -20,6 +20,7 @@ export type ProfileStats = {
 export type ProfileDetailItem = {
   id: string;
   title: string;
+  imageUrl: string;
   categoryName: string | null;
   validationCount: number;
   sketchCount: number;
@@ -190,7 +191,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             </TabButton>
           </div>
 
-          {tab === "detalii" && <DetailsTab items={data.details} />}
+          {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
           {tab === "schite" && <SketchesTab items={data.sketches} />}
           {tab === "activitate" && <ActivityTab items={data.activity} />}
         </div>
@@ -305,8 +306,26 @@ function TabButton({
   );
 }
 
-function DetailsTab({ items }: { items: ProfileDetailItem[] }) {
-  if (items.length === 0) return <EmptyTab>Niciun detaliu publicat încă.</EmptyTab>;
+function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; viewerIsOwner: boolean }) {
+  if (items.length === 0)
+    return (
+      <EmptyTab>
+        Niciun detaliu publicat încă.
+        {viewerIsOwner && (
+          <div className="mt-4">
+            <Link
+              href="/details/new"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#95492e] bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground no-underline transition-colors hover:bg-[#974a2e]"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              Adaugă detaliu
+            </Link>
+          </div>
+        )}
+      </EmptyTab>
+    );
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {items.map((d) => (
@@ -315,7 +334,9 @@ function DetailsTab({ items }: { items: ProfileDetailItem[] }) {
           href={`/details/${d.id}`}
           className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10 transition-shadow hover:ring-primary/40"
         >
-          <div className="relative flex h-[120px] items-center justify-center border-b border-border bg-secondary">
+          <div className="relative flex h-[120px] items-center justify-center overflow-hidden border-b border-border bg-secondary">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={d.imageUrl} alt={d.title} className="absolute inset-0 size-full object-cover" />
             {d.categoryName && (
               <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
                 {d.categoryName}

@@ -27,11 +27,13 @@ function ValidatorStack({
   avatars: { name: string | null; image: string | null }[];
   total: number;
 }) {
-  if (total <= 0 || avatars.length === 0) return null;
+  // Rezervăm întotdeauna înălțimea rândului (h-6 = dimensiunea avatarului) ca să nu „crească"
+  // cardul când treci de la 0 validări la ≥1 (după Aprob/Dezaprob).
+  if (total <= 0 || avatars.length === 0) return <div className="mb-3 h-6" aria-hidden />;
   const overflow = total - avatars.length;
 
   return (
-    <div className="mb-3 flex items-center">
+    <div className="mb-3 flex h-6 items-center">
       {avatars.map((v, i) => (
         <span
           key={i}

@@ -27,10 +27,24 @@ export async function signInWithEmailAction(formData: FormData): Promise<void> {
   ]);
   if (!byEmail.ok || !byIp.ok) redirect(`${authPath}?error=RateLimited`);
 
+  // redirect:false → primim URL-ul de redirect în loc ca Auth.js să sară singur pe `pages.error`
+  // (care e /login). Astfel eroarea de pe /signup RĂMÂNE pe /signup (citim ?error din URL-ul întors).
+  let destination: string | undefined;
   try {
-    await signIn("resend", { email, redirectTo: callbackUrl });
+    destination = (await signIn("resend", {
+      email,
+      redirectTo: callbackUrl,
+      redirect: false,
+    })) as string | undefined;
   } catch (err) {
     if (err instanceof AuthError) redirect(`${authPath}?error=${encodeURIComponent(err.type)}`);
     throw err;
   }
+
+  // Aceste redirect-uri sunt în afara try → NEXT_REDIRECT nu e înghițit de catch.
+  const errorType = destination
+    ? new URL(destination, "http://detalia.local").searchParams.get("error")
+    : null;
+  if (errorType) redirect(`${authPath}?error=${encodeURIComponent(errorType)}`);
+  redirect(destination ?? callbackUrl);
 }

@@ -153,7 +153,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             )}
 
             {detail.description && (
-              <div className="mt-4 max-w-[64ch] whitespace-pre-wrap text-[15.5px] leading-relaxed text-foreground/80 text-pretty">
+              <div className="mt-4 whitespace-pre-wrap text-[15.5px] leading-relaxed text-foreground/80 text-pretty">
                 {detail.description}
               </div>
             )}
