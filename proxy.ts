@@ -6,9 +6,12 @@
 
 import { NextResponse } from "next/server";
 
+import { isAdminEmail } from "@/lib/admin-allowlist";
 import { audit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { buildCspHeader } from "@/lib/csp";
+import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
+import { getSettingsRow } from "@/server/repos/settingsRepo";
 import { userHasRole } from "@/server/services/roleService";
 
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
@@ -17,6 +20,7 @@ const PUBLIC_PATHS = [
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
   "/verify-request", // „verifică-ți email-ul" după cererea magic link-ului (pre-auth)
+  "/maintenance", // ecranul „site în lucru" (ținta rewrite-ului de lockdown) — public by design
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
   "/admin-page",
@@ -29,6 +33,32 @@ export default auth(async (req) => {
   // Scurtătură: /admin → login-ul de admin (panou separat). Comod de tastat.
   if (pathname === "/admin") {
     return Response.redirect(new URL("/admin-page/login", origin));
+  }
+
+  // POARTA DE ADMIN (centralizată) — tot ce e sub /admin-page cere sesiune validă de admin, MAI PUȚIN
+  // login + verify (publice prin natura magic link-ului). Backstop: orice rută NOUĂ sub /admin-page e
+  // protejată automat, fără să depindă de un check în pagină. Sesiune validată în DB + email în allowlist.
+  if (pathname.startsWith("/admin-page")) {
+    const adminPublic = pathname === "/admin-page/login" || pathname === "/admin-page/verify";
+    if (!adminPublic) {
+      const token = req.cookies.get("detalia-admin-session")?.value;
+      const email = token ? await getValidAdminSessionEmail(token) : null;
+      if (!email || !isAdminEmail(email)) {
+        return Response.redirect(new URL("/admin-page/login", origin));
+      }
+    }
+    // /admin-page e deja public față de Auth.js (vezi PUBLIC_PATHS) → lăsăm restul proxy-ului să curgă
+    // (CSP etc.) fără poarta de user/onboarding.
+  }
+
+  // LOCKDOWN global (mentenanță totală). Tot ce nu e /admin-page* și nu e deja ecranul de mentenanță →
+  // rewrite la /maintenance (URL-ul rămâne neschimbat). Adminul intră pe /admin-page ca să-l oprească.
+  // Cost: un SELECT (single-row) per request de pagină — acceptabil MVP; mentenanța e rară.
+  if (!pathname.startsWith("/admin-page") && pathname !== "/maintenance") {
+    const settings = await getSettingsRow();
+    if (settings?.lockdownEnabled) {
+      return NextResponse.rewrite(new URL("/maintenance", origin));
+    }
   }
 
   // User logat pe landing → direct în feed. Făcut AICI (redirect 307 curat), nu în pagină:

@@ -14,9 +14,11 @@ CREATE TABLE "admin_sessions" (
 --> statement-breakpoint
 CREATE TABLE "platform_settings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"maintenance_enabled" boolean DEFAULT false NOT NULL,
-	"maintenance_date" date,
-	"maintenance_message" text,
+	"announcement_enabled" boolean DEFAULT false NOT NULL,
+	"announcement_date" date,
+	"announcement_message" text,
+	"lockdown_enabled" boolean DEFAULT false NOT NULL,
+	"lockdown_message" text,
 	"updated_by" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
