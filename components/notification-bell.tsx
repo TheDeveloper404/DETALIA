@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bell, Check, CheckCheck, Pencil, X } from "lucide-react";
+import { ArrowRight, Bell, Check, CheckCheck, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import { RolePill } from "./role-pill";
 
 export type NotificationView = {
   id: string;
-  type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED";
+  type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED" | "SKETCH_DELETED";
   actorName: string | null;
   actorRole: string | null;
   actorVerified: boolean;
@@ -39,6 +39,11 @@ const TYPE_STYLE = {
     sqBorder: "#ecd6d2",
     icon: <X className="size-4 text-destructive" strokeWidth={2.4} />,
   },
+  SKETCH_DELETED: {
+    sqBg: "#f6ebe9",
+    sqBorder: "#ecd6d2",
+    icon: <Trash2 className="size-4 text-destructive" strokeWidth={2} />,
+  },
 } as const;
 
 // Textul notificării pe datele reale din payload (fără a inventa rol/identitate lipsă).
@@ -56,10 +61,14 @@ function NotificationText({ n }: { n: NotificationView }) {
             <RolePill roleMain={n.actorRole} verified={n.actorVerified} />
           </>
         )}{" "}
-        a propus o modificare la {ref}.
+        a schițat peste {ref}.
       </>
     );
   }
+  if (n.type === "SKETCH_DELETED") {
+    return <>Schița ta la {ref} a fost eliminată de autorul detaliului.</>;
+  }
+  // Tipuri moștenite din fluxul vechi cu acceptare (nemaiproduse, dar pot exista în istoric).
   if (n.type === "SKETCH_ACCEPTED") {
     return <>Schița ta la {ref} a fost acceptată — e publică în teanc.</>;
   }
@@ -203,7 +212,7 @@ export function NotificationBell({
                       {n.type === "SKETCH_PROPOSED" && n.href && (
                         // CTA vizual (span, nu link) — rândul-Link de mai jos face navigarea spre același detaliu.
                         <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-[9px] border border-[#ecdcc8] bg-[#f6ede4] px-3 py-1.5 font-heading text-[13px] font-semibold text-primary">
-                          Vizualizează &amp; acceptă
+                          Vezi schița în teanc
                           <ArrowRight className="size-3.5" strokeWidth={2} />
                         </span>
                       )}

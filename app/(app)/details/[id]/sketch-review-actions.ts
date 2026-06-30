@@ -5,37 +5,24 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { accept, createDraft, reject } from "@/server/services/sketchService";
+import { createDraft, deleteSketch } from "@/server/services/sketchService";
 
-// Accept/respinge propunere — doar autorul detaliului-mamă (authz în service). Fără justificare.
-// actorUserId vine din sesiune; sketchId din formular. Pe authz greșit, service-ul respinge (FORBIDDEN) → no-op.
-
-async function review(formData: FormData, decision: "accept" | "reject") {
+// Șterge o schiță din teanc (moderare post-publicare) — autorul schiței SAU autorul detaliului-mamă
+// (authz în service). actorUserId din sesiune; sketchId din formular. Pe authz greșit → FORBIDDEN, no-op.
+export async function deleteSketchAction(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const sketchId = String(formData.get("sketchId") ?? "");
   const detailId = String(formData.get("detailId") ?? "");
 
-  // SEC-01: decizia trimite email autorului schiței → limită per user; la depășire, no-op.
+  // SEC-01: ștergerea declanșează scrieri DB (cascadă) + posibil email → limită per user; la depășire, no-op.
   if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
     redirect(`/details/${detailId}`);
   }
 
-  if (decision === "accept") {
-    await accept({ sketchId, actorUserId: session.user.id });
-  } else {
-    await reject({ sketchId, actorUserId: session.user.id });
-  }
+  await deleteSketch({ sketchId, actorUserId: session.user.id });
   revalidatePath(`/details/${detailId}`);
-}
-
-export async function acceptSketchAction(formData: FormData): Promise<void> {
-  await review(formData, "accept");
-}
-
-export async function rejectSketchAction(formData: FormData): Promise<void> {
-  await review(formData, "reject");
 }
 
 // Pornește o schiță peste detaliu: creează un DRAFT și duce autorul în editor.

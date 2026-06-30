@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -14,11 +14,12 @@ import type { TargetComment } from "@/server/repos/commentsRepo";
 import type { TargetPosition } from "@/server/repos/validationsRepo";
 
 import { CommentsSection } from "./comments-section";
-import { acceptSketchAction, rejectSketchAction, startSketchAction } from "./sketch-review-actions";
+import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
 import { ValidationPanel } from "./validation-panel";
 
 export type SketchItem = {
   id: string;
+  authorId: string | null;
   authorName: string | null;
   authorImage: string | null;
   authorRoleMain: string | null;
@@ -43,7 +44,7 @@ export function SketchSection({
   detailId,
   imageUrl,
   published,
-  pending,
+  isDetailAuthor,
   currentUserId,
   currentUserName,
   currentUserImage,
@@ -51,14 +52,18 @@ export function SketchSection({
   detailId: string;
   imageUrl: string;
   published: PublishedSketchItem[];
-  pending: SketchItem[]; // gol dacă userul curent nu e autorul-mamă
+  isDetailAuthor: boolean; // autorul detaliului-mamă poate șterge orice schiță din teanc (moderare)
   currentUserId?: string | null;
   currentUserName?: string | null;
   currentUserImage?: string | null;
 }) {
-  // 0..N-1 = schițele publicate (teancul).
+  // 0..N-1 = schițele publicate (teancul). După o ștergere lista se scurtează → clamp pe ultimul tab valid.
   const [tab, setTab] = useState(0);
-  const active = published[tab];
+  const safeTab = Math.min(tab, Math.max(0, published.length - 1));
+  const active = published[safeTab];
+  // Ștergerea schiței active e permisă autorului detaliului (moderare) SAU autorului schiței (a lui).
+  const canDeleteActive =
+    !!active && (isDetailAuthor || (!!currentUserId && active.authorId === currentUserId));
 
   const startSketchBtn = (
     <form action={startSketchAction}>
@@ -94,7 +99,7 @@ export function SketchSection({
                   onClick={() => setTab(i)}
                   className={cn(
                     "-mb-px border-b-2 px-3.5 py-2.5 font-heading text-[13.5px] font-semibold transition-colors",
-                    tab === i
+                    safeTab === i
                       ? "border-primary text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground",
                   )}
@@ -142,6 +147,34 @@ export function SketchSection({
                 <span className="self-start rounded-full border border-emerald-600/30 bg-emerald-50 px-2.5 py-1 font-mono text-[11px] text-emerald-700">
                   în teanc · publicată
                 </span>
+
+                {canDeleteActive && (
+                  <form
+                    action={deleteSketchAction}
+                    onSubmit={(e) => {
+                      if (
+                        !window.confirm(
+                          "Sigur ștergi această schiță? Validările și comentariile ei se șterg definitiv.",
+                        )
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
+                    className="border-t border-[#eee6da] pt-3"
+                  >
+                    <input type="hidden" name="sketchId" value={active.id} />
+                    <input type="hidden" name="detailId" value={detailId} />
+                    <button
+                      type="submit"
+                      className="inline-flex items-center gap-1.5 rounded-md border border-[#e6c9c4] bg-white px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-[#b0463c] transition-colors hover:bg-[#fbf1ef]"
+                    >
+                      <Trash2 className="size-3.5" strokeWidth={2} />
+                      {isDetailAuthor && active.authorId !== currentUserId
+                        ? "Șterge schița"
+                        : "Șterge schița mea"}
+                    </button>
+                  </form>
+                )}
               </div>
             </div>
 
@@ -183,51 +216,6 @@ export function SketchSection({
           </div>
         )}
       </section>
-
-      {/* Propuneri în așteptare — vizibile DOAR autorului detaliului-mamă (filtrat pe server). */}
-      {pending.length > 0 && (
-        <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:px-6">
-          <div>
-            <h2 className="font-heading text-lg font-bold">
-              Propuneri în așteptare ({pending.length})
-            </h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">
-              Cineva a propus o modificare la detaliul tău. Acceptă (intră în teanc) sau respinge.
-            </p>
-          </div>
-
-          <ul className="flex flex-col gap-6">
-            {pending.map((s) => (
-              <li key={s.id} className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <AvatarInitials name={s.authorName} imageUrl={s.authorImage} size={30} />
-                  <span className="text-sm font-semibold">{s.authorName ?? "Anonim"}</span>
-                  <RolePill roleMain={s.authorRoleMain} verified={s.authorVerification === "VERIFIED"} />
-                </div>
-                <div className="max-w-md">
-                  <SketchViewer imageUrl={imageUrl} strokes={s.strokes} />
-                </div>
-                <div className="flex gap-2">
-                  <form action={acceptSketchAction}>
-                    <input type="hidden" name="sketchId" value={s.id} />
-                    <input type="hidden" name="detailId" value={detailId} />
-                    <Button type="submit" size="sm">
-                      Acceptă
-                    </Button>
-                  </form>
-                  <form action={rejectSketchAction}>
-                    <input type="hidden" name="sketchId" value={s.id} />
-                    <input type="hidden" name="detailId" value={detailId} />
-                    <Button type="submit" size="sm" variant="outline">
-                      Respinge
-                    </Button>
-                  </form>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }

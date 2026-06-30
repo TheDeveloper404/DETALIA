@@ -13,7 +13,10 @@ function describe(type: string, p: Payload): { text: string; href: string | null
   const href = p.detailId ? `/details/${p.detailId}` : null;
   switch (type) {
     case "SKETCH_PROPOSED":
-      return { text: `${p.sketchAuthorName ?? "Cineva"} a propus o schiță la „${title}”.`, href };
+      return { text: `${p.sketchAuthorName ?? "Cineva"} a schițat peste „${title}”.`, href };
+    case "SKETCH_DELETED":
+      return { text: `Schița ta la „${title}” a fost eliminată.`, href };
+    // Tipuri moștenite din fluxul vechi cu acceptare (nemaiproduse, dar pot exista în istoric).
     case "SKETCH_ACCEPTED":
       return { text: `Schița ta la „${title}” a fost acceptată.`, href };
     case "SKETCH_REJECTED":

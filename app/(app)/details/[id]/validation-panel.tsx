@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check, Pencil, PenLine, X } from "lucide-react";
 import { useActionState, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -21,6 +21,7 @@ export function ValidationPanel({
   targetId,
   detailId,
   allowSketch,
+  canValidate = true,
   counts,
   myPosition,
   positions,
@@ -29,13 +30,16 @@ export function ValidationPanel({
   targetType: TargetType;
   targetId: string;
   detailId: string; // pagina de revalidat (detaliul-părinte)
-  allowSketch: boolean; // butonul „Dezaprob și fac o schiță" — doar pe DETAIL
+  allowSketch: boolean; // ramura „Fă o schiță" la dezaprobare — doar pe DETAIL
+  canValidate?: boolean; // false = nu te poți valida pe propriul conținut → ascundem butoanele
   counts: { approve: number; disapprove: number };
   myPosition: ValidationPosition | null;
   positions: TargetPosition[];
   meta?: { comments: number; sketches: number }; // contoare detaliu (validări/comentarii/schițe) — doar pe DETAIL
 }) {
-  const [showJustify, setShowJustify] = useState(false);
+  // Fluxul de dezaprobare: "none" (ascuns) → "choose" (alegere binară text/schiță) → "text" (justificare).
+  // Pe ținte fără ramura schiță (SKETCH) sărim direct la "text" — o singură cale, fără alegere inutilă.
+  const [mode, setMode] = useState<"none" | "choose" | "text">("none");
   const [state, formAction, pending] = useActionState(disapproveAction, initialState);
 
   const approved = myPosition === "APPROVE";
@@ -55,102 +59,148 @@ export function ValidationPanel({
 
   return (
     <section className="rounded-xl border border-border bg-card p-5 text-card-foreground sm:px-6">
-      {/* Butoane — identice pentru toți; greutatea o dă rolul, nu un scor. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <form action={approveAction} className="contents">
-          {hidden}
-          <button
-            type="submit"
-            aria-pressed={approved}
-            className={cn(
-              "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
-              approved
-                ? "border-emerald-600/40 bg-emerald-50 text-emerald-700"
-                : "border-border bg-card text-foreground hover:border-primary",
-            )}
-          >
-            <Check className="size-[17px]" strokeWidth={2.6} />
-            Aprob
-          </button>
-        </form>
+      {/* Butoanele de validare apar DOAR dacă te poți valida (nu pe propriul conținut). */}
+      {canValidate && (
+        <>
+          {/* Butoane — identice pentru toți; greutatea o dă rolul, nu un scor. */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <form action={approveAction} className="contents">
+              {hidden}
+              <button
+                type="submit"
+                aria-pressed={approved}
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
+                  approved
+                    ? "border-emerald-600/40 bg-emerald-50 text-emerald-700"
+                    : "border-border bg-card text-foreground hover:border-primary",
+                )}
+              >
+                <Check className="size-[17px]" strokeWidth={2.6} />
+                Aprob
+              </button>
+            </form>
 
-        <button
-          type="button"
-          onClick={() => setShowJustify((v) => !v)}
-          aria-expanded={showJustify}
-          aria-pressed={disapproved}
-          className={cn(
-            "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
-            disapproved
-              ? "border-destructive/40 bg-destructive/10 text-destructive"
-              : "border-border bg-card text-foreground hover:border-primary",
-          )}
-        >
-          <X className="size-4" strokeWidth={2.6} />
-          Dezaprob
-        </button>
-
-        <span className="font-mono text-[11px] leading-tight text-[#a59a88] sm:ml-auto sm:text-right">
-          o singură poziție
-          <br className="hidden sm:inline" /> reversibilă oricând
-        </span>
-      </div>
-
-      {/* Dezaprob = justificare OBLIGATORIE (devine comentariu pe server). Fără „dezaprobare mută". */}
-      {showJustify && (
-        <form action={formAction} className="mt-4 flex flex-col gap-2">
-          {hidden}
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Justificare (obligatorie)</span>
-            <Textarea
-              name="justification"
-              required
-              rows={3}
-              maxLength={COMMENT_MAX_LENGTH}
-              placeholder="Explică de ce dezaprobi — apare ca poziție argumentată în dezbatere…"
-            />
-          </label>
-          {state.error && (
-            <p role="alert" className="text-xs text-destructive">
-              {state.error}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" name="intent" value="send" variant="destructive" disabled={pending}>
-              {pending ? "Se trimite…" : "Trimite dezaprobarea"}
-            </Button>
-            {allowSketch && (
-              <Button type="submit" name="intent" value="sketch" variant="outline" disabled={pending}>
-                Dezaprob și fac o schiță
-              </Button>
-            )}
-          </div>
-        </form>
-      )}
-
-      {/* Confirmarea poziției proprii + retragere (reversibilă oricând). */}
-      {myPosition && (
-        <div
-          className={cn(
-            "mt-4 flex items-center gap-3 rounded-[9px] border px-3.5 py-2.5 text-sm",
-            approved
-              ? "border-emerald-600/30 bg-emerald-50 text-emerald-800"
-              : "border-destructive/30 bg-destructive/5 text-destructive",
-          )}
-        >
-          <span className="leading-snug">
-            {approved ? `Ai aprobat ${targetNoun}.` : `Ai dezaprobat ${targetNoun}.`}
-          </span>
-          <form action={retractAction} className="ml-auto">
-            {hidden}
             <button
-              type="submit"
-              className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              type="button"
+              onClick={() => setMode((m) => (m === "none" ? (allowSketch ? "choose" : "text") : "none"))}
+              aria-expanded={mode !== "none"}
+              aria-pressed={disapproved}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
+                disapproved
+                  ? "border-destructive/40 bg-destructive/10 text-destructive"
+                  : "border-border bg-card text-foreground hover:border-primary",
+              )}
             >
-              retrage poziția
+              <X className="size-4" strokeWidth={2.6} />
+              Dezaprob
             </button>
-          </form>
-        </div>
+
+            <span className="font-mono text-[11px] leading-tight text-[#a59a88] sm:ml-auto sm:text-right">
+              o singură poziție
+              <br className="hidden sm:inline" /> reversibilă oricând
+            </span>
+          </div>
+
+          {/* Pas de ALEGERE (doar pe detaliu): una din două — argumentezi în text SAU desenezi o schiță. */}
+          {mode === "choose" && (
+            <div className="mt-4 flex flex-col gap-2">
+              <p className="text-sm font-medium">Cum vrei să dezaprobi?</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setMode("text")}
+                  className="flex items-start gap-3 rounded-[10px] border border-border bg-card p-3.5 text-left transition-colors hover:border-primary"
+                >
+                  <PenLine className="mt-0.5 size-5 shrink-0 text-primary" strokeWidth={1.9} />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="text-sm font-semibold">Scrie o justificare</span>
+                    <span className="text-xs text-muted-foreground">Argumentezi în text — apare în dezbatere.</span>
+                  </span>
+                </button>
+                <form action={formAction} className="contents">
+                  {hidden}
+                  <button
+                    type="submit"
+                    name="intent"
+                    value="sketch"
+                    disabled={pending}
+                    className="flex items-start gap-3 rounded-[10px] border border-border bg-card p-3.5 text-left transition-colors hover:border-primary disabled:opacity-60"
+                  >
+                    <Pencil className="mt-0.5 size-5 shrink-0 text-primary" strokeWidth={1.9} />
+                    <span className="flex flex-col gap-0.5">
+                      <span className="text-sm font-semibold">Fă o schiță</span>
+                      <span className="text-xs text-muted-foreground">Desenezi peste detaliu — schița e justificarea.</span>
+                    </span>
+                  </button>
+                </form>
+              </div>
+              {state.error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {state.error}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Ramura TEXT: justificare OBLIGATORIE (devine comentariu pe server). Fără „dezaprobare mută". */}
+          {mode === "text" && (
+            <form action={formAction} className="mt-4 flex flex-col gap-2">
+              {hidden}
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Justificare (obligatorie)</span>
+                <Textarea
+                  name="justification"
+                  required
+                  rows={3}
+                  maxLength={COMMENT_MAX_LENGTH}
+                  placeholder="Explică de ce dezaprobi — apare ca poziție argumentată în dezbatere…"
+                />
+              </label>
+              {state.error && (
+                <p role="alert" className="text-xs text-destructive">
+                  {state.error}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" name="intent" value="send" variant="destructive" disabled={pending}>
+                  {pending ? "Se trimite…" : "Trimite dezaprobarea"}
+                </Button>
+                {allowSketch && (
+                  <Button type="button" variant="ghost" onClick={() => setMode("choose")} disabled={pending}>
+                    ← Înapoi
+                  </Button>
+                )}
+              </div>
+            </form>
+          )}
+
+          {/* Confirmarea poziției proprii + retragere (reversibilă oricând). */}
+          {myPosition && (
+            <div
+              className={cn(
+                "mt-4 flex items-center gap-3 rounded-[9px] border px-3.5 py-2.5 text-sm",
+                approved
+                  ? "border-emerald-600/30 bg-emerald-50 text-emerald-800"
+                  : "border-destructive/30 bg-destructive/5 text-destructive",
+              )}
+            >
+              <span className="leading-snug">
+                {approved ? `Ai aprobat ${targetNoun}.` : `Ai dezaprobat ${targetNoun}.`}
+              </span>
+              <form action={retractAction} className="ml-auto">
+                {hidden}
+                <button
+                  type="submit"
+                  className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  retrage poziția
+                </button>
+              </form>
+            </div>
+          )}
+        </>
       )}
 
       {/* Contoare detaliu — fără scor, doar rolul la vedere. */}

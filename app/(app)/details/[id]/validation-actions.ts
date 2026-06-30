@@ -13,6 +13,8 @@ export type DisapproveState = { error: string | null };
 
 const ERROR_MESSAGES: Record<string, string> = {
   TARGET_NOT_FOUND: "Conținutul nu mai există.",
+  DETAIL_NOT_FOUND: "Detaliul nu mai există.",
+  CANNOT_VALIDATE_OWN: "Nu îți poți valida propriul conținut.",
   JUSTIFICATION_REQUIRED: "Dezaprobarea cere o justificare.",
   JUSTIFICATION_TOO_LONG: "Justificarea e prea lungă (max 5000 de caractere).",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
@@ -72,18 +74,30 @@ export async function disapproveAction(
   }
 
   const { targetType, targetId, detailId } = readTarget(formData);
-  const justification = String(formData.get("justification") ?? "");
+  const intent = String(formData.get("intent") ?? "send");
 
+  // Ramura SCHIȚĂ (doar pe DETAIL): „Dezaprob → fac o schiță". NU înregistrăm încă dezaprobarea — schița E
+  // justificarea. Poziția DISAPPROVE + comentariul se materializează la PUBLICAREA schiței (sketchService.publish),
+  // ca să nu rămână o „dezaprobare mută" dacă autorul abandonează editorul. Marcăm draftul cu disapprovesParent.
+  if (targetType === "DETAIL" && intent === "sketch") {
+    const draft = await createDraft({
+      detailId: targetId,
+      authorId: session.user.id,
+      disapprovesParent: true,
+    });
+    if (!draft.ok) {
+      if (draft.error === "NO_ROLE") redirect("/onboarding");
+      return { error: ERROR_MESSAGES[draft.error] ?? "Ceva n-a mers. Încearcă din nou." };
+    }
+    redirect(`/sketches/${draft.value.sketchId}/edit`);
+  }
+
+  // Ramura TEXT: justificare obligatorie → DISAPPROVE + comentariu (originValidationId).
+  const justification = String(formData.get("justification") ?? "");
   const res = await disapprove({ userId: session.user.id, targetType, targetId, justification });
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
-  }
-
-  // Schițarea se ajunge DOAR de aici și DOAR pe un detaliu: „Dezaprob și fac o schiță" → draft + editor.
-  if (targetType === "DETAIL" && String(formData.get("intent") ?? "send") === "sketch") {
-    const draft = await createDraft({ detailId: targetId, authorId: session.user.id });
-    if (draft.ok) redirect(`/sketches/${draft.value.sketchId}/edit`);
   }
 
   revalidatePath(`/details/${detailId}`);

@@ -1,60 +1,68 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Mock-uim TOATE repo-urile (fără DB) + notificările. Testăm doar authz/state machine/atomicitate din service.
+// Mock-uim TOATE repo-urile (fără DB) + notificările + validationService + storage.
+// Testăm doar authz/state machine/atomicitate din service.
 vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({
   getSketchById: vi.fn(),
   insertDraft: vi.fn(),
   deleteDraftByAuthor: vi.fn(),
+  deleteSketchCascade: vi.fn(),
   listDraftsByAuthor: vi.fn(),
-  listPendingByDetail: vi.fn(),
   listPublishedByDetail: vi.fn(),
   listRecentPublished: vi.fn(),
-  transitionFromDraft: vi.fn(),
-  transitionFromPending: vi.fn(),
+  publishFromDraft: vi.fn(),
   updateStrokes: vi.fn(),
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ getNotificationActor: vi.fn() }));
 vi.mock("@/server/services/notificationService", () => ({
   notifySketchProposed: vi.fn(),
-  notifySketchDecision: vi.fn(),
+  notifySketchDeleted: vi.fn(),
 }));
+vi.mock("@/server/services/validationService", () => ({ recordSketchDisapproval: vi.fn() }));
+vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 
+import { deleteBlobs } from "@/lib/storage";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import {
+  deleteSketchCascade,
   getSketchById,
-  transitionFromDraft,
-  transitionFromPending,
+  publishFromDraft,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import {
-  notifySketchDecision,
+  notifySketchDeleted,
   notifySketchProposed,
 } from "@/server/services/notificationService";
+import { recordSketchDisapproval } from "@/server/services/validationService";
 
-import { accept, getDraftForEdit, reject, saveStrokes, send } from "./sketchService";
+import { deleteSketch, getDraftForEdit, publish, saveStrokes } from "./sketchService";
 
 const OWNER = "owner-1"; // autorul detaliului-mamă
 const SKETCH_AUTHOR = "sketcher-1"; // autorul schiței
 const ATTACKER = "attacker-1";
+const SID = "11111111-1111-4111-8111-111111111111";
+const DID = "22222222-2222-4222-8222-222222222222";
 
 const validStrokes = [{ color: "#211d18", size: 8, points: [[0.1, 0.2]], kind: "free" }];
 
 function draft(over: Record<string, unknown> = {}) {
   return {
-    id: "11111111-1111-4111-8111-111111111111",
-    detailId: "22222222-2222-4222-8222-222222222222",
+    id: SID,
+    detailId: DID,
     authorId: SKETCH_AUTHOR,
     status: "DRAFT",
     strokesJson: validStrokes,
+    disapprovesParent: false,
+    thumbnailUrl: null,
     ...over,
   };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getDetailById).mockResolvedValue({ id: "22222222-2222-4222-8222-222222222222", authorId: OWNER, title: "T" } as never);
+  vi.mocked(getDetailById).mockResolvedValue({ id: DID, authorId: OWNER, title: "T" } as never);
   vi.mocked(getNotificationActor).mockResolvedValue({
     name: "X",
     roleMain: "PROIECTANT",
@@ -65,28 +73,28 @@ beforeEach(() => {
 describe("IDOR — doar autorul schiței o poate atinge cât e DRAFT", () => {
   it("saveStrokes: alt user → FORBIDDEN", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
-    const r = await saveStrokes({ sketchId: "11111111-1111-4111-8111-111111111111", authorId: ATTACKER, strokes: validStrokes });
+    const r = await saveStrokes({ sketchId: SID, authorId: ATTACKER, strokes: validStrokes });
     expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
   });
 
   it("getDraftForEdit: alt user → FORBIDDEN", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
-    const r = await getDraftForEdit("11111111-1111-4111-8111-111111111111", ATTACKER);
+    const r = await getDraftForEdit(SID, ATTACKER);
     expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
   });
 
-  it("send: alt user → FORBIDDEN, fără tranziție/notificare", async () => {
+  it("publish: alt user → FORBIDDEN, fără tranziție/notificare", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
-    const r = await send({ sketchId: "11111111-1111-4111-8111-111111111111", authorId: ATTACKER });
+    const r = await publish({ sketchId: SID, authorId: ATTACKER });
     expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
-    expect(transitionFromDraft).not.toHaveBeenCalled();
+    expect(publishFromDraft).not.toHaveBeenCalled();
     expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 });
 
 describe("SEC-11 — id malformat → not found, fără atingere DB", () => {
-  it("send cu sketchId ne-UUID → SKETCH_NOT_FOUND, fără query", async () => {
-    const r = await send({ sketchId: "not-a-uuid", authorId: SKETCH_AUTHOR });
+  it("publish cu sketchId ne-UUID → SKETCH_NOT_FOUND, fără query", async () => {
+    const r = await publish({ sketchId: "not-a-uuid", authorId: SKETCH_AUTHOR });
     expect(r).toEqual({ ok: false, error: "SKETCH_NOT_FOUND" });
     expect(getSketchById).not.toHaveBeenCalled();
   });
@@ -98,71 +106,77 @@ describe("SEC-11 — id malformat → not found, fără atingere DB", () => {
   });
 });
 
-describe("SEND — DRAFT → PENDING, atomic + notificare o singură dată", () => {
+describe("PUBLISH — DRAFT → PUBLISHED, atomic + notificare o singură dată", () => {
   it("respinge dacă nu e DRAFT (state machine)", async () => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PENDING_ACCEPTANCE" }) as never);
-    const r = await send({ sketchId: "11111111-1111-4111-8111-111111111111", authorId: SKETCH_AUTHOR });
+    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
+    const r = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
     expect(r).toEqual({ ok: false, error: "INVALID_STATE" });
   });
 
-  it("cursă pierdută (transitionFromDraft=false) → INVALID_STATE, NU notifică (fără email dublu)", async () => {
+  it("cursă pierdută (publishFromDraft=false) → INVALID_STATE, NU notifică (fără email dublu)", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
-    vi.mocked(transitionFromDraft).mockResolvedValue(false as never);
-    const r = await send({ sketchId: "11111111-1111-4111-8111-111111111111", authorId: SKETCH_AUTHOR });
+    vi.mocked(publishFromDraft).mockResolvedValue(false as never);
+    const r = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
     expect(r).toEqual({ ok: false, error: "INVALID_STATE" });
     expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 
-  it("succes → notifică autorul detaliului-mamă exact o dată", async () => {
+  it("succes → notifică autorul detaliului-mamă exact o dată; fără dezaprobare dacă nu e marcată", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
-    vi.mocked(transitionFromDraft).mockResolvedValue(true as never);
-    const r = await send({ sketchId: "11111111-1111-4111-8111-111111111111", authorId: SKETCH_AUTHOR });
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    const r = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
     expect(r).toEqual({ ok: true });
     expect(notifySketchProposed).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(notifySketchProposed).mock.calls[0][0]).toMatchObject({
-      recipientUserId: OWNER,
+    expect(vi.mocked(notifySketchProposed).mock.calls[0][0]).toMatchObject({ recipientUserId: OWNER });
+    expect(recordSketchDisapproval).not.toHaveBeenCalled();
+  });
+
+  it("dezaprobare-prin-schiță (disapprovesParent) → materializează dezaprobarea pe detaliul-mamă", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ disapprovesParent: true }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    const r = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
+    expect(r).toEqual({ ok: true });
+    expect(recordSketchDisapproval).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(recordSketchDisapproval).mock.calls[0][0]).toMatchObject({
+      userId: SKETCH_AUTHOR,
+      detailId: DID,
     });
   });
 });
 
-describe("ACCEPT/REJECT — doar autorul detaliului-mamă (IDOR) + atomic", () => {
-  beforeEach(() => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PENDING_ACCEPTANCE" }) as never);
-  });
-
-  it("autorul schiței NU poate accepta propria schiță → FORBIDDEN", async () => {
-    const r = await accept({ sketchId: "11111111-1111-4111-8111-111111111111", actorUserId: SKETCH_AUTHOR });
-    expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
-    expect(transitionFromPending).not.toHaveBeenCalled();
-  });
-
-  it("un străin nu poate respinge → FORBIDDEN", async () => {
-    const r = await reject({ sketchId: "11111111-1111-4111-8111-111111111111", actorUserId: ATTACKER });
-    expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
-  });
-
-  it("respinge dacă nu e PENDING (state machine)", async () => {
+describe("DELETE — moderare post-publicare (autor schiță SAU autor detaliu)", () => {
+  it("un străin nu poate șterge → FORBIDDEN, fără cascadă", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
-    const r = await accept({ sketchId: "11111111-1111-4111-8111-111111111111", actorUserId: OWNER });
-    expect(r).toEqual({ ok: false, error: "INVALID_STATE" });
+    const r = await deleteSketch({ sketchId: SID, actorUserId: ATTACKER });
+    expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
   });
 
-  it("cursă pierdută (transitionFromPending=false) → INVALID_STATE, fără notificare", async () => {
-    vi.mocked(transitionFromPending).mockResolvedValue(false as never);
-    const r = await accept({ sketchId: "11111111-1111-4111-8111-111111111111", actorUserId: OWNER });
-    expect(r).toEqual({ ok: false, error: "INVALID_STATE" });
-    expect(notifySketchDecision).not.toHaveBeenCalled();
-  });
-
-  it("accept reușit → tranziție la PUBLISHED + notificare către autorul schiței", async () => {
-    vi.mocked(transitionFromPending).mockResolvedValue(true as never);
-    const r = await accept({ sketchId: "11111111-1111-4111-8111-111111111111", actorUserId: OWNER });
+  it("autorul schiței își șterge propria schiță → cascadă, FĂRĂ notificare", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue("blob://thumb" as never);
+    const r = await deleteSketch({ sketchId: SID, actorUserId: SKETCH_AUTHOR });
     expect(r).toEqual({ ok: true });
-    expect(vi.mocked(transitionFromPending).mock.calls[0][1]).toMatchObject({ status: "PUBLISHED" });
-    expect(notifySketchDecision).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(notifySketchDecision).mock.calls[0][0]).toMatchObject({
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
+    expect(deleteBlobs).toHaveBeenCalledWith(["blob://thumb"]);
+    expect(notifySketchDeleted).not.toHaveBeenCalled();
+  });
+
+  it("autorul detaliului șterge schița altcuiva → cascadă + notifică autorul schiței", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+    const r = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+    expect(r).toEqual({ ok: true });
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
+    expect(notifySketchDeleted).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(notifySketchDeleted).mock.calls[0][0]).toMatchObject({
       recipientUserId: SKETCH_AUTHOR,
-      accepted: true,
     });
+  });
+
+  it("sketchId ne-UUID → SKETCH_NOT_FOUND, fără query", async () => {
+    const r = await deleteSketch({ sketchId: "not-a-uuid", actorUserId: OWNER });
+    expect(r).toEqual({ ok: false, error: "SKETCH_NOT_FOUND" });
+    expect(getSketchById).not.toHaveBeenCalled();
   });
 });

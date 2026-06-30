@@ -60,11 +60,15 @@ function ValidatorStack({
 export function DetailCard({
   detail,
   myPosition,
+  currentUserId,
 }: {
   detail: FeedItem;
   myPosition: ValidationPosition | null;
+  currentUserId?: string | null;
 }) {
   const href = `/details/${detail.id}`;
+  // Autorul propriului detaliu nu se validează pe sine → ascundem butoanele (enforce și pe server).
+  const canValidate = !currentUserId || detail.authorId !== currentUserId;
 
   return (
     <article className="flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 sm:flex-row">
@@ -129,8 +133,8 @@ export function DetailCard({
           <span>{detail.sketchCount} schițe în teanc</span>
         </div>
 
-        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob cu justificare). */}
-        <FeedValidationActions detailId={detail.id} myPosition={myPosition} />
+        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob cu justificare). Ascunse pe propriul detaliu. */}
+        {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
       </div>
     </article>
   );

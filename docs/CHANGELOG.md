@@ -4,6 +4,78 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-30 — feat(detaliu): simplificarea logicii de interacțiune (validare + dezaprobare + schiță)
+
+> Decizie de produs Edi: pagina de detaliu era greoaie/derutantă. Patru schimbări corelate. **Modifică reguli
+> marcate anterior „non-negociabile" în acest fișier și în `CLAUDE.md`** (schiță publică doar cu accept autor-mamă).
+
+### 1. Autorul nu se mai validează pe propriul conținut (Q1)
+- **UI:** butoanele Aprob/Dezaprob sunt ascunse pe propriul detaliu — pe pagina detaliului
+  (`validation-panel.tsx` prop nou `canValidate`, gating în `details/[id]/page.tsx` via `isAuthor`) ȘI în feed
+  (`detail-card.tsx` + `feed/page.tsx` propagă `currentUserId`; `FeedValidationActions` ascuns pe propriul card).
+- **Server (defense-in-depth):** `validationService.approve/disapprove` — guard nou `CANNOT_VALIDATE_OWN`
+  (helper `getTargetAuthorId`): refuză dacă `userId === authorId` al țintei (DETAIL sau SKETCH PUBLISHED).
+
+### 2. Dezaprobare cu alegere binară text SAU schiță (Q2 + Q3)
+- `validation-panel.tsx`: Dezaprob → pas de **alegere** (`mode: none → choose → text`): „Scrie o justificare"
+  (textarea + `intent=send`, neschimbat) SAU „Fă o schiță" (`intent=sketch`). Pe SKETCH (`allowSketch=false`)
+  se sare direct la text (o singură cale). Vechiul formular cu 2 submit-uri lipite a fost eliminat.
+- `validation-actions.ts` `disapproveAction`: ramura `intent=sketch` **NU mai cere text** și **NU mai înregistrează
+  poziția pe loc** — creează un draft marcat `disapprovesParent` și duce în editor.
+
+### 3. Dezaprobarea-prin-schiță fără „dezaprobare mută" (decizie de design)
+- Coloană nouă `sketches.disapproves_parent` (migrație `0008_high_loa.sql`, aditivă/reversibilă).
+- Poziția DISAPPROVE + comentariul-justificare (`originValidationId`) se materializează **la PUBLICAREA schiței**
+  (`sketchService.publish` → `validationService.recordSketchDisapproval`), nu la click. Dacă autorul abandonează
+  editorul → nicio dezaprobare. Guard: autorul-mamă care schițează pe propriul detaliu nu se auto-dezaprobă.
+
+### 4. Publicare directă + ștergere (Q4) — **se elimină coada de acceptare**
+- State machine simplificat: `DRAFT → PUBLISHED` (fără `PENDING_ACCEPTANCE`). `server/domain/sketch.ts` documentat;
+  valorile `PENDING_ACCEPTANCE`/`REJECTED` rămân în enumul DB pentru istoric, dar nu se mai produc.
+- `sketchService`: `send` → **`publish`** (DRAFT→PUBLISHED direct, `publishFromDraft` în repo). Eliminate
+  `accept`/`reject`/`decide`/`getPendingForOwner` + `transitionFromPending`/`listPendingByDetail`. Nou **`deleteSketch`**
+  (ownership: autorul schiței SAU autorul detaliului-mamă; cascadă validări+comentarii pe SKETCH + blob via
+  `deleteSketchCascade`).
+- Acțiuni: `sketch-review-actions.ts` — eliminate `acceptSketchAction`/`rejectSketchAction`, adăugat
+  `deleteSketchAction` (rate-limit SEC-01). `sketch-actions.ts` `sendSketchAction` → `publish`.
+  `sketch-editor.tsx`: buton „Trimite propunerea" → **„Publică schița"**.
+- UI `sketch-section.tsx`: eliminată secțiunea „Propuneri în așteptare"; adăugat buton **Șterge** pe schița activă
+  din teanc (vizibil autorului detaliului sau autorului schiței), cu confirmare. Clamp pe tab după ștergere.
+- Notificări: `notifySketchProposed` → „X a schițat peste «titlu»" (deja publicată). Eliminat `notifySketchDecision`;
+  adăugat **`notifySketchDeleted`** (tip enum nou `SKETCH_DELETED`). UI notificări (`notification-bell.tsx`,
+  `notifications/page.tsx`) actualizat: text „a schițat peste", CTA „Vezi schița în teanc", caz `SKETCH_DELETED`.
+
+### Teste & verificare
+- `sketchService.test.ts` rescris (publish + deleteSketch + materializare dezaprobare; fără accept/reject).
+- `validationService.test.ts`: teste noi pentru `CANNOT_VALIDATE_OWN` + `recordSketchDisapproval`.
+- `tsc --noEmit` ✅ · `eslint` ✅ (0 erori). Migrația Drizzle generată (`db:generate`).
+
+---
+
+## 2026-06-30 — feat(profile): autocomplete orașe România pe câmpul „Locație"
+
+### feat(profile) — sugestii de orașe la „Locație" (profile/edit)
+- `lib/ro-cities.ts` nou: listă statică cu orașele României (toate municipiile + orașe notabile), deduplicată +
+  sortată `ro`. `app/(app)/profile/profile-forms.tsx`: câmpul „Locație" primește `list="ro-cities"` + un `<datalist>`
+  populat din listă → browserul sugerează nativ (scrii „Ti" → Timișoara). Zero JS / zero dependențe / accesibil.
+  Câmpul rămâne **text liber** (nu e enum validat pe server) — userul poate scrie și o comună care nu e în listă.
+  `autoComplete="off"` ca să nu se bată autofill-ul de browser cu sugestiile din datalist.
+- Notă: același câmp „Locație" există și în `app/onboarding/onboarding-form.tsx` — NU a fost atins (cerut doar profile/edit).
+
+---
+
+## 2026-06-30 — fix(sketch): ștergere ciornă optimistă (nu mai pare „blocat")
+
+### fix(sketch) — ștergerea ciornei dispare instant (UI optimist)
+- `app/(app)/sketches/drafts/page.tsx` posta ștergerea printr-un `<form action={deleteDraftAction}>` server pur,
+  fără pending/optimistic → la click rândul rămânea static ~2s (roundtrip `auth` + `deleteDraft` + `revalidatePath`
+  + re-render) și părea blocat. Extras lista într-un client component nou `drafts-list.tsx` cu **`useOptimistic`**:
+  rândul dispare **instant** la click, ștergerea reală rulează în fundal; dacă pică, `revalidatePath` resincronizează
+  prop-ul `drafts` și rândul revine. `deleteDraftAction` neschimbat (ownership + stare DRAFT verificate în service/repo).
+  Empty state mutat tot în client component ca să reflecte starea optimistă (dispare ultima ciornă → apare instant).
+
+---
+
 ## 2026-06-30 — sesiune fix-uri: schiță (canvas/mobil), auth, header/logo mobil, câmp „Firmă"
 <!-- Lot de modificări dintr-o singură sesiune (câmp Firmă, unelte schiță, pinch-zoom, redirect ciornă,
      bodySizeLimit, header/logo mobil, CTA landing, feedback magic link). Dacă apar regresii din astea,
