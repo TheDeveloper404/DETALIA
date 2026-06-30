@@ -1,5 +1,5 @@
 {
-  "id": "453993b4-6465-4a68-aa57-48b7da4388c9",
+  "id": "5efb067b-db67-4975-98ef-e6b99f267692",
   "prevId": "4a9c7f6b-ef8d-43a3-b242-b4745d6f0ea2",
   "version": "7",
   "dialect": "postgresql",
@@ -739,21 +739,34 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "maintenance_enabled": {
-          "name": "maintenance_enabled",
+        "announcement_enabled": {
+          "name": "announcement_enabled",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": false
         },
-        "maintenance_date": {
-          "name": "maintenance_date",
+        "announcement_date": {
+          "name": "announcement_date",
           "type": "date",
           "primaryKey": false,
           "notNull": false
         },
-        "maintenance_message": {
-          "name": "maintenance_message",
+        "announcement_message": {
+          "name": "announcement_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lockdown_enabled": {
+          "name": "lockdown_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "lockdown_message": {
+          "name": "lockdown_message",
           "type": "text",
           "primaryKey": false,
           "notNull": false

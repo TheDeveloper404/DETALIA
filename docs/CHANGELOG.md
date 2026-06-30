@@ -18,15 +18,18 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - Panoul: listă useri (nume, email, rol+subrol, status, dată creare; `listUsersForAdmin`) + formular mentenanță + logout.
 - `proxy.ts`: `/admin-page` scutit de poarta Auth.js a userilor (gating-ul real e în pagini/route, via sesiunea de admin).
 
-### feat(maintenance) — mod mentenanță cu toggle din admin
-- Tabel **single-row** `platform_settings` (`maintenance_enabled`, `maintenance_date`, `maintenance_message`,
-  `updated_by` text=email, `updated_at`). Migrație `0006_romantic_firestar.sql` (creează `admin_login_tokens`,
-  `admin_sessions`, `platform_settings`; reversibilă; de aplicat pe AMBELE ramuri Neon prin SQL editor).
-- `settingsRepo` (upsert singleton) + `settingsService` (`getMaintenanceState` cu `cache()` per-request +
-  `setMaintenance` cu validare server-side). Enforce pe server.
-- **Landing** (`app/page.tsx`): mentenanță ON → vizitatorii anonimi văd ecranul „site în lucru" (on-brand) cu data/mesajul.
-- **Feed** (`app/(app)/feed/page.tsx`): mentenanță ON → banner fix sus cu textul (mesaj custom sau implicit cu data).
-- Notă: landing-ul devine dinamic (server-rendered) cât citește starea — cost mic per vizită anonimă, acceptabil MVP.
+### feat(maintenance) — DOUĂ controale independente (anunț + lockdown)
+- Tabel **single-row** `platform_settings`: (1) anunț — `announcement_enabled` / `announcement_date` /
+  `announcement_message`; (2) lockdown — `lockdown_enabled` / `lockdown_message`; + `updated_by` (email), `updated_at`.
+  Migrație `0006_heavy_pet_avengers.sql` (creează `admin_login_tokens`, `admin_sessions`, `platform_settings`;
+  reversibilă; de aplicat pe AMBELE ramuri Neon).
+- `settingsRepo` (upsert singleton) + `settingsService` (`getPlatformState` cu `cache()` per-request + `setPlatform`
+  cu validare server-side). Formularul din admin trimite ambele controale împreună.
+- **(1) Anunț** — banner în feed (`app/(app)/feed/page.tsx`) pentru userii logați; platforma merge normal. Avertizare în avans.
+- **(2) Lockdown** — gate GLOBAL în `proxy.ts`: cât e ON, tot ce nu e `/admin-page*` se face **rewrite** la `/maintenance`
+  (ecran „site în lucru", URL neschimbat). DOAR adminul intră (pe `/admin-page`, ca să-l poată opri). Ecranul =
+  `components/maintenance-screen.tsx` + `app/maintenance/page.tsx` (public).
+- Notă: lockdown-ul citește `platform_settings` (single-row) în proxy pe fiecare request de pagină — cost mic, acceptabil MVP.
 
 ### sec — hardening pe panoul de admin
 - **Anti-enumerare**: cererea de link răspunde IDENTIC indiferent dacă emailul e admin (linkul se trimite doar dacă e
