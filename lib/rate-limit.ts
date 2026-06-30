@@ -63,6 +63,9 @@ export const limiters = {
   createDetail: make(10, "1 h", "create-detail"),
   // Cotă de upload (emitere token Blob) per user.
   upload: make(30, "1 h", "upload"),
+  // Admin-login (anti-brute-force) — pe username ȘI pe IP. Strict (poartă privilegiată).
+  adminLoginPerUser: make(10, "15 m", "admin:login:user"),
+  adminLoginPerIp: make(30, "15 m", "admin:login:ip"),
 } as const;
 
 // SEC-14: hartă inversă limiter→nume, ca să etichetăm evenimentul de audit FĂRĂ a schimba call-site-urile.

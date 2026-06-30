@@ -4,24 +4,39 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
-## 2026-06-30 — panou de admin + mod mentenanță
+## 2026-06-30 — panou de admin (magic link, separat de useri) + mod mentenanță
 
-### feat(admin) — panou intern `/admin`
-- Rută nouă `app/admin/page.tsx`, gated cu `requireAdmin()` (allowlist `ADMIN_EMAILS`); non-admin → `notFound()`
-  (nu dezvăluim existența). Conține: lista userilor înregistrați (nume, email, rol+subrol, status, dată creare)
-  + formularul de mentenanță.
-- `listUsersForAdmin()` în `usersRepo` (join roluri, sortat desc după `created_at`). Email = PII, vizibil doar adminului.
+### feat(admin) — panou izolat `/admin-page`, login prin magic link propriu
+- Login admin = **magic link pe email** (via Resend), complet separat de Auth.js/contul de user. **CINE e admin =
+  allowlist `ADMIN_EMAILS`** (env) — fără tabel de conturi, fără parole. Sesiune proprie (cookie HttpOnly dedicat,
+  token opac validat în `admin_sessions` — revocabil, expiră, default 8h).
+- Flux: `/admin-page/login` (pui email) → token one-time în `admin_login_tokens` (TTL 15m) → email cu link →
+  `/admin-page/verify` (route handler GET) consumă token + creează sesiune → panou. `/admin` redirectează la login.
+- `lib/admin-auth.ts`: `isAdminEmail` (allowlist), `createAdminLoginUrl`, `verifyAdminLoginToken`,
+  `createAdminSession`/`getAdminSession`/`destroyAdminSession`. Re-verifică allowlist-ul la consum ȘI la fiecare citire
+  de sesiune (email scos din `ADMIN_EMAILS` → acces revocat imediat).
+- Panoul: listă useri (nume, email, rol+subrol, status, dată creare; `listUsersForAdmin`) + formular mentenanță + logout.
+- `proxy.ts`: `/admin-page` scutit de poarta Auth.js a userilor (gating-ul real e în pagini/route, via sesiunea de admin).
 
 ### feat(maintenance) — mod mentenanță cu toggle din admin
-- Tabel nou **single-row** `platform_settings` (`maintenance_enabled`, `maintenance_date`, `maintenance_message`,
-  `updated_by_admin_id`, `updated_at`) — migrație `0006_needy_madame_hydra.sql` (reversibilă; de aplicat pe AMBELE
-  ramuri Neon prin SQL editor).
+- Tabel **single-row** `platform_settings` (`maintenance_enabled`, `maintenance_date`, `maintenance_message`,
+  `updated_by` text=email, `updated_at`). Migrație `0006_romantic_firestar.sql` (creează `admin_login_tokens`,
+  `admin_sessions`, `platform_settings`; reversibilă; de aplicat pe AMBELE ramuri Neon prin SQL editor).
 - `settingsRepo` (upsert singleton) + `settingsService` (`getMaintenanceState` cu `cache()` per-request +
-  `setMaintenance` cu validare server-side a datei/mesajului). Enforce pe server.
-- **Landing** (`app/page.tsx`): mentenanță ON → vizitatorii anonimi văd ecranul „site în lucru" (on-brand) cu
-  data/mesajul, în loc de landing. (Userii logați sunt oricum redirectați la `/feed` de proxy.)
+  `setMaintenance` cu validare server-side). Enforce pe server.
+- **Landing** (`app/page.tsx`): mentenanță ON → vizitatorii anonimi văd ecranul „site în lucru" (on-brand) cu data/mesajul.
 - **Feed** (`app/(app)/feed/page.tsx`): mentenanță ON → banner fix sus cu textul (mesaj custom sau implicit cu data).
 - Notă: landing-ul devine dinamic (server-rendered) cât citește starea — cost mic per vizită anonimă, acceptabil MVP.
+
+### sec — hardening pe panoul de admin
+- **Anti-enumerare**: cererea de link răspunde IDENTIC indiferent dacă emailul e admin (linkul se trimite doar dacă e
+  în allowlist). Token magic-link one-time + TTL scurt. Sesiune re-verificată în allowlist la fiecare request.
+- **Audit (SEC-14)**: `admin_login_success` (link trimis / verificat), `admin_login_failed` (email non-admin / token
+  invalid) — cu hash de email/IP, fără PII brut. `maintenance_toggled` cu `emailHash`.
+- **Rate-limit (SEC-01)**: cererea de link limitată pe email ȘI pe IP (`adminLoginPerUser` 10/15m, `adminLoginPerIp`
+  30/15m); `setMaintenanceAction` per email.
+- **Eliminat**: vechiul `lib/admin.ts` (allowlist peste contul de user) + ruta `/admin` veche + blocul de seed
+  `ADMIN_EMAILS`→users din `db/seed.ts`. `ADMIN_EMAILS` rămâne, dar acum doar pentru gating-ul de admin separat.
 
 ---
 

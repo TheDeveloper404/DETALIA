@@ -17,11 +17,19 @@ const PUBLIC_PATHS = [
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
   "/verify-request", // „verifică-ți email-ul" după cererea magic link-ului (pre-auth)
+  // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
+  // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
+  "/admin-page",
 ];
 
 export default auth(async (req) => {
   const { pathname, origin } = req.nextUrl;
   const isLoggedIn = !!req.auth;
+
+  // Scurtătură: /admin → login-ul de admin (panou separat). Comod de tastat.
+  if (pathname === "/admin") {
+    return Response.redirect(new URL("/admin-page/login", origin));
+  }
 
   // User logat pe landing → direct în feed. Făcut AICI (redirect 307 curat), nu în pagină:
   // un redirect() din pagină se produce în timpul streaming-ului → Next emite un meta-refresh,

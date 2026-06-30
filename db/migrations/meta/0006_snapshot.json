@@ -1,5 +1,5 @@
 {
-  "id": "a27e0698-7ec0-48ad-b3cc-212dee86a777",
+  "id": "453993b4-6465-4a68-aa57-48b7da4388c9",
   "prevId": "4a9c7f6b-ef8d-43a3-b242-b4745d6f0ea2",
   "version": "7",
   "dialect": "postgresql",
@@ -116,6 +116,114 @@
           ]
         }
       },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.admin_login_tokens": {
+      "name": "admin_login_tokens",
+      "schema": "",
+      "columns": {
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires": {
+          "name": "expires",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "admin_login_tokens_email_idx": {
+          "name": "admin_login_tokens_email_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.admin_sessions": {
+      "name": "admin_sessions",
+      "schema": "",
+      "columns": {
+        "token": {
+          "name": "token",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires": {
+          "name": "expires",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "admin_sessions_email_idx": {
+          "name": "admin_sessions_email_idx",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
@@ -650,9 +758,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "updated_by_admin_id": {
-          "name": "updated_by_admin_id",
-          "type": "uuid",
+        "updated_by": {
+          "name": "updated_by",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -665,21 +773,7 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "platform_settings_updated_by_admin_id_users_id_fk": {
-          "name": "platform_settings_updated_by_admin_id_users_id_fk",
-          "tableFrom": "platform_settings",
-          "tableTo": "users",
-          "columnsFrom": [
-            "updated_by_admin_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
