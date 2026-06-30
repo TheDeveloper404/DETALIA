@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { RO_CITIES } from "@/lib/ro-cities";
+
 import { type ProfileFormState, signOutAction, updateProfileDetailsAction } from "./actions";
 
 // Starea inițială a formularelor — definită aici (client), NU în „use server" (care exportă doar funcții async).
@@ -104,10 +106,18 @@ export function EditDetailsForm({
           <Input
             id="location"
             name="location"
+            list="ro-cities"
+            autoComplete="off"
             maxLength={120}
             placeholder="ex: Cluj-Napoca"
             defaultValue={initialLocation ?? ""}
           />
+          {/* Sugestii native (browser filtrează „Ti" → Timișoara). Câmpul rămâne text liber. */}
+          <datalist id="ro-cities">
+            {RO_CITIES.map((city) => (
+              <option key={city} value={city} />
+            ))}
+          </datalist>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="website">

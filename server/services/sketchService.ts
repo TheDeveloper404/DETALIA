@@ -1,9 +1,10 @@
-// Service Schiță — state machine + authz (CRITICAL). Enforce pe SERVER:
-//  - Doar AUTORUL schiței editează/trimite; doar AUTORUL detaliului-mamă acceptă/respinge.
-//  - DRAFT ─send→ PENDING_ACCEPTANCE ─accept→ PUBLISHED / ─reject→ REJECTED. Tranziții invalide respinse.
-//  - Publică DOAR cu send + accept. Un singur autor pe foaie. Stroke-uri normalizate 0..1, validate.
+// Service Schiță — state machine + authz (CRITICAL). Enforce pe SERVER (simplificat 2026-06-30):
+//  - Doar AUTORUL schiței editează/publică; ștergerea o poate face autorul schiței SAU autorul detaliului-mamă.
+//  - DRAFT ─publish→ PUBLISHED (direct, fără coadă). Moderare post-publicare prin ștergere.
+//  - Un singur autor pe foaie. Stroke-uri normalizate 0..1, validate.
 //  - actorUserId vine ÎNTOTDEAUNA din sesiune (apelantul) — fără IDOR.
 
+import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import { SKETCH_STATUS, type Stroke, validateStrokes } from "@/server/domain/sketch";
 import { getDetailById } from "@/server/repos/detailsRepo";
@@ -12,19 +13,16 @@ import {
   getSketchById,
   insertDraft,
   deleteDraftByAuthor,
+  deleteSketchCascade,
   listDraftsByAuthor,
-  listPendingByDetail,
   listPublishedByDetail,
   listRecentPublished,
-  transitionFromDraft,
-  transitionFromPending,
+  publishFromDraft,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
-import {
-  notifySketchDecision,
-  notifySketchProposed,
-} from "@/server/services/notificationService";
+import { notifySketchDeleted, notifySketchProposed } from "@/server/services/notificationService";
+import { recordSketchDisapproval } from "@/server/services/validationService";
 
 export type SketchError =
   | "NO_ROLE"
@@ -39,10 +37,13 @@ export type SketchResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; value: T })
   | { ok: false; error: SketchError };
 
-// Creează o foaie nouă (DRAFT) peste un detaliu — se ajunge din fereastra de Dezaprob („fă o schiță").
+// Creează o foaie nouă (DRAFT) peste un detaliu. Se ajunge din „Schițează peste detaliu" (contribuție
+// neutră) SAU din fereastra de Dezaprob → „fă o schiță" (`disapprovesParent: true` → la publicare se
+// materializează automat o dezaprobare pe detaliul-mamă, vezi `publish`).
 export async function createDraft(input: {
   detailId: string;
   authorId: string;
+  disapprovesParent?: boolean;
 }): Promise<SketchResult<{ sketchId: string }>> {
   if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" }; // SEC-11
   if (!(await getRoleByUserId(input.authorId))) return { ok: false, error: "NO_ROLE" };
@@ -53,6 +54,7 @@ export async function createDraft(input: {
     detailId: input.detailId,
     authorId: input.authorId,
     strokesJson: null,
+    disapprovesParent: input.disapprovesParent ?? false,
   });
   return { ok: true, value: { sketchId: sketch.id } };
 }
@@ -77,9 +79,11 @@ export async function saveStrokes(input: {
   return { ok: true };
 }
 
-// SEND: DRAFT → PENDING_ACCEPTANCE (autor schiță). Notifică autorul detaliului-mamă (in-app + email).
-// thumbnailUrl = PNG randat client-side (schița peste imaginea-mamă slabă), pt liste/hover.
-export async function send(input: {
+// PUBLISH: DRAFT → PUBLISHED (autor schiță). Intră DIRECT în teanc (fără coadă de acceptare). Notifică
+// autorul detaliului-mamă (in-app + email). thumbnailUrl = PNG randat client-side (schița peste imaginea-mamă
+// slabă), pt liste/hover. Dacă schița a pornit din „Dezaprob → fă schiță" (`disapprovesParent`), la publicare
+// se materializează automat o dezaprobare pe detaliul-mamă (poziție + comentariu-justificare).
+export async function publish(input: {
   sketchId: string;
   authorId: string;
   strokes?: unknown;
@@ -91,7 +95,7 @@ export async function send(input: {
   if (sketch.authorId !== input.authorId) return { ok: false, error: "FORBIDDEN" };
   if (sketch.status !== SKETCH_STATUS.DRAFT) return { ok: false, error: "INVALID_STATE" };
 
-  // Stroke-urile pot veni odată cu SEND (salvare finală) sau să fie deja persistate.
+  // Stroke-urile pot veni odată cu PUBLISH (salvare finală) sau să fie deja persistate.
   let strokes = sketch.strokesJson as Stroke[] | null;
   if (input.strokes !== undefined) {
     const validation = validateStrokes(input.strokes);
@@ -106,12 +110,19 @@ export async function send(input: {
   const detail = await getDetailById(sketch.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
-  // Tranziție atomică DRAFT → PENDING (guard pe status + autor). Două SEND-uri concurente: doar primul prinde
-  // rândul → doar el notifică (notificare idempotentă fără outbox). Al doilea iese cu INVALID_STATE, fără email dublu.
-  const transitioned = await transitionFromDraft(input.sketchId, input.authorId, {
+  // Tranziție atomică DRAFT → PUBLISHED (guard pe status + autor). Două PUBLISH concurente: doar primul prinde
+  // rândul → doar el notifică / materializează. Al doilea iese cu INVALID_STATE, fără efecte duble.
+  const transitioned = await publishFromDraft(input.sketchId, input.authorId, {
     thumbnailUrl: input.thumbnailUrl ?? null,
+    publishedAt: new Date(),
   });
   if (!transitioned) return { ok: false, error: "INVALID_STATE" };
+
+  // Dezaprobare-prin-schiță: acum (la publicare) materializăm poziția + justificarea pe detaliul-mamă.
+  // Dacă userul abandonase editorul, nu se ajungea aici → nicio dezaprobare „mută".
+  if (sketch.disapprovesParent) {
+    await recordSketchDisapproval({ userId: sketch.authorId, detailId: sketch.detailId });
+  }
 
   const author = await getNotificationActor(sketch.authorId);
   await notifySketchProposed({
@@ -126,44 +137,34 @@ export async function send(input: {
   return { ok: true };
 }
 
-// ACCEPT / REJECT: PENDING_ACCEPTANCE → PUBLISHED / REJECTED. Doar autorul detaliului-mamă. Fără justificare.
-async function decide(
-  input: { sketchId: string; actorUserId: string },
-  accepted: boolean,
-): Promise<SketchResult> {
+// ȘTERGE o schiță (moderare post-publicare). Permis dacă actorul e AUTORUL schiței (orice status al ei)
+// SAU AUTORUL detaliului-mamă (moderare pe detaliul lui). Cascadă: validări + comentarii pe schiță + blob.
+// Notifică autorul schiței doar dacă a șters-o altcineva (autorul-mamă).
+export async function deleteSketch(input: {
+  sketchId: string;
+  actorUserId: string;
+}): Promise<SketchResult> {
   if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(input.sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
-  if (sketch.status !== SKETCH_STATUS.PENDING_ACCEPTANCE) return { ok: false, error: "INVALID_STATE" };
 
   const detail = await getDetailById(sketch.detailId);
-  if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
-  if (detail.authorId !== input.actorUserId) return { ok: false, error: "FORBIDDEN" };
+  const isSketchAuthor = sketch.authorId === input.actorUserId;
+  const isDetailAuthor = detail?.authorId === input.actorUserId;
+  if (!isSketchAuthor && !isDetailAuthor) return { ok: false, error: "FORBIDDEN" };
 
-  // Tranziție atomică cu guard pe status: dacă un request concurent a decis deja,
-  // acesta nu mai prinde rândul în PENDING_ACCEPTANCE → nu scriem rezultat opus, nu notificăm dublu.
-  const transitioned = await transitionFromPending(input.sketchId, {
-    status: accepted ? SKETCH_STATUS.PUBLISHED : SKETCH_STATUS.REJECTED,
-    acceptedAt: accepted ? new Date() : null,
-  });
-  if (!transitioned) return { ok: false, error: "INVALID_STATE" };
+  const thumbnailUrl = await deleteSketchCascade(input.sketchId);
+  await deleteBlobs([thumbnailUrl]);
 
-  await notifySketchDecision({
-    recipientUserId: sketch.authorId,
-    sketchId: sketch.id,
-    detailId: sketch.detailId,
-    detailTitle: detail.title,
-    accepted,
-  });
+  // Autorul-mamă a șters schița altui user → îl anunțăm. Dacă autorul și-a șters propria schiță, fără notificare.
+  if (isDetailAuthor && !isSketchAuthor && detail) {
+    await notifySketchDeleted({
+      recipientUserId: sketch.authorId,
+      detailId: sketch.detailId,
+      detailTitle: detail.title,
+    });
+  }
   return { ok: true };
-}
-
-export function accept(input: { sketchId: string; actorUserId: string }): Promise<SketchResult> {
-  return decide(input, true);
-}
-
-export function reject(input: { sketchId: string; actorUserId: string }): Promise<SketchResult> {
-  return decide(input, false);
 }
 
 // ── Citiri ──────────────────────────────────────────────────────────────────
@@ -188,14 +189,6 @@ export function getMyDrafts(userId: string) {
 export function deleteDraft(input: { sketchId: string; authorId: string }): Promise<boolean> {
   if (!isUuid(input.sketchId)) return Promise.resolve(false); // SEC-11
   return deleteDraftByAuthor(input.sketchId, input.authorId);
-}
-
-// Coada de review — DOAR autorul detaliului-mamă vede schițele PENDING.
-export async function getPendingForOwner(detailId: string, actorUserId: string) {
-  if (!isUuid(detailId)) return []; // SEC-11
-  const detail = await getDetailById(detailId);
-  if (!detail || detail.authorId !== actorUserId) return [];
-  return listPendingByDetail(detailId);
 }
 
 // Schița pentru editare — doar autorul, doar DRAFT.

@@ -2,13 +2,14 @@
 import { and, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { details, roles, sketches, users } from "@/db/schema";
+import { comments, details, roles, sketches, users, validations } from "@/db/schema";
 import { type SketchStatus, type Stroke } from "@/server/domain/sketch";
 
 export async function insertDraft(input: {
   detailId: string;
   authorId: string;
   strokesJson: Stroke[] | null;
+  disapprovesParent?: boolean;
 }) {
   const [row] = await db
     .insert(sketches)
@@ -16,6 +17,7 @@ export async function insertDraft(input: {
       detailId: input.detailId,
       authorId: input.authorId,
       strokesJson: input.strokesJson,
+      disapprovesParent: input.disapprovesParent ?? false,
       // status rămâne pe default „DRAFT".
     })
     .returning();
@@ -31,34 +33,36 @@ export async function updateStrokes(id: string, strokesJson: Stroke[]) {
   await db.update(sketches).set({ strokesJson }).where(eq(sketches.id, id));
 }
 
-// Tranziție condiționată DRAFT → PENDING_ACCEPTANCE (SEND). Guard atomic pe status + autor: două SEND-uri
-// concurente nu pot notifica ambele — doar primul prinde rândul în DRAFT. Întoarce true dacă a tranziționat.
-export async function transitionFromDraft(
+// Tranziție condiționată DRAFT → PUBLISHED (PUBLISH direct, fără coadă de acceptare). Guard atomic pe
+// status + autor: două PUBLISH concurente nu pot notifica ambele — doar primul prinde rândul în DRAFT.
+// Întoarce true dacă a tranziționat. `acceptedAt` = momentul publicării (nume moștenit din fluxul vechi).
+export async function publishFromDraft(
   id: string,
   authorId: string,
-  input: { thumbnailUrl: string | null },
+  input: { thumbnailUrl: string | null; publishedAt: Date },
 ): Promise<boolean> {
   const rows = await db
     .update(sketches)
-    .set({ status: "PENDING_ACCEPTANCE", thumbnailUrl: input.thumbnailUrl })
+    .set({ status: "PUBLISHED", thumbnailUrl: input.thumbnailUrl, acceptedAt: input.publishedAt })
     .where(and(eq(sketches.id, id), eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
     .returning({ id: sketches.id });
   return rows.length > 0;
 }
 
-// Tranziție condiționată PENDING_ACCEPTANCE → PUBLISHED/REJECTED.
-// Update atomic cu guard pe status: două requesturi concurente nu pot scrie ambele
-// rezultate opuse — doar primul prinde rândul în PENDING_ACCEPTANCE. Întoarce true dacă a tranziționat.
-export async function transitionFromPending(
-  id: string,
-  input: { status: SketchStatus; acceptedAt: Date | null },
-): Promise<boolean> {
-  const rows = await db
-    .update(sketches)
-    .set({ status: input.status, acceptedAt: input.acceptedAt })
-    .where(and(eq(sketches.id, id), eq(sketches.status, "PENDING_ACCEPTANCE")))
-    .returning({ id: sketches.id });
-  return rows.length > 0;
+// Șterge o schiță + interacțiunile ei (validări + comentarii polimorfice pe SKETCH), ATOMIC. Validările și
+// comentariile nu au FK către sketches (polimorfice target_type/target_id) → se șterg manual, în batch.
+// Ownership-ul îl verifică serviciul ÎNAINTE. Întoarce thumbnailUrl (pt curățarea blob best-effort din service).
+export async function deleteSketchCascade(id: string): Promise<string | null> {
+  const sketch = await getSketchById(id);
+  if (!sketch) return null;
+  await db.batch([
+    db
+      .delete(validations)
+      .where(and(eq(validations.targetType, "SKETCH"), eq(validations.targetId, id))),
+    db.delete(comments).where(and(eq(comments.targetType, "SKETCH"), eq(comments.targetId, id))),
+    db.delete(sketches).where(eq(sketches.id, id)),
+  ]);
+  return sketch.thumbnailUrl ?? null;
 }
 
 // Forma de afișare a unei schițe cu autor (nume+rol) + stroke-uri (pt randare în pagină).
@@ -91,11 +95,6 @@ function listByDetailAndStatus(detailId: string, status: SketchStatus) {
 // Teancul = schițele PUBLISHED ale unui detaliu (navigabile prin taburi).
 export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
-}
-
-// Coada de review a autorului-mamă = schițele PENDING_ACCEPTANCE.
-export function listPendingByDetail(detailId: string) {
-  return listByDetailAndStatus(detailId, "PENDING_ACCEPTANCE");
 }
 
 export type SketchWithAuthor = Awaited<ReturnType<typeof listPublishedByDetail>>[number];

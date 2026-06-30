@@ -54,13 +54,21 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
 
 ### Schița — state machine (enforce în `SketchService`)
 ```
-DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
-                                   ├── autorul detaliului-mamă ACCEPTĂ ──▶ PUBLISHED  (intră în teanc, public)
-                                   └── autorul detaliului-mamă RESPINGE ──▶ REJECTED
+DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, public)
 ```
-- Devine **publică DOAR** cu ambele: (1) send autor schiță + (2) accept autor detaliu-mamă.
-- La SEND → `Notification` către autorul detaliului-mamă („X a propus o modificare → vizualizează → acceptă").
+- **Simplificat 2026-06-30 (decizie Edi):** schițele se publică **direct** (fără coadă de acceptare). Modelul
+  „accept autor-mamă" a fost eliminat. *(Valorile `PENDING_ACCEPTANCE`/`REJECTED` rămân în enumul DB doar pentru
+  date istorice — nu se mai produc.)*
+- **Moderare POST-publicare:** autorul detaliului-mamă **SAU** autorul schiței poate **ȘTERGE** o schiță
+  (`deleteSketch`, ownership pe server, cascadă validări+comentarii+blob). Nu există aprobare/respingere.
+- La PUBLISH → `Notification` către autorul detaliului-mamă („X a schițat peste «detaliu» → vezi în teanc").
+  La ștergerea de către autorul-mamă → `Notification` (`SKETCH_DELETED`) către autorul schiței.
   **Notificările merg in-app ȘI pe email de la început** (via Resend) — Edi le vrea pentru brand awareness/recall.
+- **Validarea pe propriul conținut e interzisă** (`CANNOT_VALIDATE_OWN`, enforce pe server): autorul nu vede
+  Aprob/Dezaprob pe propriul detaliu/schiță. Aprobarea propriului conținut e implicită prin publicare.
+- **Dezaprobare = alegere binară** (pe detaliu): „Scrie o justificare" (text → comentariu) SAU „Fă o schiță"
+  (desenul **e** justificarea). La varianta schiță, poziția DISAPPROVE + comentariul se materializează **la
+  publicarea schiței** (draft marcat `disapprovesParent`), nu la click → fără „dezaprobare mută" la abandon.
 - Schițarea e **asincronă** (fiecare foaie un autor). **FĂRĂ co-desenare real-time în MVP.** (Model confirmat de Edi.)
 - Stroke-uri stocate **vectorial** (`strokesJson`, coordonate **normalizate 0..1** față de imaginea-mamă).
   La publicare se randează **o singură dată** un thumbnail PNG (Blob) pentru hover-slideshow/liste.

@@ -19,9 +19,9 @@ role_main              : PROIECTANT | EXECUTANT | FURNIZOR | BENEFICIAR
 verification_status    : DECLARED | PENDING | VERIFIED | REJECTED
 target_type            : DETAIL | SKETCH        -- polimorfism validare/comentariu
 validation_position    : APPROVE | DISAPPROVE
-sketch_status          : DRAFT | PENDING_ACCEPTANCE | PUBLISHED | REJECTED
+sketch_status          : DRAFT | PUBLISHED  (PENDING_ACCEPTANCE | REJECTED = valori istorice, nemaifolosite)
 detail_resource_type   : IMAGE | LINK | TEXT | PDF
-notification_type      : SKETCH_PROPOSED | SKETCH_ACCEPTED | SKETCH_REJECTED | ...
+notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SKETCH_REJECTED = istoric)
 ```
 
 ---
@@ -106,8 +106,9 @@ notification_type      : SKETCH_PROPOSED | SKETCH_ACCEPTED | SKETCH_REJECTED | .
 | `author_id` | uuid FK→users.id | un singur autor/foaie; **index** |
 | `strokes_json` | jsonb | stroke-uri vectoriale, **coordonate normalizate 0..1** |
 | `thumbnail_url` | text | PNG pre-randat la publicare (Blob); nullable până la PUBLISHED |
-| `status` | `sketch_status` | default `DRAFT` |
-| `accepted_at` | timestamptz | nullable |
+| `status` | `sketch_status` | default `DRAFT`; flux nou `DRAFT → PUBLISHED` (PENDING_ACCEPTANCE/REJECTED = istoric) |
+| `disapproves_parent` | boolean | default `false`; true = pornită din „Dezaprob → fac o schiță" (materializează dezaprobarea la publicare) |
+| `accepted_at` | timestamptz | nullable; = momentul publicării |
 | `created_at` / `updated_at` | timestamptz | |
 
 ### `validations` («code review» — INIMA, polimorfic)

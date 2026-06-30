@@ -4,7 +4,11 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
 
-export type NotificationType = "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED";
+export type NotificationType =
+  | "SKETCH_PROPOSED"
+  | "SKETCH_ACCEPTED"
+  | "SKETCH_REJECTED"
+  | "SKETCH_DELETED";
 
 export async function insertNotification(input: {
   recipientUserId: string;
