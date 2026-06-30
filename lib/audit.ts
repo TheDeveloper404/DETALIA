@@ -19,7 +19,10 @@ export type AuditSeverity = "info" | "warning" | "error";
 export type AuditEvent =
   | "rate_limited" // cotă depășită (auth/mutație/upload/creare detaliu) — semnal de abuz/volum anormal
   | "rate_limit_unavailable" // Redis indisponibil/outage — limiterul nu a putut decide (fail-open/closed după mediu)
-  | "access_denied_suspended"; // cont non-ACTIVE a încercat o rută protejată (SEC-04)
+  | "access_denied_suspended" // cont non-ACTIVE a încercat o rută protejată (SEC-04)
+  | "maintenance_toggled" // admin a schimbat modul de mentenanță (acțiune administrativă cu impact global)
+  | "admin_login_success" // autentificare reușită în panoul de admin
+  | "admin_login_failed"; // încercare eșuată de login admin (user inexistent / parolă greșită) — semnal brute-force
 
 export function audit(
   event: AuditEvent,
