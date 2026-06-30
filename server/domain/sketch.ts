@@ -1,16 +1,16 @@
-// Domain Schiță — reguli pure pentru „foaia" desenată peste un detaliu-mamă (~fork+PR).
-// State machine (enforce în SketchService):
-//   DRAFT ──(autor SEND)──▶ PENDING_ACCEPTANCE
-//                              ├── autor detaliu-mamă ACCEPTĂ ─▶ PUBLISHED (intră în teanc, public)
-//                              └── autor detaliu-mamă RESPINGE ─▶ REJECTED
-// Publică DOAR cu send (autor schiță) + accept (autor mamă). Un singur autor pe foaie. Asincron, fără real-time.
+// Domain Schiță — reguli pure pentru „foaia" desenată peste un detaliu-mamă (~fork).
+// State machine (enforce în SketchService) — simplificat 2026-06-30 (decizie Edi):
+//   DRAFT ──(autor PUBLISH)──▶ PUBLISHED (intră direct în teanc, public)
+// Schițele se publică DIRECT (fără coadă de acceptare). Moderare POST-publicare: autorul detaliului-mamă
+// (sau autorul schiței) poate ȘTERGE o schiță nerelevantă. Un singur autor pe foaie. Asincron, fără real-time.
+// PENDING_ACCEPTANCE / REJECTED rămân în enum pentru date istorice, dar NU se mai produc.
 // Stroke-uri stocate VECTORIAL, coordonate normalizate 0..1 față de imaginea-mamă.
 
 export const SKETCH_STATUS = {
   DRAFT: "DRAFT",
-  PENDING_ACCEPTANCE: "PENDING_ACCEPTANCE",
+  PENDING_ACCEPTANCE: "PENDING_ACCEPTANCE", // moștenit (flux vechi) — nemaifolosit
   PUBLISHED: "PUBLISHED",
-  REJECTED: "REJECTED",
+  REJECTED: "REJECTED", // moștenit (flux vechi) — nemaifolosit
 } as const;
 export type SketchStatus = (typeof SKETCH_STATUS)[keyof typeof SKETCH_STATUS];
 

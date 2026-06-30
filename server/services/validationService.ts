@@ -28,6 +28,7 @@ import {
 export type ValidationError =
   | "NO_ROLE"
   | "TARGET_NOT_FOUND"
+  | "CANNOT_VALIDATE_OWN"
   | "JUSTIFICATION_REQUIRED"
   | "JUSTIFICATION_TOO_LONG";
 
@@ -43,6 +44,21 @@ export async function targetExists(targetType: TargetType, targetId: string): Pr
   // SKETCH: poziții/comentarii doar pe schițe PUBLISHED (dezbaterea per schiță vine gratis, polimorfic).
   const sketch = await getSketchById(targetId);
   return sketch !== null && sketch.status === "PUBLISHED";
+}
+
+// Autorul țintei (DETAIL sau SKETCH PUBLISHED) sau null dacă nu există / nu e publică. Folosit pentru
+// regula „nu te validezi pe propriul conținut" (CANNOT_VALIDATE_OWN) — enforce pe SERVER, nu doar în UI.
+async function getTargetAuthorId(
+  targetType: TargetType,
+  targetId: string,
+): Promise<string | null> {
+  if (!isUuid(targetId)) return null; // SEC-11
+  if (targetType === "DETAIL") {
+    const detail = await getDetailById(targetId); // doar PUBLISHED
+    return detail?.authorId ?? null;
+  }
+  const sketch = await getSketchById(targetId);
+  return sketch !== null && sketch.status === "PUBLISHED" ? sketch.authorId : null;
 }
 
 function snapshotFromRole(role: {
@@ -65,9 +81,9 @@ export async function approve(input: {
 }): Promise<ValidationResult> {
   const role = await getRoleByUserId(input.userId);
   if (!role) return { ok: false, error: "NO_ROLE" };
-  if (!(await targetExists(input.targetType, input.targetId))) {
-    return { ok: false, error: "TARGET_NOT_FOUND" };
-  }
+  const authorId = await getTargetAuthorId(input.targetType, input.targetId);
+  if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
+  if (authorId === input.userId) return { ok: false, error: "CANNOT_VALIDATE_OWN" };
 
   await upsertPosition({
     userId: input.userId,
@@ -97,9 +113,9 @@ export async function disapprove(input: {
     };
   }
 
-  if (!(await targetExists(input.targetType, input.targetId))) {
-    return { ok: false, error: "TARGET_NOT_FOUND" };
-  }
+  const authorId = await getTargetAuthorId(input.targetType, input.targetId);
+  if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
+  if (authorId === input.userId) return { ok: false, error: "CANNOT_VALIDATE_OWN" };
 
   // O poziție DISAPPROVE deja existentă → un singur comentariu-justificare (evită duplicate la re-trimitere).
   const prior = await getUserPosition(input.userId, input.targetType, input.targetId);
@@ -122,6 +138,40 @@ export async function disapprove(input: {
   }
 
   return { ok: true };
+}
+
+// Materializează o dezaprobare pornită din „Dezaprob → fac o schiță" — apelată la PUBLICAREA schiței
+// (nu la click), ca să nu rămână o „dezaprobare mută" dacă autorul abandonează editorul. Înregistrează
+// poziția DISAPPROVE pe detaliul-mamă + un comentariu-justificare care trimite la schiță (originValidationId).
+// `userId` = autorul schiței (din sesiune). Cale internă (din sketchService) — guard-ul de auto-validare e
+// aplicat aici defensiv: autorul-mamă nu-și dezaprobă propriul detaliu.
+export async function recordSketchDisapproval(input: {
+  userId: string;
+  detailId: string;
+}): Promise<void> {
+  if (!isUuid(input.detailId)) return; // SEC-11
+  const role = await getRoleByUserId(input.userId);
+  if (!role) return; // fără rol nu se înregistrează poziție (regula de validare pe roluri)
+  const authorId = await getTargetAuthorId("DETAIL", input.detailId);
+  if (!authorId || authorId === input.userId) return; // țintă inexistentă sau propriul detaliu
+
+  const prior = await getUserPosition(input.userId, "DETAIL", input.detailId);
+  const validation = await upsertPosition({
+    userId: input.userId,
+    targetType: "DETAIL",
+    targetId: input.detailId,
+    position: "DISAPPROVE",
+    roleSnapshot: snapshotFromRole(role),
+  });
+  if (prior?.position !== "DISAPPROVE") {
+    await insertComment({
+      targetType: "DETAIL",
+      targetId: input.detailId,
+      authorId: input.userId,
+      body: "Am propus o schiță alternativă ca dezaprobare — vezi teancul de schițe.",
+      originValidationId: validation.id,
+    });
+  }
 }
 
 // Retragerea propriei poziții (reversibilitate). Comentariul-justificare rămâne în dezbatere

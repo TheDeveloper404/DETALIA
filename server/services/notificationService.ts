@@ -69,7 +69,7 @@ export function markNotificationRead(userId: string, id: string) {
   return markOneRead(userId, id);
 }
 
-// Către autorul detaliului-mamă: cineva a propus o schiță (SEND).
+// Către autorul detaliului-mamă: cineva a publicat o schiță peste detaliul lui (intră direct în teanc).
 export async function notifySketchProposed(input: {
   recipientUserId: string;
   sketchId: string;
@@ -92,32 +92,28 @@ export async function notifySketchProposed(input: {
       sketchAuthorRole: input.sketchAuthorRole ?? null,
       sketchAuthorVerified: input.sketchAuthorVerified ?? false,
     },
-    emailSubject: plain(`${who} a propus o modificare la „${input.detailTitle}"`),
-    emailHtml: `<p>${esc(who)} a propus o schiță la detaliul tău <strong>${esc(input.detailTitle)}</strong>.</p>
-      <p><a href="${esc(url)}">Vizualizează și acceptă sau respinge →</a></p>`,
+    emailSubject: plain(`${who} a schițat peste „${input.detailTitle}"`),
+    emailHtml: `<p>${esc(who)} a publicat o schiță peste detaliul tău <strong>${esc(input.detailTitle)}</strong>.</p>
+      <p><a href="${esc(url)}">Vezi schița în teanc →</a></p>`,
   });
 }
 
-// Către autorul schiței: schița a fost acceptată (PUBLISHED) sau respinsă (REJECTED).
-export async function notifySketchDecision(input: {
+// Către autorul schiței: autorul detaliului-mamă i-a șters schița (moderare post-publicare).
+export async function notifySketchDeleted(input: {
   recipientUserId: string;
-  sketchId: string;
   detailId: string;
   detailTitle: string;
-  accepted: boolean;
 }) {
   const url = detailUrl(input.detailId);
-  const verb = input.accepted ? "acceptată" : "respinsă";
   await notify({
     recipientUserId: input.recipientUserId,
-    type: input.accepted ? "SKETCH_ACCEPTED" : "SKETCH_REJECTED",
+    type: "SKETCH_DELETED",
     payloadJson: {
-      sketchId: input.sketchId,
       detailId: input.detailId,
       detailTitle: input.detailTitle,
     },
-    emailSubject: plain(`Schița ta la „${input.detailTitle}" a fost ${verb}`),
-    emailHtml: `<p>Schița ta la detaliul <strong>${esc(input.detailTitle)}</strong> a fost <strong>${verb}</strong>.</p>
+    emailSubject: plain(`Schița ta la „${input.detailTitle}" a fost eliminată`),
+    emailHtml: `<p>Schița ta de la detaliul <strong>${esc(input.detailTitle)}</strong> a fost eliminată de autorul detaliului.</p>
       <p><a href="${esc(url)}">Vezi detaliul →</a></p>`,
   });
 }

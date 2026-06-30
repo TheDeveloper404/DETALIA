@@ -57,6 +57,13 @@
       "when": 1782813751840,
       "tag": "0007_public_black_tom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782844183609,
+      "tag": "0008_high_loa",
+      "breakpoints": true
     }
   ]
 }

@@ -156,7 +156,12 @@ export default async function FeedPage({
         ) : (
           <div className="flex flex-col gap-4">
             {details.map((d) => (
-              <DetailCard key={d.id} detail={d} myPosition={myPositions.get(d.id) ?? null} />
+              <DetailCard
+                key={d.id}
+                detail={d}
+                myPosition={myPositions.get(d.id) ?? null}
+                currentUserId={session.user.id}
+              />
             ))}
           </div>
         )}

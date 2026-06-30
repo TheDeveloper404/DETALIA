@@ -196,8 +196,9 @@ Sketch  («fork + PR» — o foaie din teanc)
   id, detailId (detaliul-mamă), authorId,
   strokesJson (stroke-urile vectoriale, coordonate normalizate 0..1),
   thumbnailUrl (PNG pre-randat pentru hover-slideshow),
-  status (DRAFT → PENDING_ACCEPTANCE → PUBLISHED | REJECTED),
-  acceptedAt, createdAt
+  status (DRAFT → PUBLISHED; valorile vechi PENDING_ACCEPTANCE|REJECTED rămân în enum, nemaifolosite),
+  disapprovesParent (true = schiță pornită din „Dezaprob → fac o schiță" → la publicare materializează dezaprobarea),
+  acceptedAt (= momentul publicării), createdAt
 
 Validation  («code review» — INIMA, polimorfică pe Detail SAU Sketch)
   id, userId, targetType (DETAIL|SKETCH), targetId,
@@ -211,7 +212,7 @@ Comment
   originValidationId? (setat când vine dintr-un Dezaprob obligatoriu), createdAt
 
 Notification
-  id, recipientUserId, type (SKETCH_PROPOSED|SKETCH_ACCEPTED|...),
+  id, recipientUserId, type (SKETCH_PROPOSED|SKETCH_DELETED; SKETCH_ACCEPTED|SKETCH_REJECTED = istoric),
   payloadJson, readAt, createdAt
 ```
 
@@ -293,17 +294,16 @@ Cea mai grea piesă. O sparg în sub-probleme și arăt cum o ținem fezabilă p
 - La publicare, randăm **o singură dată** un **thumbnail PNG** (în Vercel Blob) pentru hover-slideshow și
   liste — ca să nu re-randăm vectorii la fiecare hover.
 
-### 7.4 Fluxul de publicare = „Pull Request" (state machine)
+### 7.4 Fluxul de publicare (state machine) — **simplificat 2026-06-30**
 ```
-DRAFT ──(autorul dă SEND)──▶ PENDING_ACCEPTANCE
-                                   │
-              (autorul detaliului-mamă) ─── ACCEPTĂ ──▶ PUBLISHED  (intră în teanc, public)
-                                   └──────────────────  RESPINGE ──▶ REJECTED
+DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, public)
 ```
-- Devine publică **doar** cu ambele condiții: (1) send autor + (2) accept autor detaliu-mamă. Garantat de
-  state machine în `SketchService`, nu de UI.
-- La SEND → **Notificare** către autorul detaliului-mamă: *„Inginer X a propus o modificare pe detaliul tău →
-  vizualizează → acceptă"*. La accept → opțional notificare înapoi către autorul schiței.
+> **Schimbare de model (decizie Edi, vezi CHANGELOG 2026-06-30):** coada de acceptare `PENDING_ACCEPTANCE`
+> a fost **eliminată**. Schițele se publică **direct**; moderarea e **post-publicare** prin ștergere (autorul
+> detaliului-mamă SAU autorul schiței). Sursa de adevăr = codul (`SketchService.publish` / `deleteSketch`).
+> Valorile `PENDING_ACCEPTANCE`/`REJECTED` rămân în enumul DB doar pentru date istorice.
+- La PUBLISH → **Notificare** către autorul detaliului-mamă: *„X a schițat peste detaliul tău → vezi în teanc"*.
+  La ștergerea de către autorul-mamă → notificare (`SKETCH_DELETED`) către autorul schiței.
 - **Notificările merg in-app ȘI pe email de la început** (via Resend) — Edi le vrea pentru brand
   awareness/recall, nu doar in-app.
 

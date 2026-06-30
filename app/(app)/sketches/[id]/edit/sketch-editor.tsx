@@ -120,7 +120,7 @@ export function SketchEditor({
           className="inline-flex flex-none items-center gap-2 rounded-[9px] border border-[#95492e] bg-primary px-4 py-2.5 font-heading text-sm font-bold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-60"
         >
           <Send className="size-[15px]" strokeWidth={2} />
-          {pending ? "Se trimite…" : "Trimite propunerea"}
+          {pending ? "Se publică…" : "Publică schița"}
         </button>
       </header>
 
