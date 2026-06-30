@@ -40,9 +40,9 @@ export async function AppHeader() {
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6 py-3">
-        <BrandLogo href="/feed" />
+    <header className="sticky top-0 z-50 flex h-[76px] items-center border-b border-border bg-background/85 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
+        <BrandLogo href="/feed" size={32} />
 
         {/* Căutare simplă pe titlu — form GET nativ (merge fără JS) spre feed. */}
         <form action="/feed" className="mx-4 hidden max-w-sm flex-1 md:block" role="search">

@@ -4,6 +4,71 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-30 — sesiune fix-uri: schiță (canvas/mobil), auth, header/logo mobil, câmp „Firmă"
+<!-- Lot de modificări dintr-o singură sesiune (câmp Firmă, unelte schiță, pinch-zoom, redirect ciornă,
+     bodySizeLimit, header/logo mobil, CTA landing, feedback magic link). Dacă apar regresii din astea,
+     aici e referința — fiecare intrare are fișierul afectat. -->
+
+### feat(landing) — animația hero reflectă cardul real din feed
+- `components/hero-preview.tsx`: cardul animat din hero arăta doar planșa + 2 voturi. Rescris să oglindească un
+  `DetailCard` real din feed — păstrează planșa care „se desenează" ca thumbnail, dar adaugă chrome-ul de feed:
+  etichetă categorie + `DET-014`, titlu, autor + **pastilă de rol**, **stivă de validatori** suprapuși, **contoare**
+  (`12 validări · 3 comentarii · 5 schițe în teanc`), apoi pozițiile pe roluri (Aprobă/Dezaprobă + justificare).
+  Reutilizează animațiile existente (`data-draw`/`data-fade`/`data-rise`, reduced-motion respectat); ciclu 6.5s.
+
+### feat(profile) — câmp opțional „Firmă" (firma pe care o reprezintă userul)
+- Coloană nouă `users.company text` (opțional, auto-declarat ca locație/website). Migrație `0007_public_black_tom.sql`
+  (`ALTER TABLE users ADD COLUMN company text`) — **de aplicat pe AMBELE ramuri Neon**.
+- Cablat prin toate straturile: onboarding (form + `onboardingAction`, max 120, validat server-side), editare profil
+  (`EditDetailsForm` + `updateProfileDetailsAction` → `updateProfileDetails`), repo (`updateUserProfile`/`updateUserDetails`
+  + selecturile `getUserProfile`/`getPublicProfile` + `anonymizeUserRow`). Afișat pe profilul public lângă locație (icon clădire).
+
+### fix(auth) — placeholder email generic
+- `auth-form.tsx`: placeholder `nume@firma.ro` → `nume@mail.ro`.
+
+### fix(sketch) — curățare unelte canvas de schiță
+- Scoase **riglele decorative** (ticks la 26px) de pe marginile sus/stânga ale foii — nu aveau funcție.
+- **Grosime creion**: cele 3 trepte fixe (`STROKE_WIDTHS` butoane) înlocuite cu un **slider vertical** continuu
+  (2..40px) + punct de previzualizare. Serverul validează independent `0 < size ≤ 100` (`sketch.ts`), neschimbat.
+- **Salvează ciornă → redirect în detaliu**: după salvare reușită editorul te duce înapoi la `/details/[id]`
+  (model clar: salvează=pleci cu munca pusă deoparte, Renunță=pleci fără salvare, Trimite=propui). Toast-ul „ciornă
+  salvată" eliminat (navigăm). Acțiunea server `saveStrokesAction` neschimbată; redirect-ul e client-side (`useRouter`).
+- **Pinch-to-zoom pe mobil/tabletă**: al doilea deget pe foaie intră în mod pinch (anulează stroke-ul în curs) și
+  ajustează zoom-ul după raportul distanțelor dintre degete, plafonat la `ZOOM_MIN..ZOOM_MAX` (0.4..3). Pointerele
+  touch urmărite într-un `Map`; desenul cu un deget neschimbat. `touch-none` pe canvas împiedică zoom-ul nativ.
+
+### fix(auth) — feedback instant la trimiterea magic link-ului
+- La „Creează cont" / „Trimite link de acces", butonul stătea mut ~1s (cât server action-ul trimite emailul prin
+  Resend, apoi redirect) → părea blocat. Adăugat stare de pending cu `useFormStatus`: butonul devine „Se trimite…"
+  + disabled imediat la submit. Nu accelerează trimiterea — elimină percepția de „înghețat".
+
+### fix(ui) — CTA header landing pe mobil (buton „Creează cont")
+- Pe ecran îngust „Autentificare" + „Creează cont" se înghesuiau lângă logo, iar „Creează cont" se rupea pe 2 rânduri.
+  `whiteSpace: nowrap` pe `primaryBtn` (un singur rând) + media query `max-width:560px` (`.dc-header-cta`) care
+  micșorează gap-ul, fontul și padding-ul butonului/link-ului. Inline style → override cu `!important`.
+
+### fix(ui) — butoane header consistente (mobil)
+- Clopoțelul de notificări era `rounded-md` cu bordură + fundal colorat când aveai necitite → arăta ca o „cutie"
+  lângă „Ciornele" și avatar (ambele cercuri ghost). Unificat: cerc ghost `h-9 w-9`, fără bordură; starea „necitite"
+  o semnalează doar bulina roșie. Vizibil mai ales pe mobil, unde butoanele stau înghesuite lângă margine.
+
+### fix(sketch) — trimiterea schiței pică cu 413 (body > 1MB)
+- `POST 500` pe `/sketches/[id]/...` la **Trimite propunerea**: Server Action-ul postează strokes JSON + thumbnail PNG
+  (1000px lățime, frecvent > 1MB) → lovea default-ul de 1MB al Server Actions (`statusCode 413`). Setat
+  `experimental.serverActions.bodySizeLimit = "4mb"` în `next.config.ts`. Acțiunea rămâne auth-gated + rate-limited.
+
+### fix(ui) — header unificat la 76px + logo 32 (peste tot)
+- AppHeader-ul (feed + restul paginilor logate) era mai scund (`py-3` ~50px, logo 26) decât landing/login/signup
+  (76px, logo 32) → bara „sărea" la tranziție. **Aliniat AppHeader la dimensiunea landing-ului** (header `h-[76px]`,
+  logo 32) — NU invers. `app-header.tsx` + `auth-shell.tsx` + `app/page.tsx` au acum aceleași metrici. Container
+  orizontal era deja identic (1280px + `px-6`). *(Inițial aliniasem greșit în jos; corectat la cererea lui Liviu.)*
+
+### fix(brand) — logo identic pe mobil (wordmark vectorizat)
+- `public/logo.svg` + `public/logo-dark.svg`: wordmark-ul „DETALI" era `<text>` live cu **Arial Black** (font-family
+  Arial, weight 900) → pe mobil „Arial" cădea pe un sans mai subțire, iar avansurile per-glyph hardcodate (calculate
+  pentru Arial Black) lăsau literele slabe și depărtate. Convertit în **contururi vectoriale** (path), independent de
+  font → randare identică pe orice device. Header + footer folosesc aceleași assets.
+
 ## 2026-06-30 — panou de admin (magic link, separat de useri) + mod mentenanță
 
 ### feat(admin) — panou izolat `/admin-page`, login prin magic link propriu
@@ -30,6 +95,12 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   (ecran „site în lucru", URL neschimbat). DOAR adminul intră (pe `/admin-page`, ca să-l poată opri). Ecranul =
   `components/maintenance-screen.tsx` + `app/maintenance/page.tsx` (public).
 - Notă: lockdown-ul citește `platform_settings` (single-row) în proxy pe fiecare request de pagină — cost mic, acceptabil MVP.
+
+### fix — citire `platform_settings` tolerantă la erori
+- `getSettingsRow` prinde excepțiile DB (drift de schemă / tabel lipsă / outage) → logează și cade pe default
+  (mentenanță OFF). Motiv: tabelul e citit pe căi critice (landing + gate-ul de lockdown din `proxy.ts`) → o
+  problemă de DB NU trebuie să dărâme paginile (pe prod, codul cu schema veche dădea 500 pe `/` fiindcă
+  `production` nu fusese migrat). Acum un mismatch e degradare grațioasă, nu cădere.
 
 ### sec — hardening pe panoul de admin
 - **Anti-enumerare**: cererea de link răspunde IDENTIC indiferent dacă emailul e admin (linkul se trimite doar dacă e

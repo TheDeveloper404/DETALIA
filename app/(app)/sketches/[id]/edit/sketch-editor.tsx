@@ -1,8 +1,9 @@
 "use client";
 
-import { Check, Pencil, Save, Send, X } from "lucide-react";
+import { Pencil, Save, Send, X } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
 import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
@@ -31,16 +32,11 @@ export function SketchEditor({
   authorRoleMain: string | null;
   authorVerified: boolean;
 }) {
+  const router = useRouter();
   const canvasRef = useRef<SketchCanvasHandle>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(initialStrokes.length);
-  const [toast, setToast] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-  }, []);
 
   const disabled = pending || count === 0;
 
@@ -49,14 +45,13 @@ export function SketchEditor({
     setPending(true);
     setError(null);
     const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()));
-    setPending(false);
     if (!res.ok) {
+      setPending(false);
       setError(res.error ?? "Nu am putut salva.");
       return;
     }
-    setToast(true);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setToast(false), 2200);
+    // Ciorna salvată → înapoi în detaliu (o reiei oricând din teanc). Nu mai stingem pending (navigăm).
+    router.push(`/details/${detailId}`);
   }
 
   async function handleSend() {
@@ -145,14 +140,6 @@ export function SketchEditor({
         initialStrokes={initialStrokes}
         onStrokesCount={setCount}
       />
-
-      {/* TOAST CIORNĂ */}
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 z-[70] inline-flex -translate-x-1/2 items-center gap-2.5 rounded-[11px] bg-foreground px-[18px] py-3 font-heading text-sm font-semibold text-background shadow-lg">
-          <Check className="size-4 text-emerald-400" strokeWidth={2.2} />
-          Ciornă salvată — o reiei oricând
-        </div>
-      )}
     </div>
   );
 }

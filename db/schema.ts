@@ -74,6 +74,8 @@ export const users = pgTable("users", {
   about: text(),
   location: text(),
   website: text(),
+  // Firma pe care o reprezintă userul (opțional, auto-declarat — ca locația/website-ul).
+  company: text(),
   coverImage: text(),
   // Poziția verticală a imaginii de cover (object-position Y, 0..100). Permite mutarea sus/jos a benzii.
   coverPosition: integer().notNull().default(50),

@@ -187,8 +187,9 @@ function historyReducer(state: History, action: HistoryAction): History {
 const ERASE_THRESHOLD = 0.025; // distanță normalizată sub care radiera „prinde" un stroke
 const FIT_PADDING = 28; // marginea dintre canvas și pereții zonei de lucru
 
-// Mărimea vizuală a punctului-indicator per grosime (doar pt rail, nu afectează desenul).
-const DOT_PX = [5, 9, 15];
+// Intervalul sliderului de grosime (UI). Serverul validează independent 0 < size ≤ MAX_STROKE_SIZE.
+const MIN_PEN_SIZE = 2;
+const MAX_PEN_SIZE = 40;
 
 export type SketchCanvasHandle = {
   getStrokes: () => Stroke[];
@@ -233,6 +234,9 @@ export const SketchCanvas = forwardRef<
   // Mutarea textului selectat prin drag: ancora originală + flag „chiar s-a mutat" + previzualizarea live.
   const dragRef = useRef<{ index: number; startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
   const moveLiveRef = useRef<Stroke[] | null>(null);
+  // Pinch-to-zoom (mobil/tabletă): pointerele touch active + ancora pinch-ului (distanța + zoom-ul de start).
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
 
   const present = history.present;
 
@@ -445,7 +449,28 @@ export const SketchCanvas = forwardRef<
     redraw(er.base.filter((_, i) => !er.removed.has(i)));
   }
 
+  // La al doilea deget pe foaie: intră în pinch-to-zoom — anulează orice desen/mutare în curs și
+  // memorează distanța dintre degete + zoom-ul curent ca ancoră.
+  function beginPinch() {
+    drawingRef.current = { drawing: false, points: [] };
+    eraseRef.current = null;
+    dragRef.current = null;
+    moveLiveRef.current = null;
+    redraw(present); // șterge preview-ul live al stroke-ului abandonat
+    const pts = [...pointersRef.current.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    pinchRef.current = { startDist: dist, startZoom: zoom };
+  }
+
   function onPointerDown(e: React.PointerEvent) {
+    // Touch: urmărește degetele active. Al doilea deget → pinch-zoom (nu desen).
+    if (e.pointerType === "touch") {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (pointersRef.current.size === 2) {
+        beginPinch();
+        return;
+      }
+    }
     const p = normPoint(e);
     // Mouse neutru (tool null) SAU tool Text = mod de SELECȚIE: poți prinde/muta un text existent
     // și apare bara de editare (poziție/mărime/editare). Diferența: doar tool-ul Text deschide o casetă
@@ -500,6 +525,18 @@ export const SketchCanvas = forwardRef<
   }
 
   function onPointerMove(e: React.PointerEvent) {
+    // Pinch-zoom activ: actualizează poziția degetului + ajustează zoom-ul după raportul distanțelor.
+    if (pinchRef.current && e.pointerType === "touch") {
+      if (pointersRef.current.has(e.pointerId)) {
+        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
+      const pts = [...pointersRef.current.values()];
+      if (pts.length >= 2 && pinchRef.current.startDist > 0) {
+        const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        setZoom(clampZoom(pinchRef.current.startZoom * (dist / pinchRef.current.startDist)));
+      }
+      return;
+    }
     // Mutarea textului selectat (drag) — independentă de desen.
     if (dragRef.current) {
       const d = dragRef.current;
@@ -529,7 +566,14 @@ export const SketchCanvas = forwardRef<
     redraw(present, makeStroke(drawingRef.current.points, "free"));
   }
 
-  function onPointerUp() {
+  function onPointerUp(e?: React.PointerEvent) {
+    // Touch: scoate degetul ridicat. Dacă eram în pinch și au rămas <2 degete → ieși din pinch.
+    // În orice caz, cât timp pinch-ul e (sau a fost) activ nu comitem niciun stroke.
+    if (e?.pointerType === "touch") pointersRef.current.delete(e.pointerId);
+    if (pinchRef.current) {
+      if (pointersRef.current.size < 2) pinchRef.current = null;
+      return;
+    }
     // Finalizează mutarea textului: comite doar dacă s-a mutat efectiv.
     if (dragRef.current) {
       const d = dragRef.current;
@@ -623,33 +667,33 @@ export const SketchCanvas = forwardRef<
 
         <RailLabel>Grosime</RailLabel>
         <div
-          className="flex w-full flex-col items-center gap-2 transition-opacity"
+          className="flex w-full flex-col items-center gap-3 transition-opacity"
           style={{ opacity: drawActive ? 1 : 0.5 }}
         >
-          {STROKE_WIDTHS.map((w, i) => {
-            const on = drawActive && size === w;
-            return (
-              <button
-                key={w}
-                type="button"
-                aria-label={`Grosime ${w}`}
-                onClick={() => {
-                  setSize(w);
-                  if (tool === "eraser") setTool("pen");
-                }}
-                className={cn(railBtn, "h-[38px] w-[52px]", on ? "border-primary bg-[#f6ede4]" : "border-border")}
-              >
-                <span
-                  className="block rounded-full"
-                  style={{
-                    width: DOT_PX[i],
-                    height: DOT_PX[i],
-                    backgroundColor: on ? color : "#8a8073",
-                  }}
-                />
-              </button>
-            );
-          })}
+          {/* Punct de previzualizare a grosimii curente (scalat pentru rail, nu afectează desenul). */}
+          <span
+            aria-hidden
+            className="block rounded-full"
+            style={{
+              width: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
+              height: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
+              backgroundColor: drawActive ? color : "#8a8073",
+            }}
+          />
+          <input
+            type="range"
+            min={MIN_PEN_SIZE}
+            max={MAX_PEN_SIZE}
+            step={1}
+            value={Math.min(MAX_PEN_SIZE, Math.max(MIN_PEN_SIZE, size))}
+            aria-label="Grosimea creionului"
+            onChange={(e) => {
+              setSize(Number(e.target.value));
+              if (tool === "eraser") setTool("pen");
+            }}
+            className="h-[120px] cursor-pointer [accent-color:var(--primary)]"
+            style={{ writingMode: "vertical-lr", direction: "rtl" }}
+          />
         </div>
 
         <RailDivider />
@@ -726,7 +770,7 @@ export const SketchCanvas = forwardRef<
           </button>
         </div>
 
-        {/* Wrapper la dimensiunea exactă a foii (scalat de zoom) → ancorează rigle + input-ul flotant de text. */}
+        {/* Wrapper la dimensiunea exactă a foii (scalat de zoom) → ancorează input-ul flotant de text. */}
         <div
           className="relative z-[4]"
           style={{
@@ -736,18 +780,6 @@ export const SketchCanvas = forwardRef<
             transformOrigin: "center center",
           }}
         >
-          {/* Rigle (ticks la 26px = pasul grilei) pe marginile de sus și stânga, în afara foii. */}
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-[15px] left-0 h-[11px] w-full rounded-t-[3px] border border-[#e2dac9] bg-[#f5f0e6]"
-            style={{ backgroundImage: "repeating-linear-gradient(90deg, rgba(120,105,80,0.5) 0 1px, transparent 1px 26px)" }}
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -left-[15px] top-0 h-full w-[11px] rounded-l-[3px] border border-[#e2dac9] bg-[#f5f0e6]"
-            style={{ backgroundImage: "repeating-linear-gradient(180deg, rgba(120,105,80,0.5) 0 1px, transparent 1px 26px)" }}
-          />
-
           <canvas
             ref={canvasRef}
             width={dims.w}

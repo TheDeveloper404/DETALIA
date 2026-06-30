@@ -425,6 +425,24 @@ export function OnboardingForm() {
             </div>
           </div>
 
+          {/* Firmă (opțional) */}
+          <div style={{ marginBottom: 24 }}>
+            <label htmlFor="dt-company" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
+              Firmă{" "}
+              <span style={{ color: "#b8ad9b", letterSpacing: "0.04em", textTransform: "none" }}>
+                (opțional)
+              </span>
+            </label>
+            <input
+              id="dt-company"
+              name="company"
+              placeholder="Firma pe care o reprezinți"
+              maxLength={120}
+              className="dt-field"
+              style={inputStyle}
+            />
+          </div>
+
           {/* Media: avatar + cover */}
           <div
             className="dt-media"
