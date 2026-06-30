@@ -11,7 +11,7 @@ import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import { type FeedSort, getActiveAuthors, getFeed } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
-import { getMaintenanceState } from "@/server/services/settingsService";
+import { getPlatformState } from "@/server/services/settingsService";
 import { getRecentSketches } from "@/server/services/sketchService";
 import { getMyPositions } from "@/server/services/validationService";
 
@@ -33,20 +33,21 @@ export default async function FeedPage({
   const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
-  const [categories, role, authors, recentSketches, media, maintenance] = await Promise.all([
+  const [categories, role, authors, recentSketches, media, platform] = await Promise.all([
     listCategoriesWithCounts(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
     getRecentSketches(4),
     getUserMedia(session.user.id),
-    getMaintenanceState(),
+    getPlatformState(),
   ]);
 
-  // Banner de mentenanță (in-app) — vizibil userilor logați cât e ON. Mesaj custom sau text implicit cu data.
-  const maintenanceText = maintenance.enabled
-    ? maintenance.message ??
-      (maintenance.date
-        ? `În data ${new Date(maintenance.date).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" })} platforma va fi în mentenanță.`
+  // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
+  const announcement = platform.announcement;
+  const maintenanceText = announcement.enabled
+    ? announcement.message ??
+      (announcement.date
+        ? `În data ${new Date(announcement.date).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" })} platforma va fi în mentenanță.`
         : "Platforma va intra în curând în mentenanță.")
     : null;
 

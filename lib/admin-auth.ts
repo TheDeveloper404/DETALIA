@@ -6,6 +6,7 @@ import { randomBytes } from "node:crypto";
 
 import { cookies } from "next/headers";
 
+import { isAdminEmail } from "@/lib/admin-allowlist";
 import {
   consumeAdminLoginToken,
   deleteAdminSession,
@@ -15,23 +16,12 @@ import {
   insertAdminSession,
 } from "@/server/repos/adminsRepo";
 
+export { isAdminEmail };
+
 const COOKIE = "detalia-admin-session";
 // TTL sesiune (ore) și TTL magic link (minute) — tunable din env, cu default-uri sigure.
 const SESSION_TTL_MS = (Number(process.env.ADMIN_SESSION_TTL_HOURS) || 8) * 60 * 60 * 1000;
 const LINK_TTL_MS = (Number(process.env.ADMIN_LOGIN_TOKEN_TTL_MINUTES) || 15) * 60 * 1000;
-
-// Allowlist de admini din env (emailuri separate prin virgulă, normalizate). Deny-by-default: env gol → niciun admin.
-function adminEmails(): string[] {
-  return (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-export function isAdminEmail(email: string | null | undefined): boolean {
-  if (!email) return false;
-  return adminEmails().includes(email.trim().toLowerCase());
-}
 
 // ── Magic link ──
 // Emite un token one-time pentru un email de admin și întoarce URL-ul de verificare absolut.

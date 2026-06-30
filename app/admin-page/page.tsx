@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/admin-auth";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listUsersForAdmin } from "@/server/repos/usersRepo";
-import { getMaintenanceState } from "@/server/services/settingsService";
+import { getPlatformState } from "@/server/services/settingsService";
 
 import { adminLogoutAction } from "./actions";
 import { MaintenanceForm } from "./maintenance-form";
@@ -28,9 +28,9 @@ export default async function AdminPage() {
     redirect("/admin-page/login");
   }
 
-  const [users, maintenance] = await Promise.all([
+  const [users, platform] = await Promise.all([
     listUsersForAdmin(),
-    getMaintenanceState(),
+    getPlatformState(),
   ]);
 
   return (
@@ -53,17 +53,13 @@ export default async function AdminPage() {
       </div>
 
       {/* ─── Mentenanță ─── */}
-      <section className="mt-8 rounded-xl border border-border bg-card p-5">
+      <section className="mt-8">
         <h2 className="text-base font-semibold">Mentenanță platformă</h2>
         <p className="mt-0.5 mb-4 text-[13px] text-muted-foreground">
-          Cât e activă: landing → „site în lucru&rdquo; pentru anonimi · banner în feed pentru userii logați.
+          Două controale independente: anunț în avans (banner) și lockdown total (închide platforma).
         </p>
         <MaintenanceForm
-          defaults={{
-            enabled: maintenance.enabled,
-            date: maintenance.date,
-            message: maintenance.message,
-          }}
+          defaults={{ announcement: platform.announcement, lockdown: platform.lockdown }}
         />
       </section>
 

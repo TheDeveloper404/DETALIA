@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { destroyAdminSession, getAdminSession } from "@/lib/admin-auth";
 import { audit } from "@/lib/audit";
 import { checkLimit, hashAuditId, limiters } from "@/lib/rate-limit";
-import { setMaintenance } from "@/server/services/settingsService";
+import { setPlatform } from "@/server/services/settingsService";
 
 export type MaintenanceFormState = { ok: boolean; error: string | null };
 
@@ -17,8 +17,13 @@ const ERROR_MESSAGES: Record<string, string> = {
   RATE_LIMITED: "Prea multe modificări într-un timp scurt. Așteaptă un moment.",
 };
 
-// Salvează config-ul de mentenanță. Authz: sesiune de admin (deny-by-default). Enforce pe SERVER.
-export async function setMaintenanceAction(
+function str(formData: FormData, key: string): string | null {
+  const v = formData.get(key);
+  return typeof v === "string" ? v : null;
+}
+
+// Salvează AMBELE controale (anunț + lockdown). Authz: sesiune de admin (deny-by-default). Enforce pe SERVER.
+export async function setPlatformAction(
   _prev: MaintenanceFormState,
   formData: FormData,
 ): Promise<MaintenanceFormState> {
@@ -32,20 +37,29 @@ export async function setMaintenanceAction(
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
-  const enabled = formData.get("enabled") === "on";
-  const date = typeof formData.get("date") === "string" ? (formData.get("date") as string) : null;
-  const message =
-    typeof formData.get("message") === "string" ? (formData.get("message") as string) : null;
+  const announcementEnabled = formData.get("announcementEnabled") === "on";
+  const lockdownEnabled = formData.get("lockdownEnabled") === "on";
 
-  const result = await setMaintenance({ enabled, date, message, updatedBy: admin.email });
+  const result = await setPlatform({
+    announcementEnabled,
+    announcementDate: str(formData, "announcementDate"),
+    announcementMessage: str(formData, "announcementMessage"),
+    lockdownEnabled,
+    lockdownMessage: str(formData, "lockdownMessage"),
+    updatedBy: admin.email,
+  });
   if (!result.ok) {
     return { ok: false, error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers." };
   }
 
   // SEC-14: acțiune administrativă cu impact global → audit (cine + ce). emailHash, fără PII brut.
-  audit("maintenance_toggled", { emailHash: hashAuditId(admin.email), enabled, hasDate: !!date }, "warning");
+  audit(
+    "maintenance_toggled",
+    { emailHash: hashAuditId(admin.email), announcement: announcementEnabled, lockdown: lockdownEnabled },
+    "warning",
+  );
 
-  // Reflectă imediat schimbarea pe landing + feed (citesc starea de mentenanță).
+  // Reflectă imediat schimbarea pe landing + feed + gate-ul de lockdown.
   revalidatePath("/", "layout");
   return { ok: true, error: null };
 }
