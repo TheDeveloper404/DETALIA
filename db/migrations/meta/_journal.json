@@ -43,6 +43,13 @@
       "when": 1782679774606,
       "tag": "0005_cleanup_invitation_remnants",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782788904621,
+      "tag": "0006_needy_madame_hydra",
+      "breakpoints": true
     }
   ]
 }

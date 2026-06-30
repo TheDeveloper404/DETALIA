@@ -11,6 +11,7 @@ import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import { type FeedSort, getActiveAuthors, getFeed } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
+import { getMaintenanceState } from "@/server/services/settingsService";
 import { getRecentSketches } from "@/server/services/sketchService";
 import { getMyPositions } from "@/server/services/validationService";
 
@@ -32,13 +33,22 @@ export default async function FeedPage({
   const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
-  const [categories, role, authors, recentSketches, media] = await Promise.all([
+  const [categories, role, authors, recentSketches, media, maintenance] = await Promise.all([
     listCategoriesWithCounts(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
     getRecentSketches(4),
     getUserMedia(session.user.id),
+    getMaintenanceState(),
   ]);
+
+  // Banner de mentenanță (in-app) — vizibil userilor logați cât e ON. Mesaj custom sau text implicit cu data.
+  const maintenanceText = maintenance.enabled
+    ? maintenance.message ??
+      (maintenance.date
+        ? `În data ${new Date(maintenance.date).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" })} platforma va fi în mentenanță.`
+        : "Platforma va intra în curând în mentenanță.")
+    : null;
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
   const details = await getFeed({ categoryId: activeId, q, sort });
@@ -101,6 +111,15 @@ export default async function FeedPage({
       />
 
       <main className="min-w-0">
+        {maintenanceText && (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          >
+            <span className="font-semibold">Mentenanță programată — </span>
+            {maintenanceText}
+          </div>
+        )}
         <div className="mb-4 flex items-center justify-between gap-3">
           <h1 className="text-xl font-bold tracking-tight">
             {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}

@@ -114,6 +114,27 @@ export async function listTopAuthors(limit: number) {
     .limit(limit);
 }
 
+// Listă useri pentru panoul de admin: nume, prenume, email, rol (+ subrol), data creării.
+// Email = PII, vizibil DOAR adminului (pagina e gated cu requireAdmin). Sortare descrescătoare după dată.
+export async function listUsersForAdmin() {
+  return db
+    .select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      name: users.name,
+      email: users.email,
+      status: users.status,
+      roleMain: roles.roleMain,
+      subRole: roles.subRole,
+      verification: roles.verificationStatus,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .leftJoin(roles, eq(roles.userId, users.id))
+    .orderBy(sql`${users.createdAt} desc`);
+}
+
 // Media (avatar + cover) pentru ștergerea blob-urilor la ștergerea contului.
 export async function getUserMedia(userId: string) {
   const [row] = await db

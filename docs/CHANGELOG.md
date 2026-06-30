@@ -4,6 +4,27 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-06-30 — panou de admin + mod mentenanță
+
+### feat(admin) — panou intern `/admin`
+- Rută nouă `app/admin/page.tsx`, gated cu `requireAdmin()` (allowlist `ADMIN_EMAILS`); non-admin → `notFound()`
+  (nu dezvăluim existența). Conține: lista userilor înregistrați (nume, email, rol+subrol, status, dată creare)
+  + formularul de mentenanță.
+- `listUsersForAdmin()` în `usersRepo` (join roluri, sortat desc după `created_at`). Email = PII, vizibil doar adminului.
+
+### feat(maintenance) — mod mentenanță cu toggle din admin
+- Tabel nou **single-row** `platform_settings` (`maintenance_enabled`, `maintenance_date`, `maintenance_message`,
+  `updated_by_admin_id`, `updated_at`) — migrație `0006_needy_madame_hydra.sql` (reversibilă; de aplicat pe AMBELE
+  ramuri Neon prin SQL editor).
+- `settingsRepo` (upsert singleton) + `settingsService` (`getMaintenanceState` cu `cache()` per-request +
+  `setMaintenance` cu validare server-side a datei/mesajului). Enforce pe server.
+- **Landing** (`app/page.tsx`): mentenanță ON → vizitatorii anonimi văd ecranul „site în lucru" (on-brand) cu
+  data/mesajul, în loc de landing. (Userii logați sunt oricum redirectați la `/feed` de proxy.)
+- **Feed** (`app/(app)/feed/page.tsx`): mentenanță ON → banner fix sus cu textul (mesaj custom sau implicit cu data).
+- Notă: landing-ul devine dinamic (server-rendered) cât citește starea — cost mic per vizită anonimă, acceptabil MVP.
+
+---
+
 ## 2026-06-29 — fix-uri UX (profil/detaliu/feed) + remediere audit securitate (Codex)
 
 ### fix(ui) — câteva fix-uri de interfață
@@ -21,6 +42,17 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - `proxy.ts`: poarta de rol redirecta `POST /api/blob/upload` către `/onboarding` (302) fiindcă userul încă n-are rol
   în timpul onboarding-ului → poza eșua („Încărcarea imaginii a eșuat"). Excepție: `/api/blob/upload` trece prin poarta
   de rol (ruta cere oricum sesiune în handler, deci sigur). Descoperit la testul de magic link pe `detalia.ro` live.
+
+### fix(onboarding) — rol/subrol fără preselecție + cover repoziționabil
+- `onboarding-form.tsx`: selecturile rol/subrol pornesc goale (placeholder „Alege rolul" / „Alege întâi rolul", `required`);
+  subrolul e dezactivat până alegi rolul și nu se mai auto-completează cu primul (era Proiectant/Arhitect prefixate).
+- Banda de cover se poate **repoziționa sus/jos** (drag, ca în profile edit) + hint + „Schimbă banda"; `coverPosition`
+  (0..100) trimis prin câmp ascuns și persistat cu clamp server-side (`actions.ts` → `updateUserCoverPosition`).
+
+### infra — domeniu `detalia.ro` live + Resend funcțional (magic link end-to-end)
+- DNS migrat pe **Cloudflare**, domeniul `detalia.ro`/`www` atașat în Vercel (apex principal, A/CNAME DNS-only).
+- **Resend**: domeniu de trimitere `notifications.detalia.ro` verificat (DKIM/SPF prin Cloudflare); `EMAIL_FROM` =
+  `Detalia <noreply@notifications.detalia.ro>`, `AUTH_URL` = `https://detalia.ro` (Production). Magic link testat pe viu: OK.
 
 ### security — remediere audit read-only (Codex)
 - **CRITICAL închis:** `e2e/.auth/state.json` + `seed.json` (cookie de sesiune real) erau urmărite de git →

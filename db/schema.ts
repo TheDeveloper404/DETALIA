@@ -6,6 +6,8 @@
 // — cu cheile TS exacte pe care le cere adapterul — și (B) tabelele de domeniu DETALIA.
 
 import {
+  boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -293,6 +295,24 @@ export const notifications = pgTable(
   },
   (t) => [index("notifications_recipient_user_id_idx").on(t.recipientUserId)],
 );
+
+// Setări de platformă — tabel SINGLE-ROW (config global, administrat din /admin).
+// Pentru MVP ține doar modul de mentenanță: toggle + data anunțată + mesaj opțional.
+// Citit pe căi fierbinți (landing anonim, banner feed) → un singur rând, query ieftin.
+export const platformSettings = pgTable("platform_settings", {
+  id: uuid().defaultRandom().primaryKey(),
+  // Mentenanță ON: landing anonim → „site în lucru"; userii logați → banner în feed cu data.
+  maintenanceEnabled: boolean().notNull().default(false),
+  // Data anunțată a mentenanței (opțională) — afișată în banner („în data DD.MM.YYYY ...").
+  maintenanceDate: date({ mode: "string" }),
+  // Mesaj opțional (override pentru textul implicit al banner-ului).
+  maintenanceMessage: text(),
+  updatedByAdminId: uuid().references(() => users.id),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
 
 // Notă: FK `target_id` (polimorfic, validări/comentarii) nu are .references() forțat
 // — integritatea lui se asigură în services (vezi docs/SECURITATE.md §4).
