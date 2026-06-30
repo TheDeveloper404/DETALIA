@@ -51,6 +51,7 @@ export type ProfileViewData = {
   coverPosition: number; // object-position Y (0..100) pentru banner
   roleLabel: string; // ex: „Proiectant · Arhitect"
   location: string | null;
+  company: string | null;
   website: { href: string; label: string } | null;
   bio: string | null;
   about: string | null;
@@ -133,6 +134,11 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
               {data.location && (
                 <span className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground">
                   <Pin /> {data.location}
+                </span>
+              )}
+              {data.company && (
+                <span className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground">
+                  <Building /> {data.company}
                 </span>
               )}
               {data.website && (
@@ -501,6 +507,17 @@ function Pin() {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 21s-7-5.7-7-11a7 7 0 0 1 14 0c0 5.3-7 11-7 11z" />
       <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
+function Building() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18" />
+      <path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" />
+      <path d="M19 21V11a1 1 0 0 0-1-1h-3" />
+      <path d="M9 7h2M9 11h2M9 15h2" />
     </svg>
   );
 }

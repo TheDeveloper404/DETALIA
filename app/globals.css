@@ -313,6 +313,20 @@
 .dc-landing .dc-link:hover {
   color: #a9573a;
 }
+/* CTA-ul din header pe mobil: micșorează gap-ul + butonul „Creează cont" ca să nu se înghesuie/rupă
+   lângă logo. Inline style are specificitate mai mare → !important. */
+@media (max-width: 560px) {
+  .dc-landing .dc-header-cta {
+    gap: 12px !important;
+  }
+  .dc-landing .dc-header-cta .dc-link {
+    font-size: 14px !important;
+  }
+  .dc-landing .dc-header-cta .dc-btn-primary {
+    font-size: 14px !important;
+    padding: 9px 15px !important;
+  }
+}
 /* Hero B = două coloane (text + card preview). Inline style are specificitate mai mare decât
    un media query din stylesheet, deci grila hero stă AICI ca să o pot colapsa pe mobil. */
 .dc-landing .dc-hero-grid {

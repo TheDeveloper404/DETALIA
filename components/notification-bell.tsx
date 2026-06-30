@@ -125,10 +125,10 @@ export function NotificationBell({
         aria-label={unreadCount > 0 ? `Notificări (${unreadCount} necitite)` : "Notificări"}
         aria-expanded={open}
         className={cn(
-          "relative inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors",
-          open || unreadCount > 0
-            ? "border-primary bg-[#f6ede4] text-primary"
-            : "border-transparent text-muted-foreground hover:bg-muted",
+          // Cerc ghost, identic cu „Ciornele" și avatarul (consistență header). Starea „necitite" o semnalează
+          // DOAR bulina roșie, nu o bordură/fundal — altfel butonul arăta ca o cutie între două cercuri.
+          "relative inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors",
+          open ? "bg-muted text-primary" : "text-muted-foreground hover:bg-muted",
         )}
       >
         <Bell className="size-[18px]" strokeWidth={1.9} />

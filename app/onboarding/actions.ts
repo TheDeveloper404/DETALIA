@@ -33,6 +33,7 @@ const MAX_NAME = 80;
 const MAX_HEADLINE = 120;
 const MAX_LOCATION = 80;
 const MAX_WEBSITE = 200;
+const MAX_COMPANY = 120;
 
 function clean(value: FormDataEntryValue | null): string {
   return typeof value === "string" ? value.trim() : "";
@@ -56,6 +57,7 @@ export async function onboardingAction(
   const subRole = subRoleRaw || null;
   const headline = clean(formData.get("headline")) || null;
   const location = clean(formData.get("location")) || null;
+  const company = clean(formData.get("company")) || null;
   const websiteRaw = clean(formData.get("website")) || null;
 
   // Nume = minimul real (magic link nu-l capturează → fără el profilul rămâne fără nume).
@@ -68,6 +70,7 @@ export async function onboardingAction(
   if (
     (headline && headline.length > MAX_HEADLINE) ||
     (location && location.length > MAX_LOCATION) ||
+    (company && company.length > MAX_COMPANY) ||
     (websiteRaw && websiteRaw.length > MAX_WEBSITE)
   ) {
     return { error: ERROR_MESSAGES.FIELD_TOO_LONG };
@@ -97,6 +100,7 @@ export async function onboardingAction(
     headline,
     location,
     website,
+    company,
   });
 
   // ── URL-urile imaginilor (opționale, deja în Blob) ────

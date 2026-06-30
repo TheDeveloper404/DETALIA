@@ -68,6 +68,7 @@ export default async function ProfileEditPage() {
             initialAbout={profile?.about ?? null}
             initialLocation={profile?.location ?? null}
             initialWebsite={profile?.website ?? null}
+            initialCompany={profile?.company ?? null}
           />
         </section>
 
