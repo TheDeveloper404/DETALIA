@@ -173,6 +173,7 @@ export async function getProfileView(
     coverPosition: profile.coverPosition,
     roleLabel,
     location: profile.location,
+    company: profile.company,
     website: safeWebsite(profile.website),
     bio: profile.headline, // headline = tagline sub nume
     about: profile.about,
@@ -201,6 +202,7 @@ const HEADLINE_MAX = 120;
 const ABOUT_MAX = 1000;
 const LOCATION_MAX = 120;
 const WEBSITE_MAX = 200;
+const COMPANY_MAX = 120;
 
 // trim + plafon; gol → null (semantica „șters" în DB).
 function clip(raw: string, max: number): string | null {
@@ -259,7 +261,7 @@ export type UpdateDetailsResult =
 // SEC-03: website cu allowlist http/https la INPUT (nu doar la randare). Primește string-uri brute din action.
 export async function updateProfileDetails(
   userId: string,
-  input: { name: string; headline: string; about: string; location: string; website: string },
+  input: { name: string; headline: string; about: string; location: string; website: string; company: string },
 ): Promise<UpdateDetailsResult> {
   const name = input.name.trim();
   if (name.length === 0) return { ok: false, reason: "EMPTY_NAME" };
@@ -274,6 +276,7 @@ export async function updateProfileDetails(
     about: clip(input.about, ABOUT_MAX),
     location: clip(input.location, LOCATION_MAX),
     website: websiteRes.value,
+    company: clip(input.company, COMPANY_MAX),
   });
   return { ok: true };
 }

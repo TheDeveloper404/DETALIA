@@ -2,13 +2,30 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 
-// Cardul de preview din hero-ul landing (planșă + voturi pe roluri). Animat: la fiecare ciclu
-// detaliul „se desenează" singur, apoi apare propunerea, apoi rândurile de vot (Aprobă/Dezaprobă).
-// Întreaga secvență se reia la fiecare CYCLE_MS prin remontare (key=cycle) — un `animation-delay`
-// pur CSS nu păstrează stagger-ul peste iterații, așa că re-pornim secvența explicit.
+// Cardul de preview din hero-ul landing — oglindește un CARD REAL din feed (`DetailCard`): thumbnail cu
+// planșa care „se desenează", etichetă de categorie, titlu, autor + rol, stivă de validatori, contoare
+// (validări/comentarii/schițe) și pozițiile pe roluri (Aprobă/Dezaprobă cu justificare). La fiecare ciclu
+// secvența se reia prin remontare (key=cycle) — un `animation-delay` pur CSS nu păstrează stagger-ul peste iterații.
 
 const MONO = "var(--font-plex-mono), monospace";
-const CYCLE_MS = 6000;
+const SANS = "var(--font-archivo), system-ui, sans-serif";
+const CYCLE_MS = 6500;
+
+const stackAvatar: CSSProperties = {
+  flex: "none",
+  width: 24,
+  height: 24,
+  borderRadius: "50%",
+  background: "#ece4d6",
+  border: "2px solid #ffffff",
+  marginLeft: -7,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  fontSize: 9.5,
+  color: "#6f685e",
+  fontFamily: MONO,
+};
 
 const voteAvatar: CSSProperties = {
   flex: "none",
@@ -24,6 +41,20 @@ const voteAvatar: CSSProperties = {
   fontFamily: MONO,
 };
 
+// Pastilă de rol — același limbaj vizual ca RolePill din feed (fundal cald, text primary).
+const rolePill: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  fontFamily: MONO,
+  fontSize: 11,
+  color: "#a9573a",
+  background: "#f6ede4",
+  border: "1px solid #ecdcc8",
+  padding: "2px 8px",
+  borderRadius: 999,
+  whiteSpace: "nowrap",
+};
+
 export function HeroPreview() {
   const [cycle, setCycle] = useState(0);
 
@@ -36,7 +67,9 @@ export function HeroPreview() {
 
   return (
     <div style={{ position: "relative" }}>
+      {/* key=cycle pe tot cardul → remontează SVG-ul (se redesenează) ȘI re-pornește apariția chrome-ului. */}
       <div
+        key={cycle}
         style={{
           background: "#ffffff",
           border: "1px solid #e3ddd2",
@@ -45,29 +78,41 @@ export function HeroPreview() {
           overflow: "hidden",
         }}
       >
-        {/* Antet card */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "14px 18px",
-            borderBottom: "1px solid #eee6da",
-            fontFamily: MONO,
-            fontSize: 11.5,
-            letterSpacing: "0.06em",
-            color: "#8a8073",
-            textTransform: "uppercase",
-          }}
-        >
-          <span>Detaliu · Atic acoperiș terasă</span>
-          <span>DET-014</span>
-        </div>
-
-        {/* Planșă — se redesenează la fiecare ciclu (key=cycle remontează SVG-ul). */}
+        {/* Thumbnail — planșa care se desenează, cu eticheta de categorie peste (ca în feed). */}
         <div style={{ position: "relative", background: "#faf7f1", padding: 22 }}>
+          <span
+            style={{
+              position: "absolute",
+              left: 14,
+              top: 14,
+              zIndex: 1,
+              fontFamily: MONO,
+              fontSize: 10,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              color: "#a9573a",
+              background: "rgba(255,253,249,0.85)",
+              border: "1px solid #e3ddd2",
+              padding: "3px 7px",
+              borderRadius: 7,
+            }}
+          >
+            Acoperișuri
+          </span>
+          <span
+            style={{
+              position: "absolute",
+              right: 14,
+              top: 14,
+              zIndex: 1,
+              fontFamily: MONO,
+              fontSize: 10.5,
+              color: "#a59a88",
+            }}
+          >
+            DET-014
+          </span>
           <svg
-            key={cycle}
             className="dc-sketch"
             width="100%"
             viewBox="0 0 420 250"
@@ -105,9 +150,41 @@ export function HeroPreview() {
           </svg>
         </div>
 
-        {/* Voturi pe roluri — apar pe rând după ce planșa s-a desenat (key=cycle reia apariția). */}
-        <div key={cycle} style={{ padding: "14px 18px", borderTop: "1px solid #eee6da", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "2.8s" }}>
+        {/* Conținutul cardului — chrome-ul real din feed, apare după ce planșa s-a desenat. */}
+        <div style={{ padding: "16px 18px 4px" }}>
+          {/* Titlu */}
+          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "#211d18", animationDelay: "2.5s" }}>
+            Atic acoperiș terasă
+          </div>
+
+          {/* Autor + rol */}
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "2.7s" }}>
+            <span style={voteAvatar}>MP</span>
+            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "#211d18" }}>M. Popa</span>
+            <span style={rolePill}>Proiectant</span>
+          </div>
+
+          {/* Stivă de validatori — avatarele celor care au luat poziție (apar pe rând). */}
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "3.2s" }}>
+            <span style={stackAvatar}>IR</span>
+            <span style={stackAvatar}>AS</span>
+            <span style={stackAvatar}>DV</span>
+            <span style={{ ...stackAvatar, fontWeight: 600, color: "#8a8073" }}>+9</span>
+          </div>
+
+          {/* Contoare — ca în feed: validări · comentarii · schițe în teanc. */}
+          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "#8a8073", animationDelay: "3.45s" }}>
+            <span>12 validări</span>
+            <span style={{ color: "#ddd4c4" }}>·</span>
+            <span>3 comentarii</span>
+            <span style={{ color: "#ddd4c4" }}>·</span>
+            <span>5 schițe în teanc</span>
+          </div>
+        </div>
+
+        {/* Pozițiile pe roluri — partea „vie" a dezbaterii (Aprobă / Dezaprobă cu justificare). */}
+        <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid #eee6da", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "3.9s" }}>
             <span style={voteAvatar}>MP</span>
             <span style={{ fontSize: 13.5, flex: 1 }}>
               <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "#8a8073" }}>· Proiectant</span>
@@ -116,7 +193,7 @@ export function HeroPreview() {
               ✓ Aprobă
             </span>
           </div>
-          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "3.5s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "4.6s" }}>
             <span style={voteAvatar}>IR</span>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
