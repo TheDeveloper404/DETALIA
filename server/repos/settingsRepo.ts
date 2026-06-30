@@ -8,9 +8,20 @@ import { platformSettings } from "@/db/schema";
 
 export type PlatformSettingsRow = typeof platformSettings.$inferSelect;
 
+// Citire TOLERANTĂ la erori: tabelul de config e citit pe căi critice (landing, gate-ul de lockdown din
+// proxy) → o problemă de DB (drift de schemă, tabel lipsă, outage) NU trebuie să dărâme paginile.
+// La eroare logăm și întoarcem null → service-ul cade pe default (mentenanță OFF), site-ul rămâne funcțional.
 export async function getSettingsRow(): Promise<PlatformSettingsRow | null> {
-  const [row] = await db.select().from(platformSettings).limit(1);
-  return row ?? null;
+  try {
+    const [row] = await db.select().from(platformSettings).limit(1);
+    return row ?? null;
+  } catch (err) {
+    console.error(
+      "platform_settings: citire eșuată (drift de schemă / outage?) — cad pe default:",
+      err instanceof Error ? err.message : String(err),
+    );
+    return null;
+  }
 }
 
 // Upsert pe rândul singleton: dacă există, UPDATE; altfel INSERT primul rând.
