@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { uploadSketchThumbnail } from "@/lib/storage";
-import { saveStrokes, send } from "@/server/services/sketchService";
+import { publish, saveStrokes } from "@/server/services/sketchService";
 
 export type SketchActionResult = { ok: boolean; error?: string };
 
@@ -13,7 +13,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   SKETCH_NOT_FOUND: "Schița nu mai există.",
   DETAIL_NOT_FOUND: "Detaliul nu mai există.",
   FORBIDDEN: "Nu ai acces la această schiță.",
-  INVALID_STATE: "Schița a fost deja trimisă.",
+  INVALID_STATE: "Schița a fost deja publicată.",
   EMPTY_STROKES: "Desenează ceva înainte de a trimite.",
   INVALID_STROKES: "Desenul nu a putut fi salvat.",
   NO_ROLE: "Ai nevoie de un rol declarat.",
@@ -45,12 +45,12 @@ export async function saveStrokesAction(
   return { ok: true };
 }
 
-// Trimite propunerea (DRAFT → PENDING_ACCEPTANCE) + thumbnail PNG. Pe succes → redirect la detaliu.
+// Publică schița (DRAFT → PUBLISHED, direct în teanc) + thumbnail PNG. Pe succes → redirect la detaliu.
 export async function sendSketchAction(formData: FormData): Promise<SketchActionResult> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  // SEC-01: SEND declanșează scrieri DB + email către autorul-mamă → limită per user.
+  // SEC-01: publicarea declanșează scrieri DB + email către autorul-mamă → limită per user.
   if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
@@ -59,7 +59,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
   const detailId = String(formData.get("detailId") ?? "");
   const strokes = parseStrokes(String(formData.get("strokes") ?? ""));
 
-  // Thumbnail-ul e best-effort: dacă lipsește sau uploadul eșuează, trimitem fără el.
+  // Thumbnail-ul e best-effort: dacă lipsește sau uploadul eșuează, publicăm fără el.
   let thumbnailUrl: string | null = null;
   const thumb = formData.get("thumbnail");
   if (thumb instanceof File && thumb.size > 0) {
@@ -67,10 +67,10 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     if (upload.ok) thumbnailUrl = upload.url;
   }
 
-  const res = await send({ sketchId, authorId: session.user.id, strokes, thumbnailUrl });
+  const res = await publish({ sketchId, authorId: session.user.id, strokes, thumbnailUrl });
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
-    return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut trimite." };
+    return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut publica." };
   }
 
   redirect(`/details/${detailId}`);

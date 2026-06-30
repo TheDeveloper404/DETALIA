@@ -50,8 +50,12 @@ export const detailResourceType = pgEnum("detail_resource_type", [
 ]);
 export const notificationType = pgEnum("notification_type", [
   "SKETCH_PROPOSED",
+  // SKETCH_ACCEPTED / SKETCH_REJECTED — moștenite din fluxul vechi cu coadă de acceptare (eliminat
+  // 2026-06-30: schițele se publică direct). Păstrate în enum (valori existente în DB), nemaiproduse.
   "SKETCH_ACCEPTED",
   "SKETCH_REJECTED",
+  // Autorul detaliului a șters o schiță de pe detaliul lui (moderare post-publicare).
+  "SKETCH_DELETED",
 ]);
 
 // ════════════════════ (A) Tabele Auth.js (adapter Drizzle) ════════════════════
@@ -223,6 +227,11 @@ export const sketches = pgTable(
     strokesJson: jsonb(),
     thumbnailUrl: text(),
     status: sketchStatus().notNull().default("DRAFT"),
+    // Schiță pornită din „Dezaprob → fac o schiță": la publicare materializează automat o poziție
+    // DISAPPROVE pe detaliul-mamă + comentariul-justificare (vezi sketchService.publish). Altfel rămâne
+    // o simplă contribuție (fără poziție). Default false = schiță neutră.
+    disapprovesParent: boolean().notNull().default(false),
+    // Moment publicare (DRAFT→PUBLISHED). Numele „acceptedAt" e moștenit din fluxul vechi cu acceptare.
     acceptedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })

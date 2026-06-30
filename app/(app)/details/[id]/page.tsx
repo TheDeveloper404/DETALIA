@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/format";
 import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
 import { getDetail, getRelatedDetails } from "@/server/services/detailService";
-import { getPendingForOwner, getTeanc } from "@/server/services/sketchService";
+import { getTeanc } from "@/server/services/sketchService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
 import { CommentsSection } from "./comments-section";
@@ -20,6 +20,7 @@ import { ValidationPanel } from "./validation-panel";
 
 type SketchRow = {
   id: string;
+  authorId: string;
   strokesJson: unknown;
   authorName: string | null;
   authorImage: string | null;
@@ -32,6 +33,7 @@ type SketchRow = {
 function toSketchItem(r: SketchRow): SketchItem {
   return {
     id: r.id,
+    authorId: r.authorId,
     authorName: r.authorName,
     authorImage: r.authorImage,
     authorRoleMain: r.authorRoleMain,
@@ -76,10 +78,10 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
       comments: await getComments("SKETCH", r.id),
     })),
   );
-  const pending = (await getPendingForOwner(detail.id, userId)).map(toSketchItem);
   const related = await getRelatedDetails(detail.id, detail.categoryId, 5);
 
   const verified = detail.authorVerification === "VERIFIED";
+  const isAuthor = detail.authorId === userId;
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
@@ -224,6 +226,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             targetId={detail.id}
             detailId={detail.id}
             allowSketch
+            canValidate={!isAuthor}
             counts={validation.counts}
             myPosition={validation.myPosition}
             positions={validation.positions}
@@ -235,7 +238,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             detailId={detail.id}
             imageUrl={detail.imageUrl}
             published={published}
-            pending={pending}
+            isDetailAuthor={isAuthor}
             currentUserId={session.user.id}
             currentUserName={session.user.name}
             currentUserImage={session.user.image}
