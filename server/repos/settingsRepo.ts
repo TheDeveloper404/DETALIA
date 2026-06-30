@@ -14,10 +14,12 @@ export async function getSettingsRow(): Promise<PlatformSettingsRow | null> {
 }
 
 // Upsert pe rândul singleton: dacă există, UPDATE; altfel INSERT primul rând.
-export async function upsertMaintenance(fields: {
-  maintenanceEnabled: boolean;
-  maintenanceDate: string | null;
-  maintenanceMessage: string | null;
+export async function upsertSettings(fields: {
+  announcementEnabled: boolean;
+  announcementDate: string | null;
+  announcementMessage: string | null;
+  lockdownEnabled: boolean;
+  lockdownMessage: string | null;
   updatedBy: string | null;
 }): Promise<void> {
   const existing = await getSettingsRow();

@@ -327,16 +327,18 @@ export const adminSessions = pgTable(
 );
 
 // Setări de platformă — tabel SINGLE-ROW (config global, administrat din /admin-page).
-// Pentru MVP ține doar modul de mentenanță: toggle + data anunțată + mesaj opțional.
-// Citit pe căi fierbinți (landing anonim, banner feed) → un singur rând, query ieftin.
+// DOUĂ controale INDEPENDENTE de mentenanță (citit pe căi fierbinți → un singur rând, query ieftin):
+//   (1) ANUNȚ programat — banner în feed cu data; platforma funcționează normal (avertizare în avans).
+//   (2) LOCKDOWN — toți văd „site în lucru" (gate global în proxy); DOAR adminul intră pe /admin-page.
 export const platformSettings = pgTable("platform_settings", {
   id: uuid().defaultRandom().primaryKey(),
-  // Mentenanță ON: landing anonim → „site în lucru"; userii logați → banner în feed cu data.
-  maintenanceEnabled: boolean().notNull().default(false),
-  // Data anunțată a mentenanței (opțională) — afișată în banner („în data DD.MM.YYYY ...").
-  maintenanceDate: date({ mode: "string" }),
-  // Mesaj opțional (override pentru textul implicit al banner-ului).
-  maintenanceMessage: text(),
+  // (1) Anunț programat — banner în feed pentru userii logați.
+  announcementEnabled: boolean().notNull().default(false),
+  announcementDate: date({ mode: "string" }), // data anunțată (opțională)
+  announcementMessage: text(), // mesaj custom opțional (override text implicit)
+  // (2) Lockdown total — platforma închisă pentru toți, mai puțin adminul.
+  lockdownEnabled: boolean().notNull().default(false),
+  lockdownMessage: text(), // mesaj opțional pe ecranul „site în lucru"
   // Emailul adminului care a făcut ultima schimbare (din allowlist, NU user).
   updatedBy: text(),
   updatedAt: timestamp({ withTimezone: true })

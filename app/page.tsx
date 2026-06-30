@@ -4,7 +4,6 @@ import type { CSSProperties, ReactNode } from "react";
 import { HeroPreview } from "@/components/hero-preview";
 import { IntroSplash } from "@/components/intro-splash";
 import { Reveal } from "@/components/reveal";
-import { getMaintenanceState } from "@/server/services/settingsService";
 
 // Landing public DETALIA — import din Claude Design („Detalia Landing.dc.html"), hero varianta B
 // (planșă în panou + voturi pe roluri) + CTA final dark. Paletă proprie de brand (bej cald / teracotă)
@@ -161,56 +160,10 @@ function Eyebrow({ children }: { children: ReactNode }) {
   );
 }
 
-// Ecran „site în lucru" — afișat pe landing când mentenanța e ON (vizitatori anonimi).
-// Paletă de brand (bej cald + teracotta), consistent cu restul landing-ului.
-function MaintenanceScreen({ date, message }: { date: string | null; message: string | null }) {
-  const dateLabel = date
-    ? new Date(date).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" })
-    : null;
-  return (
-    <div
-      style={{
-        fontFamily: SANS,
-        color: "#211d18",
-        background: "#faf8f4",
-        minHeight: "100dvh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        textAlign: "center",
-        padding: "40px 24px",
-        gap: 20,
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-      <img src="/logo.svg" alt="DETALIA" style={{ height: 38, width: "auto" }} />
-      <div style={{ ...eyebrow, justifyContent: "center", marginBottom: 0 }}>
-        <span style={eyebrowDiamond} />
-        Mentenanță
-      </div>
-      <h1 style={{ ...h2, maxWidth: "16ch" }}>Site în lucru</h1>
-      <p style={{ fontSize: 17, lineHeight: 1.6, color: "#5d564c", margin: 0, maxWidth: "46ch" }}>
-        {message ?? "Lucrăm la platformă chiar acum. Revenim în scurt timp."}
-      </p>
-      {dateLabel && (
-        <p style={{ fontFamily: MONO, fontSize: 13, color: "#8a8073", margin: 0, letterSpacing: "0.02em" }}>
-          Mentenanță programată: {dateLabel}
-        </p>
-      )}
-    </div>
-  );
-}
-
-export default async function Home() {
+export default function Home() {
   // Landing public (anonim). Redirectul user-logat → /feed se face în `proxy.ts` (307 curat,
   // fără meta-refresh) — un user autentificat nu ajunge niciodată să randeze pagina asta.
-  // Mentenanță ON → vizitatorul anonim vede „site în lucru" în locul landing-ului.
-  const maintenance = await getMaintenanceState();
-  if (maintenance.enabled) {
-    return <MaintenanceScreen date={maintenance.date} message={maintenance.message} />;
-  }
-
+  // LOCKDOWN-ul (mentenanță totală) e gestionat GLOBAL în proxy (rewrite la /maintenance), nu aici.
   return (
     <div
       className="dc-landing"

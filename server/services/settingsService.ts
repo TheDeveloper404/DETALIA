@@ -1,55 +1,68 @@
-// Service settings — business pentru config-ul global de platformă (single-row).
-// Pentru MVP: modul de mentenanță (toggle + dată anunțată + mesaj). Reguli enforce pe SERVER.
+// Service settings — config-ul global de platformă (single-row). Două controale independente:
+//   (1) ANUNȚ programat (banner feed) · (2) LOCKDOWN (platformă închisă pt toți, mai puțin adminul).
 import { cache } from "react";
 
-import { getSettingsRow, upsertMaintenance } from "@/server/repos/settingsRepo";
+import { getSettingsRow, upsertSettings } from "@/server/repos/settingsRepo";
 
-export type MaintenanceState = {
-  enabled: boolean;
-  date: string | null; // ISO yyyy-mm-dd (data anunțată), sau null
-  message: string | null; // mesaj custom opțional
+export type PlatformState = {
+  announcement: { enabled: boolean; date: string | null; message: string | null };
+  lockdown: { enabled: boolean; message: string | null };
 };
 
 const MAX_MESSAGE = 280;
 
-// Citire pe căi fierbinți (landing anonim + banner feed). `cache()` deduplică în cadrul unui request.
-// Lipsa rândului → mentenanță OFF (deny-by-default pentru „blocare", aici „nu blocăm").
-export const getMaintenanceState = cache(async (): Promise<MaintenanceState> => {
+const DEFAULT_STATE: PlatformState = {
+  announcement: { enabled: false, date: null, message: null },
+  lockdown: { enabled: false, message: null },
+};
+
+// Citire pe căi fierbinți (feed, gate-ul de lockdown). `cache()` deduplică în cadrul unui request.
+export const getPlatformState = cache(async (): Promise<PlatformState> => {
   const row = await getSettingsRow();
-  if (!row) return { enabled: false, date: null, message: null };
+  if (!row) return DEFAULT_STATE;
   return {
-    enabled: row.maintenanceEnabled,
-    date: row.maintenanceDate,
-    message: row.maintenanceMessage,
+    announcement: {
+      enabled: row.announcementEnabled,
+      date: row.announcementDate,
+      message: row.announcementMessage,
+    },
+    lockdown: { enabled: row.lockdownEnabled, message: row.lockdownMessage },
   };
 });
 
-export type SetMaintenanceResult =
+export type SetPlatformResult =
   | { ok: true }
   | { ok: false; error: "INVALID_DATE" | "MESSAGE_TOO_LONG" };
 
-// Scrierea config-ului de mentenanță. Callerul (action) garantează deja sesiunea de admin.
-// Validăm aici inputul: data în format ISO (yyyy-mm-dd) dacă e dată; mesaj plafonat.
-export async function setMaintenance(input: {
-  enabled: boolean;
-  date: string | null;
-  message: string | null;
+// Scrie ambele controale (formularul din admin le trimite împreună). Callerul garantează sesiunea de admin.
+export async function setPlatform(input: {
+  announcementEnabled: boolean;
+  announcementDate: string | null;
+  announcementMessage: string | null;
+  lockdownEnabled: boolean;
+  lockdownMessage: string | null;
   updatedBy: string | null;
-}): Promise<SetMaintenanceResult> {
-  const date = input.date?.trim() || null;
+}): Promise<SetPlatformResult> {
+  const date = input.announcementDate?.trim() || null;
   if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     return { ok: false, error: "INVALID_DATE" };
   }
 
-  const message = input.message?.trim() || null;
-  if (message !== null && message.length > MAX_MESSAGE) {
+  const announcementMessage = input.announcementMessage?.trim() || null;
+  const lockdownMessage = input.lockdownMessage?.trim() || null;
+  if (
+    (announcementMessage && announcementMessage.length > MAX_MESSAGE) ||
+    (lockdownMessage && lockdownMessage.length > MAX_MESSAGE)
+  ) {
     return { ok: false, error: "MESSAGE_TOO_LONG" };
   }
 
-  await upsertMaintenance({
-    maintenanceEnabled: input.enabled,
-    maintenanceDate: date,
-    maintenanceMessage: message,
+  await upsertSettings({
+    announcementEnabled: input.announcementEnabled,
+    announcementDate: date,
+    announcementMessage,
+    lockdownEnabled: input.lockdownEnabled,
+    lockdownMessage,
     updatedBy: input.updatedBy,
   });
   return { ok: true };
