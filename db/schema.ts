@@ -296,7 +296,37 @@ export const notifications = pgTable(
   (t) => [index("notifications_recipient_user_id_idx").on(t.recipientUserId)],
 );
 
-// Setări de platformă — tabel SINGLE-ROW (config global, administrat din /admin).
+// ════════════════════════ (C) Admin — autentificare SEPARATĂ de useri ════════════════════════
+// Adminii NU sunt useri ai platformei: login propriu prin MAGIC LINK pe email, sesiune proprie
+// (cookie dedicat, validat prin admin_sessions). Acces izolat la /admin-page.
+// CINE e admin = allowlist `ADMIN_EMAILS` (env) — fără tabel de conturi, fără parole.
+
+// Token one-time pentru magic link-ul de admin (emis la cererea de login, consumat la /admin-page/verify).
+export const adminLoginTokens = pgTable(
+  "admin_login_tokens",
+  {
+    token: text().primaryKey(),
+    email: text().notNull(), // emailul (din allowlist) către care s-a trimis linkul
+    expires: timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("admin_login_tokens_email_idx").on(t.email)],
+);
+
+// Sesiuni de admin (token opac random în cookie HttpOnly). Lookup în DB → revocabil. Expiră.
+// Cheia identității = emailul (din allowlist) — nu există tabel de conturi de admin.
+export const adminSessions = pgTable(
+  "admin_sessions",
+  {
+    token: text().primaryKey(),
+    email: text().notNull(),
+    expires: timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("admin_sessions_email_idx").on(t.email)],
+);
+
+// Setări de platformă — tabel SINGLE-ROW (config global, administrat din /admin-page).
 // Pentru MVP ține doar modul de mentenanță: toggle + data anunțată + mesaj opțional.
 // Citit pe căi fierbinți (landing anonim, banner feed) → un singur rând, query ieftin.
 export const platformSettings = pgTable("platform_settings", {
@@ -307,7 +337,8 @@ export const platformSettings = pgTable("platform_settings", {
   maintenanceDate: date({ mode: "string" }),
   // Mesaj opțional (override pentru textul implicit al banner-ului).
   maintenanceMessage: text(),
-  updatedByAdminId: uuid().references(() => users.id),
+  // Emailul adminului care a făcut ultima schimbare (din allowlist, NU user).
+  updatedBy: text(),
   updatedAt: timestamp({ withTimezone: true })
     .notNull()
     .defaultNow()

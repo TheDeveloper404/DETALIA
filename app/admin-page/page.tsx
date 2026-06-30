@@ -1,13 +1,14 @@
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 
-import { requireAdmin } from "@/lib/admin";
+import { getAdminSession } from "@/lib/admin-auth";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listUsersForAdmin } from "@/server/repos/usersRepo";
 import { getMaintenanceState } from "@/server/services/settingsService";
 
+import { adminLogoutAction } from "./actions";
 import { MaintenanceForm } from "./maintenance-form";
 
-// Panou de admin (MVP). Authz: requireAdmin (allowlist ADMIN_EMAILS). Non-admin → 404 (nu dezvăluim existența).
+// Panou de admin (MVP) — autentificare SEPARATĂ de useri. Fără sesiune de admin → login.
 // Conține: lista userilor (nume/email/rol/dată) + toggle-ul de mentenanță.
 export const dynamic = "force-dynamic";
 
@@ -22,10 +23,9 @@ function fmtDate(d: Date | string) {
 }
 
 export default async function AdminPage() {
-  try {
-    await requireAdmin();
-  } catch {
-    notFound();
+  const admin = await getAdminSession();
+  if (!admin) {
+    redirect("/admin-page/login");
   }
 
   const [users, maintenance] = await Promise.all([
@@ -35,8 +35,22 @@ export default async function AdminPage() {
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] px-6 py-8">
-      <h1 className="text-xl font-bold tracking-tight">Administrare</h1>
-      <p className="mt-1 text-sm text-muted-foreground">Panou intern — vizibil doar adminilor.</p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">Administrare</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Autentificat ca <span className="font-medium text-foreground">{admin.email}</span>.
+          </p>
+        </div>
+        <form action={adminLogoutAction}>
+          <button
+            type="submit"
+            className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-secondary"
+          >
+            Ieși
+          </button>
+        </form>
+      </div>
 
       {/* ─── Mentenanță ─── */}
       <section className="mt-8 rounded-xl border border-border bg-card p-5">

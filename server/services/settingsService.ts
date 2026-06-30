@@ -28,13 +28,13 @@ export type SetMaintenanceResult =
   | { ok: true }
   | { ok: false; error: "INVALID_DATE" | "MESSAGE_TOO_LONG" };
 
-// Scrierea config-ului de mentenanță. Callerul (action) garantează deja că e admin (requireAdmin).
+// Scrierea config-ului de mentenanță. Callerul (action) garantează deja sesiunea de admin.
 // Validăm aici inputul: data în format ISO (yyyy-mm-dd) dacă e dată; mesaj plafonat.
 export async function setMaintenance(input: {
   enabled: boolean;
   date: string | null;
   message: string | null;
-  adminId: string | null;
+  updatedBy: string | null;
 }): Promise<SetMaintenanceResult> {
   const date = input.date?.trim() || null;
   if (date !== null && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -50,7 +50,7 @@ export async function setMaintenance(input: {
     maintenanceEnabled: input.enabled,
     maintenanceDate: date,
     maintenanceMessage: message,
-    updatedByAdminId: input.adminId,
+    updatedBy: input.updatedBy,
   });
   return { ok: true };
 }

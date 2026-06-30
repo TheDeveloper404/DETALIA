@@ -115,7 +115,7 @@ export async function listTopAuthors(limit: number) {
 }
 
 // Listă useri pentru panoul de admin: nume, prenume, email, rol (+ subrol), data creării.
-// Email = PII, vizibil DOAR adminului (pagina e gated cu requireAdmin). Sortare descrescătoare după dată.
+// Email = PII, vizibil DOAR adminului (pagina e gated cu sesiune de admin). Sortare descrescătoare după dată.
 export async function listUsersForAdmin() {
   return db
     .select({
