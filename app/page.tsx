@@ -125,6 +125,7 @@ const primaryBtn: CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
+  whiteSpace: "nowrap",
   background: "#a9573a",
   color: "#ffffff",
   fontFamily: SANS,
@@ -208,7 +209,7 @@ export default function Home() {
             {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
             <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
           </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+          <div className="dc-header-cta" style={{ display: "flex", alignItems: "center", gap: 24 }}>
             <Link href="/login" className="dc-link" style={{ fontSize: 16, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
               Autentificare
             </Link>

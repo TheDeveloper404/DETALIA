@@ -20,6 +20,7 @@ export async function updateUserProfile(
     headline: string | null;
     location: string | null;
     website: string | null;
+    company: string | null;
   },
 ) {
   await db.update(users).set(fields).where(eq(users.id, userId));
@@ -48,6 +49,7 @@ export async function getUserProfile(userId: string) {
       about: users.about,
       location: users.location,
       website: users.website,
+      company: users.company,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -55,7 +57,7 @@ export async function getUserProfile(userId: string) {
   return row ?? null;
 }
 
-// Editarea câmpurilor de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
+// Editarea câmpurilor de text ale profilului (nume, headline, about, locație, website, firmă). NU atinge rolul (definitiv).
 export async function updateUserDetails(
   userId: string,
   fields: {
@@ -64,6 +66,7 @@ export async function updateUserDetails(
     about: string | null;
     location: string | null;
     website: string | null;
+    company: string | null;
   },
 ) {
   await db.update(users).set(fields).where(eq(users.id, userId));
@@ -82,6 +85,7 @@ export async function getPublicProfile(userId: string) {
       about: users.about,
       location: users.location,
       website: users.website,
+      company: users.company,
       roleMain: roles.roleMain,
       subRole: roles.subRole,
       verificationStatus: roles.verificationStatus,
@@ -163,6 +167,7 @@ export async function anonymizeUserRow(userId: string, placeholderEmail: string)
       about: null,
       location: null,
       website: null,
+      company: null,
       status: "DELETED",
     })
     .where(eq(users.id, userId));

@@ -12,6 +12,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Trimiterea unei schițe postează prin Server Action strokes JSON + thumbnail PNG (1000px lățime,
+    // poate depăși 1MB). Default-ul de 1MB pică cu 413 → ridicăm plafonul. Acțiunea e auth-gated + rate-limited.
+    serverActions: {
+      bodySizeLimit: "4mb",
+    },
+  },
   images: {
     // Imaginile detaliilor / thumbnail-urile schițelor sunt servite din Vercel Blob (acces public).
     remotePatterns: [

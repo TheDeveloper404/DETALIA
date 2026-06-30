@@ -45,12 +45,14 @@ export function EditDetailsForm({
   initialAbout,
   initialLocation,
   initialWebsite,
+  initialCompany,
 }: {
   initialName: string | null;
   initialHeadline: string | null;
   initialAbout: string | null;
   initialLocation: string | null;
   initialWebsite: string | null;
+  initialCompany: string | null;
 }) {
   const [state, formAction, pending] = useActionState(
     updateProfileDetailsAction,
@@ -119,6 +121,19 @@ export function EditDetailsForm({
             defaultValue={initialWebsite ?? ""}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="company">
+          Firmă <span className="font-normal text-muted-foreground">(opțional)</span>
+        </Label>
+        <Input
+          id="company"
+          name="company"
+          maxLength={120}
+          placeholder="ex: Firma pe care o reprezinți"
+          defaultValue={initialCompany ?? ""}
+        />
       </div>
 
       <Button type="submit" disabled={pending} className="h-10 self-start">
