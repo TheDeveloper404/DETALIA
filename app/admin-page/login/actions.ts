@@ -1,0 +1,50 @@
+"use server";
+
+import { headers } from "next/headers";
+
+import { createAdminLoginUrl, adminLinkTtlMinutes, isAdminEmail } from "@/lib/admin-auth";
+import { audit } from "@/lib/audit";
+import { magicLinkEmailHtml, magicLinkEmailText, sendEmail } from "@/lib/email";
+import { checkLimit, clientIp, hashAuditId, limiters } from "@/lib/rate-limit";
+
+export type AdminLoginState = { sent: boolean; error: string | null };
+
+// Cere magic link de admin. Enforce pe SERVER. Anti-enumerare: răspuns IDENTIC indiferent dacă emailul
+// e sau nu admin (linkul se trimite DOAR dacă e în allowlist). Rate-limit pe email + IP.
+export async function requestAdminLinkAction(
+  _prev: AdminLoginState,
+  formData: FormData,
+): Promise<AdminLoginState> {
+  const email = ((formData.get("email") as string | null) ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    return { sent: false, error: "Introdu un email valid." };
+  }
+
+  const ip = await clientIp();
+  const [byUser, byIp] = await Promise.all([
+    checkLimit(limiters.adminLoginPerUser, email),
+    checkLimit(limiters.adminLoginPerIp, ip),
+  ]);
+  if (!byUser.ok || !byIp.ok) {
+    return { sent: false, error: "Prea multe încercări. Așteaptă câteva minute." };
+  }
+
+  if (isAdminEmail(email)) {
+    const origin = process.env.AUTH_URL ?? `https://${(await headers()).get("host") ?? "detalia.ro"}`;
+    const url = await createAdminLoginUrl(email, origin);
+    const ttl = adminLinkTtlMinutes();
+    await sendEmail({
+      to: email,
+      subject: "Acces administrare DETALIA",
+      html: magicLinkEmailHtml(url, ttl),
+      text: magicLinkEmailText(url, ttl),
+    });
+    audit("admin_login_success", { stage: "link_sent", emailHash: hashAuditId(email) }, "info");
+  } else {
+    // Email care nu e admin a cerut acces — semnal, dar răspuns identic (fără enumerare).
+    audit("admin_login_failed", { ipHash: hashAuditId(ip), emailHash: hashAuditId(email) }, "warning");
+  }
+
+  // Mesaj GENERIC mereu — nu dezvăluim dacă emailul e admin.
+  return { sent: true, error: null };
+}

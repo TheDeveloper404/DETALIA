@@ -18,7 +18,7 @@ export async function upsertMaintenance(fields: {
   maintenanceEnabled: boolean;
   maintenanceDate: string | null;
   maintenanceMessage: string | null;
-  updatedByAdminId: string | null;
+  updatedBy: string | null;
 }): Promise<void> {
   const existing = await getSettingsRow();
   if (existing) {
