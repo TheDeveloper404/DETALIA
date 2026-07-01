@@ -1,9 +1,10 @@
 "use client";
 
-import { ChevronDown, Info, Plus, RotateCcw, Send, Trash2, Upload, X } from "lucide-react";
+import { ChevronDown, Info, Pencil, Plus, RotateCcw, Send, Trash2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useRef, useState } from "react";
 
+import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { uploadImageToBlob } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 import { cn } from "@/lib/utils";
@@ -54,14 +55,27 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 
 export function DetailForm({ categories }: { categories: CategoryOption[] }) {
   const [state, formAction, pending] = useActionState(createDetailAction, initialState);
+  // Sursa imaginii detaliului: „upload" (fișier existent) sau „draw" (desenat pe loc, pe foaie goală).
+  const [mode, setMode] = useState<"upload" | "draw">("upload");
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>([]);
+  const [drawCount, setDrawCount] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const imageUrlRef = useRef<HTMLInputElement>(null);
+  const canvasRef = useRef<SketchCanvasHandle>(null);
+
+  // Comutarea sursei resetează starea celeilalte + URL-ul deja urcat (evită trimiterea unei imagini vechi).
+  function switchMode(next: "upload" | "draw") {
+    if (next === mode) return;
+    setMode(next);
+    setClientError(null);
+    if (imageUrlRef.current) imageUrlRef.current.value = "";
+    if (next === "draw") removeImage();
+  }
 
   function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -97,27 +111,53 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
   // server action-ului). Flux: 1) submit → urc imaginea → pun URL-ul în câmpul ascuns → re-submit;
   // 2) la al doilea submit URL-ul există → lăsăm server action-ul să creeze detaliul.
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    if (!imageFile && !imageUrlRef.current?.value) {
+    // URL deja urcat (al doilea submit) → lăsăm submit-ul să ajungă la server action.
+    if (imageUrlRef.current?.value) return;
+
+    // MOD DESEN: randăm foaia în PNG (client) → urcăm în Blob → re-submit cu URL-ul.
+    if (mode === "draw") {
+      e.preventDefault();
+      if (uploading) return;
+      if (drawCount === 0) {
+        setClientError("Desenează detaliul înainte de a-l publica.");
+        return;
+      }
+      setUploading(true);
+      setClientError(null);
+      try {
+        const blob = await canvasRef.current?.exportThumbnail();
+        if (!blob) throw new Error("export");
+        const file = new File([blob], "detaliu.png", { type: "image/png" });
+        const url = await uploadImageToBlob("details", file);
+        if (imageUrlRef.current) imageUrlRef.current.value = url;
+        formRef.current?.requestSubmit();
+      } catch {
+        setClientError("Salvarea desenului a eșuat. Încearcă din nou.");
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
+
+    // MOD UPLOAD: imaginea se urcă DIRECT în Blob înainte de submit (ocolește limita de body).
+    if (!imageFile) {
       e.preventDefault();
       setClientError("Alege o imagine pentru detaliu.");
       return;
     }
-    if (imageFile && !imageUrlRef.current?.value) {
-      e.preventDefault();
-      if (uploading) return;
-      setUploading(true);
-      setClientError(null);
-      try {
-        const url = await uploadImageToBlob("details", imageFile);
-        if (imageUrlRef.current) imageUrlRef.current.value = url;
-        formRef.current?.requestSubmit();
-      } catch {
-        setClientError("Încărcarea imaginii a eșuat. Încearcă din nou.");
-      } finally {
-        setUploading(false);
-      }
+    e.preventDefault();
+    if (uploading) return;
+    setUploading(true);
+    setClientError(null);
+    try {
+      const url = await uploadImageToBlob("details", imageFile);
+      if (imageUrlRef.current) imageUrlRef.current.value = url;
+      formRef.current?.requestSubmit();
+    } catch {
+      setClientError("Încărcarea imaginii a eșuat. Încearcă din nou.");
+    } finally {
+      setUploading(false);
     }
-    // URL prezent → lăsăm submit-ul să ajungă la server action.
   }
 
   const addDisabled = resources.length >= MAX_DETAIL_RESOURCES;
@@ -240,6 +280,30 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
             Imaginea 2D a detaliului <Req />
           </label>
 
+          {/* Alege sursa: încarci un fișier gata făcut sau desenezi detaliul pe loc, pe o foaie goală. */}
+          <div className="mb-3 inline-flex rounded-[10px] border border-[#e6ddcf] bg-[#f6ede4] p-1">
+            {([
+              { key: "upload", label: "Încarcă fișier", Icon: Upload },
+              { key: "draw", label: "Desenează", Icon: Pencil },
+            ] as const).map(({ key, label, Icon }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => switchMode(key)}
+                aria-pressed={mode === key}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-[7px] px-3.5 py-2 font-heading text-[13.5px] font-semibold transition-colors",
+                  mode === key
+                    ? "bg-card text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <Icon className="size-[15px]" strokeWidth={2} />
+                {label}
+              </button>
+            ))}
+          </div>
+
           {/* input file ascuns, declanșat de dropzone / butonul Înlocuiește */}
           <input
             ref={fileRef}
@@ -250,7 +314,11 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
             className="sr-only"
           />
 
-          {!preview ? (
+          {mode === "draw" ? (
+            <div className="flex h-[560px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
+              <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} />
+            </div>
+          ) : !preview ? (
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
@@ -422,7 +490,13 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
           className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#95492e] bg-primary px-6 py-3 font-heading text-[15px] font-bold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-60"
         >
           <Send className="size-4" strokeWidth={2} />
-          {uploading ? "Se încarcă imaginea…" : pending ? "Se publică…" : "Publică detaliul"}
+          {uploading
+            ? mode === "draw"
+              ? "Se salvează desenul…"
+              : "Se încarcă imaginea…"
+            : pending
+              ? "Se publică…"
+              : "Publică detaliul"}
         </button>
       </div>
     </form>
