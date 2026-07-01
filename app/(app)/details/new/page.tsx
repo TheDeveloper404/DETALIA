@@ -31,10 +31,10 @@ export default async function NewDetailPage() {
         <span className="text-foreground/70">Adaugă un detaliu</span>
       </nav>
 
-      <h1 className="mb-2 font-heading text-[30px] font-extrabold tracking-tight">
+      <h1 className="mb-2 text-center font-heading text-[30px] font-extrabold tracking-tight">
         Adaugă un detaliu
       </h1>
-      <p className="mb-7 max-w-[58ch] text-[15px] leading-relaxed text-muted-foreground">
+      <p className="mb-7 mx-auto max-w-[58ch] text-center text-[15px] leading-relaxed text-muted-foreground">
         Pui un detaliu de execuție la dezbatere. Publici desenul cu o descriere, breasla îl
         cântărește pe roluri — fără coadă de aprobare.
       </p>

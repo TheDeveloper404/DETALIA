@@ -4,6 +4,17 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-01 — perf/ux(detaliu): optimistic UI la validare + pagina „Adaugă detaliu" wide
+
+- **Optimistic UI pe Aprob/Retract** (`validation-panel.tsx`): butoanele erau `<form action>` simple, fără pending
+  → UI-ul îngheța pe toată durata roundtrip-ului server (auth Neon + Upstash + write + revalidate) și „părea blocat".
+  Acum: `useOptimistic` pe poziție + contoare, acțiunile rulează în `startTransition` → flip **instant**, reconciliere
+  cu serverul la revenirea props-urilor. Dezaprobarea-text rămâne pe `useActionState` (are nevoie de validare server).
+  *(Diagnostic latență prod, de urmărit: sesiune `strategy:"database"` = query Neon la fiecare `auth()`; colocare
+  regiuni Vercel/Neon/Upstash; revalidări țintite. Vezi handoff.)*
+- **Pagina „Adaugă detaliu" wide** (`details/new/page.tsx`): container `max-w-[760px]` → `max-w-[var(--container-max)]`
+  (1280px, ca header/Feed); titlu + subtitlu centrate. Zona de desen: `h-[560px]` → `h-[70vh]` (min 520 / max 760).
+
 ## 2026-07-01 — feat(detaliu): creare detaliu prin DESEN („Desenează")
 
 > Propunere Edi: constructorul își desenează exact problema lui (detaliul de execuție pe care nu știe cum să-l
