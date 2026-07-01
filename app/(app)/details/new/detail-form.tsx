@@ -315,7 +315,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
           />
 
           {mode === "draw" ? (
-            <div className="flex h-[560px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
+            <div className="flex h-[70vh] max-h-[760px] min-h-[520px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
               <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} />
             </div>
           ) : !preview ? (
