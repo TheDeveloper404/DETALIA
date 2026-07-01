@@ -1,0 +1,4 @@
+Contact: mailto:liviu@detalia.ro
+Canonical: https://detalia.ro/.well-known/security.txt
+Preferred-Languages: ro, en
+Expires: 2027-07-01T00:00:00Z
