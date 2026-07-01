@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Pencil, PenLine, X } from "lucide-react";
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
@@ -42,9 +42,46 @@ export function ValidationPanel({
   const [mode, setMode] = useState<"none" | "choose" | "text">("none");
   const [state, formAction, pending] = useActionState(disapproveAction, initialState);
 
-  const approved = myPosition === "APPROVE";
-  const disapproved = myPosition === "DISAPPROVE";
-  const totalValidari = counts.approve + counts.disapprove;
+  // Optimistic UI: click-ul de Aprob/Retract se reflectă INSTANT în UI, apoi se reconciliază cu serverul
+  // (când props-urile revin actualizate după revalidatePath). Elimină senzația de „buton blocat".
+  type Opt = { pos: ValidationPosition | null; approve: number; disapprove: number };
+  const [opt, applyOpt] = useOptimistic<Opt, "APPROVE" | "DISAPPROVE" | "RETRACT">(
+    { pos: myPosition, approve: counts.approve, disapprove: counts.disapprove },
+    (s, action) => {
+      // Scoate poziția curentă din contoare, apoi aplică noua acțiune (o singură poziție per user).
+      const approve = s.approve - (s.pos === "APPROVE" ? 1 : 0);
+      const disapprove = s.disapprove - (s.pos === "DISAPPROVE" ? 1 : 0);
+      if (action === "APPROVE") return { pos: "APPROVE", approve: approve + 1, disapprove };
+      if (action === "DISAPPROVE") return { pos: "DISAPPROVE", approve, disapprove: disapprove + 1 };
+      return { pos: null, approve, disapprove };
+    },
+  );
+
+  const myPos = opt.pos;
+  const approved = myPos === "APPROVE";
+  const disapproved = myPos === "DISAPPROVE";
+  const totalValidari = opt.approve + opt.disapprove;
+
+  // FormData comun pentru acțiunile 1-click (aceleași câmpuri ca `hidden`, dar apelate programatic).
+  function targetFormData(): FormData {
+    const fd = new FormData();
+    fd.set("targetType", targetType);
+    fd.set("targetId", targetId);
+    fd.set("detailId", detailId);
+    return fd;
+  }
+  function onApprove() {
+    startTransition(async () => {
+      applyOpt("APPROVE");
+      await approveAction(targetFormData());
+    });
+  }
+  function onRetract() {
+    startTransition(async () => {
+      applyOpt("RETRACT");
+      await retractAction(targetFormData());
+    });
+  }
   // Polimorfic: aceeași validare pe detaliu SAU pe schiță — textul confirmării urmează ținta.
   const targetNoun = targetType === "SKETCH" ? "această schiță" : "acest detaliu";
 
@@ -64,22 +101,20 @@ export function ValidationPanel({
         <>
           {/* Butoane — identice pentru toți; greutatea o dă rolul, nu un scor. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <form action={approveAction} className="contents">
-              {hidden}
-              <button
-                type="submit"
-                aria-pressed={approved}
-                className={cn(
-                  "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
-                  approved
-                    ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
-                    : "border-border bg-card text-foreground hover:border-primary",
-                )}
-              >
-                <Check className="size-[17px]" strokeWidth={2.6} />
-                Aprob
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={onApprove}
+              aria-pressed={approved}
+              className={cn(
+                "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
+                approved
+                  ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
+                  : "border-border bg-card text-foreground hover:border-primary",
+              )}
+            >
+              <Check className="size-[17px]" strokeWidth={2.6} />
+              Aprob
+            </button>
 
             <button
               type="button"
@@ -177,7 +212,7 @@ export function ValidationPanel({
           )}
 
           {/* Confirmarea poziției proprii + retragere (reversibilă oricând). */}
-          {myPosition && (
+          {myPos && (
             <div
               className={cn(
                 "mt-4 flex items-center gap-3 rounded-[9px] border px-3.5 py-2.5 text-sm",
@@ -189,15 +224,13 @@ export function ValidationPanel({
               <span className="leading-snug">
                 {approved ? `Ai aprobat ${targetNoun}.` : `Ai dezaprobat ${targetNoun}.`}
               </span>
-              <form action={retractAction} className="ml-auto">
-                {hidden}
-                <button
-                  type="submit"
-                  className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                >
-                  retrage poziția
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={onRetract}
+                className="ml-auto font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                retrage poziția
+              </button>
             </div>
           )}
         </>

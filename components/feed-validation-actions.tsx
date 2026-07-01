@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import {
   approveAction,
@@ -29,8 +29,34 @@ export function FeedValidationActions({
   const [showJustify, setShowJustify] = useState(false);
   const [state, formAction, pending] = useActionState(disapproveAction, initialState);
 
-  const approved = myPosition === "APPROVE";
-  const disapproved = myPosition === "DISAPPROVE";
+  // Optimistic UI: Aprob/Retrage reacționează INSTANT, apoi se reconciliază cu serverul (props revin după
+  // revalidatePath). Dezaprobarea rămâne pe form (justificare validată server) — devine DISAPPROVE la revalidare.
+  const [myPos, applyOpt] = useOptimistic<ValidationPosition | null, "APPROVE" | "RETRACT">(
+    myPosition,
+    (_s, action) => (action === "APPROVE" ? "APPROVE" : null),
+  );
+  const approved = myPos === "APPROVE";
+  const disapproved = myPos === "DISAPPROVE";
+
+  function targetFormData(): FormData {
+    const fd = new FormData();
+    fd.set("targetType", "DETAIL");
+    fd.set("targetId", detailId);
+    fd.set("detailId", detailId);
+    return fd;
+  }
+  function onApprove() {
+    startTransition(async () => {
+      applyOpt("APPROVE");
+      await approveAction(targetFormData());
+    });
+  }
+  function onRetract() {
+    startTransition(async () => {
+      applyOpt("RETRACT");
+      await retractAction(targetFormData());
+    });
+  }
 
   // Modalul e deschis doar cât NU ești dezaprobat: după o dezaprobare reușită (revalidare →
   // myPosition devine DISAPPROVE) se închide automat, fără effect/setState.
@@ -46,21 +72,19 @@ export function FeedValidationActions({
 
   return (
     <div className="mt-auto flex flex-wrap items-center gap-2.5">
-      <form action={approveAction} className="contents">
-        {hidden}
-        <button
-          type="submit"
-          aria-pressed={approved}
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors",
-            approved
-              ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
-              : "border-[#cfe3d2] bg-[#e9f2ea] text-[#2f6b3f] hover:bg-[#dbe9dd]",
-          )}
-        >
-          ✓ {approved ? "Ai aprobat" : "Aprob"}
-        </button>
-      </form>
+      <button
+        type="button"
+        onClick={onApprove}
+        aria-pressed={approved}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors",
+          approved
+            ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
+            : "border-[#cfe3d2] bg-[#e9f2ea] text-[#2f6b3f] hover:bg-[#dbe9dd]",
+        )}
+      >
+        ✓ {approved ? "Ai aprobat" : "Aprob"}
+      </button>
 
       <button
         type="button"
@@ -76,16 +100,14 @@ export function FeedValidationActions({
         ✕ {disapproved ? "Ai dezaprobat" : "Dezaprob"}
       </button>
 
-      {myPosition && (
-        <form action={retractAction}>
-          {hidden}
-          <button
-            type="submit"
-            className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-          >
-            retrage poziția
-          </button>
-        </form>
+      {myPos && (
+        <button
+          type="button"
+          onClick={onRetract}
+          className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+        >
+          retrage poziția
+        </button>
       )}
 
       {/* Modal de justificare — overlay fix, nu împinge layout-ul cardului. */}
