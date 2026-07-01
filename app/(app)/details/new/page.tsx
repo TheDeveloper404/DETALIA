@@ -21,7 +21,7 @@ export default async function NewDetailPage() {
   const categories = await listCategories();
 
   return (
-    <main className="mx-auto w-full max-w-[760px] flex-1 px-6 pb-20 pt-8">
+    <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
       {/* breadcrumb */}
       <nav className="mb-[18px] flex items-center gap-2 font-mono text-xs text-muted-foreground">
         <Link href="/feed" className="hover:text-foreground">
