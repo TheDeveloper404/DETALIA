@@ -72,7 +72,7 @@ export function ValidationPanel({
                 className={cn(
                   "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
                   approved
-                    ? "border-emerald-600/40 bg-emerald-50 text-emerald-700"
+                    ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
                     : "border-border bg-card text-foreground hover:border-primary",
                 )}
               >
@@ -89,7 +89,7 @@ export function ValidationPanel({
               className={cn(
                 "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
                 disapproved
-                  ? "border-destructive/40 bg-destructive/10 text-destructive"
+                  ? "border-destructive bg-destructive text-white shadow-sm"
                   : "border-border bg-card text-foreground hover:border-primary",
               )}
             >

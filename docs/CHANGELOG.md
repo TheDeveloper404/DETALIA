@@ -4,6 +4,26 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-01 — feat(detaliu): creare detaliu prin DESEN („Desenează")
+
+> Propunere Edi: constructorul își desenează exact problema lui (detaliul de execuție pe care nu știe cum să-l
+> rezolve), fără să caute o imagine gata făcută; ceilalți vin cu soluții (schițe peste el). Până acum un detaliu
+> se putea crea **doar prin upload de fișier**.
+
+- **Decizie de produs (confirmată de Liviu):** desenul se salvează ca **PNG** (randat client-side) → devine
+  `imageUrl`-ul detaliului, exact ca un upload. **Fără schimbare de schemă DB, fără flux nou pe server.** Detaliul
+  desenat NU e re-editabil (peste el se pot face schițe, ca peste orice detaliu).
+- **Canvas reutilizat, parametrizat pentru „foaie goală"** (`components/sketch/sketch-canvas.tsx`): `imageUrl` devenit
+  opțional + prop nou `aspectRatio` (default 4:3). Fără imagine-mamă: fundal alb solid în `redraw` + `exportThumbnail`
+  (relaxat `if(!img) return null`), dimensionare din `aspectRatio`, eticheta din colț „Mod desen · foaie nouă".
+  Modificări aditive sub guard-uri existente → editorul de schițe (imagine-mamă la fill slab) rămâne neschimbat.
+- **Formular creare** (`app/(app)/details/new/detail-form.tsx`): toggle **„Încarcă fișier" / „Desenează"**. În modul
+  desen, la submit: `exportThumbnail()` → `File` PNG → `uploadImageToBlob("details", ...)` → hidden `imageUrl` →
+  re-submit. De aici încolo pipeline-ul e identic cu uploadul (server reprocesează cu sharp: `reprocessBlobImage`).
+- **Server neatins:** `actions.ts`, `detailService.ts`, `detailsRepo.ts`, `db/schema.ts` — zero modificări.
+
+---
+
 ## 2026-06-30 — feat(detaliu): simplificarea logicii de interacțiune (validare + dezaprobare + schiță)
 
 > Decizie de produs Edi: pagina de detaliu era greoaie/derutantă. Patru schimbări corelate. **Modifică reguli
