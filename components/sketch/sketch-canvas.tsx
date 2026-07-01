@@ -202,11 +202,14 @@ export type SketchCanvasHandle = {
 export const SketchCanvas = forwardRef<
   SketchCanvasHandle,
   {
-    imageUrl: string;
+    // Imaginea-mamă (schiță peste un detaliu). Absentă = mod „foaie goală" (creare detaliu prin desen).
+    imageUrl?: string;
+    // Raportul înălțime/lățime al foii goale (folosit doar când nu există imagine-mamă). Default 3/4 (4:3 orizontal).
+    aspectRatio?: number;
     initialStrokes: Stroke[];
     onStrokesCount?: (count: number) => void;
   }
->(function SketchCanvas({ imageUrl, initialStrokes, onStrokesCount }, ref) {
+>(function SketchCanvas({ imageUrl, aspectRatio = 3 / 4, initialStrokes, onStrokesCount }, ref) {
   const [history, dispatch] = useReducer(historyReducer, {
     past: [],
     present: initialStrokes,
@@ -247,17 +250,21 @@ export const SketchCanvas = forwardRef<
       getStrokes: () => present,
       exportThumbnail: async () => {
         const img = imgRef.current;
-        if (!img) return null;
         const w = REFERENCE_WIDTH;
-        const h = Math.round(w * (img.naturalHeight / img.naturalWidth));
+        // Foaie goală: dims din aspectRatio + fundal alb solid. Cu imagine-mamă: raportul ei + fill slab 0.3.
+        const h = img ? Math.round(w * (img.naturalHeight / img.naturalWidth)) : Math.round(w * aspectRatio);
         const off = document.createElement("canvas");
         off.width = w;
         off.height = h;
         const ctx = off.getContext("2d");
         if (!ctx) return null;
-        ctx.globalAlpha = 0.3;
-        ctx.drawImage(img, 0, 0, w, h);
-        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        if (img) {
+          ctx.globalAlpha = 0.3;
+          ctx.drawImage(img, 0, 0, w, h);
+          ctx.globalAlpha = 1;
+        }
         renderStrokes(ctx, present, w, h);
         return new Promise((resolve) => {
           try {
@@ -268,42 +275,52 @@ export const SketchCanvas = forwardRef<
         });
       },
     }),
-    [present],
+    [present, aspectRatio],
   );
 
   useEffect(() => {
     onStrokesCount?.(present.length);
   }, [present.length, onStrokesCount]);
 
-  // Încarcă imaginea-mamă (crossOrigin pt export fără taint) + dimensionare fit-to-area (păstrează raportul).
+  // Dimensionare fit-to-area (păstrează raportul). Cu imagine-mamă: raportul ei; foaie goală: aspectRatio.
   useEffect(() => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
     let observer: ResizeObserver | null = null;
-    img.onload = () => {
-      imgRef.current = img;
-      const fit = () => {
-        const c = containerRef.current;
-        if (!c) return;
-        const availW = c.clientWidth - FIT_PADDING * 2;
-        const availH = c.clientHeight - FIT_PADDING * 2;
-        if (availW <= 0 || availH <= 0) return;
-        const ar = img.naturalHeight / img.naturalWidth;
-        let w = availW;
-        let h = w * ar;
-        if (h > availH) {
-          h = availH;
-          w = h / ar;
-        }
-        setDims({ w: Math.round(w), h: Math.round(h) });
+    // Raportul înălțime/lățime folosit la fit — setat din imagine (la onload) sau din aspectRatio (foaie goală).
+    let ratio = aspectRatio;
+    const fit = () => {
+      const c = containerRef.current;
+      if (!c) return;
+      const availW = c.clientWidth - FIT_PADDING * 2;
+      const availH = c.clientHeight - FIT_PADDING * 2;
+      if (availW <= 0 || availH <= 0) return;
+      let w = availW;
+      let h = w * ratio;
+      if (h > availH) {
+        h = availH;
+        w = h / ratio;
+      }
+      setDims({ w: Math.round(w), h: Math.round(h) });
+    };
+
+    if (imageUrl) {
+      const img = new Image();
+      img.crossOrigin = "anonymous"; // pt export fără taint
+      img.onload = () => {
+        imgRef.current = img;
+        ratio = img.naturalHeight / img.naturalWidth;
+        fit();
+        observer = new ResizeObserver(fit);
+        if (containerRef.current) observer.observe(containerRef.current);
       };
+      img.src = imageUrl;
+    } else {
+      imgRef.current = null;
       fit();
       observer = new ResizeObserver(fit);
       if (containerRef.current) observer.observe(containerRef.current);
-    };
-    img.src = imageUrl;
+    }
     return () => observer?.disconnect();
-  }, [imageUrl]);
+  }, [imageUrl, aspectRatio]);
 
   // Redesenează: imaginea-mamă estompată (fill slab 0.3) + stroke-urile + stroke-ul în lucru.
   const redraw = useCallback((strokes: Stroke[], temp?: Stroke, selIndex?: number | null) => {
@@ -312,6 +329,11 @@ export const SketchCanvas = forwardRef<
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Foaie goală (fără imagine-mamă): fundal alb solid ca desenul să nu fie transparent. Grila NU intră în thumbnail.
+    if (!imgRef.current) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     // Grila pe FOAIE (nu pe fundalul zonei) — desenată pe canvas, deci NU intră în thumbnail-ul exportat.
     const step = 26;
     ctx.strokeStyle = "rgba(120,105,80,0.10)";
@@ -739,7 +761,7 @@ export const SketchCanvas = forwardRef<
       >
         <span className="pointer-events-none absolute left-[18px] top-4 z-[3] inline-flex items-center gap-1.5 rounded-[7px] border border-[#e6dccd] bg-white/80 px-2.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-[#7c7060]">
           <span className="block size-[7px] rounded-full bg-primary" />
-          Mod schiță · detaliul-mamă estompat
+          {imageUrl ? "Mod schiță · detaliul-mamă estompat" : "Mod desen · foaie nouă"}
         </span>
 
         {/* Controale zoom */}
