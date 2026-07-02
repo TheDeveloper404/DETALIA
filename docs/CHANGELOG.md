@@ -4,6 +4,21 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(security): Cloudflare Turnstile pe formularele de auth (anti-bot)
+
+- **De ce:** acces public/passwordless (magic link) = țintă clasică de boți/abuz de email. Turnstile filtrează
+  boții înainte de a atinge Resend/DB, în plus peste rate-limit-ul existent.
+- **`lib/turnstile.ts`** — `verifyTurnstile(token, ip)` validează la Cloudflare siteverify. **No-op fără
+  `TURNSTILE_SECRET_KEY`** (dev local merge fără chei, ca Sentry). Fail-open DOAR la eroare de rețea (outage CF →
+  nu blocăm signup, rate-limit rămâne plasa de siguranță); token lipsă/invalid = respins.
+- **`components/auth-form.tsx`** (partajat login+signup): widget Turnstile (mod Managed) randat doar dacă există
+  `NEXT_PUBLIC_TURNSTILE_SITE_KEY`; injectează `cf-turnstile-response` în form. **`app/auth-actions.ts`**:
+  verificare după rate-limit, înainte de `signIn` → `?error=CaptchaFailed` la eșec. Mesaj adăugat pe login+signup.
+- **`lib/csp.ts`**: `challenges.cloudflare.com` adăugat pe `script-src` + `frame-src` + `connect-src` (altfel CSP
+  strict cu nonce ar bloca scriptul/iframe-ul widget-ului).
+- **Env (Liviu, deja puse în Vercel):** `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (public, inline la build) +
+  `TURNSTILE_SECRET_KEY` (server). Necesită deploy ca site key-ul să intre în build. `next build` verificat verde.
+
 ## 2026-07-02 — feat(feed): scurtătură „Schițează peste" pe cardul de detaliu
 
 - **De ce (idee Edi):** buton de schițare la fiecare detaliu direct din feed, ca să nu deschizi întâi pagina.

@@ -1,10 +1,15 @@
 "use client";
 
+import Script from "next/script";
 import { useFormStatus } from "react-dom";
 
 import { signInWithEmailAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+
+// Site key public Turnstile (inline la build). Fără el (dev fără chei) nu randăm widget-ul, iar
+// verificarea server-side e no-op → fluxul de auth merge normal local.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 // Buton de submit cu feedback instant: cât rulează server action-ul (trimite emailul ~1s, apoi redirect)
 // `pending` e true → butonul devine „Se trimite…" + disabled, ca să nu pară blocat.
@@ -48,6 +53,22 @@ export function AuthForm({
         placeholder="nume@mail.ro"
         className="h-12 bg-background text-base"
       />
+
+      {/* Turnstile — widget invizibil/managed care injectează `cf-turnstile-response` în acest form
+          (rendering implicit: scriptul scanează `.cf-turnstile`). Verificat pe server în signInWithEmailAction. */}
+      {TURNSTILE_SITE_KEY && (
+        <>
+          <Script
+            src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+            strategy="afterInteractive"
+          />
+          <div
+            className="cf-turnstile mt-[18px]"
+            data-sitekey={TURNSTILE_SITE_KEY}
+            data-theme="light"
+          />
+        </>
+      )}
 
       <SubmitButton label={submitLabel} />
 

@@ -16,6 +16,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   EmailSignInError: "Nu am putut trimite link-ul. Verifică adresa și încearcă din nou.",
   Verification: "Link-ul a expirat sau a fost deja folosit. Cere unul nou.",
   RateLimited: "Prea multe cereri. Așteaptă câteva minute și încearcă din nou.",
+  CaptchaFailed: "Verificarea anti-robot a eșuat. Reîncarcă pagina și încearcă din nou.",
   AccessDenied: "Contul tău este suspendat. Contactează-ne dacă e o greșeală.",
   default: "Ceva n-a mers. Încearcă din nou.",
 };
