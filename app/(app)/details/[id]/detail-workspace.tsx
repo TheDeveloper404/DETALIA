@@ -138,7 +138,6 @@ export function DetailWorkspace({
             <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
               {header.title}
             </h1>
-            <span className="shrink-0">{startSketchBtn}</span>
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -210,7 +209,7 @@ export function DetailWorkspace({
           )}
         </div>
 
-        {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover) */}
+        {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover) + „Schițează peste" în dreapta */}
         <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 sm:px-5">
           <button
             type="button"
@@ -255,6 +254,7 @@ export function DetailWorkspace({
               </button>
             );
           })}
+          <span className="ml-auto shrink-0">{startSketchBtn}</span>
         </div>
 
         {/* viewport (tabul activ) + panou dreapta (autorul tabului activ) */}
