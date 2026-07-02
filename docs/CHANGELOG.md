@@ -4,6 +4,13 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — test(roluri): acoperire pentru allowlist meserii/rol adițional
+
+- `server/domain/roles.test.ts` (nou) — gol de testare descoperit la audit post-implementare (meserii +
+  categorii, task-urile de mai jos): `isValidRoleMain`/`isValidSubRole`/`isValidSecondaryRole` (allowlist-uri
+  server-side, enforce pe `declareRole`/`updateRole`) nu aveau teste. Acoperă: valori valide per listă, respingere
+  meserie din alt rol principal (nu se pot amesteca listele), respingere valoare inventată/case greșit.
+
 ## 2026-07-02 — feat(categorii): multi-categorie (tag-uri) + parametri tehnici pe listă fixă
 
 - **Multi-categorie** (Edi: „bifezi oricâte", stil tag Pinterest): `details.category_id` (FK unic) →
