@@ -4,6 +4,38 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(onboarding): autocomplete orașe RO și pe formularul de onboarding
+
+- `onboarding-form.tsx`: câmpul „Locație" era text liber simplu, spre deosebire de același câmp din
+  `profile/edit` (`profile-forms.tsx`), care are sugestii native din `RO_CITIES` (`<datalist>`). Aliniat —
+  același `list="ro-cities"` + `autoComplete="off"` (câmpul rămâne text liber, sugestiile sunt doar UX).
+
+## 2026-07-02 — perf(validare): scos `revalidatePath("/feed")` inutil din acțiunile pe pagina detaliu
+
+- `validation-actions.ts` (Aprob/Retract/Dezaprob): fiecare acțiune invalida și cache-ul feed-ului întreg,
+  deși efectul e local unui singur detaliu. Rămâne doar `revalidatePath(/details/{id})`. Feed-ul se
+  reîmprospătează normal la următoarea vizită — fără regresie funcțională.
+
+## 2026-07-02 — fix(schiță): copy vechi despre acceptare + autor separat în seed-ul E2E
+
+- `sketch-editor.tsx`: scos textul „Autorul detaliului decide dacă schița ta intră în teancul public" —
+  rest din modelul vechi cu coadă de acceptare, eliminat 2026-06-30 (schițele se publică direct). Copy-ul
+  rămăsese, deruta userul deși comportamentul real era deja cel corect.
+- `e2e/auth.setup.ts`: detaliul-țintă al testelor de validare era autorat de ÎNSUȘI userul de sesiune →
+  `CANNOT_VALIDATE_OWN` ascundea mereu butoanele Aprob/Dezaprob, testele de validare nu puteau trece
+  structural. Adăugat user separat `e2e-author@detalia.test` ca autor al detaliului; userul de sesiune
+  (`e2e-tester@...`) rămâne doar actorul care validează/comentează.
+
+## 2026-07-02 — fix(ux): trei mici inconsistențe raportate de Liviu
+
+- `validation-panel.tsx`: click pe Aprob nu mai lasă deschis panoul de alegere Dezaprob (text/schiță) dacă
+  fusese pornit înainte — `onApprove` resetează `mode` la `"none"`.
+- `sketch-canvas.tsx`: pill-ul „MOD DESEN/MOD SCHIȚĂ" (z-[3]) era acoperit de foaia de desen (z-[4]) când
+  aceasta ajungea în colțul stânga-sus — ridicat la z-[6], deasupra foii și controalelor de zoom.
+- `user-menu.tsx`: dropdown-ul de profil din header rămânea deschis la navigare între pagini (header-ul
+  persistă în layout, componenta nu se remonta) — închis acum la schimbarea `pathname` (ajustare de state
+  în render, nu `useEffect`, per recomandarea React).
+
 ## 2026-07-02 — test(roluri): acoperire pentru allowlist meserii/rol adițional
 
 - `server/domain/roles.test.ts` (nou) — gol de testare descoperit la audit post-implementare (meserii +

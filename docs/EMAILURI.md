@@ -1,8 +1,8 @@
 # DETALIA — Copy emailuri (Resend)
 
 > Textele emailurilor trimise de la început (magic link + notificări schiță). Parte de **brand**
-> (Edi le vrea pentru awareness/recall), nu doar funcțional. Trimitere via **Resend**, de pe domeniul deținut.
-> Status: draft de copy — se rafinează cu Edi pe ton. Variabilele `{{...}}` se completează la trimitere.
+> (awareness/recall), nu doar funcțional. Trimitere via **Resend**, de pe domeniul deținut.
+> Status: draft de copy — se rafinează pe ton. Variabilele `{{...}}` se completează la trimitere.
 
 ---
 

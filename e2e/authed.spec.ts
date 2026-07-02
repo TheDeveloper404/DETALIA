@@ -49,6 +49,8 @@ test.describe.serial("Validare pe rol", () => {
     await page.goto(detailUrl());
     const dezaprob = page.getByRole("button", { name: "Dezaprob", exact: true });
     await dezaprob.click();
+    // Pe DETAIL, Dezaprob deschide întâi alegerea binară (text/schiță) — vezi validation-panel.tsx.
+    await page.getByRole("button", { name: "Scrie o justificare" }).click();
 
     const justif = `E2E justificare ${Date.now()}`;
     await page.getByPlaceholder(/Explică de ce dezaprobi/).fill(justif);
