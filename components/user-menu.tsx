@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { signOutAction } from "@/app/(app)/profile/actions";
 
 // Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
 export function UserMenu({ name, image }: { name: string | null; image: string | null }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
@@ -20,8 +21,26 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
     setOpen(false);
   }
 
+  // Închidere la click în afară + Escape. NU folosim backdrop `fixed` (ca la kebab) fiindcă header-ul are
+  // `backdrop-blur` → devine containing block pentru `fixed`, iar backdrop-ul n-ar acoperi tot ecranul.
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -41,13 +60,10 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
       </button>
 
       {open && (
-        <>
-          {/* Backdrop transparent — închide la click în afară. */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
-          <div
-            role="menu"
-            className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
-          >
+        <div
+          role="menu"
+          className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
+        >
             {name && (
               <div className="border-b border-border px-3.5 py-2.5">
                 <div className="truncate text-sm font-semibold text-foreground">{name}</div>
@@ -86,8 +102,7 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
                 Deconectare
               </button>
             </form>
-          </div>
-        </>
+        </div>
       )}
     </div>
   );

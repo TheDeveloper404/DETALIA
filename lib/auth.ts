@@ -43,11 +43,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       maxAge: magicLinkMaxAgeSeconds,
       // Email brand DETALIA pentru magic link (înlocuiește template-ul default Resend).
       async sendVerificationRequest({ identifier: email, url }) {
-        // Anti-prefetch: NU trimitem direct linkul de callback Auth.js (unele clienți de mail îl
-        // „vizitează" automat pentru scanare și consumă tokenul one-time înainte de click-ul real).
-        // Trimitem în schimb linkul către /verify-click, care cere un click real. Vezi acel fișier.
+        // Anti-prefetch FĂRĂ click în plus: emailul trimite linkul către /verify, care se
+        // auto-confirmă din JS la încărcare (window.location → callback-ul Auth.js). Un browser real
+        // rulează JS → ajunge instant în feed. Scanerele de securitate ale clienților de mail fac GET
+        // pe pagină dar NU rulează JS → nu consumă tokenul one-time. Vezi app/verify/page.tsx.
         const base = process.env.AUTH_URL ?? "http://localhost:3000";
-        const clickThroughUrl = `${base}/verify-click?u=${encodeURIComponent(url)}`;
+        const clickThroughUrl = `${base}/verify?u=${encodeURIComponent(url)}`;
         const ok = await sendEmail({
           to: email,
           subject: "Conectează-te în DETALIA",
