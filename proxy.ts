@@ -20,7 +20,7 @@ const PUBLIC_PATHS = [
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
   "/verify-request", // „verifică-ți email-ul" după cererea magic link-ului (pre-auth)
-  "/verify-click", // pas intermediar (click real) înainte de callback-ul Auth.js (pre-auth, anti-prefetch)
+  "/verify", // auto-confirmare magic link (JS redirect → callback); inertă la GET automat de scanner (pre-auth)
   "/maintenance", // ecranul „site în lucru" (ținta rewrite-ului de lockdown) — public by design
   "/sentry-tunnel", // proxy Sentry (evită ad-blockere) — trebuie accesibil și pt erori pre-auth (/login etc.)
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de

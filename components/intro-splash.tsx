@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-// Intro de brand afișat o singură dată per dispozitiv, înaintea landing-ului: un overlay full-screen
+// Intro de brand afișat o singură dată per sesiune (sessionStorage), înaintea landing-ului: un overlay full-screen
 // cu logo-ul DETALIA animat (literele apar pe rând, apoi simbolul „A" din 3 triunghiuri). Se
 // estompează după DURATION_MS, apoi dezvăluie landing-ul (randat în spate). Sărit automat dacă a
 // fost deja văzut pe acest dispozitiv sau dacă userul preferă mișcare redusă. CSS-ul stă în globals.css (.dt-intro).
@@ -25,7 +25,7 @@ export function IntroSplash() {
   // Altfel programăm auto-dismiss-ul. „Văzut" se marchează abia la dismiss (în StrictMode efectul rulează
   // de două ori; dacă l-am scrie aici, al doilea pas ar sări intro-ul).
   useEffect(() => {
-    const seen = localStorage.getItem(SEEN_KEY);
+    const seen = sessionStorage.getItem(SEEN_KEY);
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     if (seen || reduce) {
       // Deja ascuns de CSS (data-intro="seen") → demontăm amânat (nu sincron în effect).
@@ -43,10 +43,10 @@ export function IntroSplash() {
     };
   }, []);
 
-  // La dismiss: marcăm „văzut" (persistent, o singură dată per dispozitiv) și demontăm după fade-out.
+  // La dismiss: marcăm „văzut" (per sesiune) și demontăm după fade-out.
   useEffect(() => {
     if (phase !== "hiding") return;
-    localStorage.setItem(SEEN_KEY, "1");
+    sessionStorage.setItem(SEEN_KEY, "1");
     const t = setTimeout(() => setPhase("done"), FADE_MS);
     return () => clearTimeout(t);
   }, [phase]);

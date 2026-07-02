@@ -16,20 +16,21 @@ import { getRecentSketches } from "@/server/services/sketchService";
 import { getMyPositions } from "@/server/services/validationService";
 
 import { FeedEmpty } from "./feed-empty";
+import { FeedEntrance } from "./feed-entrance";
 
 // Feed = suprafața principală autenticată. Finit (~20), sortabil, filtrabil pe categorie.
 // Layout pe 3 coloane (sidebar · feed · rail) — gen GitHub/LinkedIn, dens/profesional. Fără scroll infinit.
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; sort?: string; q?: string }>;
+  searchParams: Promise<{ cat?: string; sort?: string; q?: string; welcome?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const { cat, sort: sortParam, q: rawQ } = await searchParams;
+  const { cat, sort: sortParam, q: rawQ, welcome } = await searchParams;
   const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
@@ -96,6 +97,7 @@ export default async function FeedPage({
   };
 
   return (
+    <FeedEntrance welcome={welcome === "1"}>
     <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
       <FeedSidebar
         profile={{
@@ -169,5 +171,6 @@ export default async function FeedPage({
 
       <FeedRail authors={authors} debated={debated} sketches={sketches} />
     </div>
+    </FeedEntrance>
   );
 }

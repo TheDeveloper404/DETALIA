@@ -92,23 +92,44 @@ export function SketchSection({
 
         {published.length > 0 && active ? (
           <>
-            {/* taburi (autorul fiecărei foi) */}
-            <div className="flex flex-wrap gap-1 px-4 pt-3 sm:px-5">
-              {published.map((s, i) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setTab(i)}
-                  className={cn(
-                    "-mb-px border-b-2 px-3.5 py-2.5 font-heading text-[13.5px] font-semibold transition-colors",
-                    safeTab === i
-                      ? "border-primary text-foreground"
-                      : "border-transparent text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {s.authorName ?? `Schiță ${i + 1}`}
-                </button>
-              ))}
+            {/* taburi (autorul fiecărei foi): inactiv = doar avatarul; activ = avatar + nume.
+                Numele lungi nu mai umplu linia. Hover = tooltip cu numele (title). */}
+            <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 sm:px-5">
+              {published.map((s, i) => {
+                const label = s.authorName ?? `Schiță ${i + 1}`;
+                const isActive = safeTab === i;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setTab(i)}
+                    title={label}
+                    aria-label={label}
+                    aria-current={isActive ? "true" : undefined}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-full transition-all",
+                      isActive
+                        ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
+                        : "p-0.5 opacity-70 hover:opacity-100",
+                    )}
+                  >
+                    <AvatarInitials
+                      name={s.authorName}
+                      imageUrl={s.authorImage}
+                      size={28}
+                      className={cn(
+                        "ring-2 transition-colors",
+                        isActive ? "ring-primary" : "ring-transparent",
+                      )}
+                    />
+                    {isActive && (
+                      <span className="font-heading text-[13px] font-semibold text-foreground">
+                        {label}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="grid grid-cols-1 border-t border-[#eee6da] md:grid-cols-[1fr_248px]">
