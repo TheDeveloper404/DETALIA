@@ -10,6 +10,7 @@ import {
   detailResources,
   details,
   roles,
+  savedDetails,
   sketches,
   users,
   validations,
@@ -266,6 +267,54 @@ export async function listRelatedDetails(input: {
     )
     .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
     .limit(input.limit);
+}
+
+// ───────────────────────── Bookmark (saved_details) ─────────────────────────
+
+// Salvează un detaliu pentru un user. Idempotent: dacă e deja salvat, nu face nimic (PK compus).
+export async function insertSavedDetail(userId: string, detailId: string) {
+  await db
+    .insert(savedDetails)
+    .values({ userId, detailId })
+    .onConflictDoNothing({ target: [savedDetails.userId, savedDetails.detailId] });
+}
+
+// Scoate un detaliu din salvate (doar rândul userului curent).
+export async function deleteSavedDetail(userId: string, detailId: string) {
+  await db
+    .delete(savedDetails)
+    .where(and(eq(savedDetails.userId, userId), eq(savedDetails.detailId, detailId)));
+}
+
+// „Userul a salvat acest detaliu?" — pentru starea butonului din meniul de detaliu.
+export async function isDetailSavedByUser(userId: string, detailId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ one: sql`1` })
+    .from(savedDetails)
+    .where(and(eq(savedDetails.userId, userId), eq(savedDetails.detailId, detailId)))
+    .limit(1);
+  return !!row;
+}
+
+// Detaliile salvate de un user, în forma de card (FeedItem) — refolosește DetailCard din feed.
+// Doar PUBLISHED (un detaliu șters cade oricum din saved_details prin FK cascade). Ordine: cele mai
+// recent salvate primele (după saved_details.created_at, nu după data detaliului).
+export async function listSavedDetails(userId: string) {
+  return db
+    .select({
+      ...detailWithAuthorColumns,
+      validationCount,
+      commentCount,
+      sketchCount,
+      validatorAvatars,
+      interactionCount: interactionScore,
+    })
+    .from(savedDetails)
+    .innerJoin(details, eq(details.id, savedDetails.detailId))
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(and(eq(savedDetails.userId, userId), eq(details.status, DETAIL_STATUS.PUBLISHED)))
+    .orderBy(desc(savedDetails.createdAt));
 }
 
 export type DetailWithAuthor = Awaited<ReturnType<typeof getDetailById>>;

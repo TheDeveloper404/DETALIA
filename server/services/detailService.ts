@@ -17,13 +17,17 @@ import { deleteBlobs } from "@/lib/storage";
 import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
 import {
   deleteDetailCascade,
+  deleteSavedDetail,
   getDetailById,
   getDetailResources,
   insertDetail,
   insertDetailCategories,
   insertDetailResources,
+  insertSavedDetail,
+  isDetailSavedByUser,
   listFeed,
   listRelatedDetails,
+  listSavedDetails,
 } from "@/server/repos/detailsRepo";
 import { listTopAuthors } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
@@ -147,6 +151,39 @@ export async function getFeed(options?: {
     limit,
     sort: options?.sort ?? "debated",
   });
+}
+
+// ───────────────────────── Bookmark (salvează detaliu) ─────────────────────────
+// `userId` vine ÎNTOTDEAUNA din sesiune (nu din formular) → un user salvează/scoate doar pentru el.
+
+// Este acest detaliu salvat de userul curent? (starea butonului din meniul de detaliu)
+export async function isDetailSaved(userId: string, detailId: string): Promise<boolean> {
+  if (!isUuid(detailId)) return false;
+  return isDetailSavedByUser(userId, detailId);
+}
+
+// Comută salvarea unui detaliu (salvat ⇄ nesalvat). Verifică întâi existența (PUBLISHED) ca să nu
+// creăm bookmark-uri către detalii inexistente. Întoarce noua stare pentru feedback UI.
+export async function toggleSavedDetail(input: {
+  userId: string;
+  detailId: string;
+}): Promise<{ saved: boolean }> {
+  if (!isUuid(input.detailId)) return { saved: false };
+  const detail = await getDetailById(input.detailId);
+  if (!detail) return { saved: false };
+
+  const already = await isDetailSavedByUser(input.userId, input.detailId);
+  if (already) {
+    await deleteSavedDetail(input.userId, input.detailId);
+    return { saved: false };
+  }
+  await insertSavedDetail(input.userId, input.detailId);
+  return { saved: true };
+}
+
+// Detaliile salvate de user (forma de card pentru pagina /saved).
+export function getSavedDetails(userId: string) {
+  return listSavedDetails(userId);
 }
 
 // Autori activi pentru rail-ul din feed (top după detalii publicate).
