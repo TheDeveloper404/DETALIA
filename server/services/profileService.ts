@@ -9,6 +9,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import { normalizeWebsite } from "@/lib/url";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
+import { isUuid } from "@/server/domain/ids";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import type { RoleSnapshot } from "@/server/domain/validation";
 import {
@@ -93,6 +94,8 @@ export async function getProfileView(
   userId: string,
   viewerId: string,
 ): Promise<ProfileViewData | null> {
+  // SEC-11: id malformat → „not found" (nu eroare SQL pe coloana uuid). Aliniat cu restul căilor de citire.
+  if (!isUuid(userId)) return null;
   const profile = await getPublicProfile(userId);
   if (!profile) return null;
 
