@@ -78,6 +78,69 @@ export async function insertDetailResources(detailId: string, resources: DetailR
   );
 }
 
+// Actualizează câmpurile editabile ale unui detaliu (titlu, descriere, imagine, parametri tehnici).
+// Ownership-ul se verifică ÎNAINTE, în service. `updated_at` se împinge la now.
+export async function updateDetailRow(
+  detailId: string,
+  input: {
+    title: string;
+    description: string | null;
+    imageUrl: string;
+    climateZone: string | null;
+    seismicAg: string;
+    seismicTc: string;
+    snowLoad: string;
+    windLoad: string;
+  },
+) {
+  await db
+    .update(details)
+    .set({
+      title: input.title,
+      description: input.description,
+      imageUrl: input.imageUrl,
+      climateZone: input.climateZone,
+      seismicAg: input.seismicAg,
+      seismicTc: input.seismicTc,
+      snowLoad: input.snowLoad,
+      windLoad: input.windLoad,
+      updatedAt: new Date(),
+    })
+    .where(eq(details.id, detailId));
+}
+
+// Înlocuiește complet setul de categorii al unui detaliu (delete-all + insert). Neon HTTP n-are
+// tranzacții interactive → batch atomic când există și inserare.
+export async function replaceDetailCategories(detailId: string, categoryIds: string[]) {
+  if (categoryIds.length === 0) {
+    await db.delete(detailCategories).where(eq(detailCategories.detailId, detailId));
+    return;
+  }
+  await db.batch([
+    db.delete(detailCategories).where(eq(detailCategories.detailId, detailId)),
+    db.insert(detailCategories).values(categoryIds.map((categoryId) => ({ detailId, categoryId }))),
+  ]);
+}
+
+// Înlocuiește complet resursele unui detaliu (delete-all + insert).
+export async function replaceDetailResources(detailId: string, resources: DetailResourceInput[]) {
+  if (resources.length === 0) {
+    await db.delete(detailResources).where(eq(detailResources.detailId, detailId));
+    return;
+  }
+  await db.batch([
+    db.delete(detailResources).where(eq(detailResources.detailId, detailId)),
+    db.insert(detailResources).values(
+      resources.map((r) => ({
+        detailId,
+        type: r.type,
+        url: r.url ?? null,
+        body: r.body ?? null,
+      })),
+    ),
+  ]);
+}
+
 // Categoriile bifate pe un detaliu, ca array JSON — subquery corelat (nu join), ca să nu dublăm
 // rândurile detaliului când sunt mai multe categorii (Edi: „bifezi oricâte").
 const detailCategoriesJson = sql<{ id: string; name: string; slug: string }[]>`(

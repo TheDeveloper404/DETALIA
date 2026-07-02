@@ -19,15 +19,32 @@ import {
   WIND_LOAD_VALUES,
 } from "@/server/domain/detail";
 
-import { createDetailAction, type CreateDetailState } from "./actions";
+import { createDetailAction } from "./actions";
 
-const initialState: CreateDetailState = { error: null };
+type FormState = { error: string | null };
+const initialState: FormState = { error: null };
 
 export type CategoryOption = { id: string; name: string; parentId: string | null };
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
 type ResourceType = "IMAGE" | "LINK" | "PDF";
 type ResourceRow = { type: ResourceType; value: string };
+
+// Valori inițiale pentru modul EDITARE (undefined = creare). Acțiunea de submit are aceeași semnătură
+// ca `createDetailAction`, deci formularul e comun creare/editare.
+export type DetailFormInitial = {
+  detailId: string;
+  title: string;
+  description: string | null;
+  categoryIds: string[];
+  imageUrl: string;
+  climateZone: string | null;
+  seismicAg: string;
+  seismicTc: string;
+  snowLoad: string;
+  windLoad: string;
+  resources: ResourceRow[];
+};
 
 const RESOURCE_LABEL: Record<ResourceType, string> = { IMAGE: "Imagine", LINK: "Link", PDF: "PDF" };
 function resourcePlaceholder(type: ResourceType): string {
@@ -159,27 +176,53 @@ function CategoryDropdown({
   );
 }
 
-export function DetailForm({ categories }: { categories: CategoryOption[] }) {
-  const [state, formAction, pending] = useActionState(createDetailAction, initialState);
+export function DetailForm({
+  categories,
+  action = createDetailAction,
+  initial,
+  submitLabel = "Publică detaliul",
+}: {
+  categories: CategoryOption[];
+  action?: (prev: FormState, formData: FormData) => Promise<FormState>;
+  initial?: DetailFormInitial;
+  submitLabel?: string;
+}) {
+  const isEdit = !!initial;
+  const [state, formAction, pending] = useActionState(action, initialState);
   // Sursa imaginii detaliului: „upload" (fișier existent) sau „draw" (desenat pe loc, pe foaie goală).
   const [mode, setMode] = useState<"upload" | "draw">("upload");
-  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+  // La editare, pornim cu imaginea existentă ca previzualizare (fără fișier local — rămâne cea din Blob).
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(
+    initial ? { url: initial.imageUrl, name: "imaginea curentă" } : null,
+  );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
-  const [resources, setResources] = useState<ResourceRow[]>([]);
+  const [resources, setResources] = useState<ResourceRow[]>(initial?.resources ?? []);
   const [drawCount, setDrawCount] = useState(0);
-  const [categoryIds, setCategoryIds] = useState<string[]>([]);
+  const [categoryIds, setCategoryIds] = useState<string[]>(initial?.categoryIds ?? []);
+  // Semnalăm serverului dacă imaginea s-a schimbat efectiv (la editare) → reprocesare doar atunci.
+  const [imageChanged, setImageChanged] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const imageUrlRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<SketchCanvasHandle>(null);
+
+  // La editare fără schimbare de imagine, trimitem URL-ul existent (deja procesat) → onSubmit trece
+  // direct, fără re-upload. Îl punem în câmpul ascuns la montare.
+  useEffect(() => {
+    if (initial && imageUrlRef.current && !imageUrlRef.current.value) {
+      imageUrlRef.current.value = initial.imageUrl;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Comutarea sursei resetează starea celeilalte + URL-ul deja urcat (evită trimiterea unei imagini vechi).
   function switchMode(next: "upload" | "draw") {
     if (next === mode) return;
     setMode(next);
     setClientError(null);
+    setImageChanged(true); // comutarea sursei = imagine nouă (la editare → reprocesare pe server)
     if (imageUrlRef.current) imageUrlRef.current.value = "";
     if (next === "draw") removeImage();
   }
@@ -204,6 +247,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
     }
     setClientError(null);
     setImageFile(file);
+    setImageChanged(true); // fișier nou → la editare, serverul reprocesează + curăță blob-ul vechi
     setPreview({ url: URL.createObjectURL(file), name: file.name });
     if (imageUrlRef.current) imageUrlRef.current.value = ""; // imagine nouă → forțează re-upload
   }
@@ -298,6 +342,9 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
       <input type="hidden" name="resources" value={resourcesJson} />
       {/* URL-ul imaginii, completat după upload-ul client direct în Blob. */}
       <input type="hidden" name="imageUrl" ref={imageUrlRef} />
+      {/* Editare: id-ul detaliului + semnal dacă imaginea s-a schimbat (pt reprocesare pe server). */}
+      {isEdit && <input type="hidden" name="detailId" value={initial.detailId} />}
+      {isEdit && <input type="hidden" name="imageChanged" value={imageChanged ? "1" : "0"} />}
 
       {(clientError ?? state.error) && (
         <p
@@ -320,6 +367,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
             name="title"
             type="text"
             required
+            defaultValue={initial?.title ?? ""}
             maxLength={TITLE_MAX_LENGTH}
             placeholder="ex. Atic la acoperiș terasă necirculabilă"
             className={fieldClass}
@@ -335,6 +383,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
             id="description"
             name="description"
             rows={4}
+            defaultValue={initial?.description ?? ""}
             maxLength={DESCRIPTION_MAX_LENGTH}
             placeholder="Scrie liber, ca într-un post — ce pui la dezbatere, ce te interesează, ce părere cauți. Textul apare deasupra imaginii."
             className={cn(fieldClass, "resize-y leading-relaxed")}
@@ -361,7 +410,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
             Context tehnic <Opt />
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Select name="climateZone" defaultValue="">
+            <Select name="climateZone" defaultValue={initial?.climateZone ?? ""}>
               <option value="">Zonă climatică — nespecificat</option>
               {CLIMATE_ZONES.map((z) => (
                 <option key={z} value={z}>
@@ -369,28 +418,28 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
                 </option>
               ))}
             </Select>
-            <Select name="seismicAg" defaultValue="General">
+            <Select name="seismicAg" defaultValue={initial?.seismicAg ?? "General"}>
               {SEISMIC_AG_VALUES.map((v) => (
                 <option key={v} value={v}>
                   a_g {v}
                 </option>
               ))}
             </Select>
-            <Select name="seismicTc" defaultValue="General">
+            <Select name="seismicTc" defaultValue={initial?.seismicTc ?? "General"}>
               {SEISMIC_TC_VALUES.map((v) => (
                 <option key={v} value={v}>
                   Tc {v}
                 </option>
               ))}
             </Select>
-            <Select name="snowLoad" defaultValue="General">
+            <Select name="snowLoad" defaultValue={initial?.snowLoad ?? "General"}>
               {SNOW_LOAD_VALUES.map((v) => (
                 <option key={v} value={v}>
                   Zăpadă {v}
                 </option>
               ))}
             </Select>
-            <Select name="windLoad" defaultValue="General">
+            <Select name="windLoad" defaultValue={initial?.windLoad ?? "General"}>
               {WIND_LOAD_VALUES.map((v) => (
                 <option key={v} value={v}>
                   Vânt {v}
@@ -602,13 +651,15 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
       <div className="mt-4 flex items-center gap-2.5 rounded-[11px] border border-[#e6ddcf] bg-secondary px-4 py-3">
         <Info className="size-4 flex-none text-primary" strokeWidth={1.9} />
         <span className="text-[13.5px] leading-snug text-muted-foreground text-pretty">
-          Detaliul devine public imediat — fără coadă de aprobare. Comunitatea îl validează pe roluri.
+          {isEdit
+            ? "Modificările apar imediat pe pagina detaliului."
+            : "Detaliul devine public imediat — fără coadă de aprobare. Comunitatea îl validează pe roluri."}
         </span>
       </div>
 
       <div className="mt-4 flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center">
         <Link
-          href="/feed"
+          href={isEdit ? `/details/${initial.detailId}` : "/feed"}
           className="inline-flex items-center justify-center rounded-[10px] border border-[#d8cfc0] bg-card px-5 py-3 font-heading text-[15px] font-semibold transition-colors hover:border-primary"
         >
           Renunță
@@ -624,8 +675,10 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
               ? "Se salvează desenul…"
               : "Se încarcă imaginea…"
             : pending
-              ? "Se publică…"
-              : "Publică detaliul"}
+              ? isEdit
+                ? "Se salvează…"
+                : "Se publică…"
+              : submitLabel}
         </button>
       </div>
     </form>
