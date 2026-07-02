@@ -1,6 +1,6 @@
 // Repo categorii — singurul loc cu acces Drizzle pentru tabelul `categories` (arbore self-FK).
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { categories, detailCategories, details } from "@/db/schema";
@@ -33,8 +33,10 @@ export async function listCategories() {
     .orderBy(asc(categories.name));
 }
 
-// Categoriile cu numărul de detalii PUBLISHED — pentru sidebar/rail în feed.
-// LEFT JOIN prin `detail_categories` (many-to-many, Edi: „bifezi oricâte") + GROUP BY (forma canonică)
+// Categoriile FRUNZĂ (bifabile) cu numărul de detalii PUBLISHED — pentru sidebar/rail în feed.
+// Secțiunile (parentId null — headere de grupare, ex. „Clasificare după zonă") NU sunt filtre reale,
+// excluse aici (rămân doar în `listCategories()`, pentru arborele din formularul de creare detaliu).
+// LEFT JOIN prin `detail_categories` (many-to-many, „bifezi oricâte") + GROUP BY (forma canonică)
 // → categoriile fără detalii rămân cu 0; `count(...)` distinct pe detailId, non-null. Sortat alfabetic.
 export async function listCategoriesWithCounts() {
   const detailCount = sql<number>`count(distinct ${details.id})::int`;
@@ -46,6 +48,7 @@ export async function listCategoriesWithCounts() {
       details,
       and(eq(details.id, detailCategories.detailId), eq(details.status, "PUBLISHED")),
     )
+    .where(isNotNull(categories.parentId))
     .groupBy(categories.id, categories.name)
     .orderBy(asc(categories.name));
 }
