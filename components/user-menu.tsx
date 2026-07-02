@@ -62,6 +62,14 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
               Vizualizare profil
             </Link>
             <Link
+              href="/saved"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
+            >
+              Detalii salvate
+            </Link>
+            <Link
               href="/profile/edit"
               role="menuitem"
               onClick={() => setOpen(false)}

@@ -147,6 +147,15 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `read_at` | timestamptz | nullable |
 | `created_at` | timestamptz | |
 
+### `saved_details` (bookmark — „citește mai târziu")
+| coloană | tip | note |
+|---|---|---|
+| `user_id` | uuid FK→users.id | cascade; parte din PK compus |
+| `detail_id` | uuid FK→details.id | cascade; **index**; parte din PK compus |
+| `created_at` | timestamptz | ordinea în lista `/saved` (recent salvate primele) |
+
+PK compus `(user_id, detail_id)` → un user nu poate salva același detaliu de două ori.
+
 ---
 
 ## Decizii de modelare (de ce)
