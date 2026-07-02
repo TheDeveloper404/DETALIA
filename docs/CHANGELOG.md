@@ -4,6 +4,42 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(details): editare detaliu de către autor
+
+- **De ce:** autorul nu putea corecta un detaliu după publicare (exista doar creare + ștergere).
+- **`server/repos/detailsRepo.ts`**: `updateDetailRow` (câmpuri + `updated_at`), `replaceDetailCategories`,
+  `replaceDetailResources` (delete-all + insert, `db.batch` atomic când există și inserare).
+- **`server/services/detailService.ts`**: `updateDetail` — ownership pe server (autor → altfel `FORBIDDEN`/
+  `NOT_FOUND`), aceeași validare ca la creare (`validateDetailInput` + FK categorii), întoarce `oldImageUrl`
+  când imaginea s-a schimbat (curățare blob în action). **Resursele TEXT se păstrează** (formularul acoperă
+  doar IMAGE/LINK/PDF → altfel replace-ul le-ar șterge).
+- **`app/(app)/details/[id]/edit/`**: pagină nouă (authz autor; non-autor → redirect la detaliu) + `actions.ts`
+  (`updateDetailAction`: reprocesează imaginea DOAR dacă s-a schimbat — flag `imageChanged`; șterge blob-ul vechi;
+  revalidează detaliu + feed).
+- **`detail-form.tsx`**: refolosit ca formular COMUN creare/editare (props `action`/`initial`/`submitLabel`,
+  `defaultValue`-uri, imaginea existentă pre-încărcată ca previzualizare).
+- **`detail-actions-menu.tsx`** (kebab): item „Editează detaliul" — doar autorul.
+- **Limitare cunoscută:** resursele TEXT se păstrează dar NU se pot edita/șterge din formular (are doar IMAGE/
+  LINK/PDF); fără rate-limit dedicat pe editare (author-only, risc mic). Vezi handoff.
+
+## 2026-07-02 — feat(auth+ui): auto-confirmare magic link + rafinări UI
+
+- **Magic link fără al doilea click:** scos butonul intermediar „Aproape gata → Conectează-te". Emailul duce
+  la **`app/verify/page.tsx`** care se **auto-confirmă din JS** la încărcare (`auto-verify.tsx` → `window.location`
+  spre callback-ul Auth.js). Scanerele de mail fac GET dar nu rulează JS → tokenul one-time nu se consumă;
+  fallback `<noscript>` cu buton. `lib/auth.ts` trimite `/verify?u=…`; `proxy.ts` listă publică `/verify`
+  (scos `/verify-click`). Anti open-redirect: `validateCallbackUrl` (origine + `/api/auth/callback/`).
+- **Fade la intrarea în feed:** linkul aterizează pe `/feed?welcome=1`; `feed-entrance.tsx` face fade-in fin +
+  curăță flag-ul din URL (fără re-declanșare la refresh). Default login callbackUrl → `/feed?welcome=1`.
+- **Intro splash:** o dată **per sesiune** (`sessionStorage`) în loc de per dispozitiv (`intro-splash.tsx` + scriptul
+  pre-paint din `layout.tsx`).
+- **Fix meniu user (header):** se închide la click în afară + Escape (`user-menu.tsx`). Backdrop-ul `fixed` nu
+  funcționa din cauza `backdrop-blur` pe header (containing block pt. `fixed`) → înlocuit cu click-outside pe ref.
+- **Teanc — taburi compacte:** taburile inactive arată doar avatarul; tabul activ = avatar + nume (pill); tooltip
+  la hover (`title`/`aria-label`). Rezolvă umplerea liniei de numele lungi (`sketch-section.tsx`).
+- **README** rescris ca document despre aplicație (scos decizii/porți interne; corectat flux schiță `DRAFT→PUBLISHED`
+  și accesul public).
+
 ## 2026-07-02 — feat(observabilitate): Vercel Web Analytics
 
 - **De ce:** vizibilitate pe vizitatori + page views pe `detalia.ro` (fază de validare — vrem să vedem traficul).
