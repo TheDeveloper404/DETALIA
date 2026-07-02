@@ -49,7 +49,7 @@ export default async function LoginPage({
           )}
 
           <AuthForm
-            callbackUrl={callbackUrl ?? "/"}
+            callbackUrl={callbackUrl ?? "/feed?welcome=1"}
             authPath="/login"
             submitLabel="Trimite link-ul de acces"
           />
