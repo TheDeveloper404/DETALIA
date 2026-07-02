@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(observabilitate): Sentry (erori server/client/edge)
+
+- **De ce:** logurile Vercel sunt greu de corelat cu erorile de UI (vezi bug-ul de schiță blocată — a
+  trebuit screenshot manual din Vercel Logs). Sentry le prinde automat, cu stack trace + context.
+- **`@sentry/nextjs` instalat.** Fișiere noi: `instrumentation.ts` (register server+edge, `onRequestError`),
+  `instrumentation-client.ts` (browser, + `onRouterTransitionStart` cerut pt tracing navigări),
+  `sentry.server.config.ts`, `sentry.edge.config.ts`. `app/error.tsx` + `app/global-error.tsx`:
+  adăugat `Sentry.captureException` (păstrat comportamentul UI existent).
+- **`next.config.ts`**: înfășurat cu `withSentryConfig` — `tunnelRoute: "/sentry-tunnel"` (erorile trec
+  prin domeniul nostru, nu direct spre `*.sentry.io` → evită ad-blockere ȘI nu trebuie touched `lib/csp.ts`).
+  `proxy.ts`: `/sentry-tunnel` adăugat în `PUBLIC_PATHS` (altfel erorile de pe pagini pre-auth, ex. `/login`,
+  ar fi fost blocate de deny-by-default).
+- **PII:** `sendDefaultPii: false` explicit pe toate cele 3 runtime-uri (regula proiectului). Fără session
+  replay (ar putea capta imagini/date de profil — omis prudent, nu e o decizie luată).
+- **Complet no-op fără env** (`enabled: !!NEXT_PUBLIC_SENTRY_DSN`) — build/dev local merg identic fără cont
+  Sentry configurat. `npm run build` verificat verde, fără avertismente.
+- **De configurat (Liviu, în Vercel + Sentry):** proiect nou Sentry (platformă Next.js) → `NEXT_PUBLIC_SENTRY_DSN`
+  (Production+Preview) + `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (doar pt source maps la build).
+
 ## 2026-07-02 — fix(feed): sidebar categorii — secțiuni scoase din filtre + „Vezi mai multe"
 
 - **Secțiunile de grupare** (`Alte categorii`, `Clasificare după zonă`, `Clasificare după sistem

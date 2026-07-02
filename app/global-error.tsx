@@ -1,8 +1,15 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+
 // Ultima plasă de siguranță: prinde erorile din ROOT layout (unde `app/error.tsx` nu mai ajunge).
 // Înlocuiește layout-ul → trebuie să randeze propriul <html>/<body>, fără a depinde de fonturi/header.
-export default function GlobalError({ reset }: { error: Error; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <html lang="ro">
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#faf8f4", color: "#211d18" }}>
