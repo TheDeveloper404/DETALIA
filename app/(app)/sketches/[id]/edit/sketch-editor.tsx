@@ -102,10 +102,6 @@ export function SketchEditor({
           </span>
         </div>
 
-        <span className="hidden max-w-[200px] flex-none text-right font-mono text-[11px] leading-tight text-[#a59a88] lg:block">
-          Autorul detaliului decide dacă schița ta intră în teancul public.
-        </span>
-
         <button
           type="button"
           onClick={handleSaveDraft}
