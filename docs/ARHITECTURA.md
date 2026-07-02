@@ -119,7 +119,7 @@ hostingul (~$0–20/lună).** Restul stă pe free tier la traficul de început.
 
 ## 3. Modelul de roluri și validarea rolului
 
-### Roluri principale (4) + meserii (subroluri) — listă finală confirmată de Edi (2026-07-02)
+### Roluri principale (4) + meserii (subroluri) — listă finală (2026-07-02)
 - **PROIECTANT** → arhitect, inginer constructor, inginer instalații electrice/termice-HVAC/sanitare,
   inginer geotehnician, inginer topograf, verificator proiecte, expert tehnic, auditor energetic,
   peisagist, designer de interior, BIM Manager.
@@ -133,36 +133,34 @@ hostingul (~$0–20/lună).** Restul stă pe free tier la traficul de început.
 Rolul principal NU se mai afișează în platformă — doar meseria (subrolul), lângă nume. Sursă:
 `lista_meserii.md` (poate fi ștearsă, conținutul e în cod; vezi CHANGELOG 2026-07-02).
 
-### Rol declarat vs. verificat — abordare în trepte (confirmat de Edi)
+### Rol declarat vs. verificat — abordare în trepte (decizie confirmată)
 Logica: **rolul și-l declară userul singur la signup** (acces imediat → frecare minimă la primul contact),
 iar **verificarea e un pas separat, opțional, în platformă**. Greutatea unei interacțiuni e dată întâi de rol,
 apoi de faptul că rolul e verificat — așa că fiecare va vrea să-și verifice rolul.
 
-**Filozofia verificării = „pull, nu push" (confirmat de Edi).** Nu forțăm și nu blocăm pe nimeni să se
+**Filozofia verificării = „pull, nu push".** Nu forțăm și nu blocăm pe nimeni să se
 verifice. Rolul neverificat e **complet funcțional** — userul interacționează normal (validează, comentează,
 schițează). Presiunea de a te verifica vine **organic, din credibilitate**: când te uiți cine discută pe un
 detaliu, specialiștii cu **rol verificat „cântăresc" mai mult** în ochii cititorului decât cei neverificați.
 Așa, **userii vin singuri** să-și verifice rolul, ca să fie credibili — noi nu-i stresăm, doar le ținem la
 vedere un **nudge blând și permanent** („Rolul tău nu e verificat → Verifică rolul").
 
-1. **La signup:** userul **își declară** rolul principal + subrolul → acces imediat. (Accesul în beta închis e
-   o poartă separată — vezi nota despre invitație mai jos; ea NU atribuie rolul.)
+1. **La signup:** userul **își declară** rolul principal + subrolul → acces imediat (acces PUBLIC, fără
+   invitație — vezi nota de mai jos).
 2. **În folosire:** rol = `DECLARED`, funcțional 100%. Nudge permanent, neintruziv, spre fluxul de verificare.
 3. **Verificare (MVP):** flux dedicat în platformă („Verificare rol", inițiat de user). Îi cerem niște date;
-   aprobarea e **manuală, de admin (Edi)** la 50–100 de oameni cunoscuți. Odată verificat → **badge cu steluță
+   aprobarea e **manuală, de admin**. Odată verificat → **badge cu steluță
    galbenă** lângă rol (poziția exactă — lângă rol și/sau lângă avatar — se decide la implementarea UI).
 4. **Etapa următoare:** integrări de verificare unde există sursă (ex. arhitecți — registrul **OAR**),
    upload de dovadă (legitimație, CUI firmă) cu aprobare admin.
 5. **Mai târziu:** verificare automată / badge-uri de încredere.
 
-> **Nota despre poarta de acces (invitația) — ÎN HOLD, de reconfirmat cu Edi.** Verificarea de mai sus
+> **Nota despre poarta de acces — REZOLVAT (2026-06-28, vezi CHANGELOG/ADR-008).** Verificarea de mai sus
 > (Poarta 2 — credibilitate) e independentă de **modul în care userii intră în platformă** (Poarta 1 — acces).
-> Planul actual = **beta închis pe invitație** (vezi §9). Acest mecanism **rămâne în plan**, dar e marcat
-> explicit ca *sub reevaluare* până la o consultare cu Edi (deschidere publică vs. invite-only la lansare).
-> Mesajul recent al lui Edi vizează exclusiv verificarea rolului, nu modul de acces — deci nu schimbă încă
-> nimic la invitație.
+> Planul de „beta închis pe invitație" a fost **eliminat complet** — accesul e PUBLIC, înregistrare liberă,
+> fără invitație. Nota veche de „sub reevaluare" nu mai e valabilă.
 
-**Un singur rol per user** (confirmat de Edi) — mai curat de afișat și de verificat.
+**Un singur rol per user** — mai curat de afișat și de verificat.
 
 **Nuanță importantă din mail, care simplifică inima aplicației:** greutatea unei validări **NU se calculează
 de server** — „greutatea o cântărește cititorul, în funcție de rolul afișat lângă nume". Deci **nu construim
@@ -286,7 +284,7 @@ Cea mai grea piesă. O sparg în sub-probleme și arăt cum o ținem fezabilă p
 
 ### 7.2 Fereastra de desen (exact ce a cerut clientul, nimic în plus)
 - **Mai multe culori stridente**, **3 grosimi** de creion, **radieră**, **undo/redo (back/forward)**. Atât.
-  (Viitor: Line / Circle / Square / Arrow / inserare casetă text — confirmat de Edi ca direcție ulterioară.)
+  (Viitor: Line / Circle / Square / Arrow / inserare casetă text — direcție ulterioară confirmată.)
 - **Fill slab pe detaliul-mamă** la intrarea în modul schiță: imaginea-mamă se estompează (intensitate redusă,
   nu naturală) → semnal vizibil că s-a declanșat schițarea + ajută la desenat peste detalii colorate intens.
 - Implementare: **HTML5 Canvas + `perfect-freehand`** (stroke-uri netede, frumoase).
@@ -304,13 +302,13 @@ Cea mai grea piesă. O sparg în sub-probleme și arăt cum o ținem fezabilă p
 ```
 DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, public)
 ```
-> **Schimbare de model (decizie Edi, vezi CHANGELOG 2026-06-30):** coada de acceptare `PENDING_ACCEPTANCE`
+> **Schimbare de model (vezi CHANGELOG 2026-06-30):** coada de acceptare `PENDING_ACCEPTANCE`
 > a fost **eliminată**. Schițele se publică **direct**; moderarea e **post-publicare** prin ștergere (autorul
 > detaliului-mamă SAU autorul schiței). Sursa de adevăr = codul (`SketchService.publish` / `deleteSketch`).
 > Valorile `PENDING_ACCEPTANCE`/`REJECTED` rămân în enumul DB doar pentru date istorice.
 - La PUBLISH → **Notificare** către autorul detaliului-mamă: *„X a schițat peste detaliul tău → vezi în teanc"*.
   La ștergerea de către autorul-mamă → notificare (`SKETCH_DELETED`) către autorul schiței.
-- **Notificările merg in-app ȘI pe email de la început** (via Resend) — Edi le vrea pentru brand
+- **Notificările merg in-app ȘI pe email de la început** (via Resend), pentru brand
   awareness/recall, nu doar in-app.
 
 ### 7.5 Navigare: taburi + hover-slideshow
@@ -328,7 +326,7 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 ## 8. Feed și căutare
 
 - **Feed:** fără infinite scroll. Afișăm **primele ~20 detalii după număr de interacțiuni** (validări +
-  comentarii + schițe) — prag confirmat de Edi. Query simplu, ordonat, paginat clasic.
+  comentarii + schițe). Query simplu, ordonat, paginat clasic.
 - **Căutare MVP = filtre pe arborele de categorii** (Fundație → Beton → Hidroizolare; Acoperiș → Cornișă →
   Jgheab). Ieftin, predictibil, livrabil în zile.
 - **Search liber în limbaj natural** („detaliu îmbinare perete interior cu exterior la casă din lemn"):
@@ -338,16 +336,14 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 
 ---
 
-## 9. Securitate (beta închis + RBAC)
+## 9. Securitate (acces public + RBAC)
 
 Tratăm ca **CRITICAL** (auth, roluri, permisiuni):
 - **Deny-by-default.** Tot ce nu e public e în spatele sesiunii; `proxy.ts` (Next 16, fostul `middleware.ts`)
   respinge neautentificații (redirect `/login`).
-- **Beta închis (poartă de acces — ÎN HOLD, de reconfirmat cu Edi):** plan actual = fără înregistrare publică,
-  cont = doar prin **Invitation** validă (token, expirare, one-time use). Adminul (Edi) emite invitațiile =
-  **doar accesul**; rolul și-l declară userul la signup, iar verificarea (badge) o aprobă adminul ulterior.
-  *Mecanismul rămâne în plan, dar e marcat ca sub reevaluare (invite-only vs. deschidere publică la lansare) —
-  decizie de produs care se ia cu Edi. Verificarea rolului (badge) e independentă de această poartă.*
+- **Acces PUBLIC** (2026-06-28, vezi CHANGELOG/ADR-008): înregistrare liberă, fără invitație. Mecanismul de
+  invitație (token, expirare, one-time use) a fost **eliminat complet**, niciun cod dormant. Rolul și-l
+  declară userul la signup; verificarea (badge) e un flux separat, ulterior, aprobat de admin.
 - **Magic link (Auth.js Email provider):** passwordless → fără parole de scurs/resetat, mai puțină suprafață
   de atac. Token cu durată scurtă, one-time.
 - **Validare pe server pentru toate regulile de business** (dezaprob necesită justificare; o poziție/user;
@@ -404,22 +400,22 @@ confirmi stack-ul.
 ## 12. Fazare / roadmap
 
 - **Faza 0 — Schelet & acces (fundația): ✅ ÎNCHEIATĂ structural (2026-06-20, vezi `CHANGELOG.md`).** proiect Next.js,
-  DB+Drizzle (migrația 0000), Auth.js magic link + `proxy.ts` deny-by-default, onboarding rol, schelet invitații (HOLD),
+  DB+Drizzle (migrația 0000), Auth.js magic link + `proxy.ts` deny-by-default, onboarding rol,
   cont admin seed (allowlist `ADMIN_EMAILS`). Rămâne rularea cu credențiale (Neon `db:push`/`db:seed`, magic link e2e).
-- **Faza 1 — ETAPA A din mail (inima):** Detaliu (seed), Feed (top N), filtre pe categorii, Validare
+- **Faza 1 — Inima:** Detaliu (seed), Feed (top N), filtre pe categorii, Validare
   (Aprob/Dezaprob+justificare), Comentarii. → **Aici răspundem la întrebarea de validare.**
-- **Faza 1.5 — Schițarea colaborativă (OBLIGATORIE în MVP, confirmat de Edi):** canvas, stroke-uri vectoriale,
+- **Faza 1.5 — Schițarea colaborativă (OBLIGATORIE în MVP):** canvas, stroke-uri vectoriale,
   fill slab pe detaliul-mamă, state machine PR, notificări (in-app + email), taburi + hover-slideshow.
   Partea grea, dar non-negociabilă — fără ea „e doar blog cu comentarii".
-- **Faza 2 (Val 2, post-v1) — ETAPA B din mail:** upload de detalii pentru useri (simplu). În v1 rămâne
-  **seed-only** (confirmat); deschiderea uploadului vine după validarea premisei.
+- **Faza 2 (Val 2, post-v1):** ✅ **ÎNCHEIATĂ (2026-06-28):** upload de detalii DESCHIS oricărui user cu
+  rol declarat (nu mai e seed-only), moderare post-publicare.
 - **Backlog:** search liber semantic, verificare automată rol (OAR), reputație/ponderare, real-time.
 
 ---
 
 ## 13. Stadiul deciziilor
 
-### Confirmate de Edi (iunie 2026)
+### Confirmate
 - **Auth = magic link** (passwordless, se mulează pe invite-only).
 - **Un singur rol per user**; **rol auto-declarat** la signup + verificare în platformă cu **badge** (NU
   atribuit de admin la invitație).
@@ -433,10 +429,11 @@ confirmi stack-ul.
   climatică Zona I–IV, seismic a_g + Tc separate, opțiune „General" pe restul (cu atenționare că
   datele reale dau greutate). Sursă: `lista_categorii.md` (poate fi ștearsă).
 - **Upload detalii = DESCHIS** userilor cu rol declarat (moderare post-publicare); seed inițial prin conturi reale.
-- **Acces = PUBLIC** (înregistrare deschisă, fără invitație); schela de invitație rămâne dormantă în cod.
+- **Acces = PUBLIC** (înregistrare deschisă, fără invitație); mecanismul de invitație a fost eliminat complet din cod.
 - **Feed ~20** detalii după interacțiuni; căutare pe filtre la început.
 - O imagine 2D/detaliu (jpg/png/webp, ~5MB); **max 3 resurse** suplimentare.
 
 ### Încă deschise
-→ Toate deciziile care depind de Edi sunt într-un singur loc: **`docs/DECIZII-EDI.md`**.
+→ Deciziile rezolvate au trecut în cod (vezi CHANGELOG 2026-07-02); cele rămase deschise (Termeni/GDPR,
+firmă/SRL, verificare automată meserie) sunt în `.remember/remember.md` §„Decizii / HOLD".
 ```

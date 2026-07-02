@@ -1,6 +1,6 @@
 # DETALIA — Plan de teste
 
-> Strategia de testare + scenariile critice. Marker `HUMAN_RUNS_TESTS` activ → **Liviu rulează testele**;
+> Strategia de testare + scenariile critice. Marker `HUMAN_RUNS_TESTS` activ → **userul rulează testele**;
 > Claude le scrie și spune ce/unde. `tsc --noEmit` / `next build` pot rula automat (nu sunt „teste").
 > Tratăm auth/roluri/validare ca **CRITICAL** → cer și teste de securitate, nu doar happy-path.
 
@@ -25,9 +25,9 @@
 
 1. **Dezaprob fără justificare → respins (422).** Cu justificare → creează `Validation` + `Comment` cu `originValidationId`.
 2. **O singură poziție per user/țintă, reversibilă** — a doua postare actualizează, nu duplică (constrângerea unică).
-3. **Schiță → PUBLISHED doar cu (1) send autor + (2) accept autor detaliu-mamă.** Tranziții invalide → 409.
-4. **Doar autorul detaliului-mamă** acceptă/respinge o schiță (altcineva → 403).
-5. **Upload detalii = orice user autentificat cu rol declarat** (Edi, iunie 2026). De testat: neautentificat / fără rol → respins; moderare post-publicare (fără coadă de aprobare).
+3. **Schiță → PUBLISHED direct la trimiterea autorului** (fără coadă de acceptare, model eliminat 2026-06-30). Tranziții invalide → 409.
+4. **Ștergerea unei schițe** = permisă autorului schiței SAU autorului detaliului-mamă (altcineva → 403).
+5. **Upload detalii = orice user autentificat cu rol declarat.** De testat: neautentificat / fără rol → respins; moderare post-publicare (fără coadă de aprobare).
 6. **Max 3 resurse** per detaliu (a 4-a → respinsă).
 7. **Verificare rol:** doar admin aprobă (`DECLARED→PENDING→VERIFIED`); user normal nu poate auto-aproba.
 8. **Polimorfism:** validare/comentariu funcționează identic pe Detail și pe Sketch.
@@ -77,7 +77,7 @@ E2E-5  Feed & filtre:
 
 ---
 
-## Cum rulează Liviu (după scaffold)
+## Cum rulează testele (după scaffold)
 
 ```bash
 npm run test           # unit + integration (vitest)
