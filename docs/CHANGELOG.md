@@ -15,6 +15,9 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - **`lib/require-active-user.ts`** (NOU): `requireActiveUserId()` — re-check `status` PROASPĂT din DB (un
   singur SELECT) pe mutațiile care produc/modifică conținut public. Tradeoff JWT (SEC-04): `status` din token
   e stale → gating-ul din `proxy.ts` rămâne SOFT; blocarea TARE a unui cont suspendat se mută pe mutații.
+  La status non-ACTIVE face **`signOut()` real** (nu doar redirect) → șterge cookie-ul JWT, ca userul suspendat
+  să nu revină la citire cu „back". Prima mutație a unui cont suspendat = delogare completă. `proxy.ts`: comentariul
+  SEC-04 actualizat (gate soft pe token stale, nu mai e „proaspăt din DB").
 - **Aplicat `requireActiveUserId` pe:** creare detaliu (`details/new`), editare detaliu (`details/[id]/edit`),
   publicare schiță (`sketches/[id]/edit` → `sendSketchAction`), comentariu add+edit (`comment-actions`),
   approve+disapprove (`validation-actions`). **Neatinse** (inofensive la suspendare): retract poziție proprie,
