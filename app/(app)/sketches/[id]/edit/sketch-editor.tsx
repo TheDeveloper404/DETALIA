@@ -21,6 +21,7 @@ export function SketchEditor({
   detailTitle,
   authorName,
   authorRoleMain,
+  authorSubRole,
   authorVerified,
 }: {
   sketchId: string;
@@ -30,6 +31,7 @@ export function SketchEditor({
   detailTitle: string;
   authorName: string | null;
   authorRoleMain: string | null;
+  authorSubRole?: string | null;
   authorVerified: boolean;
 }) {
   const router = useRouter();
@@ -96,7 +98,7 @@ export function SketchEditor({
             <span className="font-heading text-[13.5px] font-semibold text-foreground/80">
               {authorName ?? "Anonim"}
             </span>
-            <RolePill roleMain={authorRoleMain} verified={authorVerified} />
+            <RolePill roleMain={authorRoleMain} subRole={authorSubRole} verified={authorVerified} />
           </span>
         </div>
 

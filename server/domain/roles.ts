@@ -1,42 +1,66 @@
-// Domain roluri — sursa unică pentru rolurile principale și subrolurile lor.
+// Domain roluri — sursa unică pentru rolurile principale și subrolurile (meseriile) lor.
 // Rolul clasifică OAMENII (credibilitate), distinct de taxonomia de categorii (clasifică detaliile).
 //
-// ⚠️ LISTE DRAFT de subroluri — de reconfirmat (taxonomia finală e o decizie de produs deschisă).
-// Rolurile principale sunt confirmate (enum în DB: role_main). Subrolurile sunt provizorii.
+// Listă finală confirmată de Edi (`lista_meserii.md`). roleMain rămâne enum-ul de grupare din DB
+// (folosit la signup + ca ROLE_MAIN al lui subRole), dar NU se mai afișează în platformă — doar
+// meseria (subRole) e vizibilă lângă nume (ex. „Eduard Nemeș · Arhitect", nu „Proiectant · Arhitect").
 
 export const ROLE_MAINS = ["PROIECTANT", "EXECUTANT", "FURNIZOR", "BENEFICIAR"] as const;
 
 export type RoleMain = (typeof ROLE_MAINS)[number];
 
-// Subroluri per rol principal (DRAFT). Cheia = RoleMain, valoarea = subroluri permise.
+// Meserii per rol principal — folosite ca meseria de bază (unică, obligatorie).
 export const SUBROLES: Record<RoleMain, readonly string[]> = {
   PROIECTANT: [
     "Arhitect",
-    "Inginer structurist",
-    "Inginer instalații",
-    "Urbanist",
+    "Inginer constructor",
+    "Inginer instalații electrice",
+    "Inginer instalații termice/HVAC",
+    "Inginer instalații sanitare",
+    "Inginer geotehnician",
+    "Inginer topograf",
+    "Verificator proiecte",
+    "Expert tehnic",
+    "Auditor energetic",
     "Peisagist",
-    "Verificator de proiect",
+    "Designer de interior",
+    "BIM Manager",
   ],
   EXECUTANT: [
-    "Antreprenor general",
-    "Șef de șantier",
-    "Constructor",
-    "Instalator",
+    "Constructor general",
+    "Meșter",
     "Electrician",
-    "Dulgher",
+    "Instalator",
+    "Montator tâmplării",
+    "Diriginte de șantier",
+    "RTE",
   ],
-  FURNIZOR: ["Producător de materiale", "Distribuitor", "Comerciant"],
-  BENEFICIAR: ["Investitor", "Dezvoltator", "Proprietar", "Administrator"],
+  FURNIZOR: ["Producător materiale", "Distribuitor materiale", "Agent vânzări materiale"],
+  BENEFICIAR: ["Beneficiar documentat", "Dezvoltator imobiliar"],
 } as const;
 
-// Etichete prietenoase pentru UI.
+// Etichete prietenoase — folosite DOAR la signup (grupare), nu se mai afișează în platformă.
 export const ROLE_MAIN_LABELS: Record<RoleMain, string> = {
-  PROIECTANT: "Proiectant",
-  EXECUTANT: "Executant",
-  FURNIZOR: "Furnizor",
+  PROIECTANT: "Proiectare",
+  EXECUTANT: "Execuție",
+  FURNIZOR: "Furnizori materiale",
   BENEFICIAR: "Beneficiar",
 };
+
+// Rol secundar, ADITIV peste meseria de bază (câmp opțional separat, nu înlocuiește roleMain/subRole).
+export const SECONDARY_ROLES = [
+  "Arhitect șef",
+  "ISC",
+  "OCPI",
+  "ANCPI",
+  "DSP",
+  "ISU",
+  "Protecția Mediului",
+  "Urbanism",
+  "Furnizor utilități",
+  "Cadru didactic",
+  "Student",
+] as const;
 
 export function isValidRoleMain(value: string): value is RoleMain {
   return (ROLE_MAINS as readonly string[]).includes(value);
@@ -45,4 +69,8 @@ export function isValidRoleMain(value: string): value is RoleMain {
 // Un subrol e valid DOAR dacă aparține rolului principal ales (enforce pe server).
 export function isValidSubRole(roleMain: RoleMain, subRole: string): boolean {
   return SUBROLES[roleMain].includes(subRole);
+}
+
+export function isValidSecondaryRole(value: string): boolean {
+  return (SECONDARY_ROLES as readonly string[]).includes(value);
 }

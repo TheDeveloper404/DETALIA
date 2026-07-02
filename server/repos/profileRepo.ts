@@ -6,7 +6,7 @@ import { and, count, desc, eq, gte, inArray, ne, or, sql, type SQL } from "drizz
 import { type PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { categories, comments, details, sketches, validations } from "@/db/schema";
+import { categories, comments, detailCategories, details, sketches, validations } from "@/db/schema";
 
 // Ziua (UTC) a unui timestamp, ca 'YYYY-MM-DD' — cheie pentru heatmap-ul de contribuții.
 function dayUtc(col: PgColumn): SQL<string> {
@@ -116,18 +116,28 @@ const detailValidationCount = sql<number>`(select count(*)::int from ${validatio
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED')`;
 
+// Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (Edi: „bifezi oricâte",
+// dar cardul de profil arată doar un rezumat, nu toate categoriile).
+const firstCategoryName = sql<string | null>`(
+  select ${categories.name}
+  from ${detailCategories}
+  join ${categories} on ${categories.id} = ${detailCategories.categoryId}
+  where ${detailCategories.detailId} = ${details.id}
+  order by ${categories.name}
+  limit 1
+)`;
+
 export function listAuthorDetails(userId: string) {
   return db
     .select({
       id: details.id,
       title: details.title,
       imageUrl: details.imageUrl,
-      categoryName: categories.name,
+      categoryName: firstCategoryName,
       validationCount: detailValidationCount,
       sketchCount: detailSketchCount,
     })
     .from(details)
-    .leftJoin(categories, eq(categories.id, details.categoryId))
     .where(and(eq(details.authorId, userId), eq(details.status, "PUBLISHED")))
     .orderBy(desc(details.createdAt));
 }

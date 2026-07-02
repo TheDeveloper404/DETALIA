@@ -8,13 +8,22 @@ import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketc
 import { uploadImageToBlob } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 import { cn } from "@/lib/utils";
-import { DESCRIPTION_MAX_LENGTH, MAX_DETAIL_RESOURCES, TITLE_MAX_LENGTH } from "@/server/domain/detail";
+import {
+  CLIMATE_ZONES,
+  DESCRIPTION_MAX_LENGTH,
+  MAX_DETAIL_RESOURCES,
+  SEISMIC_AG_VALUES,
+  SEISMIC_TC_VALUES,
+  SNOW_LOAD_VALUES,
+  TITLE_MAX_LENGTH,
+  WIND_LOAD_VALUES,
+} from "@/server/domain/detail";
 
 import { createDetailAction, type CreateDetailState } from "./actions";
 
 const initialState: CreateDetailState = { error: null };
 
-export type CategoryOption = { id: string; name: string };
+export type CategoryOption = { id: string; name: string; parentId: string | null };
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
 type ResourceType = "IMAGE" | "LINK" | "PDF";
@@ -63,6 +72,7 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
   const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>([]);
   const [drawCount, setDrawCount] = useState(0);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const imageUrlRef = useRef<HTMLInputElement>(null);
@@ -114,6 +124,12 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
     // URL deja urcat (al doilea submit) → lăsăm submit-ul să ajungă la server action.
     if (imageUrlRef.current?.value) return;
 
+    if (categoryIds.length === 0) {
+      e.preventDefault();
+      setClientError("Alege cel puțin o categorie.");
+      return;
+    }
+
     // MOD DESEN: randăm foaia în PNG (client) → urcăm în Blob → re-submit cu URL-ul.
     if (mode === "draw") {
       e.preventDefault();
@@ -158,6 +174,13 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
     } finally {
       setUploading(false);
     }
+  }
+
+  // Categorii pe secțiuni (parentId = header de grupare, neselectabil; frunzele sunt bifabile).
+  const sections = categories.filter((c) => c.parentId === null);
+  const leavesOf = (sectionId: string) => categories.filter((c) => c.parentId === sectionId);
+  function toggleCategory(id: string) {
+    setCategoryIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
 
   const addDisabled = resources.length >= MAX_DETAIL_RESOURCES;
@@ -227,46 +250,85 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
           </p>
         </div>
 
-        {/* CATEGORIE */}
+        {/* CATEGORII — bifezi oricâte (stil tag), grupate pe secțiuni. */}
         <div>
-          <label htmlFor="categoryId" className={labelClass}>
-            Categorie <Req />
+          <label className={labelClass}>
+            Categorii <Req />
           </label>
-          <Select id="categoryId" name="categoryId" required defaultValue="">
-            <option value="" disabled>
-              Alege o categorie…
-            </option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+          <div className="flex flex-col gap-3.5">
+            {sections.map((section) => (
+              <div key={section.id}>
+                <div className="mb-1.5 text-[12px] font-semibold text-foreground/70">{section.name}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {leavesOf(section.id).map((leaf) => {
+                    const active = categoryIds.includes(leaf.id);
+                    return (
+                      <button
+                        key={leaf.id}
+                        type="button"
+                        onClick={() => toggleCategory(leaf.id)}
+                        aria-pressed={active}
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
+                          active
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-input bg-background text-foreground hover:border-primary",
+                        )}
+                      >
+                        {leaf.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
-          </Select>
+          </div>
+          {categoryIds.map((id) => (
+            <input key={id} type="hidden" name="categoryIds" value={id} />
+          ))}
         </div>
 
-        {/* CONTEXT TEHNIC: zonă climatică + seismică */}
+        {/* CONTEXT TEHNIC: zonă climatică, seismică (a_g + Tc), încărcare zăpadă/vânt */}
         <div>
           <label className={labelClass}>
             Context tehnic <Opt />
           </label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select name="climateZone" defaultValue="">
-              <option value="">Zonă climatică — General</option>
-              <option value="I">Zonă climatică I</option>
-              <option value="II">Zonă climatică II</option>
-              <option value="III">Zonă climatică III</option>
-              <option value="IV">Zonă climatică IV</option>
-              <option value="V">Zonă climatică V</option>
+              <option value="">Zonă climatică — nespecificat</option>
+              {CLIMATE_ZONES.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
             </Select>
-            <Select name="seismicZone" defaultValue="">
-              <option value="">Zonă seismică — General</option>
-              <option value="a_g 0,10 g">a_g 0,10 g</option>
-              <option value="a_g 0,15 g">a_g 0,15 g</option>
-              <option value="a_g 0,20 g">a_g 0,20 g</option>
-              <option value="a_g 0,25 g">a_g 0,25 g</option>
-              <option value="a_g 0,30 g">a_g 0,30 g</option>
-              <option value="a_g 0,35 g">a_g 0,35 g</option>
-              <option value="a_g 0,40 g">a_g 0,40 g</option>
+            <Select name="seismicAg" defaultValue="General">
+              {SEISMIC_AG_VALUES.map((v) => (
+                <option key={v} value={v}>
+                  a_g {v}
+                </option>
+              ))}
+            </Select>
+            <Select name="seismicTc" defaultValue="General">
+              {SEISMIC_TC_VALUES.map((v) => (
+                <option key={v} value={v}>
+                  Tc {v}
+                </option>
+              ))}
+            </Select>
+            <Select name="snowLoad" defaultValue="General">
+              {SNOW_LOAD_VALUES.map((v) => (
+                <option key={v} value={v}>
+                  Zăpadă {v}
+                </option>
+              ))}
+            </Select>
+            <Select name="windLoad" defaultValue="General">
+              {WIND_LOAD_VALUES.map((v) => (
+                <option key={v} value={v}>
+                  Vânt {v}
+                </option>
+              ))}
             </Select>
           </div>
           <p className="mt-2 font-mono text-[11px] leading-relaxed text-[#a59a88]">

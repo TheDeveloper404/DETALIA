@@ -759,7 +759,7 @@ export const SketchCanvas = forwardRef<
         ref={containerRef}
         className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-[#efece6]"
       >
-        <span className="pointer-events-none absolute left-[18px] top-4 z-[3] inline-flex items-center gap-1.5 rounded-[7px] border border-[#e6dccd] bg-white/80 px-2.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-[#7c7060]">
+        <span className="pointer-events-none absolute left-[18px] top-4 z-[6] inline-flex items-center gap-1.5 rounded-[7px] border border-[#e6dccd] bg-white/80 px-2.5 py-1.5 font-mono text-[10.5px] uppercase tracking-wide text-[#7c7060]">
           <span className="block size-[7px] rounded-full bg-primary" />
           {imageUrl ? "Mod schiță · detaliul-mamă estompat" : "Mod desen · foaie nouă"}
         </span>

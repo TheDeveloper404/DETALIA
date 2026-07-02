@@ -1,10 +1,63 @@
 // Seed DETALIA — bootstrap minim necesar pe ORICE mediu (inclusiv prod):
-//   Categoriile (idempotent pe slug) — fără ele nu se pot publica detalii.
+//   Categoriile — fără ele nu se pot publica detalii.
 // Conținutul demo (useri/detalii/validări/schițe) a fost ELIMINAT (2026-06-28) — era doar pentru
 // verificare vizuală pe localhost. Vezi CHANGELOG. Seed-ul real de lansare se face prin conturi reale.
 // Conturile de admin NU se mai creează aici: au auth separată (vezi `npm run admin:hash`).
 // Rulează cu: `npm run db:seed`. Cere DATABASE_URL (Neon).
 import { config } from "dotenv";
+
+// Taxonomia finală (Edi, `lista_categorii.md`, 2026-07-02) — înlocuiește lista veche DRAFT.
+// Secțiuni = grupare vizuală (părinte, neselectabilă în UI); frunzele sunt categoriile bifabile
+// (Edi: „bifezi oricâte", stil tag Pinterest) prin tabelul many-to-many `detail_categories`.
+const SECTIONS: { slug: string; name: string; leaves: { slug: string; name: string }[] }[] = [
+  {
+    slug: "clasificare-dupa-zona",
+    name: "Clasificare după zonă",
+    leaves: [
+      { slug: "fundatie", name: "Fundație" },
+      { slug: "beton", name: "Beton" },
+      { slug: "micropiloti-insurubati", name: "Micropiloți înșurubați" },
+      { slug: "perete", name: "Perete" },
+      { slug: "planseu", name: "Planșeu" },
+      { slug: "acoperis", name: "Acoperiș" },
+      { slug: "sarpanta", name: "Șarpantă" },
+      { slug: "tip-terasa", name: "Tip terasă" },
+      { slug: "tamplarie", name: "Tâmplărie" },
+      { slug: "instalatii", name: "Instalații" },
+      { slug: "electrice", name: "Electrice" },
+      { slug: "sanitare", name: "Sanitare" },
+      { slug: "termice", name: "Termice" },
+      { slug: "hvac", name: "HVAC" },
+      { slug: "fatada", name: "Fațadă" },
+      { slug: "termosistem-clasic", name: "Termosistem clasic (vată/polistiren)" },
+      { slug: "fatada-ventilata", name: "Fațadă ventilată" },
+      { slug: "fatada-cortina", name: "Fațadă cortină" },
+      { slug: "amenajari-interioare", name: "Amenajări interioare" },
+      { slug: "amenajari-exterioare", name: "Amenajări exterioare" },
+    ],
+  },
+  {
+    slug: "clasificare-dupa-sistem-constructiv",
+    name: "Clasificare după sistem constructiv",
+    leaves: [
+      { slug: "constructii-industriale", name: "Construcții industriale" },
+      { slug: "sistem-beton-zidarie", name: "Sistem Beton/Zidărie" },
+      { slug: "sistem-timberframe", name: "Sistem Timberframe" },
+      { slug: "sistem-light-steel-frame", name: "Sistem Light Steel Frame" },
+      { slug: "sistem-sip", name: "Sistem SIP" },
+      { slug: "sistem-clt", name: "Sistem CLT" },
+      { slug: "sistem-mixt", name: "Sistem mixt" },
+    ],
+  },
+  {
+    slug: "alte-categorii",
+    name: "Alte categorii",
+    leaves: [
+      { slug: "proiectare-complexa", name: "Proiectare complexă" },
+      { slug: "constructii-modulare", name: "Construcții modulare" },
+    ],
+  },
+];
 
 async function main() {
   config({ path: ".env.local" });
@@ -17,20 +70,26 @@ async function main() {
   const { db } = await import("./index");
   const { categories } = await import("./schema");
 
-  // ── Categorii (idempotent pe slug) ──────────────────────────────────────────
-  const categoryDefs = [
-    { slug: "fundatie", name: "Fundație / infrastructură" },
-    { slug: "anvelopa", name: "Anvelopă / termoizolare" },
-    { slug: "acoperis", name: "Acoperiș" },
-    { slug: "tamplarie", name: "Tâmplărie" },
-    { slug: "instalatii", name: "Instalații" },
-    { slug: "finisaje", name: "Finisaje / interior" },
-  ];
-  await db
-    .insert(categories)
-    .values(categoryDefs.map((c) => ({ slug: c.slug, name: c.name })))
-    .onConflictDoNothing({ target: categories.slug });
-  console.log(`Seed categorii: ${categoryDefs.length} procesate (idempotent pe slug).`);
+  // ── Categorii: taxonomia veche DRAFT se înlocuiește complet ────────────────
+  // Sigur doar dacă nu există detalii care le referențiază încă (fază de validare de piață,
+  // DB golită înainte de seed-ul de lansare — vezi handoff). Dacă `details`/`detail_categories`
+  // au rânduri reale, comanda de mai jos eșuează pe FK — rulează abia după curățare.
+  await db.delete(categories);
+
+  let leafCount = 0;
+  for (const section of SECTIONS) {
+    const [row] = await db
+      .insert(categories)
+      .values({ slug: section.slug, name: section.name, parentId: null })
+      .returning({ id: categories.id });
+    if (section.leaves.length > 0) {
+      await db.insert(categories).values(
+        section.leaves.map((l) => ({ slug: l.slug, name: l.name, parentId: row.id })),
+      );
+      leafCount += section.leaves.length;
+    }
+  }
+  console.log(`Seed categorii: ${SECTIONS.length} secțiuni, ${leafCount} categorii bifabile.`);
 }
 
 main()

@@ -17,6 +17,7 @@ export async function insertRole(input: {
   userId: string;
   roleMain: RoleMain;
   subRole: string | null;
+  secondaryRole?: string | null;
 }) {
   const [row] = await db
     .insert(roles)
@@ -24,17 +25,23 @@ export async function insertRole(input: {
       userId: input.userId,
       roleMain: input.roleMain,
       subRole: input.subRole,
+      secondaryRole: input.secondaryRole ?? null,
       // verificationStatus rămâne pe default „DECLARED" (Poarta 2 — verificarea e separată, opțională).
     })
     .returning();
   return row;
 }
 
-// Actualizează revendicarea de rol (rol principal + subrol). Opțional resetează statusul de
-// verificare — folosit când userul schimbă rolul (verificarea era legată de vechea revendicare).
+// Actualizează revendicarea de rol (rol principal + subrol + rol adițional opțional). Opțional
+// resetează statusul de verificare — folosit când userul schimbă rolul de bază.
 export async function updateRoleClaim(
   userId: string,
-  fields: { roleMain: RoleMain; subRole: string | null; verificationStatus?: VerificationStatus },
+  fields: {
+    roleMain: RoleMain;
+    subRole: string | null;
+    secondaryRole?: string | null;
+    verificationStatus?: VerificationStatus;
+  },
 ) {
   await db.update(roles).set(fields).where(eq(roles.userId, userId));
 }

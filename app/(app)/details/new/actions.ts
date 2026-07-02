@@ -47,8 +47,10 @@ const ERROR_MESSAGES: Record<string, string> = {
   TITLE_TOO_LONG: "Titlul e prea lung (max 200 de caractere).",
   DESCRIPTION_TOO_LONG: "Textul e prea lung (max 5000 de caractere).",
   IMAGE_REQUIRED: "Alege o imagine pentru detaliu.",
-  CATEGORY_REQUIRED: "Alege o categorie.",
-  INVALID_CATEGORY: "Categoria aleasă nu există.",
+  CATEGORY_REQUIRED: "Alege cel puțin o categorie.",
+  TOO_MANY_CATEGORIES: "Prea multe categorii bifate.",
+  INVALID_ZONE: "Una dintre valorile de zonă/încărcare nu e validă.",
+  INVALID_CATEGORY: "Una dintre categoriile alese nu există.",
   TOO_MANY_RESOURCES: "Prea multe resurse atașate (max 3).",
   INVALID_RESOURCE: "O resursă atașată e invalidă.",
   RATE_LIMITED: "Prea multe detalii publicate într-un timp scurt. Încearcă mai târziu.",
@@ -71,14 +73,17 @@ export async function createDetailAction(
 
   const title = String(formData.get("title") ?? "");
   const description = String(formData.get("description") ?? "");
-  const categoryId = String(formData.get("categoryId") ?? "");
+  const categoryIds = formData.getAll("categoryIds").map(String).filter(Boolean);
   const climateZone = String(formData.get("climateZone") ?? "");
-  const seismicZone = String(formData.get("seismicZone") ?? "");
+  const seismicAg = String(formData.get("seismicAg") ?? "");
+  const seismicTc = String(formData.get("seismicTc") ?? "");
+  const snowLoad = String(formData.get("snowLoad") ?? "");
+  const windLoad = String(formData.get("windLoad") ?? "");
   const resources = readResources(formData);
 
   // Guard ieftin înainte de upload — evită blob-uri orfane dacă lipsesc câmpurile text.
   if (title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
-  if (categoryId.trim().length === 0) return { error: ERROR_MESSAGES.CATEGORY_REQUIRED };
+  if (categoryIds.length === 0) return { error: ERROR_MESSAGES.CATEGORY_REQUIRED };
 
   // Imaginea s-a urcat CLIENT direct în Blob (vezi /api/blob/upload). Aici primim doar URL-ul →
   // acceptăm DOAR un URL de Blob al store-ului nostru (tipul/mărimea au fost impuse la token).
@@ -93,10 +98,13 @@ export async function createDetailAction(
     authorId: session.user.id,
     title,
     description,
-    categoryId,
+    categoryIds,
     imageUrl: processed.url,
     climateZone,
-    seismicZone,
+    seismicAg,
+    seismicTc,
+    snowLoad,
+    windLoad,
     resources,
   });
 

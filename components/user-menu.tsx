@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 
 import { signOutAction } from "@/app/(app)/profile/actions";
@@ -8,7 +9,16 @@ import { signOutAction } from "@/app/(app)/profile/actions";
 // Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
 export function UserMenu({ name, image }: { name: string | null; image: string | null }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const [prevPathname, setPrevPathname] = useState(pathname);
   const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
+
+  // Header-ul persistă între navigări (layout) → închide meniul la schimbarea rutei.
+  // Ajustare de state în timpul render-ului (nu efect) — pattern-ul recomandat de React pentru asta.
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    setOpen(false);
+  }
 
   return (
     <div className="relative">

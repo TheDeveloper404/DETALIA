@@ -195,6 +195,7 @@ export async function getNotificationActor(userId: string) {
     .select({
       name: users.name,
       roleMain: roles.roleMain,
+      subRole: roles.subRole,
       verification: roles.verificationStatus,
     })
     .from(users)

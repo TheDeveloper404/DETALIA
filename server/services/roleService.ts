@@ -6,6 +6,7 @@
 
 import {
   isValidRoleMain,
+  isValidSecondaryRole,
   isValidSubRole,
   type RoleMain,
 } from "@/server/domain/roles";
@@ -18,12 +19,16 @@ import {
 
 export type DeclareRoleResult =
   | { ok: true }
-  | { ok: false; error: "ALREADY_HAS_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" };
+  | {
+      ok: false;
+      error: "ALREADY_HAS_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" | "INVALID_SECONDARY_ROLE";
+    };
 
 export async function declareRole(input: {
   userId: string;
   roleMain: string;
   subRole: string | null;
+  secondaryRole?: string | null;
 }): Promise<DeclareRoleResult> {
   if (!isValidRoleMain(input.roleMain)) {
     return { ok: false, error: "INVALID_ROLE" };
@@ -36,13 +41,19 @@ export async function declareRole(input: {
     return { ok: false, error: "INVALID_SUBROLE" };
   }
 
+  // Rol adițional (Administrativ/Educație) — opțional, ADITIV peste meseria de bază.
+  const secondaryRole = input.secondaryRole?.trim() || null;
+  if (secondaryRole !== null && !isValidSecondaryRole(secondaryRole)) {
+    return { ok: false, error: "INVALID_SECONDARY_ROLE" };
+  }
+
   // Un singur rol per user (verificare explicită + constrângere DB ca plasă de siguranță).
   const existing = await getRoleByUserId(input.userId);
   if (existing) {
     return { ok: false, error: "ALREADY_HAS_ROLE" };
   }
 
-  await insertRole({ userId: input.userId, roleMain, subRole });
+  await insertRole({ userId: input.userId, roleMain, subRole, secondaryRole });
   return { ok: true };
 }
 
@@ -57,17 +68,18 @@ export function getUserRole(userId: string) {
 
 export type UpdateRoleResult =
   | { ok: true }
-  | { ok: false; error: "NO_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" };
+  | { ok: false; error: "NO_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" | "INVALID_SECONDARY_ROLE" };
 
 // Editarea rolului din profil. Reguli (enforce pe SERVER):
 //  - userul trebuie să aibă deja un rol (altfel e onboarding, nu editare).
-//  - subrolul trebuie să aparțină rolului principal.
-//  - dacă revendicarea (rol sau subrol) se schimbă, verificarea redevine DECLARED — badge-ul
+//  - subrolul trebuie să aparțină rolului principal; rolul adițional e opțional și independent.
+//  - dacă revendicarea de bază (rol sau subrol) se schimbă, verificarea redevine DECLARED — badge-ul
 //    de verificat aparținea vechii revendicări, nu se mută automat pe noua alegere.
 export async function updateRole(input: {
   userId: string;
   roleMain: string;
   subRole: string | null;
+  secondaryRole?: string | null;
 }): Promise<UpdateRoleResult> {
   if (!isValidRoleMain(input.roleMain)) {
     return { ok: false, error: "INVALID_ROLE" };
@@ -79,19 +91,25 @@ export async function updateRole(input: {
     return { ok: false, error: "INVALID_SUBROLE" };
   }
 
+  const secondaryRole = input.secondaryRole?.trim() || null;
+  if (secondaryRole !== null && !isValidSecondaryRole(secondaryRole)) {
+    return { ok: false, error: "INVALID_SECONDARY_ROLE" };
+  }
+
   const existing = await getRoleByUserId(input.userId);
   if (!existing) {
     return { ok: false, error: "NO_ROLE" };
   }
 
   const claimChanged = existing.roleMain !== roleMain || (existing.subRole ?? null) !== subRole;
-  // Resetăm verificarea DOAR dacă revendicarea s-a schimbat ȘI fusese deja procesată.
+  // Resetăm verificarea DOAR dacă revendicarea de bază s-a schimbat ȘI fusese deja procesată.
   const resetVerification =
     claimChanged && existing.verificationStatus !== "DECLARED";
 
   await updateRoleClaim(input.userId, {
     roleMain,
     subRole,
+    secondaryRole,
     ...(resetVerification ? { verificationStatus: "DECLARED" as const } : {}),
   });
   return { ok: true };

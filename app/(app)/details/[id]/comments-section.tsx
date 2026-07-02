@@ -150,7 +150,7 @@ function CommentItem({
       >
         <div className="mb-1.5 flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold">{c.authorName ?? "Anonim"}</span>
-          <RolePill roleMain={c.authorRoleMain} verified={c.authorVerification === "VERIFIED"} />
+          <RolePill roleMain={c.authorRoleMain} subRole={c.authorSubRole} verified={c.authorVerification === "VERIFIED"} />
           {isDisapproval && (
             <span className="inline-flex items-center gap-1 rounded-md border border-destructive/25 bg-destructive/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wide text-destructive">
               <X className="size-3" strokeWidth={2.6} />

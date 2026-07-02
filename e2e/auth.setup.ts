@@ -6,7 +6,7 @@ import { test as setup, expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { categories, details, roles, sessions, users } from "../db/schema";
+import { categories, detailCategories, details, roles, sessions, users } from "../db/schema";
 
 // Setup AUTHED — seedează direct în DB o sesiune validă Auth.js (strategie `database`): user ACTIVE cu rol
 // declarat + rând în `sessions` + cookie `authjs.session-token`. ZERO cod de bypass în producție: e exact
@@ -81,7 +81,6 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
           title: DETAIL_TITLE,
           description: "Detaliu seedat de suita E2E pentru testarea validării pe roluri.",
           authorId: user.id,
-          categoryId: category.id,
           // Host care MATCHEAZĂ remotePatterns din next.config (altfel next/image dă 500). Fișierul nu
           // există → imaginea apare ruptă, dar pagina randează (suficient pt testele de validare).
           imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
@@ -89,6 +88,7 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
         })
         .returning({ id: details.id })
     )[0];
+    await db.insert(detailCategories).values({ detailId: detail.id, categoryId: category.id });
   }
 
   // 6) Cookie de sesiune Auth.js. Numele/securizarea depind de protocol (https → prefix `__Secure-`).

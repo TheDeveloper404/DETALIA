@@ -16,6 +16,7 @@ export type NotificationView = {
   type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED" | "SKETCH_DELETED";
   actorName: string | null;
   actorRole: string | null;
+  actorSubRole: string | null;
   actorVerified: boolean;
   detailTitle: string;
   href: string | null;
@@ -58,7 +59,7 @@ function NotificationText({ n }: { n: NotificationView }) {
         {n.actorRole && (
           <>
             {" "}
-            <RolePill roleMain={n.actorRole} verified={n.actorVerified} />
+            <RolePill roleMain={n.actorRole} subRole={n.actorSubRole} verified={n.actorVerified} />
           </>
         )}{" "}
         a schițat peste {ref}.
