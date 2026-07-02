@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 // SEC-08 — Headere de securitate statice (aceleași pe toate rutele). CSP-ul NU mai e aici: are nonce per
@@ -33,4 +34,19 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry — no-op complet dacă lipsesc env-urile (build local fără cont Sentry nu se strică).
+// `tunnelRoute`: erorile trec prin propriul domeniu (`/sentry-tunnel`), nu direct spre *.sentry.io —
+// evită ad-blockere ȘI ne scutește de allowlist nou în CSP (`lib/csp.ts` rămâne neatins).
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: true,
+  tunnelRoute: "/sentry-tunnel",
+  widenClientFileUpload: true,
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+});
