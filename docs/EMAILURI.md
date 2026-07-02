@@ -1,96 +1,66 @@
 # DETALIA — Copy emailuri (Resend)
 
-> Textele emailurilor trimise de la început (magic link + notificări schiță). Parte de **brand**
-> (awareness/recall), nu doar funcțional. Trimitere via **Resend**, de pe domeniul deținut.
-> Status: draft de copy — se rafinează pe ton. Variabilele `{{...}}` se completează la trimitere.
+> Textele emailurilor efectiv trimise (magic link + notificări schiță), sincronizate cu implementarea din
+> `lib/email.ts` (template-uri) + `server/services/notificationService.ts` (trimitere). Parte de **brand**
+> (awareness/recall), nu doar funcțional. Trimitere via **Resend**, de pe domeniul deținut (`send.detalia.ro`).
 
 ---
 
 ## Reguli (din securitate)
 
 - **PII (email, tokenuri, dovezi) NU se loghează** — doar metadate (tip email, timestamp, status livrare).
-- **Linkul cu token e one-time, cu expirare** (magic link scurt; TTL din env).
+- **Linkul cu token e one-time, cu expirare** (magic link scurt; TTL din env `MAGIC_LINK_TTL_MINUTES`).
 - Expeditor: `EMAIL_FROM` (verificat SPF/DKIM în Resend) → ajunge în inbox, nu spam.
-- Fiecare email: subiect clar + un singur CTA principal + footer cu identitate. Fără atașamente, fără tracking agresiv.
+- Fiecare email: subiect clar + un singur CTA principal + footer cu identitate brand (`emailLayout()`).
+  Fără atașamente, fără tracking agresiv.
+- Emailul e **secundar** — notificarea in-app rămâne sursa principală. Trimiterea e best-effort: dacă
+  lipsesc credențialele Resend sau serviciul e down, fluxul aplicației nu se blochează.
 
 ---
 
-## 1. Magic link (login)
+## 1. Magic link (login) — `magicLinkEmailHtml` / `magicLinkEmailText`
 
-- **Subiect:** `Linkul tău de acces în DETALIA`
-- **Preheader:** `Apasă pentru a intra. Linkul expiră în {{ttl_minutes}} minute.`
-
-```
-Salut{{#name}} {{name}}{{/name}},
-
-Apasă butonul de mai jos ca să intri în DETALIA. Din motive de siguranță,
-linkul funcționează o singură dată și expiră în {{ttl_minutes}} minute.
-
-[ Intră în DETALIA ]  → {{magic_link_url}}
-
-Dacă nu ai cerut tu acest link, poți ignora liniștit acest email.
-
-— Echipa DETALIA
-```
+- **Subiect:** `Conectează-te în DETALIA`
+- **Titlu:** Autentificare în DETALIA
+- **Corp:** „Apasă butonul de mai jos ca să te conectezi. Linkul e valabil `{ttlMinutes}` de minute și poate
+  fi folosit o singură dată."
+- **CTA:** „Conectează-te" → link click-through (`/verify?u=...`, anti-prefetch — vezi `app/verify/page.tsx`).
+- **Footer:** „Dacă nu ai cerut acest email, poți să-l ignori."
 
 ---
 
-## 2. Notificare: schiță propusă (către autorul detaliului-mamă)
+## 2. Notificare: schiță propusă (către autorul detaliului-mamă) — `sketchProposedEmailHtml` / `Text`
 
-- **Subiect:** `{{author_name}} a propus o modificare pe detaliul tău`
-- **Preheader:** `O nouă schiță așteaptă să fie acceptată în teancul tău.`
+> Trimisă la **publicare** (`sketchService.publish`) — schița intră **direct** în teanc, fără flux de
+> acceptare/respingere (eliminat 2026-06-30, vezi CHANGELOG). Emailul e informativ, nu o cerere de decizie.
 
-```
-Salut {{owner_name}},
-
-{{author_name}} ({{author_role}}) a propus o schiță peste detaliul tău
-„{{detail_title}}".
-
-Vizualizeaz-o și decide dacă o accepți în teanc (devine publică) sau o respingi.
-
-[ Vezi schița ]  → {{sketch_url}}
-
-— DETALIA
-```
+- **Subiect:** `{author_name} a schițat peste „{detail_title}"`
+- **Titlu:** Schiță nouă pe detaliul tău
+- **Corp:** „`{author_name}` a publicat o schiță peste detaliul tău **`{detail_title}`**."
+- **CTA:** „Vezi schița în teanc" → `{AUTH_URL}/details/{detailId}`
 
 ---
 
-## 3. Notificare: schiță acceptată (către autorul schiței)
+## 3. Notificare: schiță ștearsă (către autorul schiței) — `sketchDeletedEmailHtml` / `Text`
 
-- **Subiect:** `Schița ta a fost acceptată`
+> Trimisă când autorul detaliului-mamă șterge o schiță (moderare post-publicare, `deleteSketch`).
 
-```
-Salut {{author_name}},
-
-{{owner_name}} a acceptat schița ta pe detaliul „{{detail_title}}".
-E acum publică, în teancul detaliului — oricine o poate vedea și dezbate.
-
-[ Vezi schița ]  → {{sketch_url}}
-
-— DETALIA
-```
-
----
-
-## 4. Notificare: schiță respinsă (către autorul schiței)
-
-- **Subiect:** `Actualizare la schița ta`
-
-```
-Salut {{author_name}},
-
-{{owner_name}} nu a acceptat de această dată schița ta pe detaliul
-„{{detail_title}}".{{#reason}} Motiv: {{reason}}.{{/reason}}
-
-Poți relua oricând cu o variantă nouă.
-
-— DETALIA
-```
+- **Subiect:** `Schița ta la „{detail_title}" a fost eliminată`
+- **Titlu:** Schița ta a fost eliminată
+- **Corp:** „Schița ta de la detaliul **`{detail_title}`** a fost eliminată de autorul detaliului."
+- **CTA:** „Vezi detaliul" → `{AUTH_URL}/details/{detailId}`
 
 ---
 
 ## Note de implementare
 
-- Template-urile trăiesc în `lib/email/` (sau `emails/` cu React Email, decizie la implementare).
-- Conținutul dinamic vine din `NotificationService` → un singur loc care trimite și in-app, și email.
+- Template-urile (HTML + text) trăiesc în **`lib/email.ts`** — un singur fișier, shell brand comun
+  `emailLayout()` (wordmark, card, footer), fără librărie externă (React Email etc.).
+- Trimiterea trece prin `server/services/notificationService.ts` → `notify()`, care scrie **întotdeauna**
+  notificarea in-app și trimite emailul **doar** dacă userul are contact + credențialele Resend sunt setate.
+- Escaping HTML (titlu/nume de user, anti-XSS) se face în `lib/email.ts`, în interiorul fiecărui template —
+  apelantul (`notificationService`) pasează valori brute.
 - Tonul: profesional, scurt, fără marketing agresiv — respectul pentru timpul unui specialist.
+- **Nu există** (încă) notificări de „schiță acceptată"/„schiță respinsă" — modelul vechi de accept/reject a
+  fost eliminat odată cu publicarea directă (2026-06-30). Dacă apare vreodată un flux nou care le-ar readuce,
+  actualizează acest document odată cu codul.
