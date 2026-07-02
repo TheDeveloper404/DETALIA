@@ -4,6 +4,35 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — fix(feed): sidebar categorii — secțiuni scoase din filtre + „Vezi mai multe"
+
+- **Secțiunile de grupare** (`Alte categorii`, `Clasificare după zonă`, `Clasificare după sistem
+  constructiv` — rândurile cu `parentId` null) apăreau greșit ca filtre bifabile în sidebar-ul
+  feed-ului. `categoriesRepo.listCategoriesWithCounts` acum exclude explicit rândurile fără părinte
+  (`isNotNull(categories.parentId)`) — rămân doar cele 29 de categorii FRUNZĂ, reale.
+- **Listă trunchiată**: cu 29 de categorii, sidebar-ul devenea o coloană nesfârșită. Extras
+  `components/category-filter-list.tsx` (client, are nevoie de state pentru toggle) — arată primele 6,
+  restul sub „Vezi mai multe (N)"/"Arată mai puține".
+- **De investigat separat (raportat de Liviu):** toate categoriile arătau 0 detalii deși platforma are
+  conținut real — cauza probabilă e migrația 0011 care a șters `details.category_id` fără să migreze
+  datele în `detail_categories` pentru detaliile create înainte de refactor. Vezi handoff pentru status.
+
+## 2026-07-02 — fix(auth, CRITICAL): pagină de confirmare pentru magic link (anti-prefetch)
+
+- **Simptom raportat:** login pe PC funcțional, dar cererea unui magic link nou pe telefon eșua la
+  click cu `[auth][error] Verification` (Vercel Logs). Cauză: clienți de mail care fac GET automat pe
+  linkurile din email pentru scanare de securitate (Apple Mail Privacy Protection, preview Gmail,
+  filtre corporate) — consumă tokenul one-time al Auth.js ÎNAINTE de click-ul real al userului.
+- **Fix:** emailul de magic link nu mai trimite direct URL-ul de callback Auth.js (`sendVerificationRequest`
+  în `lib/auth.ts`), ci un link către pagina nouă `/verify-click?u=<url encodat>` — inofensivă la un GET
+  automat (doar afișează un buton, nu consumă nimic). Verificarea reală (`/api/auth/callback/resend`) se
+  declanșează DOAR la click-ul efectiv al userului pe buton.
+- **`app/verify-click/page.tsx`** (nou): validează strict `u` — trebuie să fie pe originea `AUTH_URL` și
+  pe path `/api/auth/callback/*` (SEC-03, anti open-redirect); orice altceva → „Link invalid".
+- **`proxy.ts`**: `/verify-click` adăugată în `PUBLIC_PATHS` (rută pre-auth, ca `/verify-request`).
+- **De testat manual** (CRITICAL, auth): magic link normal PC + telefon, link expirat, link reutilizat,
+  `u` manipulat (open-redirect) → trebuie respins cu „Link invalid".
+
 ## 2026-07-02 — feat(onboarding): autocomplete orașe RO și pe formularul de onboarding
 
 - `onboarding-form.tsx`: câmpul „Locație" era text liber simplu, spre deosebire de același câmp din

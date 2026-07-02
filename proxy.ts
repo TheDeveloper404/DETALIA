@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/login", // autentificare (magic link)
   "/signup", // înregistrare publică (magic link)
   "/verify-request", // „verifică-ți email-ul" după cererea magic link-ului (pre-auth)
+  "/verify-click", // pas intermediar (click real) înainte de callback-ul Auth.js (pre-auth, anti-prefetch)
   "/maintenance", // ecranul „site în lucru" (ținta rewrite-ului de lockdown) — public by design
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
