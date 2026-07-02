@@ -13,7 +13,7 @@ import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { auth } from "@/lib/auth";
+import { auth, signOut } from "@/lib/auth";
 
 export async function requireActiveUserId(): Promise<string> {
   const session = await auth();
@@ -25,8 +25,13 @@ export async function requireActiveUserId(): Promise<string> {
     .where(eq(users.id, session.user.id))
     .limit(1);
 
-  // Cont inexistent (șters) sau non-ACTIVE (suspendat) → tratat ca acces refuzat, la fel ca proxy-ul.
-  if (!row || row.status !== "ACTIVE") redirect("/login?error=AccessDenied");
+  // Cont inexistent (șters) sau non-ACTIVE (suspendat): NU doar redirect — facem signOut REAL, ca să ștergem
+  // cookie-ul JWT. Altfel tokenul (cu status stale=ACTIVE) ar rămâne viu și userul ar putea reveni la citire
+  // cu „back". Așa, prima încercare de mutație a unui cont suspendat = delogare completă (blocat și pe citire).
+  // signOut({ redirectTo }) șterge cookie-ul ȘI face redirect (aruncă NEXT_REDIRECT) → codul de mai jos e unreachable.
+  if (!row || row.status !== "ACTIVE") {
+    await signOut({ redirectTo: "/login?error=AccessDenied" });
+  }
 
   return session.user.id;
 }
