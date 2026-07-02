@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
 import { reprocessBlobImage } from "@/lib/image-processing";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs } from "@/lib/storage";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
@@ -58,10 +58,8 @@ export async function updateDetailAction(
   formData: FormData,
 ): Promise<EditDetailState> {
   // Deny-by-default: doar useri autentificați. userId vine EXCLUSIV din sesiune.
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate edita detalii.
+  const userId = await requireActiveUserId();
 
   const detailId = String(formData.get("detailId") ?? "");
   if (detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
@@ -94,7 +92,7 @@ export async function updateDetailAction(
 
   const result = await updateDetail({
     detailId,
-    userId: session.user.id,
+    userId,
     title,
     description,
     categoryIds,

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
 import { createDraft } from "@/server/services/sketchService";
 import { approve, disapprove, retract } from "@/server/services/validationService";
@@ -35,14 +36,14 @@ function readTarget(formData: FormData): {
 }
 
 export async function approveAction(formData: FormData): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate produce poziții.
+  const userId = await requireActiveUserId();
 
   // SEC-01: limită de mutații per user. Acțiune 1-click → la depășire ieșim tăcut (fără mutație).
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) return;
+  if (!(await checkLimit(limiters.mutation, userId)).ok) return;
 
   const { targetType, targetId, detailId } = readTarget(formData);
-  const res = await approve({ userId: session.user.id, targetType, targetId });
+  const res = await approve({ userId, targetType, targetId });
   if (!res.ok && res.error === "NO_ROLE") redirect("/onboarding");
 
   revalidatePath(`/details/${detailId}`);
@@ -64,10 +65,10 @@ export async function disapproveAction(
   _prev: DisapproveState,
   formData: FormData,
 ): Promise<DisapproveState> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate dezaproba.
+  const userId = await requireActiveUserId();
 
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
@@ -80,7 +81,7 @@ export async function disapproveAction(
   if (targetType === "DETAIL" && intent === "sketch") {
     const draft = await createDraft({
       detailId: targetId,
-      authorId: session.user.id,
+      authorId: userId,
       disapprovesParent: true,
     });
     if (!draft.ok) {
@@ -92,7 +93,7 @@ export async function disapproveAction(
 
   // Ramura TEXT: justificare obligatorie → DISAPPROVE + comentariu (originValidationId).
   const justification = String(formData.get("justification") ?? "");
-  const res = await disapprove({ userId: session.user.id, targetType, targetId, justification });
+  const res = await disapprove({ userId, targetType, targetId, justification });
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
