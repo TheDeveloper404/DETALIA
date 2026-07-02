@@ -18,6 +18,10 @@ const SEED_PATH = path.join(AUTH_DIR, "seed.json");
 
 const TEST_EMAIL = "e2e-tester@detalia.test";
 const TEST_NAME = "E2E Tester";
+// Autor SEPARAT de userul de sesiune — CANNOT_VALIDATE_OWN blochează Aprob/Dezaprob pe propriul
+// conținut, deci detaliul țintă al testelor de validare nu poate fi autorat de userul care validează.
+const AUTHOR_EMAIL = "e2e-author@detalia.test";
+const AUTHOR_NAME = "E2E Author";
 const DETAIL_TITLE = "E2E — detaliu de test (validare)";
 const SESSION_DAYS = 30;
 
@@ -63,15 +67,39 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
     await db.insert(roles).values({ userId: user.id, roleMain: "PROIECTANT", subRole: "Arhitect" });
   }
 
+  // 3b) Autor separat (nu se loghează, doar deține detaliul-țintă) — vezi nota CANNOT_VALIDATE_OWN de mai sus.
+  let author = (await db.select({ id: users.id }).from(users).where(eq(users.email, AUTHOR_EMAIL)).limit(1))[0];
+  if (!author) {
+    author = (
+      await db
+        .insert(users)
+        .values({
+          email: AUTHOR_EMAIL,
+          name: AUTHOR_NAME,
+          firstName: "E2E",
+          lastName: "Author",
+          status: "ACTIVE",
+          emailVerified: new Date(),
+        })
+        .returning({ id: users.id })
+    )[0];
+  }
+  const existingAuthorRole = (
+    await db.select({ id: roles.id }).from(roles).where(eq(roles.userId, author.id)).limit(1)
+  )[0];
+  if (!existingAuthorRole) {
+    await db.insert(roles).values({ userId: author.id, roleMain: "PROIECTANT", subRole: "Arhitect" });
+  }
+
   // 4) Sesiune proaspătă (curăță vechile sesiuni ale userului de test, apoi inserează una nouă).
   await db.delete(sessions).where(eq(sessions.userId, user.id));
   const sessionToken = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await db.insert(sessions).values({ sessionToken, userId: user.id, expires });
 
-  // 5) Detaliu țintă pentru testele de validare (reutilizat între rulări).
+  // 5) Detaliu țintă pentru testele de validare (reutilizat între rulări), autorat de `author`, NU de `user`.
   let detail = (
-    await db.select({ id: details.id }).from(details).where(eq(details.authorId, user.id)).limit(1)
+    await db.select({ id: details.id }).from(details).where(eq(details.authorId, author.id)).limit(1)
   )[0];
   if (!detail) {
     detail = (
@@ -80,7 +108,7 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
         .values({
           title: DETAIL_TITLE,
           description: "Detaliu seedat de suita E2E pentru testarea validării pe roluri.",
-          authorId: user.id,
+          authorId: author.id,
           // Host care MATCHEAZĂ remotePatterns din next.config (altfel next/image dă 500). Fișierul nu
           // există → imaginea apare ruptă, dar pagina randează (suficient pt testele de validare).
           imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
