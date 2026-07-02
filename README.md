@@ -2,108 +2,80 @@
 
 **Comunitatea profesională din construcții, organizată în jurul detaliului de execuție.**
 
-DETALIA este o platformă colaborativă în care profesioniștii din proiectare, execuție, furnizare și administrarea construcțiilor pot publica, analiza și îmbunătăți detalii tehnice.
+DETALIA este o platformă colaborativă în care profesioniștii din proiectare, execuție, furnizare și administrarea construcțiilor pot publica, analiza și îmbunătăți detalii tehnice. Fiecare contribuție este asociată transparent unui rol profesional, iar un detaliu poate fi aprobat, contestat cu argumente sau completat printr-o schiță desenată peste el.
 
-Fiecare contribuție este asociată transparent unui rol profesional. Un detaliu poate fi aprobat, contestat cu argumente sau completat printr-o schiță propusă autorului.
+Modelul mental: **„GitHub pentru construcții"** — un detaliu este ca un repository, o schiță ca un fork, iar validarea pe roluri ca un code review.
 
-## De ce DETALIA
+## Ce oferă
 
-Cunoștințele despre execuție sunt răspândite între proiectanți, constructori, furnizori și beneficiari. Aceeași soluție poate fi corectă pe planșă, dificilă în șantier sau dependentă de un material specific.
-
-DETALIA aduce aceste perspective în același loc:
-
-- contextul profesional este vizibil lângă fiecare contribuție;
-- dezaprobarea cere o justificare, nu doar un vot negativ;
-- alternativele pot fi desenate direct peste detaliul inițial;
-- autorul decide ce schițe intră în teancul public;
-- discuția rămâne legată de detaliul sau schița analizată.
+- **Feed de detalii** filtrabil pe categorie, cu căutare simplă pe titlu.
+- **Pagina de detaliu** cu imaginea tehnică, contextul autorului și dezbaterea.
+- **Validare pe roluri** — Aprob (un click) sau Dezaprob (cu justificare obligatorie).
+- **Schițare** peste un detaliu, direct în browser, cu unelte de desen vectorial.
+- **Teanc de schițe** navigabil pentru fiecare detaliu.
+- **Comentarii** legate de detaliu sau de schiță.
+- **Notificări** in-app și pe email.
+- **Profil** cu rol, subrol, poză și verificare opțională a rolului (badge).
 
 ## Cum funcționează
 
 ### 1. Identitate profesională
-
-Utilizatorul intră prin magic link și își declară rolul principal:
-
-- Proiectant;
-- Executant;
-- Furnizor;
-- Beneficiar.
-
-Rolul și specializarea sunt afișate lângă validări, comentarii și schițe, astfel încât opiniile să poată fi înțelese în context.
+Utilizatorul intră prin **magic link** (fără parolă) și își declară rolul principal — Proiectant, Executant, Furnizor sau Beneficiar — plus o specializare. Rolul este afișat lângă validări, comentarii și schițe, ca opiniile să fie citite în context.
 
 ### 2. Publicarea unui detaliu
-
-Un detaliu conține o imagine tehnică, titlu, descriere, categorie, context climatic/seismic și resurse opționale. După publicare, acesta apare în feed și are propria pagină de analiză.
+Un detaliu conține o imagine tehnică, titlu, descriere, categorie, context climatic/seismic opțional și resurse opționale (imagine, link, PDF, text). După publicare apare în feed și are propria pagină de analiză. Orice utilizator autentificat cu rol declarat poate publica.
 
 ### 3. Validarea pe roluri
-
 Membrii comunității pot:
+- **aproba** un detaliu sau o schiță (un click);
+- **dezaproba** numai împreună cu o justificare, care devine automat un comentariu;
+- retrage sau schimba ulterior propria poziție (o singură poziție per țintă).
 
-- **aproba** un detaliu sau o schiță;
-- **dezaproba** numai împreună cu o justificare;
-- retrage sau schimba ulterior propria poziție.
-
-Validările nu formează un scor anonim. Rolul și argumentul persoanei rămân vizibile pentru cititor.
+Validările nu formează un scor anonim — rolul și argumentul persoanei rămân vizibile pentru cititor. Nu îți poți valida propriul conținut.
 
 ### 4. Propunerea unei schițe
-
-Un utilizator poate desena peste imaginea unui detaliu și trimite rezultatul autorului. Schița urmează un flux asincron:
+Un utilizator poate desena peste imaginea unui detaliu și publica rezultatul:
 
 ```text
-DRAFT → PENDING_ACCEPTANCE → PUBLISHED | REJECTED
+DRAFT → PUBLISHED
 ```
 
-Doar autorul schiței o poate edita și trimite. Doar autorul detaliului inițial o poate accepta sau respinge.
+Schița se publică direct și intră în teancul public al detaliului. Fiecare schiță are un singur autor. Moderarea este post-publicare: schița poate fi ștearsă de autorul ei sau de autorul detaliului-mamă.
 
 ### 5. Dezbatere și notificări
+Comentariile pot aparține unui detaliu sau unei schițe. Autorii primesc notificări în aplicație și pe email pentru evenimentele relevante (o schiță nouă peste detaliul lor, ștergeri etc.).
 
-Comentariile pot aparține unui detaliu sau unei schițe. Autorii primesc notificări în aplicație și, când serviciul de email este configurat, notificări prin email pentru propunerile și deciziile legate de schițe.
-
-## Conceptele produsului
+## Concepte
 
 | Concept | Semnificație |
 |---|---|
 | **Detaliu** | Unitatea principală de conținut tehnic |
+| **Schiță** | O propunere desenată peste detaliul inițial (un singur autor) |
 | **Validare** | Poziția Aprob/Dezaprob a unui utilizator |
-| **Schiță** | O propunere desenată peste detaliul inițial |
-| **Teanc** | Colecția schițelor acceptate pentru un detaliu |
+| **Teanc** | Colecția schițelor publicate ale unui detaliu |
 | **Rol** | Contextul profesional al contributorului |
 | **Dezbatere** | Comentariile asociate unui detaliu sau unei schițe |
-
-## Principii
-
-- **Argument înaintea scorului.** Dezaprobarea nu poate fi anonimă sau nejustificată.
-- **Context profesional transparent.** Rolul explică perspectiva, fără a înlocui argumentul.
-- **Colaborare asincronă.** Fiecare schiță are un singur autor; nu există co-editare în timp real în MVP.
-- **Autorul păstrează controlul.** O schiță devine publică numai după acceptarea de către autorul detaliului.
-- **Reguli aplicate pe server.** UI-ul nu este sursa de adevăr pentru permisiuni și tranziții.
-
-## Stadiul proiectului
-
-DETALIA este un MVP privat aflat în validare și dezvoltare activă. Fluxurile principale sunt implementate, iar diferențele de integrare, securitate și pregătire pentru producție sunt urmărite în documentația proiectului.
-
-Aplicația nu trebuie considerată production-ready până la închiderea porților documentate în [`docs/SECURITATE.md`](docs/SECURITATE.md).
 
 ## Stack tehnic
 
 | Strat | Tehnologie |
 |---|---|
 | Aplicație full-stack | Next.js App Router + React |
-| Business logic | TypeScript, separat în `server/` |
+| Business logic | TypeScript, izolat în `server/` |
 | Bază de date | Neon Postgres + Drizzle ORM |
-| Autentificare | Auth.js, passwordless prin Resend |
-| Stocare | Vercel Blob |
+| Autentificare | Auth.js — magic link passwordless (Resend) |
+| Stocare fișiere | Vercel Blob |
 | UI | Tailwind CSS + shadcn/ui |
 | Schițare | HTML Canvas + `perfect-freehand` |
-| Hosting vizat | Vercel |
+| Hosting | Vercel |
 
-DETALIA este o singură aplicație full-stack. Server Components și Server Actions gestionează interfața și mutațiile, iar regulile de business sunt izolate de UI în servicii și repository-uri.
+Este o singură aplicație full-stack: Server Components și Server Actions gestionează interfața și mutațiile, iar regulile de business stau în servicii și repository-uri, separate de UI.
 
 ## Structura proiectului
 
 ```text
 detalia/
-├── app/          # pagini, layouturi și Server Actions
+├── app/          # pagini, layouturi, route handlers și Server Actions
 ├── components/   # componente UI și canvasul de schițare
 ├── server/
 │   ├── domain/   # reguli și tipuri de domeniu
@@ -118,26 +90,24 @@ detalia/
 ## Rulare locală
 
 ### Cerințe
-
-- Node.js LTS;
-- npm;
+- Node.js LTS și npm;
 - o bază de date PostgreSQL/Neon;
 - credențiale Resend pentru autentificarea prin email;
 - un store Vercel Blob pentru uploaduri.
 
-### Instalare
+### Pași
 
 ```bash
 npm install
 ```
 
-Copiază template-ul de configurare:
+Copiază template-ul de configurare și completează valorile:
 
 ```powershell
 Copy-Item .env.example .env.local
 ```
 
-Completează cel puțin:
+Variabile minime necesare:
 
 ```text
 DATABASE_URL
@@ -148,7 +118,7 @@ EMAIL_FROM
 BLOB_READ_WRITE_TOKEN
 ```
 
-Aplică migrațiile și, opțional, datele seed:
+Aplică schema bazei de date și, opțional, datele seed:
 
 ```bash
 npm run db:migrate
@@ -161,18 +131,17 @@ Pornește aplicația:
 npm run dev
 ```
 
-Aplicația va fi disponibilă implicit la [http://localhost:3000](http://localhost:3000).
+Implicit disponibilă la [http://localhost:3000](http://localhost:3000).
 
-## Verificări disponibile
+## Scripturi utile
 
 ```bash
-npm run typecheck
-npm run lint
-npm run build
-npm run format:check
+npm run dev           # server de dezvoltare
+npm run build         # build de producție
+npm run typecheck     # verificare de tipuri (tsc --noEmit)
+npm run lint          # ESLint
+npm run format:check  # verificare formatare (Prettier)
 ```
-
-Suita automată de teste nu este încă operațională; starea și cerințele de acoperire sunt descrise în [`docs/PLAN-TESTE.md`](docs/PLAN-TESTE.md).
 
 ## Documentație
 
@@ -181,12 +150,8 @@ Suita automată de teste nu este încă operațională; starea și cerințele de
 | [`docs/ARHITECTURA.md`](docs/ARHITECTURA.md) | Arhitectura și deciziile tehnice |
 | [`docs/ADR.md`](docs/ADR.md) | Decizii de arhitectură și consecințe |
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) | Modelul bazei de date |
-| [`docs/SECURITATE.md`](docs/SECURITATE.md) | Sursa unică pentru controale, audit și poarta de lansare |
+| [`docs/SECURITATE.md`](docs/SECURITATE.md) | Controale de securitate și audit |
 | [`docs/UX-ECRANE.md`](docs/UX-ECRANE.md) | Ecrane, stări și fluxuri UX |
 | [`docs/PLAN-TESTE.md`](docs/PLAN-TESTE.md) | Strategia și scenariile de testare |
 | [`docs/CONFIDENTIALITATE-GDPR.md`](docs/CONFIDENTIALITATE-GDPR.md) | Confidențialitate și cerințe GDPR |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Istoricul modificărilor |
-
-## Statut
-
-Repository privat. Proiect aflat în dezvoltare activă.
