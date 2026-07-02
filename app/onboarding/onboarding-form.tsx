@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { uploadImageToBlob } from "@/lib/blob-upload";
+import { RO_CITIES } from "@/lib/ro-cities";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 import {
   ROLE_MAINS,
@@ -430,11 +431,19 @@ export function OnboardingForm() {
               <input
                 id="dt-oras"
                 name="location"
+                list="ro-cities"
+                autoComplete="off"
                 placeholder="Cluj-Napoca"
                 maxLength={80}
                 className="dt-field"
                 style={inputStyle}
               />
+              {/* Sugestii native (browser filtrează „Ti" → Timișoara). Câmpul rămâne text liber. */}
+              <datalist id="ro-cities">
+                {RO_CITIES.map((city) => (
+                  <option key={city} value={city} />
+                ))}
+              </datalist>
             </div>
             <div>
               <label htmlFor="dt-web" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
