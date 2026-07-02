@@ -1,3 +1,4 @@
+import { Analytics } from "@vercel/analytics/next";
 import type { Metadata } from "next";
 import { Archivo, Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
 import { headers } from "next/headers";
@@ -73,6 +74,9 @@ export default async function RootLayout({
           }}
         />
         {children}
+        {/* Vercel Web Analytics — vizitatori + page views. First-party (`/_vercel/insights/*`, same-origin)
+            → nu necesită excepții CSP. Se activează doar în deploy pe Vercel (no-op în dev). */}
+        <Analytics />
       </body>
     </html>
   );
