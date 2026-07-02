@@ -71,6 +71,7 @@ export function ValidationPanel({
     return fd;
   }
   function onApprove() {
+    setMode("none");
     startTransition(async () => {
       applyOpt("APPROVE");
       await approveAction(targetFormData());
@@ -262,7 +263,7 @@ export function ValidationPanel({
               <span className="flex min-w-0 items-center gap-2">
                 <AvatarInitials name={p.userName} imageUrl={p.userImage} size={28} />
                 <span className="truncate text-sm font-semibold">{p.userName ?? "Anonim"}</span>
-                <RolePill roleMain={p.roleMain} verified={p.verification === "VERIFIED"} />
+                <RolePill roleMain={p.roleMain} subRole={p.subRole} verified={p.verification === "VERIFIED"} />
               </span>
               <span
                 className={cn(

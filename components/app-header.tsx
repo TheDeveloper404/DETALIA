@@ -13,6 +13,7 @@ type NotificationPayload = {
   detailTitle?: string;
   sketchAuthorName?: string | null;
   sketchAuthorRole?: string | null;
+  sketchAuthorSubRole?: string | null;
   sketchAuthorVerified?: boolean;
 };
 
@@ -30,6 +31,7 @@ export async function AppHeader() {
       type: n.type,
       actorName: p.sketchAuthorName ?? null,
       actorRole: p.sketchAuthorRole ?? null,
+      actorSubRole: p.sketchAuthorSubRole ?? null,
       actorVerified: p.sketchAuthorVerified ?? false,
       detailTitle: p.detailTitle ?? "un detaliu",
       href: p.detailId ? `/details/${p.detailId}` : null,

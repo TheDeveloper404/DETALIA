@@ -20,6 +20,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   ALREADY_HAS_ROLE: "Ai deja un rol declarat.",
   INVALID_ROLE: "Selectează un rol valid.",
   INVALID_SUBROLE: "Subrolul ales nu corespunde rolului.",
+  INVALID_SECONDARY_ROLE: "Rolul adițional ales nu e valid.",
   INVALID_TYPE: "Poza trebuie să fie PNG, JPG, WebP sau AVIF.",
   TOO_LARGE: "Poza e prea mare (max 8 MB).",
   MISSING_NAME: "Completează prenumele și numele.",
@@ -55,6 +56,8 @@ export async function onboardingAction(
   const roleMain = clean(formData.get("roleMain"));
   const subRoleRaw = clean(formData.get("subRole"));
   const subRole = subRoleRaw || null;
+  const secondaryRoleRaw = clean(formData.get("secondaryRole"));
+  const secondaryRole = secondaryRoleRaw || null;
   const headline = clean(formData.get("headline")) || null;
   const location = clean(formData.get("location")) || null;
   const company = clean(formData.get("company")) || null;
@@ -122,7 +125,7 @@ export async function onboardingAction(
   // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există rol).
   // Dacă orice scriere de mai sus eșuează, rolul NU se creează → următoarea accesare reia onboardingul,
   // nu lasă un profil parțial permanent (rol fără nume). Regulile de business trăiesc în service.
-  const result = await declareRole({ userId, roleMain, subRole });
+  const result = await declareRole({ userId, roleMain, subRole, secondaryRole });
   if (!result.ok) {
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }

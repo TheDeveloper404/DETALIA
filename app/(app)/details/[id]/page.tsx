@@ -78,7 +78,11 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
       comments: await getComments("SKETCH", r.id),
     })),
   );
-  const related = await getRelatedDetails(detail.id, detail.categoryId, 5);
+  const related = await getRelatedDetails(
+    detail.id,
+    detail.categories.map((c) => c.id),
+    5,
+  );
 
   const verified = detail.authorVerification === "VERIFIED";
   const isAuthor = detail.authorId === userId;
@@ -90,14 +94,11 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
         <Link href="/feed" className="hover:text-foreground">
           Detalii
         </Link>
-        {detail.categoryName && (
+        {detail.categories[0] && (
           <>
             <span className="text-[#cabfac]">/</span>
-            <Link
-              href={`/feed?cat=${detail.categoryId}`}
-              className="hover:text-foreground"
-            >
-              {detail.categoryName}
+            <Link href={`/feed?cat=${detail.categories[0].id}`} className="hover:text-foreground">
+              {detail.categories[0].name}
             </Link>
           </>
         )}
@@ -117,15 +118,16 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               <span className="font-heading text-[15.5px] font-bold">
                 {detail.authorName ?? "Anonim"}
               </span>
-              <RolePill roleMain={detail.authorRoleMain} verified={verified} />
-              {detail.categoryName && (
+              <RolePill roleMain={detail.authorRoleMain} subRole={detail.authorSubRole} verified={verified} />
+              {detail.categories.map((c) => (
                 <Link
-                  href={`/feed?cat=${detail.categoryId}`}
+                  key={c.id}
+                  href={`/feed?cat=${c.id}`}
                   className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary"
                 >
-                  {detail.categoryName}
+                  {c.name}
                 </Link>
-              )}
+              ))}
               <span className="font-mono text-xs text-muted-foreground">
                 · publicat {formatDate(detail.createdAt)}
               </span>
@@ -136,19 +138,33 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               )}
             </div>
 
-            {/* zone climatice / seismice */}
-            {(detail.climateZone || detail.seismicZone) && (
+            {/* parametri tehnici */}
+            {(detail.climateZone ||
+              detail.seismicAg !== "General" ||
+              detail.seismicTc !== "General" ||
+              detail.snowLoad !== "General" ||
+              detail.windLoad !== "General") && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {detail.climateZone && (
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
                     <Snowflake className="size-3 text-[#5e6f8a]" strokeWidth={2} />
-                    Zonă climatică {detail.climateZone}
+                    {detail.climateZone}
                   </span>
                 )}
-                {detail.seismicZone && (
+                {(detail.seismicAg !== "General" || detail.seismicTc !== "General") && (
                   <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
                     <Activity className="size-3 text-primary" strokeWidth={2} />
-                    Zonă seismică {detail.seismicZone}
+                    Seismic a_g {detail.seismicAg} · Tc {detail.seismicTc}
+                  </span>
+                )}
+                {detail.snowLoad !== "General" && (
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
+                    Încărcare zăpadă {detail.snowLoad}
+                  </span>
+                )}
+                {detail.windLoad !== "General" && (
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
+                    Încărcare vânt {detail.windLoad}
                   </span>
                 )}
               </div>
@@ -275,6 +291,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
                     )}
                     <RolePill
                       roleMain={r.authorRoleMain}
+                      subRole={r.authorSubRole}
                       verified={r.authorVerification === "VERIFIED"}
                     />
                     <span className="font-mono text-[11px] text-[#a59a88]">

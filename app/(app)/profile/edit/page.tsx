@@ -4,7 +4,6 @@ import { redirect } from "next/navigation";
 
 import { EditProfileHeader } from "@/components/edit-profile-header";
 import { auth } from "@/lib/auth";
-import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { getUserProfile } from "@/server/repos/usersRepo";
 import { getUserRole } from "@/server/services/roleService";
 
@@ -33,7 +32,8 @@ export default async function ProfileEditPage() {
   const image = profile?.image ?? session.user.image ?? null;
   const cover = profile?.coverImage ?? null;
   const coverPosition = profile?.coverPosition ?? 50;
-  const roleLabel = `${ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain}${role.subRole ? ` · ${role.subRole}` : ""}`;
+  // Doar meseria apare în platformă — rolul principal e doar grupare la alegere (lista_meserii.md).
+  const roleLabel = role.subRole ?? role.roleMain;
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 pb-16 pt-5">

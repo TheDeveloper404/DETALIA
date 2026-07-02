@@ -84,9 +84,10 @@ export function DetailCard({
           sizes="(max-width: 640px) 100vw, 200px"
           className="object-cover"
         />
-        {detail.categoryName && (
+        {detail.categories.length > 0 && (
           <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary">
-            {detail.categoryName}
+            {detail.categories[0].name}
+            {detail.categories.length > 1 && ` +${detail.categories.length - 1}`}
           </span>
         )}
       </Link>
@@ -117,6 +118,7 @@ export function DetailCard({
           </span>
           <RolePill
             roleMain={detail.authorRoleMain}
+            subRole={detail.authorSubRole}
             verified={detail.authorVerification === "VERIFIED"}
           />
         </div>

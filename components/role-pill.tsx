@@ -1,7 +1,9 @@
-// Pastilă de rol — rolul afișat lângă nume, colorat pe rol principal + steluță galbenă dacă e VERIFICAT.
-// Greutatea o judecă cititorul după rol; noi doar îl afișăm corect și transparent (fără scoring).
+// Pastilă de rol — MESERIA (subRole) afișată lângă nume, colorat pe rolul principal (grupare internă,
+// invizibilă) + steluță galbenă dacă e VERIFICAT. Rolul principal NU se mai afișează (lista_meserii.md,
+// decizie Edi): „Eduard Nemeș · Arhitect", nu „Proiectant · Arhitect" — se subînțelege din meserie.
+// Greutatea o judecă cititorul după meserie; noi doar o afișăm corect și transparent (fără scoring).
 // Culorile sunt specifice acestui marker (nu tokeni shadcn), deci stau inline.
-import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
+import type { RoleMain } from "@/server/domain/roles";
 
 const ROLE_STYLE: Record<RoleMain, { bg: string; fg: string }> = {
   PROIECTANT: { bg: "#a9573a", fg: "#ffffff" }, // teracotă
@@ -12,15 +14,17 @@ const ROLE_STYLE: Record<RoleMain, { bg: string; fg: string }> = {
 
 export function RolePill({
   roleMain,
+  subRole,
   verified,
 }: {
   roleMain: string | null;
+  subRole?: string | null;
   verified: boolean;
 }) {
   if (!roleMain) return null;
   const key = roleMain as RoleMain;
   const style = ROLE_STYLE[key] ?? ROLE_STYLE.BENEFICIAR;
-  const label = ROLE_MAIN_LABELS[key] ?? roleMain;
+  const label = subRole ?? roleMain;
 
   return (
     <span className="inline-flex items-center gap-1">

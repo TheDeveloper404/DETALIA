@@ -119,13 +119,19 @@ hostingul (~$0–20/lună).** Restul stă pe free tier la traficul de început.
 
 ## 3. Modelul de roluri și validarea rolului
 
-### Roluri principale (4) + subroluri
-- **PROIECTANT** → arhitect, inginer structurist, inginer instalații (HVAC/electrice/sanitare), ...
-- **EXECUTANT** → constructor, antreprenor, meșter specializat, ...
-- **FURNIZOR** → producător materiale, distribuitor, ...
-- **BENEFICIAR** → proprietar, dezvoltator, ...
+### Roluri principale (4) + meserii (subroluri) — listă finală confirmată de Edi (2026-07-02)
+- **PROIECTANT** → arhitect, inginer constructor, inginer instalații electrice/termice-HVAC/sanitare,
+  inginer geotehnician, inginer topograf, verificator proiecte, expert tehnic, auditor energetic,
+  peisagist, designer de interior, BIM Manager.
+- **EXECUTANT** → constructor general, meșter, electrician, instalator, montator tâmplării, diriginte
+  de șantier, RTE.
+- **FURNIZOR** → producător materiale, distribuitor materiale, agent vânzări materiale.
+- **BENEFICIAR** → beneficiar documentat, dezvoltator imobiliar.
+- **Rol adițional opțional** (Administrativ/Educație — arhitect șef, ISC, OCPI, cadru didactic etc.),
+  ADITIV peste meseria de bază, nu o înlocuiește. Vezi `server/domain/roles.ts`.
 
-(Lista exactă de subroluri o livrează Edi; structura o suportă deja: rol principal + subrol.)
+Rolul principal NU se mai afișează în platformă — doar meseria (subrolul), lângă nume. Sursă:
+`lista_meserii.md` (poate fi ștearsă, conținutul e în cod; vezi CHANGELOG 2026-07-02).
 
 ### Rol declarat vs. verificat — abordare în trepte (confirmat de Edi)
 Logica: **rolul și-l declară userul singur la signup** (acces imediat → frecare minimă la primul contact),
@@ -423,7 +429,9 @@ confirmi stack-ul.
 - **Schițarea colaborativă = obligatorie în MVP**; model asincron GitHub-style; fill slab pe detaliul-mamă;
   unelte = culori stridente + 3 grosimi + radieră + undo/redo.
 - **Notificări in-app + email** de la început.
-- **Zone climatice/seismice = listă fixă** + opțiune „General" (cu atenționare că datele reale dau greutate).
+- **Zone climatice/seismice + încărcare zăpadă/vânt = liste fixe** (implementat 2026-07-02): zonă
+  climatică Zona I–IV, seismic a_g + Tc separate, opțiune „General" pe restul (cu atenționare că
+  datele reale dau greutate). Sursă: `lista_categorii.md` (poate fi ștearsă).
 - **Upload detalii = DESCHIS** userilor cu rol declarat (moderare post-publicare); seed inițial prin conturi reale.
 - **Acces = PUBLIC** (înregistrare deschisă, fără invitație); schela de invitație rămâne dormantă în cod.
 - **Feed ~20** detalii după interacțiuni; căutare pe filtre la început.

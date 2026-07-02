@@ -144,6 +144,7 @@ export const roles = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     roleMain: roleMain().notNull(),
     subRole: text(),
+    secondaryRole: text(), // rol aditiv opțional (Administrativ/Educație) — peste meseria de bază
     verificationStatus: verificationStatus().notNull().default("DECLARED"),
     verificationEvidence: text(), // nr. OAR / CUI — PII, nu se loghează
     verifiedByAdminId: uuid().references(() => users.id),
@@ -179,11 +180,13 @@ export const details = pgTable(
     authorId: uuid()
       .notNull()
       .references(() => users.id),
-    categoryId: uuid()
-      .notNull()
-      .references(() => categories.id),
-    climateZone: text().notNull().default("General"),
-    seismicZone: text().notNull().default("General"),
+    // Zona climatică n-are variantă neutră în lista Edi (Zona I..IV) → nullable, fără default.
+    climateZone: text(),
+    // Ceilalți parametri tehnici au „General" ca variantă neutră în listă (lista_categorii.md).
+    seismicAg: text().notNull().default("General"),
+    seismicTc: text().notNull().default("General"),
+    snowLoad: text().notNull().default("General"),
+    windLoad: text().notNull().default("General"),
     imageUrl: text().notNull(),
     status: text().notNull().default("PUBLISHED"),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -192,9 +195,23 @@ export const details = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
+  (t) => [index("details_author_id_idx").on(t.authorId)],
+);
+
+// Categorii bifate pe un detaliu — many-to-many (Edi: „bifezi oricâte", stil tag Pinterest).
+export const detailCategories = pgTable(
+  "detail_categories",
+  {
+    detailId: uuid()
+      .notNull()
+      .references(() => details.id, { onDelete: "cascade" }),
+    categoryId: uuid()
+      .notNull()
+      .references(() => categories.id),
+  },
   (t) => [
-    index("details_author_id_idx").on(t.authorId),
-    index("details_category_id_idx").on(t.categoryId),
+    primaryKey({ columns: [t.detailId, t.categoryId] }),
+    index("detail_categories_category_id_idx").on(t.categoryId),
   ],
 );
 
