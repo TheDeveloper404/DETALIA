@@ -43,11 +43,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       maxAge: magicLinkMaxAgeSeconds,
       // Email brand DETALIA pentru magic link (înlocuiește template-ul default Resend).
       async sendVerificationRequest({ identifier: email, url }) {
+        // Anti-prefetch: NU trimitem direct linkul de callback Auth.js (unele clienți de mail îl
+        // „vizitează" automat pentru scanare și consumă tokenul one-time înainte de click-ul real).
+        // Trimitem în schimb linkul către /verify-click, care cere un click real. Vezi acel fișier.
+        const base = process.env.AUTH_URL ?? "http://localhost:3000";
+        const clickThroughUrl = `${base}/verify-click?u=${encodeURIComponent(url)}`;
         const ok = await sendEmail({
           to: email,
           subject: "Conectează-te în DETALIA",
-          html: magicLinkEmailHtml(url, magicLinkTtlMinutes),
-          text: magicLinkEmailText(url, magicLinkTtlMinutes),
+          html: magicLinkEmailHtml(clickThroughUrl, magicLinkTtlMinutes),
+          text: magicLinkEmailText(clickThroughUrl, magicLinkTtlMinutes),
         });
         if (!ok) throw new Error("MAGIC_LINK_EMAIL_FAILED");
       },
