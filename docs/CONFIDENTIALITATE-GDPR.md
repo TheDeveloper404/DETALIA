@@ -2,8 +2,8 @@
 
 > ⚠️ **Risc real, nu birocrație — acum mai urgent.** DETALIA colectează **emailuri**, **dovezi de verificare rol
 > (nr. OAR / CUI)** și **conținut încărcat de useri** (detalii + schițe, imagini ce pot conține PII) = date cu
-> caracter personal, în RO/UE. **Decizia de acces e PUBLIC** (înregistrare deschisă, upload deschis userilor — Edi,
-> iunie 2026), deci NU mai există faza „beta închis cu cunoscuți" în care riscul era mic: **nota de confidențialitate
+> caracter personal, în RO/UE. **Decizia de acces e PUBLIC** (înregistrare deschisă, upload deschis userilor,
+> confirmat iunie 2026), deci NU mai există faza „beta închis cu cunoscuți" în care riscul era mic: **nota de confidențialitate
 > + ToS trebuie publicate ÎNAINTE de lansarea publică**, nu „mai târziu". Acest document e **nota de lucru** +
 > scheletul textelor — **nu** consultanță juridică. Înainte de public: revizuire de jurist.
 
@@ -82,7 +82,7 @@ Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în 
 | Resend | trimitere email (adrese) | DPA disponibil |
 | Vercel Blob | imagini/thumbnail-uri | fără PII direct |
 
-> Ce ține de Edi aici (entitatea operator, regiunea DB) → **`docs/DECIZII-EDI.md`**.
+> Decizii deschise aici (entitatea operator, regiunea DB) → `.remember/remember.md` §„Decizii / HOLD".
 
 ---
 
@@ -91,4 +91,4 @@ Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în 
 - [x] Principii aplicate în arhitectură (minimizare, fără PII în loguri, tokenuri one-time).
 - [ ] **Înainte de Val 2 / public:** publicare Notă confidențialitate + ToS (revizuite de jurist).
 - [x] Flux automat de ștergere cont + date (anonimizare, 2026-06-28 — vezi §2).
-- [ ] Confirmare regiune UE pentru Neon + entitatea operator → vezi `docs/DECIZII-EDI.md`.
+- [ ] Confirmare regiune UE pentru Neon + entitatea operator (firmă/SRL) → vezi `.remember/remember.md` §„Decizii / HOLD".

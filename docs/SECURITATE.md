@@ -265,7 +265,7 @@ PII nu este logat, ceea ce este corect, dar lipsesc evenimente pentru volum anor
 
 #### INFO-01 — Signupul este public (invitațiile au fost eliminate)
 
-Comportament declarat (decizie Edi): înregistrare publică prin magic link. Logica de invitații a fost eliminată
+Comportament declarat: înregistrare publică prin magic link. Logica de invitații a fost eliminată
 complet (2026-06-28). Dacă produsul ar trebui vreodată să fie beta închis, se reconstruiește un mecanism de acces nou.
 
 #### INFO-02 — `trustHost: true` depinde de deployment
@@ -330,7 +330,7 @@ Fără acestea, lansarea publică e oprită (verdict actual: BLOCAT).
    `validateDetailInput`/`isHttpUrl` allowlist URL, `normalizeWebsite`, `BLOB_URL_RE` allowlist Blob anti-SSRF,
    `hashEmail`/`checkLimit` fail-open) + servicii cu repo-uri mock-uite (`sketchService`: IDOR autor schiță/autor
    mamă + atomicitate send/accept/reject fără notificare la cursă pierdută; `validationService`: NO_ROLE,
-   justificare obligatorie, fără comentariu duplicat). `HUMAN_RUNS_TESTS` → Liviu rulează `npm test`.
+   justificare obligatorie, fără comentariu duplicat). `HUMAN_RUNS_TESTS` → userul rulează `npm test`.
 6. ✅ **SEC-07 — Tranziții atomice** (rezolvat 2026-06-28, vezi CHANGELOG). Accept/reject erau deja atomice;
    adăugat guard atomic și pe SEND (`transitionFromDraft`, `WHERE author_id AND status='DRAFT'`) → notificare doar pe
    câștigătorul tranziției (idempotent, fără email dublu). Outbox = nenecesar la altitudinea asta.

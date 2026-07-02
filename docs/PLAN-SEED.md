@@ -2,7 +2,8 @@
 
 > Pe scurt: la lansare platforma nu trebuie să fie goală. Punem NOI niște detalii bune de la început,
 > ca oamenii să intre, să vadă conținut și să înceapă discuția. Asta înseamnă „seed".
-> Lucrurile care depind de Edi (categorii, cine pune conținutul, praguri) → **`docs/DECIZII-EDI.md`**.
+> Categoriile au răspuns și sunt implementate (CHANGELOG 2026-07-02). Cine pune conținutul de start +
+> primii oameni aduși = decis, dar NEEXECUTAT — vezi `.remember/remember.md`.
 
 ---
 

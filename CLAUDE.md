@@ -3,7 +3,7 @@
 > Acest fișier completează regulile globale (`C:\dev\persist\claude\CLAUDE.md` — proces, clasificare,
 > quality gates, securitate) cu **specificul DETALIA**: domeniu, model de date, reguli de business, structură.
 > Globalul câștigă pe proces/securitate; aici stă „ce înseamnă lucrurile" în acest produs.
-> Arhitectura completă: `docs/ARHITECTURA.md`. Varianta non-tehnică + întrebări pentru Edi: `docs/plan nontehnic.md`.
+> Arhitectura completă: `docs/ARHITECTURA.md`. Varianta non-tehnică: `docs/plan nontehnic.md`.
 
 ---
 
@@ -11,8 +11,8 @@
 Comunitate profesională din construcții, organizată în jurul **detaliului de execuție**. Modelul mental:
 **„GitHub pentru construcții"** — detaliu = repo, schiță = fork+PR, validare = code review. Faza curentă:
 **validare de piață** (cost ~$0, livrare rapidă, fundație care scalează fără rescriere). Lansare = **acces
-public deschis** (înregistrare liberă), cu **conținut seed** pus la început prin conturi reale (Edi + useri
-aduși din toate categoriile) ca platforma să nu fie goală la primul contact.
+public deschis** (înregistrare liberă), cu **conținut seed** pus la început prin conturi reale (echipa +
+useri aduși din toate categoriile) ca platforma să nu fie goală la primul contact.
 
 Întrebarea pe care MVP-ul o testează: *dacă pun un detaliu bun în față, se aprinde dezbaterea pe roluri?*
 
@@ -56,20 +56,20 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
 ```
 DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, public)
 ```
-- **Simplificat 2026-06-30 (decizie Edi):** schițele se publică **direct** (fără coadă de acceptare). Modelul
+- **Simplificat 2026-06-30:** schițele se publică **direct** (fără coadă de acceptare). Modelul
   „accept autor-mamă" a fost eliminat. *(Valorile `PENDING_ACCEPTANCE`/`REJECTED` rămân în enumul DB doar pentru
   date istorice — nu se mai produc.)*
 - **Moderare POST-publicare:** autorul detaliului-mamă **SAU** autorul schiței poate **ȘTERGE** o schiță
   (`deleteSketch`, ownership pe server, cascadă validări+comentarii+blob). Nu există aprobare/respingere.
 - La PUBLISH → `Notification` către autorul detaliului-mamă („X a schițat peste «detaliu» → vezi în teanc").
   La ștergerea de către autorul-mamă → `Notification` (`SKETCH_DELETED`) către autorul schiței.
-  **Notificările merg in-app ȘI pe email de la început** (via Resend) — Edi le vrea pentru brand awareness/recall.
+  **Notificările merg in-app ȘI pe email de la început** (via Resend), pentru brand awareness/recall.
 - **Validarea pe propriul conținut e interzisă** (`CANNOT_VALIDATE_OWN`, enforce pe server): autorul nu vede
   Aprob/Dezaprob pe propriul detaliu/schiță. Aprobarea propriului conținut e implicită prin publicare.
 - **Dezaprobare = alegere binară** (pe detaliu): „Scrie o justificare" (text → comentariu) SAU „Fă o schiță"
   (desenul **e** justificarea). La varianta schiță, poziția DISAPPROVE + comentariul se materializează **la
   publicarea schiței** (draft marcat `disapprovesParent`), nu la click → fără „dezaprobare mută" la abandon.
-- Schițarea e **asincronă** (fiecare foaie un autor). **FĂRĂ co-desenare real-time în MVP.** (Model confirmat de Edi.)
+- Schițarea e **asincronă** (fiecare foaie un autor). **FĂRĂ co-desenare real-time în MVP.** (Model confirmat.)
 - Stroke-uri stocate **vectorial** (`strokesJson`, coordonate **normalizate 0..1** față de imaginea-mamă).
   La publicare se randează **o singură dată** un thumbnail PNG (Blob) pentru hover-slideshow/liste.
 - **UX la intrarea în modul schiță:** detaliul-mamă se afișează cu **fill slab** (intensitate redusă, nu la
@@ -82,7 +82,7 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 > **Două porți distincte, nu le confunda:** Poarta 1 = **accesul** (cine intră în platformă).
 > Poarta 2 = **credibilitatea** (cât „cântărești" odată intrat → rol declarat → verificat). Sunt independente.
 
-- **Poarta 1 — acces: PUBLIC (confirmat de Edi, iunie 2026).** Înregistrare deschisă, fără invitație. Flux:
+- **Poarta 1 — acces: PUBLIC (confirmat, iunie 2026).** Înregistrare deschisă, fără invitație. Flux:
   landing → „creare cont" → email → magic link → onboarding profil (rol, subrol, poză) → feed. *(Logica de
   invitații a fost eliminată complet — 2026-06-28, vezi CHANGELOG; dacă vreodată se vrea acces restricționat,
   se construiește un mecanism nou de la zero.)*
@@ -92,10 +92,10 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
   user), **opțional, fără blocare**. Rol neverificat = **funcțional 100%**. Nu stresăm pe nimeni: doar un
   **nudge blând permanent** („Rolul tău nu e verificat → Verifică rolul"). Userii vin **singuri** să se
   verifice, motivați de credibilitate (rol verificat „cântărește" mai mult în ochii cititorului). La verificare
-  le cerem niște date; **aprobarea e manuală (admin/Edi)** în MVP; OAR/CUI auto = ulterior. Odată verificat →
+  le cerem niște date; **aprobarea e manuală (admin)** în MVP; OAR/CUI auto = ulterior. Odată verificat →
   **badge cu steluță galbenă** lângă rol (poziția UI exactă — lângă rol și/sau avatar — se decide la implementare).
   Fără scoring numeric: greutatea e dată de rol + faptul că e verificat, judecată de cititor.
-- **Upload de detalii DESCHIS userilor (confirmat de Edi, iunie 2026).** Orice user autentificat cu **rol
+- **Upload de detalii DESCHIS userilor (confirmat, iunie 2026).** Orice user autentificat cu **rol
   declarat** poate publica detalii (nu trebuie să fie verificat). **Moderare post-publicare** (publici direct,
   ștergem abuzurile ulterior) — fără cozi de aprobare în MVP. Calitatea o dă validarea/dezbaterea pe roluri.
   Seed-ul inițial e tot prin conturi reale (vezi mai jos), dar uploadul NU mai e limitat la admin/seed.
@@ -154,7 +154,7 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 - **Teste:** marker `HUMAN_RUNS_TESTS` activ → **userul rulează testele**. Eu le scriu + spun ce/unde.
   `tsc --noEmit` / `next build` le pot rula eu (nu-s „teste").
 - După schimbări de **tipuri/schemă** → rulez **build / type-check**, nu doar mă bazez pe teste.
-- **Git:** Liviu comite/push singur din **VS Code Source Control**. Eu las **mesaj de commit sugerat** după
+- **Git:** userul comite/push singur din **VS Code Source Control**. Eu las **mesaj de commit sugerat** după
   fiecare set de modificări. Nu raportez ce e comis. Niciodată direct pe `main` (`dev` → PR).
 - **Documentație** în `docs/`. **Changelog detaliat cu dată** în `docs/CHANGELOG.md` (cel mai recent sus).
 - **Handoff** „unde am rămas" în `.remember/remember.md` după fiecare oprire. **Handoff-ul = briefing, nu arhivă:**
@@ -173,23 +173,25 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 
 ---
 
-## Decizii confirmate de Edi (iunie 2026)
+## Decizii de produs confirmate
 - **Login passwordless: magic link (Resend)** — confirmat. **Fără parolă.** *(Google OAuth a fost scos pentru MVP — vezi CHANGELOG 2026-06-23; schela de re-adăugare rămâne documentată în `lib/auth.ts`.)*
 - **Acces PUBLIC** (înregistrare deschisă, fără invitație) — confirmat. Flux: landing → creare cont → email
   magic link → onboarding profil (rol, subrol, poză) → feed.
 - **Upload de detalii DESCHIS** oricărui user cu rol declarat (nu doar admin/seed) — confirmat. Moderare post-publicare.
-- **Taxonomia de categorii + subrolurile** — OK pentru MVP (Edi se mai gândește la roluri în viitor, dar nu blochează).
-- **Seed 50–100 detalii** (~2 per categorie, proporțional cu nr. categoriilor), prin **conturi reale** (Edi +
-  useri aduși din toate categoriile principale + portofoliul lui Edi) — ca platforma să nu fie goală la start.
+- **Taxonomia de categorii + meseriile** — finalizate și implementate 2026-07-02 (vezi CHANGELOG).
+- **Zone climatice/seismice + încărcare zăpadă/vânt** — liste fixe, implementate 2026-07-02 (vezi CHANGELOG).
+- **Resurse suplimentare** — rămân IMAGE/LINK/PDF/TEXT (nu doar imagini).
+- **Seed 50–100 detalii** (~2 per categorie, proporțional cu nr. categoriilor), prin **conturi reale** (echipa +
+  useri aduși din toate categoriile principale) — ca platforma să nu fie goală la start. *(Decis, neexecutat —
+  vezi `.remember/remember.md`.)*
 - **Schiță asincronă GitHub-style** (o foaie = un autor, NU real-time) — confirmat. Schițarea = **feature obligatoriu în MVP**.
-- **Un singur rol per user** (nu roluri multiple).
+- **Un singur rol per user** (nu roluri multiple), plus **rol adițional opțional** (Administrativ/Educație), aditiv.
 - **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin).
 - **Verificarea rolului = „pull, nu push"** — opțională, fără blocare, rol neverificat funcțional 100%, nudge
   blând; userii vin singuri să se verifice, motivați de credibilitate. Fără scoring numeric.
 - Notificări **in-app + email** de la început.
 
-## Decizii deschise (pentru Edi)
-- **Zone climatice/seismice** — listă fixă concretă: **pe HOLD** (ne mai gândim cum o facem).
+## Decizii deschise
 - **Surse de verificare automată a rolului** (OAR/CUI confirmate?), dincolo de manual-admin: **pe HOLD**.
-- Câte resurse suplimentare per detaliu (2–3) și ce tipuri (imagine/link/PDF).
-- `DATABASE_URL` (Neon) — îl dă Liviu/Edi mai târziu (blochează rularea, nu codul).
+- Vezi `.remember/remember.md` §„Decizii / HOLD" pentru lista completă la zi (Termeni și Condiții, firmă/SRL,
+  specializări pe profil).
