@@ -1,22 +1,16 @@
-import { Activity, FileText, ImageIcon, Link as LinkIcon, Snowflake } from "lucide-react";
-import Image from "next/image";
+import { FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
 import { auth } from "@/lib/auth";
-import { formatDate } from "@/lib/format";
 import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
 import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/detailService";
 import { getTeanc } from "@/server/services/sketchService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
-import { CommentsSection } from "./comments-section";
-import { DetailActionsMenu } from "./detail-actions-menu";
-import { SketchSection, type SketchItem } from "./sketch-section";
-import { ValidationPanel } from "./validation-panel";
+import { DetailWorkspace, type WorkspaceSketch } from "./detail-workspace";
 
 type SketchRow = {
   id: string;
@@ -29,17 +23,20 @@ type SketchRow = {
   authorVerification: string | null;
 };
 
-// Mapează un rând de schiță (cu strokesJson jsonb) la forma serializabilă pt client.
-function toSketchItem(r: SketchRow): SketchItem {
+// Mapează un rând de schiță (cu strokesJson jsonb) la forma serializabilă pt workspace (autor + stroke-uri).
+function toWorkspaceSketch(r: SketchRow, validation: WorkspaceSketch["validation"]): WorkspaceSketch {
   return {
     id: r.id,
-    authorId: r.authorId,
-    authorName: r.authorName,
-    authorImage: r.authorImage,
-    authorRoleMain: r.authorRoleMain,
-    authorSubRole: r.authorSubRole,
-    authorVerification: r.authorVerification,
+    author: {
+      id: r.authorId,
+      name: r.authorName,
+      image: r.authorImage,
+      roleMain: r.authorRoleMain,
+      subRole: r.authorSubRole,
+      verification: r.authorVerification,
+    },
     strokes: (r.strokesJson as Stroke[] | null) ?? [],
+    validation,
   };
 }
 
@@ -69,14 +66,13 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
   const validation = await getTargetValidationView("DETAIL", detail.id, userId);
   const comments = await getComments("DETAIL", detail.id);
 
-  // Schițele publicate (teancul) + dezbaterea fiecăreia (validare + comentarii pe SKETCH).
+  // Schițele publicate (teancul), fiecare cu validarea ei per-țintă (per-SKETCH RĂMÂNE). Dezbaterea NU mai
+  // e per-schiță → nu mai fetchăm comentarii pe SKETCH (câștig de perf: elimină N query-uri).
   const teancRows = await getTeanc(detail.id);
-  const published = await Promise.all(
-    teancRows.map(async (r) => ({
-      ...toSketchItem(r),
-      validation: await getTargetValidationView("SKETCH", r.id, userId),
-      comments: await getComments("SKETCH", r.id),
-    })),
+  const sketches = await Promise.all(
+    teancRows.map(async (r) =>
+      toWorkspaceSketch(r, await getTargetValidationView("SKETCH", r.id, userId)),
+    ),
   );
   const related = await getRelatedDetails(
     detail.id,
@@ -84,7 +80,6 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
     5,
   );
 
-  const verified = detail.authorVerification === "VERIFIED";
   const isAuthor = detail.authorId === userId;
   const saved = await isDetailSaved(userId, detail.id);
 
@@ -108,167 +103,65 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
       </nav>
 
       <div className="flex min-w-0 flex-col gap-7">
-          {/* ===== ANTET DETALIU ===== */}
-          <div>
-            <h1 className="mb-4 font-heading text-[32px] font-extrabold leading-[1.14] tracking-tight text-balance">
-              {detail.title}
-            </h1>
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <AvatarInitials name={detail.authorName} imageUrl={detail.authorImage} size={38} />
-              <span className="font-heading text-[15.5px] font-bold">
-                {detail.authorName ?? "Anonim"}
+          {/* ===== RESURSE (opționale) — imaginea 2D trăiește acum în viewportul workspace-ului (tab 0) ===== */}
+          {detail.resources.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="mr-0.5 font-mono text-[11px] uppercase tracking-wider text-[#a59a88]">
+                Resurse
               </span>
-              <RolePill roleMain={detail.authorRoleMain} subRole={detail.authorSubRole} verified={verified} />
-              {detail.categories.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/feed?cat=${c.id}`}
-                  className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary"
-                >
-                  {c.name}
-                </Link>
-              ))}
-              <span className="font-mono text-xs text-muted-foreground">
-                · publicat {formatDate(detail.createdAt)}
-              </span>
-              <span className="ml-auto">
-                <DetailActionsMenu
-                  detailId={detail.id}
-                  authorId={detail.authorId}
-                  isAuthor={isAuthor}
-                  isSaved={saved}
-                />
-              </span>
+              {detail.resources.map((r) => {
+                const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
+                const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
+                const chip = (
+                  <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground/80">
+                    <Icon className="size-3.5 text-[#5e6f8a]" strokeWidth={1.8} />
+                    <span className="max-w-[28ch] truncate">{label}</span>
+                  </span>
+                );
+                return r.type === "TEXT" || !r.url ? (
+                  <span key={r.id}>{chip}</span>
+                ) : (
+                  <a
+                    key={r.id}
+                    href={r.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="transition-colors hover:[&>span]:border-primary"
+                  >
+                    {chip}
+                  </a>
+                );
+              })}
             </div>
+          )}
 
-            {/* parametri tehnici */}
-            {(detail.climateZone ||
-              detail.seismicAg !== "General" ||
-              detail.seismicTc !== "General" ||
-              detail.snowLoad !== "General" ||
-              detail.windLoad !== "General") && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
-                {detail.climateZone && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-                    <Snowflake className="size-3 text-[#5e6f8a]" strokeWidth={2} />
-                    {detail.climateZone}
-                  </span>
-                )}
-                {(detail.seismicAg !== "General" || detail.seismicTc !== "General") && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-                    <Activity className="size-3 text-primary" strokeWidth={2} />
-                    Seismic a_g {detail.seismicAg} · Tc {detail.seismicTc}
-                  </span>
-                )}
-                {detail.snowLoad !== "General" && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-                    Încărcare zăpadă {detail.snowLoad}
-                  </span>
-                )}
-                {detail.windLoad !== "General" && (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-                    Încărcare vânt {detail.windLoad}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {detail.description && (
-              <div className="mt-4 whitespace-pre-wrap text-[15.5px] leading-relaxed text-foreground/80 text-pretty">
-                {detail.description}
-              </div>
-            )}
-          </div>
-
-          {/* ===== IMAGINEA 2D ===== */}
-          <figure className="m-0">
-            <div className="relative overflow-hidden rounded-2xl border border-[#e6ddcf] bg-[#faf7f1]">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-50"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
-                  backgroundSize: "28px 28px",
-                }}
-              />
-              <div className="relative z-[1] flex items-center justify-center p-6">
-                <div className="relative aspect-[4/3] w-full max-w-2xl">
-                  <Image
-                    src={detail.imageUrl}
-                    alt={detail.title}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* resurse (opționale) */}
-            {detail.resources.length > 0 && (
-              <figcaption className="mt-3.5 flex flex-wrap items-center gap-2.5">
-                <span className="mr-0.5 font-mono text-[11px] uppercase tracking-wider text-[#a59a88]">
-                  Resurse
-                </span>
-                {detail.resources.map((r) => {
-                  const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
-                  const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
-                  const chip = (
-                    <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground/80">
-                      <Icon className="size-3.5 text-[#5e6f8a]" strokeWidth={1.8} />
-                      <span className="max-w-[28ch] truncate">{label}</span>
-                    </span>
-                  );
-                  return r.type === "TEXT" || !r.url ? (
-                    <span key={r.id}>{chip}</span>
-                  ) : (
-                    <a
-                      key={r.id}
-                      href={r.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition-colors hover:[&>span]:border-primary"
-                    >
-                      {chip}
-                    </a>
-                  );
-                })}
-              </figcaption>
-            )}
-          </figure>
-
-          {/* ===== VALIDARE PE ROLURI ===== */}
-          <ValidationPanel
-            targetType="DETAIL"
-            targetId={detail.id}
-            detailId={detail.id}
-            allowSketch
-            canValidate={!isAuthor}
-            counts={validation.counts}
-            myPosition={validation.myPosition}
-            positions={validation.positions}
-            meta={{ comments: comments.length, sketches: published.length }}
-          />
-
-          {/* ===== TEANCUL DE SCHIȚE ===== */}
-          <SketchSection
+          {/* ===== WORKSPACE UNIFICAT (taburi: detaliu de bază + schițe) + dezbatere unificată ===== */}
+          <DetailWorkspace
             detailId={detail.id}
             imageUrl={detail.imageUrl}
-            published={published}
+            header={{
+              title: detail.title,
+              description: detail.description,
+              createdAt: detail.createdAt,
+              categories: detail.categories,
+              climateZone: detail.climateZone,
+              seismicAg: detail.seismicAg,
+              seismicTc: detail.seismicTc,
+              snowLoad: detail.snowLoad,
+              windLoad: detail.windLoad,
+              isSaved: saved,
+            }}
+            detailAuthor={{
+              id: detail.authorId,
+              name: detail.authorName,
+              image: detail.authorImage,
+              roleMain: detail.authorRoleMain,
+              subRole: detail.authorSubRole,
+              verification: detail.authorVerification,
+            }}
+            detailValidation={validation}
             isDetailAuthor={isAuthor}
-            currentUserId={session.user.id}
-            currentUserName={session.user.name}
-            currentUserImage={session.user.image}
-          />
-
-          {/* ===== DEZBATERE (DETALIU) ===== */}
-          <CommentsSection
-            targetType="DETAIL"
-            targetId={detail.id}
-            detailId={detail.id}
+            sketches={sketches}
             comments={comments}
             currentUserId={session.user.id}
             currentUserName={session.user.name}
