@@ -12,6 +12,10 @@
 //
 // NU importă `node:crypto` (sau alt API node-only) → sigur și în runtime edge (ex. `proxy.ts`).
 // Hash-uirea unui identificator sensibil se face de apelant (vezi `hashEmail`/hashing din `lib/rate-limit.ts`).
+//
+// warning/error → trimise ȘI către Sentry (`Sentry.captureMessage`, tag `audit_event`), pentru ca alertele
+// Sentry (deja live) să le poată prinde — altfel evenimentele stăteau doar în Vercel Logs, nevăzute activ.
+import * as Sentry from "@sentry/nextjs";
 
 export type AuditSeverity = "info" | "warning" | "error";
 
@@ -32,6 +36,13 @@ export function audit(
   try {
     // O singură linie JSON, prefix stabil pentru filtrare ușoară în Vercel Logs.
     console.log(JSON.stringify({ audit: true, ts: new Date().toISOString(), severity, event, ...fields }));
+    if (severity !== "info") {
+      Sentry.captureMessage(event, {
+        level: severity === "error" ? "error" : "warning",
+        tags: { audit_event: event },
+        extra: fields,
+      });
+    }
   } catch {
     // logging best-effort — nu propagăm niciodată o eroare de audit.
   }

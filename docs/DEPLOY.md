@@ -1,8 +1,9 @@
 # DEPLOY — DETALIA
 
-> Ghid operațional: cum e deployat proiectul și ce pași mai rămân până la „domeniu real + login real".
-> Ordinea contează — fiecare pas depinde de cel dinainte. Valorile concrete (nameservere, chei DKIM etc.)
-> se generează în dashboard-urile respective; aici sunt marcate cu `← din dashboard`.
+> **`detalia.ro` e LIVE în producție din 2026-06-29** (domeniu, DNS, Resend, login magic-link — toate
+> confirmate atunci; DNS = Cloudflare DNS-only confirmat din nou 2026-07-02, vezi `.remember/remember.md`).
+> Secțiunile 3–7 de mai jos sunt runbook-ul de setup **inițial, deja executat** — rămân ca referință istorică
+> / pentru o eventuală migrare de domeniu viitoare, NU ca listă de pași rămași. Evergreen: secțiunile 1, 2, 2b, 2c.
 
 ---
 
@@ -10,30 +11,29 @@
 
 | Serviciu | Ce face | Stare |
 |---|---|---|
-| **Vercel** | Hosting app (Next.js) + preview/prod | ✅ Configurat |
+| **Vercel** | Hosting app (Next.js) + preview/prod | ✅ Configurat, live |
 | **Neon** | Postgres (DB) + branching per preview | ✅ Configurat (integrare nativă Vercel) |
 | **Vercel Blob** | Stocare imagini detalii + thumbnail-uri schiță | ✅ Configurat (`detalia-blob-public`) |
-| **Resend** | Trimitere email tranzacțional (magic-link + notificări) | ⏸️ Nesetat — depinde de DNS |
-| **Google Workspace** | Email pe domeniu (`support@detalia.ro` etc.) | ⏸️ De configurat — depinde de DNS |
+| **Resend** | Trimitere email tranzacțional (magic-link + notificări) | ✅ Verified, live din 2026-06-29 |
+| **Google Workspace** | Email pe domeniu (`support@detalia.ro` etc.) | ✅ Configurat |
 | **Hostico** | Registrar (de unde e cumpărat `detalia.ro`) | ✅ Deține domeniul |
-| **Cloudflare** | DNS host + CDN/reguli (panoul ales pentru DNS) | ⏸️ De pornit |
+| **Cloudflare** | DNS host (DNS-only în fața Vercel, fără proxy/WAF — decis 2026-07-02) | ✅ Active |
 
 **Concepte (ca să nu se amestece):**
 - **Registrar** (Hostico) = deține domeniul. Singurul lucru pe care-l mai faci în Hostico: schimbi nameserverele spre Cloudflare.
 - **DNS host** (Cloudflare) = locul unde adaugi toate records-urile (A/CNAME/MX/TXT).
-- **Consumatori de DNS** (Google Workspace, Resend, Vercel) = NU gestionează DNS; doar îți cer records pe care le pui în Cloudflare.
+- **Consumatori de DNS** (Google Workspace, Resend, Vercel) = NU gestionează DNS; doar cer records care se adaugă în Cloudflare.
 
 ---
 
 ## 2. Stare actuală (deja făcut)
 
-- App live pe Vercel: `main` = producție, `dev`/PR = preview (push din VS Code → deploy automat).
+- App live pe Vercel (`detalia.ro`): `main` = producție, `dev`/PR = preview (push din VS Code → deploy automat).
 - Neon: branching automat (prod = ramura `production`, fiecare preview = ramură efemeră). `DATABASE_URL` injectat de integrare.
 - Vercel Blob: `BLOB_READ_WRITE_TOKEN` injectat automat.
-- Env vars în Vercel (Production + Preview): `AUTH_SECRET`, `AUTH_URL` (= URL `.vercel.app`), `AUTH_TRUST_HOST=true`,
-  `ADMIN_EMAILS`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `MAGIC_LINK_TTL_MINUTES`, `INVITATION_TTL_HOURS`.
-
-**Blocaj curent:** login real (magic-link) nu merge până nu e domeniul verificat în Resend → de aceea pașii de mai jos.
+- Env vars în Vercel (Production + Preview): `AUTH_SECRET`, `AUTH_URL` (= `https://detalia.ro` pe prod), `AUTH_TRUST_HOST=true`,
+  `ADMIN_EMAILS`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `MAGIC_LINK_TTL_MINUTES`. *(`INVITATION_TTL_HOURS` eliminat
+  2026-06-28 odată cu logica de invitații — nu mai există în `.env.example`.)*
 
 ---
 
@@ -71,11 +71,16 @@ Trei lucruri pot trimite cod prost în prod — astea le închidem:
 
 ---
 
+## 3-6. Setup inițial (ISTORIC — deja executat, rămas ca referință)
+
+> Pașii 3-7 de mai jos au fost rulați o singură dată la lansare (2026-06-29) și confirmați din nou 2026-07-02.
+> Nu mai sunt „de făcut" — le păstrăm doar ca runbook pentru o eventuală schimbare de domeniu/DNS viitoare.
+
 ## 3. Mută DNS-ul pe Cloudflare (o singură dată)
 
 1. **Cloudflare → Add a site** → `detalia.ro` → planul **Free**.
 2. Cloudflare scanează și **importă** records-urile existente. Verifică lista să fie completă.
-3. Cloudflare îți dă **2 nameservere** `← din dashboard` (gen `xxx.ns.cloudflare.com`).
+3. Cloudflare generează **2 nameservere** `← din dashboard` (gen `xxx.ns.cloudflare.com`).
 4. **Hostico → domeniul `detalia.ro` → Nameservers** → înlocuiește-le cu cele 2 de la Cloudflare.
 5. Așteaptă propagarea (minute → max ~24h). Cloudflare arată **„Active"** când e gata.
 6. De acum, **toate records-urile se adaugă în Cloudflare**.
@@ -141,11 +146,11 @@ Ca site-ul să fie pe `detalia.ro` în loc de `.vercel.app`.
 
 ## 7. Verificare finală
 
-- [ ] Cloudflare „Active" pentru `detalia.ro`.
-- [ ] `support@detalia.ro` primește un email de test.
-- [ ] Resend domain „Verified".
-- [ ] Login magic-link merge end-to-end pe prod (email → link → feed).
-- [ ] (dacă pasul 6) site-ul se deschide pe `https://detalia.ro` cu SSL valid.
+- [x] Cloudflare „Active" pentru `detalia.ro`.
+- [x] `support@detalia.ro` primește un email de test.
+- [x] Resend domain „Verified".
+- [x] Login magic-link merge end-to-end pe prod (email → link → feed).
+- [x] Site-ul se deschide pe `https://detalia.ro` cu SSL valid.
 
 ---
 
