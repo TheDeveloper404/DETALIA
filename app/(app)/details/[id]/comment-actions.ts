@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
 import { addComment, deleteComment, editComment } from "@/server/services/commentService";
 
@@ -22,10 +23,10 @@ export async function addCommentAction(
   _prev: AddCommentState,
   formData: FormData,
 ): Promise<AddCommentState> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate comenta.
+  const userId = await requireActiveUserId();
 
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { error: ERROR_MESSAGES.RATE_LIMITED, ok: false };
   }
 
@@ -35,7 +36,7 @@ export async function addCommentAction(
   const detailId = String(formData.get("detailId") ?? ""); // pagina de revalidat
   const body = String(formData.get("body") ?? "");
 
-  const res = await addComment({ userId: session.user.id, targetType, targetId, body });
+  const res = await addComment({ userId, targetType, targetId, body });
 
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
@@ -52,14 +53,14 @@ export async function editCommentAction(
   detailId: string,
   body: string,
 ): Promise<{ error: string | null }> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate edita conținut.
+  const userId = await requireActiveUserId();
 
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
-  const res = await editComment({ userId: session.user.id, commentId, body });
+  const res = await editComment({ userId, commentId, body });
   if (!res.ok) {
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
