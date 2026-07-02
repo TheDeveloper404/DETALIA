@@ -1,11 +1,12 @@
 // Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, desc, eq, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
   categories,
   comments,
+  detailCategories,
   detailResources,
   details,
   roles,
@@ -19,10 +20,12 @@ export async function insertDetail(input: {
   title: string;
   description: string | null;
   authorId: string;
-  categoryId: string;
   imageUrl: string;
-  climateZone: string;
-  seismicZone: string;
+  climateZone: string | null;
+  seismicAg: string;
+  seismicTc: string;
+  snowLoad: string;
+  windLoad: string;
 }) {
   const [row] = await db
     .insert(details)
@@ -30,14 +33,36 @@ export async function insertDetail(input: {
       title: input.title,
       description: input.description,
       authorId: input.authorId,
-      categoryId: input.categoryId,
       imageUrl: input.imageUrl,
       climateZone: input.climateZone,
-      seismicZone: input.seismicZone,
+      seismicAg: input.seismicAg,
+      seismicTc: input.seismicTc,
+      snowLoad: input.snowLoad,
+      windLoad: input.windLoad,
       // status rămâne pe default „PUBLISHED" (moderare post-publicare).
     })
     .returning();
   return row;
+}
+
+// Categoriile bifate (Edi: „oricâte") — inserate separat, după detaliu (are nevoie de detailId).
+export async function insertDetailCategories(detailId: string, categoryIds: string[]) {
+  if (categoryIds.length === 0) return;
+  await db
+    .insert(detailCategories)
+    .values(categoryIds.map((categoryId) => ({ detailId, categoryId })));
+}
+
+// EXISTS pe join-ul detail_categories — „acest detaliu are bifată cel puțin una din categoriile date".
+function hasAnyCategory(categoryIds: string[]) {
+  return exists(
+    db
+      .select({ one: sql`1` })
+      .from(detailCategories)
+      .where(
+        and(eq(detailCategories.detailId, details.id), inArray(detailCategories.categoryId, categoryIds)),
+      ),
+  );
 }
 
 export async function insertDetailResources(detailId: string, resources: DetailResourceInput[]) {
@@ -52,19 +77,29 @@ export async function insertDetailResources(detailId: string, resources: DetailR
   );
 }
 
-// Forma de afișare a unui detaliu cu autor (nume+rol) și categorie — folosită pe pagina de detaliu și în feed.
+// Categoriile bifate pe un detaliu, ca array JSON — subquery corelat (nu join), ca să nu dublăm
+// rândurile detaliului când sunt mai multe categorii (Edi: „bifezi oricâte").
+const detailCategoriesJson = sql<{ id: string; name: string; slug: string }[]>`(
+  select coalesce(json_agg(json_build_object('id', ${categories.id}, 'name', ${categories.name}, 'slug', ${categories.slug}) order by ${categories.name}), '[]'::json)
+  from ${detailCategories}
+  join ${categories} on ${categories.id} = ${detailCategories.categoryId}
+  where ${detailCategories.detailId} = ${details.id}
+)`;
+
+// Forma de afișare a unui detaliu cu autor (nume+rol) și categorii — folosită pe pagina de detaliu și în feed.
 const detailWithAuthorColumns = {
   id: details.id,
   title: details.title,
   description: details.description,
   imageUrl: details.imageUrl,
   climateZone: details.climateZone,
-  seismicZone: details.seismicZone,
+  seismicAg: details.seismicAg,
+  seismicTc: details.seismicTc,
+  snowLoad: details.snowLoad,
+  windLoad: details.windLoad,
   status: details.status,
   createdAt: details.createdAt,
-  categoryId: details.categoryId,
-  categoryName: categories.name,
-  categorySlug: categories.slug,
+  categories: detailCategoriesJson,
   authorId: details.authorId,
   authorName: users.name,
   authorImage: users.image,
@@ -91,7 +126,6 @@ export async function getDetailById(id: string) {
   const [row] = await db
     .select(detailWithAuthorColumns)
     .from(details)
-    .leftJoin(categories, eq(categories.id, details.categoryId))
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(and(eq(details.id, id), eq(details.status, DETAIL_STATUS.PUBLISHED)))
@@ -170,7 +204,7 @@ export async function listFeed(input: {
   sort?: "debated" | "recent";
 }) {
   const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED)];
-  if (input.categoryId) conds.push(eq(details.categoryId, input.categoryId));
+  if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
   // Căutare simplă pe titlu (ILIKE, case-insensitive). `%` din input e escapat ca să fie literal.
   if (input.q) {
     const term = `%${input.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
@@ -194,7 +228,6 @@ export async function listFeed(input: {
       interactionCount: interactionScore,
     })
     .from(details)
-    .leftJoin(categories, eq(categories.id, details.categoryId))
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(where)
@@ -202,19 +235,21 @@ export async function listFeed(input: {
     .limit(input.limit);
 }
 
-// Detalii înrudite = aceeași categorie, PUBLISHED, exclus self. Pentru sidebar-ul paginii de detaliu.
-// Sortare după interacțiuni (cele mai dezbătute întâi), tie-break pe dată.
+// Detalii înrudite = cel puțin o categorie comună (Edi: „bifezi oricâte"), PUBLISHED, exclus self.
+// Pentru sidebar-ul paginii de detaliu. Sortare după interacțiuni, tie-break pe dată.
 export async function listRelatedDetails(input: {
   detailId: string;
-  categoryId: string;
+  categoryIds: string[];
   limit: number;
 }) {
+  if (input.categoryIds.length === 0) return [];
   return db
     .select({
       id: details.id,
       title: details.title,
       authorName: users.name,
       authorRoleMain: roles.roleMain,
+      authorSubRole: roles.subRole,
       authorVerification: roles.verificationStatus,
       commentCount,
       sketchCount,
@@ -225,7 +260,7 @@ export async function listRelatedDetails(input: {
     .where(
       and(
         eq(details.status, DETAIL_STATUS.PUBLISHED),
-        eq(details.categoryId, input.categoryId),
+        hasAnyCategory(input.categoryIds),
         ne(details.id, input.detailId),
       ),
     )

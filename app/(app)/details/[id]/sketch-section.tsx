@@ -133,6 +133,7 @@ export function SketchSection({
                   <div className="mt-2">
                     <RolePill
                       roleMain={active.authorRoleMain}
+                      subRole={active.authorSubRole}
                       verified={active.authorVerification === "VERIFIED"}
                     />
                   </div>

@@ -14,12 +14,13 @@ import {
   validateDetailInput,
 } from "@/server/domain/detail";
 import { deleteBlobs } from "@/lib/storage";
-import { getCategoryById } from "@/server/repos/categoriesRepo";
+import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
 import {
   deleteDetailCascade,
   getDetailById,
   getDetailResources,
   insertDetail,
+  insertDetailCategories,
   insertDetailResources,
   listFeed,
   listRelatedDetails,
@@ -38,10 +39,13 @@ export async function createDetail(input: {
   authorId: string;
   title: string;
   description?: string | null;
-  categoryId: string;
+  categoryIds: string[];
   imageUrl: string;
   climateZone?: string | null;
-  seismicZone?: string | null;
+  seismicAg?: string | null;
+  seismicTc?: string | null;
+  snowLoad?: string | null;
+  windLoad?: string | null;
   resources?: DetailResourceInput[];
 }): Promise<CreateDetailResult> {
   // 1) Poarta de business: doar useri cu rol declarat pot publica detalii.
@@ -49,36 +53,43 @@ export async function createDetail(input: {
     return { ok: false, error: "NO_ROLE" };
   }
 
-  // 2) Validare + normalizare input (titlu/imagine/resurse/zone).
+  // 2) Validare + normalizare input (titlu/imagine/resurse/categorii/parametri tehnici).
   const validation = validateDetailInput({
     title: input.title,
     description: input.description,
-    categoryId: input.categoryId,
+    categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
     climateZone: input.climateZone,
-    seismicZone: input.seismicZone,
+    seismicAg: input.seismicAg,
+    seismicTc: input.seismicTc,
+    snowLoad: input.snowLoad,
+    windLoad: input.windLoad,
     resources: input.resources,
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
 
-  // 3) Integritate FK polimorfică verificată în service (categoria trebuie să existe).
-  // SEC-11: categoryId malformat → INVALID_CATEGORY (nu eroare SQL pe coloana uuid).
-  if (!isUuid(value.categoryId)) return { ok: false, error: "INVALID_CATEGORY" };
-  const category = await getCategoryById(value.categoryId);
-  if (!category) return { ok: false, error: "INVALID_CATEGORY" };
+  // 3) Integritate FK verificată în service (fiecare categorie bifată trebuie să existe).
+  // SEC-11: id malformat → INVALID_CATEGORY (nu eroare SQL pe coloana uuid).
+  if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
+  const existingCount = await countExistingCategoryIds(value.categoryIds);
+  if (existingCount !== value.categoryIds.length) return { ok: false, error: "INVALID_CATEGORY" };
 
-  // 4) Inserare detaliu + resurse. Driverul Neon HTTP nu oferă tranzacții interactive;
+  // 4) Inserare detaliu + categorii + resurse. Driverul Neon HTTP nu oferă tranzacții interactive;
   //    inserăm secvențial — la MVP, o resursă orfană e tolerabilă (resursele sunt opționale).
   const detail = await insertDetail({
     title: value.title,
     description: value.description,
     authorId: input.authorId,
-    categoryId: value.categoryId,
     imageUrl: value.imageUrl,
     climateZone: value.climateZone,
-    seismicZone: value.seismicZone,
+    seismicAg: value.seismicAg,
+    seismicTc: value.seismicTc,
+    snowLoad: value.snowLoad,
+    windLoad: value.windLoad,
   });
+
+  await insertDetailCategories(detail.id, value.categoryIds);
 
   if (value.resources.length > 0) {
     await insertDetailResources(detail.id, value.resources);
@@ -143,8 +154,9 @@ export function getActiveAuthors(limit = 5) {
   return listTopAuthors(limit);
 }
 
-// Detalii înrudite (aceeași categorie) pentru sidebar-ul paginii de detaliu. Gol dacă nu există categorie.
-export function getRelatedDetails(detailId: string, categoryId: string | null, limit = 5) {
-  if (!categoryId) return Promise.resolve([]);
-  return listRelatedDetails({ detailId, categoryId, limit });
+// Detalii înrudite (cel puțin o categorie comună) pentru sidebar-ul paginii de detaliu.
+// Gol dacă detaliul nu are nicio categorie.
+export function getRelatedDetails(detailId: string, categoryIds: string[], limit = 5) {
+  if (categoryIds.length === 0) return Promise.resolve([]);
+  return listRelatedDetails({ detailId, categoryIds, limit });
 }

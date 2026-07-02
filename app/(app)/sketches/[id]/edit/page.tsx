@@ -34,6 +34,7 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
       detailTitle={detail.title}
       authorName={detail.authorName}
       authorRoleMain={detail.authorRoleMain}
+      authorSubRole={detail.authorSubRole}
       authorVerified={detail.authorVerification === "VERIFIED"}
     />
   );

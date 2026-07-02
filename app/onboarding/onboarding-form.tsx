@@ -7,6 +7,7 @@ import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload
 import {
   ROLE_MAINS,
   ROLE_MAIN_LABELS,
+  SECONDARY_ROLES,
   SUBROLES,
   type RoleMain,
 } from "@/server/domain/roles";
@@ -44,6 +45,7 @@ export function OnboardingForm() {
   // Fără preselecție: userul ALEGE explicit rolul și subrolul (placeholder „Alege…").
   const [rol, setRol] = useState<RoleMain | "">("");
   const [subrol, setSubrol] = useState<string>("");
+  const [rolAditional, setRolAditional] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [coverPos, setCoverPos] = useState(50); // poziția verticală cover (0..100), ca în profile edit
@@ -72,11 +74,8 @@ export function OnboardingForm() {
   const displayName = fullName || "Numele tău";
   const initials =
     ((first[0] ?? "") + (last[0] ?? "")).toUpperCase() || "—";
-  const pillText = rol
-    ? subrol
-      ? `${ROLE_MAIN_LABELS[rol]} · ${subrol}`
-      : ROLE_MAIN_LABELS[rol]
-    : null;
+  // Doar meseria apare în platformă (rolul principal e doar grupare la alegere, vezi lista_meserii.md).
+  const pillText = subrol || null;
 
   function onRol(value: string) {
     const next = value as RoleMain | "";
@@ -372,6 +371,36 @@ export function OnboardingForm() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Rol adițional (opțional) — Administrativ/Educație, se adaugă PESTE meseria de bază. */}
+          <div style={{ marginBottom: 20 }}>
+            <label htmlFor="dt-rol-aditional" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
+              Rol adițional{" "}
+              <span style={{ color: "#b8ad9b", letterSpacing: "0.04em", textTransform: "none" }}>
+                (opțional)
+              </span>
+            </label>
+            <select
+              id="dt-rol-aditional"
+              name="secondaryRole"
+              value={rolAditional}
+              onChange={(e) => setRolAditional(e.target.value)}
+              className="dt-field dt-select"
+              style={{
+                ...inputStyle,
+                cursor: "pointer",
+                paddingRight: 38,
+                color: rolAditional ? "var(--foreground)" : "#a59a88",
+              }}
+            >
+              <option value="">Niciunul</option>
+              {SECONDARY_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Headline */}
