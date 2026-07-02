@@ -4,6 +4,16 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(feed): scurtătură „Schițează peste" pe cardul de detaliu
+
+- **De ce (idee Edi):** buton de schițare la fiecare detaliu direct din feed, ca să nu deschizi întâi pagina.
+- **Nu buton primar care pornește schița din feed** (ar fi creat drafts gunoi la fiecare click + schițe fără
+  context). În loc: **link secundar** „Schițează peste" pe fiecare `DetailCard`, care duce la pagina detaliului
+  la ancora teancului (`/details/[id]#schiteaza`) — userul vede întâi contextul (imaginea mare, parametri,
+  schițele existente) și apasă butonul real „Schițează peste detaliu". Draft-ul se creează abia acolo, ca înainte.
+- `sketch-section.tsx`: secțiunea teancului are acum `id="schiteaza"` + `scroll-mt-24` (offset sub header sticky).
+  Link vizibil TUTUROR (inclusiv pe propriul detaliu), spre deosebire de validarea inline (ascunsă pe self).
+
 ## 2026-07-02 — feat(detaliu): meniu „⋮" (acțiuni) + „Salvează detaliu" (bookmark)
 
 - **De ce (cerere Edi):** butonul „Șterge" din antetul paginii de detaliu era prea expus (colț dreapta-sus,
