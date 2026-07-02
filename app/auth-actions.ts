@@ -5,6 +5,7 @@ import { AuthError } from "next-auth";
 
 import { signIn } from "@/lib/auth";
 import { checkLimit, clientIp, hashEmail, limiters } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 // Acces PUBLIC, passwordless. signIn aruncă un redirect intern (NEXT_REDIRECT) pe succes — re-aruncat.
 // La eroare de auth, ne întoarcem pe pagina de proveniență (authPath) cu ?error= pentru mesaj prietenos.
@@ -19,13 +20,20 @@ export async function signInWithEmailAction(formData: FormData): Promise<void> {
   const callbackUrl = String(formData.get("callbackUrl") || "/");
   const authPath = safeAuthPath(formData);
 
+  const ip = await clientIp();
+
   // SEC-01: poarta publică → rate limit pe email (hash) ȘI pe IP, înainte de a atinge Resend/DB.
   // Răspuns generic la depășire (RateLimited) — nu confirmă/infirmă existența emailului (anti-enumerare).
   const [byEmail, byIp] = await Promise.all([
     checkLimit(limiters.authPerEmail, hashEmail(email)),
-    checkLimit(limiters.authPerIp, await clientIp()),
+    checkLimit(limiters.authPerIp, ip),
   ]);
   if (!byEmail.ok || !byIp.ok) redirect(`${authPath}?error=RateLimited`);
+
+  // Anti-bot: validăm tokenul Turnstile la Cloudflare înainte de a trimite emailul. No-op fără chei
+  // (dev). La token invalid → mesaj prietenos, fără a atinge Resend.
+  const captcha = String(formData.get("cf-turnstile-response") ?? "") || null;
+  if (!(await verifyTurnstile(captcha, ip))) redirect(`${authPath}?error=CaptchaFailed`);
 
   // redirect:false → primim URL-ul de redirect în loc ca Auth.js să sară singur pe `pages.error`
   // (care e /login). Astfel eroarea de pe /signup RĂMÂNE pe /signup (citim ?error din URL-ul întors).
