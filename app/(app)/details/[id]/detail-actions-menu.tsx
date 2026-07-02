@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, BookmarkCheck, Check, Link2, MoreVertical, Trash2, User } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, Link2, MoreVertical, Pencil, Trash2, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -111,6 +111,19 @@ export function DetailActionsMenu({
                 </>
               )}
             </button>
+
+            {/* Editează — DOAR autorul. Duce la formularul de editare (ownership re-verificat pe server). */}
+            {isAuthor && (
+              <Link
+                href={`/details/${detailId}/edit`}
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className={itemClass}
+              >
+                <Pencil className="size-4 text-muted-foreground" strokeWidth={2} />
+                Editează detaliul
+              </Link>
+            )}
 
             {/* Ștergere — DOAR autorul, ULTIMA, separată + roșie. Confirmare explicită (ireversibil). */}
             {isAuthor && (

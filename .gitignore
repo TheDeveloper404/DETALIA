@@ -71,6 +71,7 @@ skills-lock.json
 # === Documente care NU se comit (client + arhivă de docs) ===
 /documente_client
 docs/_archive/
+plan-detaliu.md
 
 # === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)
