@@ -1,8 +1,8 @@
 "use client";
 
-import { ChevronDown, Info, Pencil, Plus, RotateCcw, Send, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Info, Pencil, Plus, RotateCcw, Send, Trash2, Upload, X } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { uploadImageToBlob } from "@/lib/blob-upload";
@@ -58,6 +58,103 @@ function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
         className="pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         strokeWidth={2}
       />
+    </div>
+  );
+}
+
+// Dropdown multi-select pentru categorii, grupate pe secțiuni — înlocuiește grila de pills
+// (prea încărcată vizual) cu un singur trigger + panou derulant cu checkbox-uri.
+function CategoryDropdown({
+  categories,
+  categoryIds,
+  toggleCategory,
+}: {
+  categories: CategoryOption[];
+  categoryIds: string[];
+  toggleCategory: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const sections = categories.filter((c) => c.parentId === null);
+  const leavesOf = (sectionId: string) => categories.filter((c) => c.parentId === sectionId);
+  const selectedNames = categories.filter((c) => categoryIds.includes(c.id)).map((c) => c.name);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cn(selectClass, "flex items-center justify-between text-left")}
+      >
+        <span className={selectedNames.length === 0 ? "text-muted-foreground" : undefined}>
+          {selectedNames.length === 0 ? "Alege categoriile…" : selectedNames.join(", ")}
+        </span>
+      </button>
+      <ChevronDown
+        className={cn(
+          "pointer-events-none absolute right-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground transition-transform",
+          open && "rotate-180",
+        )}
+        strokeWidth={2}
+      />
+
+      {open && (
+        <div className="absolute z-10 mt-1.5 max-h-80 w-full overflow-y-auto rounded-[10px] border border-input bg-background p-2.5 shadow-[0_18px_44px_-24px_rgba(33,29,24,0.4)]">
+          <div className="flex flex-col gap-3">
+            {sections.map((section) => (
+              <div key={section.id}>
+                <div className="mb-1 px-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-foreground/60">
+                  {section.name}
+                </div>
+                <div className="flex flex-col">
+                  {leavesOf(section.id).map((leaf) => {
+                    const active = categoryIds.includes(leaf.id);
+                    return (
+                      <button
+                        key={leaf.id}
+                        type="button"
+                        onClick={() => toggleCategory(leaf.id)}
+                        aria-pressed={active}
+                        className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13.5px] text-foreground hover:bg-secondary/70"
+                      >
+                        <span
+                          className={cn(
+                            "flex size-4 flex-none items-center justify-center rounded border",
+                            active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                          )}
+                        >
+                          {active && <Check className="size-3" strokeWidth={3} />}
+                        </span>
+                        {leaf.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -176,9 +273,6 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
     }
   }
 
-  // Categorii pe secțiuni (parentId = header de grupare, neselectabil; frunzele sunt bifabile).
-  const sections = categories.filter((c) => c.parentId === null);
-  const leavesOf = (sectionId: string) => categories.filter((c) => c.parentId === sectionId);
   function toggleCategory(id: string) {
     setCategoryIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
   }
@@ -250,39 +344,12 @@ export function DetailForm({ categories }: { categories: CategoryOption[] }) {
           </p>
         </div>
 
-        {/* CATEGORII — bifezi oricâte (stil tag), grupate pe secțiuni. */}
+        {/* CATEGORII — bifezi oricâte, printr-un dropdown grupat pe secțiuni. */}
         <div>
           <label className={labelClass}>
             Categorii <Req />
           </label>
-          <div className="flex flex-col gap-3.5">
-            {sections.map((section) => (
-              <div key={section.id}>
-                <div className="mb-1.5 text-[12px] font-semibold text-foreground/70">{section.name}</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {leavesOf(section.id).map((leaf) => {
-                    const active = categoryIds.includes(leaf.id);
-                    return (
-                      <button
-                        key={leaf.id}
-                        type="button"
-                        onClick={() => toggleCategory(leaf.id)}
-                        aria-pressed={active}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-[13px] font-medium transition-colors",
-                          active
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-input bg-background text-foreground hover:border-primary",
-                        )}
-                      >
-                        {leaf.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
+          <CategoryDropdown categories={categories} categoryIds={categoryIds} toggleCategory={toggleCategory} />
           {categoryIds.map((id) => (
             <input key={id} type="hidden" name="categoryIds" value={id} />
           ))}
