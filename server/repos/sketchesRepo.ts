@@ -1,5 +1,5 @@
 // Repo schițe — singurul loc cu acces Drizzle pentru tabelul `sketches`.
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
@@ -98,6 +98,27 @@ export function listPublishedByDetail(detailId: string) {
 }
 
 export type SketchWithAuthor = Awaited<ReturnType<typeof listPublishedByDetail>>[number];
+
+// Filtrează, dintr-un set de id-uri candidate, doar pe cele care sunt schițe PUBLISHED ale acestui
+// detaliu. Folosit la validarea mențiunilor @schiță din comentarii (anti-IDOR: nu poți referi o schiță
+// din alt detaliu / inexistentă). Întoarce un Set pentru lookup O(1) în sanitizarea corpului.
+export async function filterSketchIdsByDetail(
+  detailId: string,
+  ids: string[],
+): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .select({ id: sketches.id })
+    .from(sketches)
+    .where(
+      and(
+        eq(sketches.detailId, detailId),
+        eq(sketches.status, "PUBLISHED"),
+        inArray(sketches.id, ids),
+      ),
+    );
+  return new Set(rows.map((r) => r.id));
+}
 
 // Cele mai recente schițe PUBLISHED din toată platforma (pentru rail-ul feed-ului „Schițe noi în teanc").
 // Doar metadate de afișare (fără strokesJson) — randăm thumbnail-ul deja generat la publicare.
