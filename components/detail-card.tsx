@@ -3,6 +3,7 @@
 //
 // Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
 // Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
+import { PencilRuler } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -135,8 +136,19 @@ export function DetailCard({
           <span>{detail.sketchCount} schițe în teanc</span>
         </div>
 
-        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob cu justificare). Ascunse pe propriul detaliu. */}
-        {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
+        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob) + scurtătură „Schițează peste".
+            Validarea e ascunsă pe propriul detaliu; scurtătura de schițare rămâne vizibilă tuturor.
+            Link secundar (NU buton): duce în pagina detaliului la teanc (context), fără să creeze draft. */}
+        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2">
+          {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
+          <Link
+            href={`${href}#schiteaza`}
+            className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+          >
+            <PencilRuler className="size-3.5" strokeWidth={2} />
+            Schițează peste
+          </Link>
+        </div>
       </div>
     </article>
   );

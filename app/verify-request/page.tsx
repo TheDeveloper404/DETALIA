@@ -28,8 +28,8 @@ export default function VerifyRequestPage() {
             Verifică-ți email-ul
           </CardTitle>
           <CardDescription className="text-[15px]">
-            Ți-am trimis un link de acces. Deschide-l de pe acest dispozitiv ca să intri în cont —
-            link-ul e valabil un timp scurt și se folosește o singură dată.
+            Ți-am trimis un link de acces. Deschide-l ca să intri în cont — link-ul e valabil un
+            timp scurt și se folosește o singură dată.
           </CardDescription>
         </CardHeader>
 
