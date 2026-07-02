@@ -9,12 +9,12 @@ import { auth } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
-import { getDetail, getRelatedDetails } from "@/server/services/detailService";
+import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/detailService";
 import { getTeanc } from "@/server/services/sketchService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
 import { CommentsSection } from "./comments-section";
-import { DeleteDetailButton } from "./delete-detail-button";
+import { DetailActionsMenu } from "./detail-actions-menu";
 import { SketchSection, type SketchItem } from "./sketch-section";
 import { ValidationPanel } from "./validation-panel";
 
@@ -86,6 +86,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
 
   const verified = detail.authorVerification === "VERIFIED";
   const isAuthor = detail.authorId === userId;
+  const saved = await isDetailSaved(userId, detail.id);
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
@@ -131,11 +132,14 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               <span className="font-mono text-xs text-muted-foreground">
                 · publicat {formatDate(detail.createdAt)}
               </span>
-              {detail.authorId === userId && (
-                <span className="ml-auto">
-                  <DeleteDetailButton detailId={detail.id} />
-                </span>
-              )}
+              <span className="ml-auto">
+                <DetailActionsMenu
+                  detailId={detail.id}
+                  authorId={detail.authorId}
+                  isAuthor={isAuthor}
+                  isSaved={saved}
+                />
+              </span>
             </div>
 
             {/* parametri tehnici */}

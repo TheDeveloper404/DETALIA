@@ -308,6 +308,26 @@ export const comments = pgTable(
   ],
 );
 
+// Detaliu salvat (bookmark) — un user marchează un detaliu pentru „citește mai târziu".
+// Compus (userId, detailId) = PK → unicitate garantată de DB (nu se salvează de două ori).
+// Ambele FK cad în cascadă (userul șters / detaliul șters → bookmark-ul dispare).
+export const savedDetails = pgTable(
+  "saved_details",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    detailId: uuid()
+      .notNull()
+      .references(() => details.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.detailId] }),
+    index("saved_details_detail_id_idx").on(t.detailId),
+  ],
+);
+
 // Notificare (in-app + email).
 export const notifications = pgTable(
   "notifications",

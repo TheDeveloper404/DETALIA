@@ -24,7 +24,7 @@ export function MaintenanceScreen({ message, date }: { message?: string | null; 
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-      <img src="/logo.svg" alt="DETALIA" style={{ height: 38, width: "auto" }} />
+      <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
       <div
         style={{
           display: "flex",

@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(detaliu): meniu „⋮" (acțiuni) + „Salvează detaliu" (bookmark)
+
+- **De ce (cerere Edi):** butonul „Șterge" din antetul paginii de detaliu era prea expus (colț dreapta-sus,
+  lângă interacțiuni) → risc de click accidental pe o acțiune ireversibilă. Mutat într-un meniu kebab „⋮".
+- **Meniu nou** `app/(app)/details/[id]/detail-actions-menu.tsx` (client, pattern-ul de dropdown din
+  `components/user-menu.tsx`). Vizibil TUTUROR: **Salvează detaliul · Vezi profilul autorului · Copiază linkul**.
+  Autorului i se adaugă, ULTIMA, separată + roșie: **Șterge detaliul** (confirmare `window.confirm` păstrată;
+  authz reală rămâne pe server în `deleteDetail`). `delete-detail-button.tsx` (butonul expus) — eliminat.
+- **Bookmark = feature nou.** Tabel `saved_details` (PK compus `(user_id, detail_id)` → unicitate; ambele FK
+  cascade; index pe `detail_id`) — migrația `db/migrations/0012_dear_callisto.sql`. Repo (`detailsRepo`):
+  `insertSavedDetail` (onConflictDoNothing), `deleteSavedDetail`, `isDetailSavedByUser`, `listSavedDetails`
+  (forma FeedItem, refolosește cardul de feed). Service (`detailService`): `toggleSavedDetail`, `isDetailSaved`,
+  `getSavedDetails`. Server action `save-actions.ts` (`toggleSaveDetailAction`) — `userId` DOAR din sesiune
+  (fără IDOR), toggle reversibil, revalidează `/details/[id]` + `/saved`.
+- **Pagină nouă `/saved`** — lista detaliilor salvate (recent salvate primele), refolosește `DetailCard` +
+  `getMyPositions` ca feed-ul; empty state propriu. Link „Detalii salvate" adăugat în `user-menu`.
+- **De aplicat (Liviu):** migrația `0012` pe DB (`npm run db:push` / `db:migrate` pe branch-ul Neon, apoi prod).
+  Type-check verde; lint pe fișierele editate verde.
+
 ## 2026-07-02 — feat(observabilitate): Sentry (erori server/client/edge)
 
 - **De ce:** logurile Vercel sunt greu de corelat cu erorile de UI (vezi bug-ul de schiță blocată — a
