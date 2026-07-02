@@ -4,6 +4,13 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(observabilitate): Vercel Web Analytics
+
+- **De ce:** vizibilitate pe vizitatori + page views pe `detalia.ro` (fază de validare — vrem să vedem traficul).
+- `@vercel/analytics` instalat; `<Analytics />` (din `@vercel/analytics/next`) adăugat în `app/layout.tsx` înainte
+  de `</body>`. **First-party** (`/_vercel/insights/*`, same-origin) → fără excepții CSP. No-op în dev local.
+- **De făcut (Liviu):** deploy → navighează pe site → date în tab-ul Analytics din Vercel (~30s).
+
 ## 2026-07-02 — feat(security): Cloudflare Turnstile pe formularele de auth (anti-bot)
 
 - **De ce:** acces public/passwordless (magic link) = țintă clasică de boți/abuz de email. Turnstile filtrează
