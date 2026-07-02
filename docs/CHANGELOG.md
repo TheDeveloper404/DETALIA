@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — perf(auth): sesiune `database` → `jwt` + blocare tare suspendare pe mutații (SEC-04)
+
+- **De ce:** cu `strategy:"database"`, fiecare `auth()` (fiecare render + fiecare acțiune) făcea un query
+  în Neon pe driver HTTP → pârghia #1 de performanță („aplicația trebuie să fie instant"). Decizie Liviu.
+- **`lib/auth.ts`:** `session.strategy` → `"jwt"`. Adăugat callback `jwt` (pune `id` + `status` în token la
+  sign-in, o singură dată) + `session` citește din `token` (NU mai lovește DB). Adapterul Drizzle rămâne
+  pentru creare useri + verification tokens (magic link **neatins**). Tabelul `sessions` nu se mai scrie.
+- **`types/next-auth.d.ts`:** augmentat `next-auth/jwt` JWT cu `id` + `status`.
+- **`lib/require-active-user.ts`** (NOU): `requireActiveUserId()` — re-check `status` PROASPĂT din DB (un
+  singur SELECT) pe mutațiile care produc/modifică conținut public. Tradeoff JWT (SEC-04): `status` din token
+  e stale → gating-ul din `proxy.ts` rămâne SOFT; blocarea TARE a unui cont suspendat se mută pe mutații.
+- **Aplicat `requireActiveUserId` pe:** creare detaliu (`details/new`), editare detaliu (`details/[id]/edit`),
+  publicare schiță (`sketches/[id]/edit` → `sendSketchAction`), comentariu add+edit (`comment-actions`),
+  approve+disapprove (`validation-actions`). **Neatinse** (inofensive la suspendare): retract poziție proprie,
+  ștergere ciornă/comentariu propriu, bookmark, salvare ciornă privată, mark-read notificări.
+- **Efect operațional la deploy:** sesiunile `database` existente NU mai sunt valide ca JWT → userii logați
+  acum se deloghează o dată și re-intră cu magic link. Fără migrație DB (schema neschimbată).
+- `tsc --noEmit` verde · `eslint` 0 erori.
+
 ## 2026-07-02 — feat(details): workspace unificat cu taburi + dezbatere unificată @mention
 
 - **De ce:** pagina de detaliu era liniară (imagine → validare → teanc cu thread izolat per schiță →

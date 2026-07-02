@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import { BLOB_URL_RE } from "@/lib/upload-limits";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail } from "@/server/services/detailService";
@@ -61,13 +61,11 @@ export async function createDetailAction(
   formData: FormData,
 ): Promise<CreateDetailState> {
   // Deny-by-default: doar useri autentificați. authorId vine EXCLUSIV din sesiune, niciodată din client.
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate publica detalii.
+  const userId = await requireActiveUserId();
 
   // SEC-01: publicarea e costisitoare (imagine + scrieri DB) → limită dedicată per user.
-  if (!(await checkLimit(limiters.createDetail, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.createDetail, userId)).ok) {
     return { error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
@@ -95,7 +93,7 @@ export async function createDetailAction(
   if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
 
   const result = await createDetail({
-    authorId: session.user.id,
+    authorId: userId,
     title,
     description,
     categoryIds,

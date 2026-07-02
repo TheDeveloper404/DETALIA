@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import { uploadSketchThumbnail } from "@/lib/storage";
 import { publish, saveStrokes } from "@/server/services/sketchService";
 
@@ -47,11 +48,11 @@ export async function saveStrokesAction(
 
 // Publică schița (DRAFT → PUBLISHED, direct în teanc) + thumbnail PNG. Pe succes → redirect la detaliu.
 export async function sendSketchAction(formData: FormData): Promise<SketchActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate publica schițe.
+  const userId = await requireActiveUserId();
 
   // SEC-01: publicarea declanșează scrieri DB + email către autorul-mamă → limită per user.
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
@@ -67,7 +68,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     if (upload.ok) thumbnailUrl = upload.url;
   }
 
-  const res = await publish({ sketchId, authorId: session.user.id, strokes, thumbnailUrl });
+  const res = await publish({ sketchId, authorId: userId, strokes, thumbnailUrl });
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut publica." };
