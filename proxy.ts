@@ -74,8 +74,10 @@ export default auth(async (req) => {
     (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
   );
 
-  // SEC-04: cont suspendat (status ≠ ACTIVE). Strategie `database` → status proaspăt din DB la fiecare
-  // request. Blocăm tot ce nu e public (inclusiv server actions, care lovesc rutele protejate prin POST).
+  // SEC-04: cont suspendat (status ≠ ACTIVE). Strategie `jwt` → status-ul de aici vine din TOKEN și e stale
+  // (înghețat la login; un cont nu se poate loga suspendat → în practică e mereu ACTIVE aici). Deci acest gate
+  // e SOFT. Blocarea TARE a suspendării se face pe mutații, cu re-check proaspăt din DB + signOut real —
+  // vezi lib/require-active-user.ts. Păstrăm gate-ul aici ca plasă (dacă vreodată punem status proaspăt în token).
   if (isLoggedIn && !isPublic && req.auth?.user?.status && req.auth.user.status !== "ACTIVE") {
     // SEC-14: cont non-ACTIVE a încercat o rută protejată → audit (userId = uuid intern, fără PII brut).
     audit(
