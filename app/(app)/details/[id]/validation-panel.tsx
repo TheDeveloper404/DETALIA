@@ -26,6 +26,7 @@ export function ValidationPanel({
   myPosition,
   positions,
   meta,
+  embedded = false,
 }: {
   targetType: TargetType;
   targetId: string;
@@ -36,6 +37,7 @@ export function ValidationPanel({
   myPosition: ValidationPosition | null;
   positions: TargetPosition[];
   meta?: { comments: number; sketches: number }; // contoare detaliu (validări/comentarii/schițe) — doar pe DETAIL
+  embedded?: boolean; // true = fără card propriu (border/bg/padding) + butoane compacte, integrat în workspace
 }) {
   // Fluxul de dezaprobare: "none" (ascuns) → "choose" (alegere binară text/schiță) → "text" (justificare).
   // Pe ținte fără ramura schiță (SKETCH) sărim direct la "text" — o singură cale, fără alegere inutilă.
@@ -86,6 +88,10 @@ export function ValidationPanel({
   // Polimorfic: aceeași validare pe detaliu SAU pe schiță — textul confirmării urmează ținta.
   const targetNoun = targetType === "SKETCH" ? "această schiță" : "acest detaliu";
 
+  // În workspace (embedded) butoanele sunt mai compacte (fără container propriu, cerință Edi);
+  // standalone rămân la dimensiunea mare de dinainte.
+  const validateBtnClass = embedded ? "px-4 py-2.5 text-sm" : "px-5 py-3 text-[15px]";
+
   // Câmpurile ascunse comune (țintă + pagina de revalidat).
   const hidden = (
     <>
@@ -96,7 +102,12 @@ export function ValidationPanel({
   );
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 text-card-foreground sm:px-6">
+    <section
+      className={cn(
+        "text-card-foreground",
+        embedded ? "" : "rounded-xl border border-border bg-card p-5 sm:px-6",
+      )}
+    >
       {/* Butoanele de validare apar DOAR dacă te poți valida (nu pe propriul conținut). */}
       {canValidate && (
         <>
@@ -107,7 +118,8 @@ export function ValidationPanel({
               onClick={onApprove}
               aria-pressed={approved}
               className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
+                "inline-flex items-center justify-center gap-2 rounded-[10px] border font-bold transition-colors",
+                validateBtnClass,
                 approved
                   ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
                   : "border-border bg-card text-foreground hover:border-primary",
@@ -123,7 +135,8 @@ export function ValidationPanel({
               aria-expanded={mode !== "none"}
               aria-pressed={disapproved}
               className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-[10px] border px-5 py-3 text-[15px] font-bold transition-colors",
+                "inline-flex items-center justify-center gap-2 rounded-[10px] border font-bold transition-colors",
+                validateBtnClass,
                 disapproved
                   ? "border-destructive bg-destructive text-white shadow-sm"
                   : "border-border bg-card text-foreground hover:border-primary",

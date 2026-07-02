@@ -4,16 +4,29 @@
 //  - Corpul e obligatoriu (non-vid, ≤ limită). authorId vine din sesiune (apelantul) — fără IDOR.
 //  - Ținta trebuie să existe și să fie publică.
 
+import { extractMentionSketchIds, sanitizeMentions } from "@/lib/mentions";
 import { isUuid } from "@/server/domain/ids";
 import { type TargetType, validateCommentBody } from "@/server/domain/validation";
 import {
   deleteFreeCommentByAuthor,
+  getCommentTarget,
   insertComment,
   listCommentsForTarget,
   updateCommentByAuthor,
 } from "@/server/repos/commentsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { filterSketchIdsByDetail } from "@/server/repos/sketchesRepo";
 import { targetExists } from "@/server/services/validationService";
+
+// Validează mențiunile @schiță dintr-un corp de comentariu de pe un DETALIU: tokenii care nu trimit
+// către o schiță PUBLISHED a acestui detaliu se degradează la text (anti-IDOR / referință arbitrară).
+// Corpul rezultat e cel care se stochează. Fără mențiuni → întoarce corpul neatins (zero query).
+async function sanitizeDetailMentions(detailId: string, body: string): Promise<string> {
+  const referenced = extractMentionSketchIds(body);
+  if (referenced.length === 0) return body;
+  const valid = await filterSketchIdsByDetail(detailId, referenced);
+  return sanitizeMentions(body, valid);
+}
 
 export type AddCommentError =
   | "NO_ROLE"
@@ -41,11 +54,17 @@ export async function addComment(input: {
     return { ok: false, error: "TARGET_NOT_FOUND" };
   }
 
+  // Mențiuni @schiță doar pe comentariile de DETALIU (targetId = detailId); tokenii străini se degradează.
+  const body =
+    input.targetType === "DETAIL"
+      ? await sanitizeDetailMentions(input.targetId, v.value)
+      : v.value;
+
   await insertComment({
     targetType: input.targetType,
     targetId: input.targetId,
     authorId: input.userId,
-    body: v.value,
+    body,
     originValidationId: null, // comentariu liber (nu provine dintr-o dezaprobare)
   });
   return { ok: true };
@@ -71,7 +90,16 @@ export async function editComment(input: {
   if (!v.ok) {
     return { ok: false, error: v.error === "REQUIRED" ? "BODY_REQUIRED" : "BODY_TOO_LONG" };
   }
-  const updated = await updateCommentByAuthor(input.commentId, input.userId, v.value);
+
+  // Re-validează mențiunile la editare (corpul nou poate introduce sid-uri străine). detailId derivat
+  // din ținta comentariului (comentariile de dezbatere sunt pe DETAIL → targetId = detailId).
+  const target = await getCommentTarget(input.commentId);
+  const body =
+    target?.targetType === "DETAIL"
+      ? await sanitizeDetailMentions(target.targetId, v.value)
+      : v.value;
+
+  const updated = await updateCommentByAuthor(input.commentId, input.userId, body);
   return updated ? { ok: true } : { ok: false, error: "NOT_FOUND" };
 }
 
