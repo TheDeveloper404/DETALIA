@@ -1,7 +1,14 @@
 // Service Notificări — in-app (sursa principală) + email best-effort (Edi le vrea de la început).
 // Notificările in-app se scriu mereu; emailul se trimite dacă există credențiale (altfel no-op).
 
-import { sendEmail } from "@/lib/email";
+import {
+  plainSubject,
+  sendEmail,
+  sketchDeletedEmailHtml,
+  sketchDeletedEmailText,
+  sketchProposedEmailHtml,
+  sketchProposedEmailText,
+} from "@/lib/email";
 import {
   countUnread,
   insertNotification,
@@ -17,21 +24,6 @@ function detailUrl(detailId: string): string {
   return `${base}/details/${detailId}`;
 }
 
-// Escape HTML — valorile controlate de user (titlu, nume) NU intră brut în HTML-ul de email (anti-XSS).
-function esc(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-// Subiect = text simplu: fără HTML, dar curățăm newline-uri (anti header-injection).
-function plain(s: string): string {
-  return s.replace(/[\r\n]+/g, " ").trim();
-}
-
 // Helper intern: notificare in-app + email (dacă avem contactul + credențiale).
 async function notify(input: {
   recipientUserId: string;
@@ -39,6 +31,7 @@ async function notify(input: {
   payloadJson: Record<string, unknown>;
   emailSubject: string;
   emailHtml: string;
+  emailText: string;
 }) {
   await insertNotification({
     recipientUserId: input.recipientUserId,
@@ -47,7 +40,12 @@ async function notify(input: {
   });
   const contact = await getUserContact(input.recipientUserId);
   if (contact?.email) {
-    await sendEmail({ to: contact.email, subject: input.emailSubject, html: input.emailHtml });
+    await sendEmail({
+      to: contact.email,
+      subject: input.emailSubject,
+      html: input.emailHtml,
+      text: input.emailText,
+    });
   }
 }
 
@@ -94,9 +92,9 @@ export async function notifySketchProposed(input: {
       sketchAuthorSubRole: input.sketchAuthorSubRole ?? null,
       sketchAuthorVerified: input.sketchAuthorVerified ?? false,
     },
-    emailSubject: plain(`${who} a schițat peste „${input.detailTitle}"`),
-    emailHtml: `<p>${esc(who)} a publicat o schiță peste detaliul tău <strong>${esc(input.detailTitle)}</strong>.</p>
-      <p><a href="${esc(url)}">Vezi schița în teanc →</a></p>`,
+    emailSubject: plainSubject(`${who} a schițat peste „${input.detailTitle}"`),
+    emailHtml: sketchProposedEmailHtml(who, input.detailTitle, url),
+    emailText: sketchProposedEmailText(who, input.detailTitle, url),
   });
 }
 
@@ -114,8 +112,8 @@ export async function notifySketchDeleted(input: {
       detailId: input.detailId,
       detailTitle: input.detailTitle,
     },
-    emailSubject: plain(`Schița ta la „${input.detailTitle}" a fost eliminată`),
-    emailHtml: `<p>Schița ta de la detaliul <strong>${esc(input.detailTitle)}</strong> a fost eliminată de autorul detaliului.</p>
-      <p><a href="${esc(url)}">Vezi detaliul →</a></p>`,
+    emailSubject: plainSubject(`Schița ta la „${input.detailTitle}" a fost eliminată`),
+    emailHtml: sketchDeletedEmailHtml(input.detailTitle, url),
+    emailText: sketchDeletedEmailText(input.detailTitle, url),
   });
 }
