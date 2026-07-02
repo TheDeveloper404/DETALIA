@@ -114,7 +114,7 @@ export function AuthShell({
             <div className="w-full max-w-[420px]">
               <div className="mb-7 flex items-center">
                 {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-                <img src="/logo.svg" alt="DETALIA" style={{ height: 26, width: "auto", display: "block" }} />
+                <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
               </div>
               {children}
             </div>
