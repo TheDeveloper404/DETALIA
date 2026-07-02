@@ -49,6 +49,23 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
 
 export type TargetComment = Awaited<ReturnType<typeof listCommentsForTarget>>[number];
 
+// Ținta unui comentariu (targetType/targetId) — pentru a deriva detaliul-părinte la editare (validarea
+// mențiunilor are nevoie de detailId). Doar coloanele minime, fără join.
+export async function getCommentTarget(
+  id: string,
+): Promise<{ targetType: TargetType; targetId: string; authorId: string } | null> {
+  const [row] = await db
+    .select({
+      targetType: comments.targetType,
+      targetId: comments.targetId,
+      authorId: comments.authorId,
+    })
+    .from(comments)
+    .where(eq(comments.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
 // Editează corpul unui comentariu — DOAR al autorului (condiție pe authorId → fără IDOR). True dacă a actualizat.
 export async function updateCommentByAuthor(id: string, authorId: string, body: string): Promise<boolean> {
   const rows = await db

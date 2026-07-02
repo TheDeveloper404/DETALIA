@@ -6,4 +6,6 @@ Sentry.init({
   sendDefaultPii: false,
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
   enabled: !!process.env.NEXT_PUBLIC_SENTRY_DSN,
+  // Logs structurate via `Sentry.logger.*` (intenționat, PII-free). Fără forwarding automat de console.*.
+  enableLogs: true,
 });

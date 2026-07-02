@@ -4,6 +4,35 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(details): workspace unificat cu taburi + dezbatere unificată @mention
+
+- **De ce:** pagina de detaliu era liniară (imagine → validare → teanc cu thread izolat per schiță →
+  comentarii) → scroll obositor + dezbatere fragmentată. Model nou „GitHub PR": tab = versiune. Plan +
+  decizii de produs în `plan-detaliu.md` (aprobat 2026-07-02).
+- **`app/(app)/details/[id]/detail-workspace.tsx`** (NOU, client): card unificat cu taburi
+  (tab 0 = detaliul de bază, 1..N = schițe), viewport contextual (Image mamă / `SketchViewer`), panou dreapta
+  cu autorul tabului activ + ștergere schiță, și **bara de validare CONTEXTUALĂ** pe ținta tabului (per-țintă,
+  model DB neschimbat). Comutarea de tab = pur client (view-urile vin precomputate din server). Randează și
+  `CommentsSection` (dezbatere unificată) ca `selectSketch` din mențiuni să schimbe tabul fără plumbing.
+- **`validation-panel.tsx`**: prop `embedded` — fără card propriu + butoane compacte (cerință Edi: butoanele
+  păreau prea mari în containerul dedicat).
+- **`comments-section.tsx`**: thread UNIC pe toată postarea (target DETAIL; s-a renunțat la thread per-schiță).
+  Compozitor `@mention` (dropdown cu schițele detaliului, textarea necontrolat + inserare token prin ref),
+  randare mențiuni clicabile (`CommentBody`) → click schimbă tabul; schiță ștearsă → degradare la text.
+- **`lib/mentions.ts`** (NOU): format token inline `@[Nume](sid:<uuid>)` (fără schimbare de schemă) —
+  `buildMentionToken` / `parseMentions` / `extractMentionSketchIds` / `sanitizeMentions`. Totul TEXT (fără
+  `dangerouslySetInnerHTML`) → zero injecție.
+- **Server (`commentService` + repos)**: la add/edit comentariu pe DETAIL, mențiunile se validează că trimit
+  către schițe PUBLISHED ale acestui detaliu (`filterSketchIdsByDetail`, `inArray`) — anti-IDOR; tokenii
+  străini se degradează la text. `getCommentTarget` derivă detailId la editare.
+- **`page.tsx`**: înlocuit blocul liniar cu `<DetailWorkspace/>`; **antetul** (titlu/autor/params/descriere +
+  meniul „⋮") s-a mutat în capul cardului workspace (ca în 3.jpeg) — `page.tsx` rămâne cu breadcrumb + resurse +
+  workspace. Imaginea 2D trăiește acum în viewportul tabului 0 (figure standalone scoasă). **Nu mai fetchează
+  comentarii per SKETCH** (elimină N query-uri); validarea per-schiță rămâne.
+- **`sketch-section.tsx`**: ȘTERS (absorbit în workspace).
+- **Fără migrație DB.** Comentariile SKETCH istorice nu se mai afișează (MVP, date puține — lăsate ascunse).
+- **Amânat:** overlay multi-schiță pe canvas; breakdown counts pe rol în bara de validare.
+
 ## 2026-07-02 — feat(details): editare detaliu de către autor
 
 - **De ce:** autorul nu putea corecta un detaliu după publicare (exista doar creare + ștergere).
