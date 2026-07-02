@@ -45,7 +45,9 @@ export default async function NewDetailPage() {
           configurate.
         </p>
       ) : (
-        <DetailForm categories={categories.map((c) => ({ id: c.id, name: c.name }))} />
+        <DetailForm
+          categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }))}
+        />
       )}
     </main>
   );

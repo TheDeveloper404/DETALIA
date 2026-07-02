@@ -132,6 +132,7 @@ export async function publish(input: {
     detailTitle: detail.title,
     sketchAuthorName: author?.name ?? null,
     sketchAuthorRole: author?.roleMain ?? null,
+    sketchAuthorSubRole: author?.subRole ?? null,
     sketchAuthorVerified: author?.verification === "VERIFIED",
   });
   return { ok: true };

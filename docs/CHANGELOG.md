@@ -4,6 +4,56 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — feat(categorii): multi-categorie (tag-uri) + parametri tehnici pe listă fixă
+
+- **Multi-categorie** (Edi: „bifezi oricâte", stil tag Pinterest): `details.category_id` (FK unic) →
+  tabel nou many-to-many `detail_categories` (`detailId`, `categoryId`, PK compus, index pe
+  `categoryId`, cascade la ștergerea detaliului). `domain/detail.ts`: `categoryId: string` →
+  `categoryIds: string[]` (min 1, cap defensiv `MAX_DETAIL_CATEGORIES=10`, dedupe).
+  `detailsRepo.ts`: query-uri (`getDetailById`, `listFeed`, `listRelatedDetails`) trec de la `leftJoin`
+  pe `categoryId` la `EXISTS`/agregare JSON (`detail.categories: {id,name,slug}[]`) pe join-ul nou —
+  „detalii înrudite" = acum cel puțin o categorie comună, nu neapărat aceeași. `categoriesRepo.listCategoriesWithCounts`
+  actualizat pentru join-ul nou. `detail-form.tsx`: select unic → tag picker grupat pe secțiuni
+  (`categories.parentId` = header neselectabil), bifare multiplă → câmpuri hidden `categoryIds` repetate.
+- **Parametri tehnici pe liste fixe** (Edi, `lista_categorii.md`): `climateZone` (Zona I–IV, fără
+  variantă neutră → nullable, fără default) + `seismicZone` (text liber) **split** în `seismicAg`
+  (8 valori) + `seismicTc` (4 valori) — ambele cu „General" ca variantă neutră. Adăugate `snowLoad`
+  (4 valori) și `windLoad` (5 valori), tot cu „General". Toate validate contra listei fixe în
+  `validateDetailInput` (`INVALID_ZONE` dacă valoarea nu e din listă) — planul vechi „listă pe HOLD,
+  string liber mărginit" (`MAX_ZONE_LENGTH`) e depășit de decizia asta.
+- **Migrație în 2 pași** (evită prompt-ul interactiv al `drizzle-kit generate` la rename ambiguu):
+  `0010_fluffy_pandemic.sql` (adaugă `detail_categories` + `seismic_ag/tc`, `snow_load`, `wind_load`;
+  relaxează `category_id`/`climate_zone`/`seismic_zone` vechi) + `0011_naive_alex_power.sql` (scoate
+  `category_id` + `seismic_zone`). **NEAPLICATE** — rulează ambele, în ordine, pe branch-ul Neon de
+  `dev` înainte de a testa formularul de creare detaliu.
+- **`db/seed.ts` rescris**: taxonomia veche DRAFT (6 categorii flat) → taxonomia finală (3 secțiuni:
+  „Clasificare după zonă" / „...sistem constructiv" / „Alte categorii", 29 categorii bifabile ca
+  frunze pe `parentId`). Seed-ul acum ȘTERGE categoriile existente înainte de a insera (sigur doar
+  fără detalii reale atașate — DB golită pentru seed-ul de lansare, vezi handoff). Rulează `npm run db:seed` DUPĂ migrații.
+- Actualizate toate locurile care citeau `categoryId`/`categoryName` direct: `detail-card.tsx` (badge
+  arată prima categorie + „+N"), `profile-view.tsx`/`profileRepo.ts` (idem, subquery pe prima
+  categorie alfabetic), `details/[id]/page.tsx` (breadcrumb + antet + badge-uri de parametri tehnici),
+  `e2e/auth.setup.ts` (insert separat în `detail_categories`).
+
+## 2026-07-02 — feat(roluri): lista finală de meserii + rol adițional + rolul principal ascuns din platformă
+
+- **`server/domain/roles.ts`**: `SUBROLES` înlocuit cu lista finală confirmată de Edi (`lista_meserii.md`) — 13
+  meserii PROIECTANT, 7 EXECUTANT, 3 FURNIZOR, 2 BENEFICIAR. Adăugat `SECONDARY_ROLES` (Administrativ + Educație,
+  11 valori) + `isValidSecondaryRole`.
+- **Rol adițional, ADITIV** peste meseria de bază (nu înlocuiește regula „un singur rol per user"): coloană nouă
+  `roles.secondary_role` (nullable, migrație `0009_cynical_annihilus.sql`) + prag prin `declareRole`/`updateRole`
+  (`roleService.ts`) → `rolesRepo.ts` → `onboarding/actions.ts` (câmp nou `secondaryRole` în formular).
+- **Rolul principal (PROIECTANT/EXECUTANT/FURNIZOR/BENEFICIAR) nu se mai afișează în platformă** — doar meseria
+  (subRole), decizie Edi („Eduard Nemeș · Arhitect", nu „Proiectant · Arhitect"). `RolePill` afișează acum
+  `subRole` (culoarea pastilei rămâne pe `roleMain`, invizibil userului). Actualizate toate apelurile:
+  `detail-card.tsx`, `comments-section.tsx`, `validation-panel.tsx`, `sketch-section.tsx`, `sketch-editor.tsx`,
+  `details/[id]/page.tsx` (autor + detalii înrudite), `notification-bell.tsx`/`app-header.tsx` (payload notificare
+  extins cu `sketchAuthorSubRole`). `profile/edit/page.tsx`: `roleLabel` = doar meseria.
+  Repo-urile (`detailsRepo`, `commentsRepo`, `validationsRepo`) aveau deja `subRole`/`authorSubRole` în select —
+  doar `usersRepo.getNotificationActor` + `detailsRepo.listRelatedDetails` au primit coloana în plus.
+  **Admin panel (`admin-page/page.tsx`) neatins** — afișează în continuare rol+subrol (context intern, nu platformă publică).
+- **Migrație generată, NEAPLICATĂ** — rulează `npm run db:migrate` (sau `db:push`) pe branch-ul de lucru înainte de deploy.
+
 ## 2026-07-01 — perf/ux(detaliu): optimistic UI la validare + pagina „Adaugă detaliu" wide
 
 - **Optimistic UI pe Aprob/Retract** (`validation-panel.tsx`): butoanele erau `<form action>` simple, fără pending

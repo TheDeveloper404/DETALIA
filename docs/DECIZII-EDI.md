@@ -7,36 +7,43 @@
 
 ## Avem nevoie de ele curând (blochează lansarea)
 
-1. [ ] **Lista de categorii** — pe ce împărțim detaliile (ex. Fundație, Acoperiș, Tâmplărie...).
-   *De ce: fără ea nu putem face nici filtrele, nici conținutul de start.*
+1. [x] **Lista de categorii** — răspuns primit + **implementat** 2026-07-02 (multi-categorie tip tag,
+   29 categorii pe 3 secțiuni). Sursa: `lista_categorii.md` (poate fi ștearsă, conținutul a trecut în
+   `server/domain/detail.ts` + `db/seed.ts`; vezi CHANGELOG 2026-07-02).
 
-2. [ ] **Lista de meserii (subroluri)** pentru fiecare rol — ex. la PROIECTANT: arhitect, inginer structurist etc.
-   *De ce: omul își alege meseria când se înscrie; trebuie să știm din ce alege.*
+2. [x] **Lista de meserii (subroluri)** — răspuns primit + **implementat** 2026-07-02 (`server/domain/roles.ts`).
+   Sursa: `lista_meserii.md` (poate fi ștearsă; vezi CHANGELOG 2026-07-02).
 
-3. [ ] **Cine pune conținutul de start** — ideal câțiva oameni reali cu meserii diferite (un proiectant, un executant, un furnizor), nu un singur cont.
-   *De ce: ca platforma să arate din prima că are oameni de meserii variate.*
+3. [x] **Cine pune conținutul de start** — decis: câțiva oameni reali cu meserii diferite (nu un singur cont).
+   *Decis, NEEXECUTAT — execuția (conturi + conținut seed) e pas separat, vezi `docs/PLAN-SEED.md`.*
 
-4. [ ] **Primii oameni aduși la lansare** — o listă echilibrată pe meserii (nu doar proiectanți).
-   *De ce: dacă vin doar de o meserie, nu se poate testa contrazicerea între meserii.*
+4. [x] **Primii oameni aduși la lansare** — decis: listă echilibrată pe meserii, nu doar proiectanți.
+   *Decis, NEEXECUTAT — outreach, nu cod.*
 
-5. [ ] **Acceptă să punem câteva păreri reale de start** pe 2–3 detalii (de la oamenii noștri, semnate cu meseria lor).
-   *De ce: sparge „sala goală", arată cum arată o discuție. Niciodată păreri inventate.*
+5. [x] **Acceptă păreri reale de start** — decis: da, 2–3 detalii, semnate cu meseria reală, niciodată inventate.
+   *Decis, NEEXECUTAT — se face odată cu seed-ul de conținut.*
 
-6. [ ] **Când zicem că „a mers"** — cifre concrete + un termen (ex. „în 2 săptămâni, măcar un detaliu pe care 2 meserii se contrazic").
-   *De ce: ca să nu ne mințim singuri după lansare.*
+6. [x] **Când zicem că „a mers"** — exemplul propus e OK: „în 2 săptămâni, măcar un detaliu pe care 2 meserii se contrazic".
 
 ---
 
 ## Mai târziu (nu blochează acum)
 
-7. [ ] **Zonele climatice / seismice** — ce listă punem (acum e pe pauză).
+7. [x] **Zonele climatice / seismice** — răspuns primit + **implementat** 2026-07-02: zonă climatică (Zona
+   I–IV), seismic a_g + Tc separate, încărcare zăpadă, încărcare vânt — liste fixe. Sursa: `lista_categorii.md`.
 
-8. [ ] **Câte resurse în plus** poate avea un detaliu (2–3?) și ce fel (poză / link / PDF).
+8. [ ] **Câte resurse în plus** — Edi a răspuns „3 — vor fi doar poze" (`decizi-luate-edi.md`). **NEALINIAT
+   cu codul**: `server/domain/detail.ts` permite azi IMAGE/LINK/PDF/TEXT, nu doar imagini. De discutat cu
+   Liviu dacă restrângem la IMAGE sau păstrăm variantele curente.
 
-9. [ ] **Verificarea automată a meseriei** — folosim surse oficiale? (ex. OAR pentru arhitecți, CUI pentru firme.) Acum verificarea o face Edi manual.
+9. [ ] **Verificarea automată a meseriei** — Edi a răspuns: fază 1 = chestionar online (inclusiv date
+   oficiale gen nr. TNA la arhitecți) → rol verificat manual (Edi). Automatizare (OAR/CUI) rămâne ulterioară.
+   Neimplementat — verificarea manuală „pull, nu push" existentă rămâne valabilă ca fază 1 provizorie.
 
-10. [ ] **Cine deține conținutul postat** (detalii, schițe) — pentru Termeni și Condiții.
+10. [ ] **Cine deține conținutul postat** — Edi a răspuns: conținutul e deținut de autori, nu de platformă.
+    Rămâne de scris în Termeni și Condiții (document neexistent încă).
 
-11. [ ] **Pe ce firmă / persoană e platforma** (pentru protecția datelor / GDPR) + să confirmăm că baza de date stă în UE.
+11. [ ] **Pe ce firmă / persoană e platforma** — Edi a răspuns: se va face un SRL la un moment dat. Fără
+    acțiune de cod acum; blochează doar Termenii/GDPR finali.
 
-12. [ ] **Plan Vercel** — pornim gratis, trecem pe plătit (~20$/lună) când devine comercial. OK?
+12. [x] **Plan Vercel** — confirmat de Edi: pornim gratis, trecem pe plătit (~20$/lună) când devine comercial.

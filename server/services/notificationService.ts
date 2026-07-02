@@ -77,6 +77,7 @@ export async function notifySketchProposed(input: {
   detailTitle: string;
   sketchAuthorName: string | null;
   sketchAuthorRole?: string | null;
+  sketchAuthorSubRole?: string | null;
   sketchAuthorVerified?: boolean;
 }) {
   const who = input.sketchAuthorName ?? "Cineva";
@@ -90,6 +91,7 @@ export async function notifySketchProposed(input: {
       detailTitle: input.detailTitle,
       sketchAuthorName: input.sketchAuthorName,
       sketchAuthorRole: input.sketchAuthorRole ?? null,
+      sketchAuthorSubRole: input.sketchAuthorSubRole ?? null,
       sketchAuthorVerified: input.sketchAuthorVerified ?? false,
     },
     emailSubject: plain(`${who} a schițat peste „${input.detailTitle}"`),

@@ -14,9 +14,30 @@ export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 5000;
 export const MAX_DETAIL_RESOURCES = 3;
 export const DEFAULT_FEED_SIZE = 20; // feed finit, fără scroll infinit (caracter de comunitate)
-// SEC-11 — plafoane de lungime pe stringurile libere (frontend-ul nu e sursă de adevăr).
-export const MAX_ZONE_LENGTH = 64; // climateZone / seismicZone (listă fixă pe HOLD → acceptăm string liber mărginit)
+// SEC-11 — plafon defensiv pe nr. de categorii bifate (Edi: „oricâte" — capul e doar anti-abuz, nu produs).
+export const MAX_DETAIL_CATEGORIES = 10;
 export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonabilă de browser/DB)
+
+// Parametri tehnici — liste finale confirmate de Edi (`lista_categorii.md`). Toți opționali; fără
+// valoare aleasă = neafișat (nu forțăm „General" pe zona climatică, care n-are variantă neutră).
+export const CLIMATE_ZONES = ["Zona I", "Zona II", "Zona III", "Zona IV"] as const;
+export const SEISMIC_AG_VALUES = [
+  "General",
+  "0.10g",
+  "0.15g",
+  "0.20g",
+  "0.25g",
+  "0.30g",
+  "0.35g",
+  "0.40g",
+] as const;
+export const SEISMIC_TC_VALUES = ["General", "0.7s", "1.0s", "1.6s"] as const;
+export const SNOW_LOAD_VALUES = ["General", "sk 1.5", "sk 2.0", "sk 2.5"] as const;
+export const WIND_LOAD_VALUES = ["General", "qb 0.4", "qb 0.5", "qb 0.6", "qb 0.7"] as const;
+
+function isOneOf<T extends readonly string[]>(list: T, value: string): value is T[number] {
+  return (list as readonly string[]).includes(value);
+}
 
 // Tipuri de resurse opționale (oglindesc enum-ul DB detail_resource_type).
 export const RESOURCE_TYPES = ["IMAGE", "LINK", "TEXT", "PDF"] as const;
@@ -49,10 +70,13 @@ export function isHttpUrl(value: string): boolean {
 export type NormalizedDetailInput = {
   title: string;
   description: string | null;
-  categoryId: string;
+  categoryIds: string[];
   imageUrl: string;
-  climateZone: string;
-  seismicZone: string;
+  climateZone: string | null;
+  seismicAg: string;
+  seismicTc: string;
+  snowLoad: string;
+  windLoad: string;
   resources: DetailResourceInput[];
 };
 
@@ -62,6 +86,8 @@ export type DetailValidationError =
   | "DESCRIPTION_TOO_LONG"
   | "IMAGE_REQUIRED"
   | "CATEGORY_REQUIRED"
+  | "TOO_MANY_CATEGORIES"
+  | "INVALID_ZONE"
   | "TOO_MANY_RESOURCES"
   | "INVALID_RESOURCE";
 
@@ -73,10 +99,13 @@ export type DetailValidationResult =
 export function validateDetailInput(input: {
   title: string;
   description?: string | null;
-  categoryId: string;
+  categoryIds: string[];
   imageUrl: string;
   climateZone?: string | null;
-  seismicZone?: string | null;
+  seismicAg?: string | null;
+  seismicTc?: string | null;
+  snowLoad?: string | null;
+  windLoad?: string | null;
   resources?: DetailResourceInput[];
 }): DetailValidationResult {
   const title = input.title?.trim() ?? "";
@@ -88,8 +117,10 @@ export function validateDetailInput(input: {
     return { ok: false, error: "DESCRIPTION_TOO_LONG" };
   }
 
-  const categoryId = input.categoryId?.trim() ?? "";
-  if (categoryId.length === 0) return { ok: false, error: "CATEGORY_REQUIRED" };
+  // Categorii: „bifezi oricâte" (Edi) — cel puțin una, capul MAX_DETAIL_CATEGORIES e doar anti-abuz.
+  const categoryIds = [...new Set((input.categoryIds ?? []).map((c) => c.trim()).filter(Boolean))];
+  if (categoryIds.length === 0) return { ok: false, error: "CATEGORY_REQUIRED" };
+  if (categoryIds.length > MAX_DETAIL_CATEGORIES) return { ok: false, error: "TOO_MANY_CATEGORIES" };
 
   const imageUrl = input.imageUrl?.trim() ?? "";
   if (imageUrl.length === 0) return { ok: false, error: "IMAGE_REQUIRED" };
@@ -118,13 +149,39 @@ export function validateDetailInput(input: {
     }
   }
 
-  // Zone climatice/seismice: listă fixă pe HOLD → acceptăm string liber cu default „General",
-  // dar SEC-11 îl plafonăm (frontend-ul nu e sursă de adevăr).
-  const climateZone = (input.climateZone?.trim() || "General").slice(0, MAX_ZONE_LENGTH);
-  const seismicZone = (input.seismicZone?.trim() || "General").slice(0, MAX_ZONE_LENGTH);
+  // Parametri tehnici: liste fixe (Edi, `lista_categorii.md`). Toți opționali — valoare goală/lipsă
+  // trece necompletată (climă) sau „General" (ceilalți, care au variantă neutră în listă).
+  const climateZoneRaw = input.climateZone?.trim() || null;
+  if (climateZoneRaw !== null && !isOneOf(CLIMATE_ZONES, climateZoneRaw)) {
+    return { ok: false, error: "INVALID_ZONE" };
+  }
+  const climateZone = climateZoneRaw;
+
+  const seismicAg = input.seismicAg?.trim() || "General";
+  if (!isOneOf(SEISMIC_AG_VALUES, seismicAg)) return { ok: false, error: "INVALID_ZONE" };
+
+  const seismicTc = input.seismicTc?.trim() || "General";
+  if (!isOneOf(SEISMIC_TC_VALUES, seismicTc)) return { ok: false, error: "INVALID_ZONE" };
+
+  const snowLoad = input.snowLoad?.trim() || "General";
+  if (!isOneOf(SNOW_LOAD_VALUES, snowLoad)) return { ok: false, error: "INVALID_ZONE" };
+
+  const windLoad = input.windLoad?.trim() || "General";
+  if (!isOneOf(WIND_LOAD_VALUES, windLoad)) return { ok: false, error: "INVALID_ZONE" };
 
   return {
     ok: true,
-    value: { title, description, categoryId, imageUrl, climateZone, seismicZone, resources },
+    value: {
+      title,
+      description,
+      categoryIds,
+      imageUrl,
+      climateZone,
+      seismicAg,
+      seismicTc,
+      snowLoad,
+      windLoad,
+      resources,
+    },
   };
 }

@@ -1,13 +1,23 @@
 // Repo categorii — singurul loc cu acces Drizzle pentru tabelul `categories` (arbore self-FK).
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { categories, details } from "@/db/schema";
+import { categories, detailCategories, details } from "@/db/schema";
 
 export async function getCategoryById(id: string) {
   const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
   return row ?? null;
+}
+
+// Numărul de ID-uri valide dintr-o listă (verificare de integritate pentru multi-categorie la creare).
+export async function countExistingCategoryIds(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(categories)
+    .where(inArray(categories.id, ids));
+  return row?.count ?? 0;
 }
 
 // Toate categoriile (UI compune arborele din parentId). Sortate alfabetic pentru afișare stabilă.
@@ -24,16 +34,17 @@ export async function listCategories() {
 }
 
 // Categoriile cu numărul de detalii PUBLISHED — pentru sidebar/rail în feed.
-// LEFT JOIN + GROUP BY (forma canonică) → categoriile fără detalii rămân cu 0; `count(details.id)`
-// numără doar rândurile join-uite (non-null). `::int` ca să vină number, nu string. Sortat alfabetic.
+// LEFT JOIN prin `detail_categories` (many-to-many, Edi: „bifezi oricâte") + GROUP BY (forma canonică)
+// → categoriile fără detalii rămân cu 0; `count(...)` distinct pe detailId, non-null. Sortat alfabetic.
 export async function listCategoriesWithCounts() {
-  const detailCount = sql<number>`count(${details.id})::int`;
+  const detailCount = sql<number>`count(distinct ${details.id})::int`;
   return db
     .select({ id: categories.id, name: categories.name, count: detailCount })
     .from(categories)
+    .leftJoin(detailCategories, eq(detailCategories.categoryId, categories.id))
     .leftJoin(
       details,
-      and(eq(details.categoryId, categories.id), eq(details.status, "PUBLISHED")),
+      and(eq(details.id, detailCategories.detailId), eq(details.status, "PUBLISHED")),
     )
     .groupBy(categories.id, categories.name)
     .orderBy(asc(categories.name));

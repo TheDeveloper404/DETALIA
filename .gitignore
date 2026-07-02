@@ -72,3 +72,4 @@ docs/_archive/
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)
 # CLAUDE.md                   -> specificația de domeniu a proiectului
 # .env.example                -> template de env, fără valori reale
+
