@@ -17,7 +17,7 @@ fiindcă logica e deja izolată. Re-evaluăm doar dacă apar consumatori externi
 **Context:** acces controlat, suprafață de atac minimă, fără management de parole.
 **Decizie:** Auth.js Email provider (magic link), tokenuri scurte one-time.
 **Consecințe:** endpoint-urile de parolă/reset/MFA din standardele moștenite **NU se aplică**; sesiuni/tokenuri
-gestionate de framework. Se mulează natural pe invite-only. _(CLAUDE.md „Divergență Backend.md")_
+gestionate de framework (strategie `jwt` din 2026-07-02, perf — vezi CHANGELOG). _(CLAUDE.md „Divergență Backend.md")_
 
 ## ADR-003 — Schițare asincronă „GitHub-style", NU co-desenare real-time
 **Context:** co-desenarea real-time (CRDT/websockets) = cea mai scumpă și riscantă piesă.

@@ -62,6 +62,62 @@ export function magicLinkEmailText(url: string, ttlMinutes: number): string {
   return `Autentificare în DETALIA\n\nDeschide linkul pentru a te conecta (valabil ${ttlMinutes} de minute, o singură utilizare):\n${url}\n\nDacă nu ai cerut acest email, ignoră-l.`;
 }
 
+// Escape HTML — valorile controlate de user (titlu, nume) NU intră brut în email (anti-XSS).
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Subiect = text simplu: fără HTML, dar curățăm newline-urile (anti header-injection).
+export function plainSubject(s: string): string {
+  return s.replace(/[\r\n]+/g, " ").trim();
+}
+
+function emailButton(url: string, label: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
+      <td style="border-radius:10px;background:${BRAND.accent};">
+        <a href="${esc(url)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">
+          ${esc(label)}
+        </a>
+      </td>
+    </tr></table>`;
+}
+
+// Notificare: cineva a publicat o schiță peste detaliul destinatarului.
+export function sketchProposedEmailHtml(who: string, detailTitle: string, url: string): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Schiță nouă pe detaliul tău</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      ${esc(who)} a publicat o schiță peste detaliul tău <strong style="color:${BRAND.text};">${esc(detailTitle)}</strong>.
+    </p>
+    ${emailButton(url, "Vezi schița în teanc")}
+  `);
+}
+
+export function sketchProposedEmailText(who: string, detailTitle: string, url: string): string {
+  return `Schiță nouă pe detaliul tău\n\n${who} a publicat o schiță peste detaliul tău „${detailTitle}".\n\nVezi schița în teanc:\n${url}`;
+}
+
+// Notificare: autorul detaliului-mamă a șters schița destinatarului (moderare post-publicare).
+export function sketchDeletedEmailHtml(detailTitle: string, url: string): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Schița ta a fost eliminată</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      Schița ta de la detaliul <strong style="color:${BRAND.text};">${esc(detailTitle)}</strong> a fost eliminată
+      de autorul detaliului.
+    </p>
+    ${emailButton(url, "Vezi detaliul")}
+  `);
+}
+
+export function sketchDeletedEmailText(detailTitle: string, url: string): string {
+  return `Schița ta a fost eliminată\n\nSchița ta de la detaliul „${detailTitle}" a fost eliminată de autorul detaliului.\n\nVezi detaliul:\n${url}`;
+}
+
 export async function sendEmail(input: {
   to: string;
   subject: string;

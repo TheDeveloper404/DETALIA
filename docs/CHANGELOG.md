@@ -4,6 +4,41 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-02 — fix(email): template-uri brand pentru notificările de schiță + curățare docs (voce impersonală, `EMAILURI.md`)
+
+- **De ce:** `notifySketchProposed`/`notifySketchDeleted` trimiteau HTML brut (`<p>...`), fără brand-ul DETALIA
+  — inconsistent cu magic link-ul (care folosește `emailLayout()`). Sesizat la revizuirea documentației.
+- **`lib/email.ts`:** adăugate `sketchProposedEmailHtml/Text`, `sketchDeletedEmailHtml/Text` (folosesc
+  `emailLayout()` + un buton CTA comun, escaping intern). Mutat `esc`/`plain` (→ `plainSubject`) din
+  `notificationService.ts` aici — un singur loc pentru templating email.
+- **`server/services/notificationService.ts`:** folosește noile template-uri în loc de HTML inline;
+  `sendEmail` primește acum și `text` (fallback plain-text, lipsea înainte).
+- **`docs/EMAILURI.md`:** rescris complet — descria fluxul vechi de accept/respins pe schiță (eliminat
+  2026-06-30) cu 2 tipuri de notificare care nu mai există în cod. Acum documentează exact cele 2 email-uri
+  reale + magic link, sincron cu `lib/email.ts`.
+- **Curățare voce impersonală** în documentele „sursă de adevăr" (`docs/SECURITATE.md`, `docs/EVALUARE-MVP.md`,
+  `docs/DEPLOY.md`): scoase referințe directe („decizie Liviu" → „decizie de produs", „îți dă"/„ai date reale"
+  → formulări generice). `docs/CHANGELOG.md` (jurnal) și `.remember/remember.md` (handoff) rămân neatinse
+  intenționat — sunt scrise ca notă către o persoană, prin design.
+- `tsc --noEmit` + `eslint` verzi.
+
+## 2026-07-02 — docs: consolidare `SECURITATE.md` + curățare staleness în `docs/`
+
+- **De ce:** `docs/SECURITATE.md` era din 24 iunie, se declara „sursa unică de adevăr" cu verdict **BLOCAT**
+  și categorii ⚠️/❌ deja rezolvate de săptămâni (rate-limit, headers, upload, SEC-04) — contrazicea realitatea
+  (app live din 2026-06-29). Exista și un `securitate.md` la root (auditul de azi, verdict APROBAT).
+- **Consolidat:** conținutul auditului de azi (13 categorii, poarta §11, JWT+SEC-04, decizia de a nu mai rula
+  distructiv C.1/C.3/E/F/I/J) a înlocuit complet vechiul `docs/SECURITATE.md`. `securitate.md` de la root **șters**
+  (conținut mutat). `docs/SECURITATE.md` rămâne singura sursă de adevăr pentru securitate.
+- **`docs/DEPLOY.md`:** era runbook-ul de setup inițial („blocaj curent: login nu merge până la domeniu"),
+  complet depășit — app live de o săptămână. Actualizat stările (Resend/Google/Cloudflare = ✅), scos
+  `INVITATION_TTL_HOURS` (env inexistent, eliminat 2026-06-28), marcat §3-7 ca istoric/referință, bifat
+  checklist-ul final.
+- **`docs/ADR.md`:** ADR-002 avea o linie stale („se mulează natural pe invite-only") care contrazicea
+  ADR-008 din același document (acces public, invitații eliminate). Corectată.
+- **`docs/EVALUARE-MVP.md`:** secțiunea Securitate actualizată cu rezultatul auditului + poarta §11 (nu mai
+  „rămas de rulat", ci făcut). Secțiunea Performanță actualizată cu migrarea JWT.
+
 ## 2026-07-02 — perf(auth): sesiune `database` → `jwt` + blocare tare suspendare pe mutații (SEC-04)
 
 - **De ce:** cu `strategy:"database"`, fiecare `auth()` (fiecare render + fiecare acțiune) făcea un query
