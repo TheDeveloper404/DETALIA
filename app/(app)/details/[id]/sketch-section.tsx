@@ -77,7 +77,9 @@ export function SketchSection({
 
   return (
     <div className="flex flex-col gap-6">
-      <section className="overflow-hidden rounded-xl border border-border bg-card">
+      {/* id=schiteaza — ținta scurtăturii „Schițează peste" din cardul de feed (fără să creeze draft;
+          userul aterizează pe teanc, vede contextul + butonul real). scroll-mt = offset sub header sticky. */}
+      <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#eee6da] px-5 py-4 sm:px-6">
           <div>
             <h2 className="font-heading text-lg font-bold">Teancul de schițe</h2>
