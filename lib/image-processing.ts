@@ -12,7 +12,8 @@
 import { del, put } from "@vercel/blob";
 import sharp from "sharp";
 
-import { BLOB_URL_RE, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
+import { isOwnBlobUrl } from "@/lib/blob-url";
+import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
 // §11c#4 / SEC-02: ștergere best-effort a unui blob orfan, dar cu LOG la eșec (altfel orfanul rămâne fără
 // urmă → risipă de storage invizibilă). URL-ul de blob nu e PII (cale random).
@@ -83,7 +84,7 @@ export type ReprocessResult = { ok: true; url: string } | { ok: false };
 // șterge originalul; pe eșec șterge orfanul. `folder` = prefixul de cale în Blob (ex. "details", "avatars").
 export async function reprocessBlobImage(url: string, folder: string): Promise<ReprocessResult> {
   // Acceptăm DOAR URL-uri din store-ul nostru → fetch-ul nu poate fi îndreptat spre alte gazde (anti-SSRF).
-  if (!BLOB_URL_RE.test(url)) return { ok: false };
+  if (!isOwnBlobUrl(url)) return { ok: false };
 
   let input: Buffer;
   try {

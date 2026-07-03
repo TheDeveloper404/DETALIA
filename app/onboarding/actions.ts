@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { reprocessBlobImage } from "@/lib/image-processing";
-import { BLOB_URL_RE } from "@/lib/upload-limits";
+import { isOwnBlobUrl } from "@/lib/blob-url";
 import { normalizeWebsite } from "@/lib/url";
 import {
   updateUserCoverImage,
@@ -88,10 +88,10 @@ export async function onboardingAction(
   // Acceptăm DOAR URL-uri de Blob ale store-ului nostru (tipul/mărimea impuse la emiterea tokenului).
   const avatarUrl = clean(formData.get("avatarUrl"));
   const coverUrl = clean(formData.get("coverUrl"));
-  if (avatarUrl && !BLOB_URL_RE.test(avatarUrl)) {
+  if (avatarUrl && !isOwnBlobUrl(avatarUrl)) {
     return { error: ERROR_MESSAGES.INVALID_TYPE };
   }
-  if (coverUrl && !BLOB_URL_RE.test(coverUrl)) {
+  if (coverUrl && !isOwnBlobUrl(coverUrl)) {
     return { error: ERROR_MESSAGES.INVALID_TYPE };
   }
 

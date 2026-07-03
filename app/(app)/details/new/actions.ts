@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { BLOB_URL_RE } from "@/lib/upload-limits";
+import { isOwnBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail } from "@/server/services/detailService";
 
@@ -86,7 +86,7 @@ export async function createDetailAction(
   // Imaginea s-a urcat CLIENT direct în Blob (vezi /api/blob/upload). Aici primim doar URL-ul →
   // acceptăm DOAR un URL de Blob al store-ului nostru (tipul/mărimea au fost impuse la token).
   const imageUrl = String(formData.get("imageUrl") ?? "");
-  if (!BLOB_URL_RE.test(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+  if (!isOwnBlobUrl(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   // SEC-02: validează real + re-encodează (fără metadata) + plafonează dimensiuni. Returnează un URL curat.
   const processed = await reprocessBlobImage(imageUrl, "details");
