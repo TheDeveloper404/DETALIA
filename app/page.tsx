@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { CookieConsent } from "@/components/cookie-consent";
 import { HeroPreview } from "@/components/hero-preview";
 import { IntroSplash } from "@/components/intro-splash";
 import { Reveal } from "@/components/reveal";
@@ -505,6 +506,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <CookieConsent />
     </div>
   );
 }

@@ -13,7 +13,14 @@ const BRAND = {
   accent: "#a9573a",
 };
 
-export function emailLayout(contentHtml: string): string {
+// `accent` opțional = suprascrie culoarea de brand (teracotă) doar pt acest email — folosit de
+// emailul de admin, ca să se diferențieze vizual instant de emailurile normale (buton + badge).
+// `badge` opțional = etichetă mică lângă wordmark (ex. „PANOU ADMIN").
+export function emailLayout(
+  contentHtml: string,
+  options?: { accent?: string; badge?: string },
+): string {
+  const accent = options?.accent ?? BRAND.accent;
   return `<!doctype html>
 <html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
 <body style="margin:0;padding:0;background:${BRAND.bg};">
@@ -21,10 +28,15 @@ export function emailLayout(contentHtml: string): string {
     <tr><td align="center" style="padding:32px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;font-family:Arial,Helvetica,sans-serif;">
         <tr><td style="padding:0 4px 18px;">
-          <span style="display:inline-block;width:9px;height:9px;background:${BRAND.accent};transform:rotate(45deg);vertical-align:middle;"></span>
+          <span style="display:inline-block;width:9px;height:9px;background:${accent};transform:rotate(45deg);vertical-align:middle;"></span>
           <span style="font-weight:800;letter-spacing:.2em;font-size:16px;color:${BRAND.text};vertical-align:middle;margin-left:9px;">DETALIA</span>
+          ${
+            options?.badge
+              ? `<span style="display:inline-block;vertical-align:middle;margin-left:10px;padding:3px 9px;border-radius:20px;background:${accent};color:#ffffff;font-size:10.5px;font-weight:700;letter-spacing:.08em;">${options.badge}</span>`
+              : ""
+          }
         </td></tr>
-        <tr><td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:14px;padding:30px 28px;">
+        <tr><td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-top:3px solid ${accent};border-radius:14px;padding:30px 28px;">
           ${contentHtml}
         </td></tr>
         <tr><td style="padding:18px 4px 0;font-size:12px;line-height:1.5;color:${BRAND.muted};">
@@ -44,16 +56,10 @@ export function magicLinkEmailHtml(url: string, ttlMinutes: number): string {
     <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
       Apasă butonul de mai jos ca să te conectezi. Linkul e valabil ${ttlMinutes} de minute și poate fi folosit o singură dată.
     </p>
-    <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="border-radius:10px;background:${BRAND.accent};">
-        <a href="${url}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">
-          Conectează-te
-        </a>
-      </td>
-    </tr></table>
+    ${emailButton(url, "Conectează-te")}
     <p style="margin:22px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
       Dacă butonul nu merge, copiază acest link în browser:<br>
-      <a href="${url}" style="color:${BRAND.accent};word-break:break-all;">${url}</a>
+      <a href="${esc(url)}" style="color:${BRAND.accent};word-break:break-all;">${esc(url)}</a>
     </p>
   `);
 }
@@ -77,14 +83,45 @@ export function plainSubject(s: string): string {
   return s.replace(/[\r\n]+/g, " ").trim();
 }
 
-function emailButton(url: string, label: string): string {
+function emailButton(url: string, label: string, accent: string = BRAND.accent): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="border-radius:10px;background:${BRAND.accent};">
+      <td style="border-radius:10px;background:${accent};">
         <a href="${esc(url)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">
           ${esc(label)}
         </a>
       </td>
     </tr></table>`;
+}
+
+// Culoare distinctă pt emailul de acces admin — albastru-ardezie, NU teracota de brand normal.
+// Scop dublu: (1) admin recunoaște instant „ăsta e emailul special de admin", (2) semnal anti-phishing —
+// un email fals care copiază stilul normal de brand nu va avea accentul ăsta.
+const ADMIN_ACCENT = "#33465e";
+
+// Email-ul de acces admin (magic link, aceeași mecanică Auth.js, dar vizual distinct de login-ul normal).
+export function adminLoginEmailHtml(url: string, ttlMinutes: number): string {
+  return emailLayout(
+    `
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Acces panou de administrare</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      Apasă butonul de mai jos ca să intri în panoul de admin. Linkul e valabil ${ttlMinutes} de minute și
+      poate fi folosit o singură dată.
+    </p>
+    ${emailButton(url, "Intră în panoul de admin", ADMIN_ACCENT)}
+    <p style="margin:22px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
+      Dacă butonul nu merge, copiază acest link în browser:<br>
+      <a href="${esc(url)}" style="color:${ADMIN_ACCENT};word-break:break-all;">${esc(url)}</a>
+    </p>
+    <p style="margin:18px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
+      Nu ai cerut tu acces admin? Ignoră acest email — contul tău normal nu e afectat.
+    </p>
+  `,
+    { accent: ADMIN_ACCENT, badge: "PANOU ADMIN" },
+  );
+}
+
+export function adminLoginEmailText(url: string, ttlMinutes: number): string {
+  return `Acces panou de administrare DETALIA\n\nDeschide linkul pentru a intra în panoul de admin (valabil ${ttlMinutes} de minute, o singură utilizare):\n${url}\n\nNu ai cerut tu acces admin? Ignoră acest email.`;
 }
 
 // Notificare: cineva a publicat o schiță peste detaliul destinatarului.
