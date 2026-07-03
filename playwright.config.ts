@@ -48,7 +48,7 @@ export default defineConfig({
     // Fluxuri AUTHED — pornesc cu sesiunea seedată (storageState din setup).
     {
       name: "authed",
-      testMatch: /authed\.spec\.ts/,
+      testMatch: [/authed\.spec\.ts/, /sketch\.spec\.ts/],
       dependencies: ["setup"],
       use: {
         ...devices["Desktop Chrome"],
