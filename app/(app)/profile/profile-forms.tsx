@@ -2,12 +2,11 @@
 
 import { useActionState } from "react";
 
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-import { RO_CITIES } from "@/lib/ro-cities";
 
 import { type ProfileFormState, signOutAction, updateProfileDetailsAction } from "./actions";
 
@@ -103,21 +102,14 @@ export function EditDetailsForm({
           <Label htmlFor="location">
             Locație <span className="font-normal text-muted-foreground">(opțional)</span>
           </Label>
-          <Input
+          <CityAutocomplete
             id="location"
             name="location"
-            list="ro-cities"
-            autoComplete="off"
             maxLength={120}
             placeholder="ex: Cluj-Napoca"
             defaultValue={initialLocation ?? ""}
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
           />
-          {/* Sugestii native (browser filtrează „Ti" → Timișoara). Câmpul rămâne text liber. */}
-          <datalist id="ro-cities">
-            {RO_CITIES.map((city) => (
-              <option key={city} value={city} />
-            ))}
-          </datalist>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="website">

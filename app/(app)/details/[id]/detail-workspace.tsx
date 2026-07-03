@@ -121,8 +121,8 @@ export function DetailWorkspace({
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
-      <Button type="submit" size="sm" className="gap-2">
-        <Pencil className="size-[15px]" strokeWidth={2} />
+      <Button type="submit" className="gap-2 shadow-md">
+        <Pencil className="size-4" strokeWidth={2} />
         Schițează peste detaliu
       </Button>
     </form>
@@ -209,20 +209,37 @@ export function DetailWorkspace({
           )}
         </div>
 
-        {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover) + „Schițează peste" în dreapta */}
+        {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover) */}
         <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 sm:px-5">
           <button
             type="button"
             onClick={() => setTab(0)}
+            title={detailAuthor.name ?? "Autor detaliu"}
+            aria-label={detailAuthor.name ?? "Autor detaliu"}
             aria-current={isBase ? "true" : undefined}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-heading text-[13px] font-semibold transition-all",
+              "inline-flex items-center gap-2 rounded-full transition-all",
               isBase
-                ? "bg-secondary text-foreground ring-1 ring-primary/30"
-                : "text-muted-foreground opacity-70 hover:opacity-100",
+                ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
+                : "p-0.5 opacity-70 hover:opacity-100",
             )}
           >
-            Detaliul de bază
+            <AvatarInitials
+              name={detailAuthor.name}
+              imageUrl={detailAuthor.image}
+              size={28}
+              className={cn("ring-2 transition-colors", isBase ? "ring-primary" : "ring-transparent")}
+            />
+            {isBase && (
+              <span className="flex flex-col items-start leading-tight">
+                <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+                  Autor detaliu
+                </span>
+                <span className="font-heading text-[13px] font-semibold text-foreground">
+                  {detailAuthor.name ?? "Anonim"}
+                </span>
+              </span>
+            )}
           </button>
           {sketches.map((s, i) => {
             const label = s.author.name ?? `Schiță ${i + 1}`;
@@ -254,12 +271,13 @@ export function DetailWorkspace({
               </button>
             );
           })}
-          <span className="ml-auto shrink-0">{startSketchBtn}</span>
         </div>
 
         {/* viewport (tabul activ) + panou dreapta (autorul tabului activ) */}
         <div className="mt-3 grid grid-cols-1 border-t border-[#eee6da] md:grid-cols-[1fr_248px]">
           <div className="relative flex min-h-[300px] items-center justify-center border-b border-[#eee6da] bg-[#faf7f1] p-6 md:border-b-0 md:border-r">
+            {/* CTA principal — cât mai la vedere, chiar în fereastra cu imaginea (nu lângă ea) */}
+            <div className="absolute right-3 top-3 z-[3]">{startSketchBtn}</div>
             {isBase ? (
               <>
                 <div
@@ -285,9 +303,9 @@ export function DetailWorkspace({
             ) : (
               <>
                 <span className="absolute left-3 top-3 z-[2] rounded-md border border-[#e6dccd] bg-white/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#7c7060]">
-                  schiță peste detaliul-mamă
+                  schiță peste detaliu
                 </span>
-                <div className="w-full max-w-md">
+                <div className="w-full max-w-xl">
                   <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
                 </div>
               </>

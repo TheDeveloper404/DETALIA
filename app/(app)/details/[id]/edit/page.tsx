@@ -9,7 +9,7 @@ import { DetailForm, type DetailFormInitial } from "../../new/detail-form";
 import { updateDetailAction } from "./actions";
 
 // Tipurile de resursă editabile din formular (TEXT nu are câmp în formular → nu se editează aici).
-const EDITABLE_RESOURCE_TYPES = new Set(["IMAGE", "LINK", "PDF"]);
+const EDITABLE_RESOURCE_TYPES = new Set(["IMAGE", "LINK", "PDF", "CAD"]);
 
 // Editarea unui detaliu — DOAR autorul lui. Non-autorul e trimis la pagina detaliului (o poate vedea).
 export default async function EditDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,7 +43,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
     windLoad: detail.windLoad,
     resources: detail.resources
       .filter((r) => EDITABLE_RESOURCE_TYPES.has(r.type) && !!r.url)
-      .map((r) => ({ type: r.type as "IMAGE" | "LINK" | "PDF", value: r.url as string })),
+      .map((r) => ({ type: r.type as "IMAGE" | "LINK" | "PDF" | "CAD", value: r.url as string })),
   };
 
   return (

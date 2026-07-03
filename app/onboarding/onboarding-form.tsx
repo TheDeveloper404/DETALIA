@@ -2,8 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { CityAutocomplete } from "@/components/city-autocomplete";
 import { uploadImageToBlob } from "@/lib/blob-upload";
-import { RO_CITIES } from "@/lib/ro-cities";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 import {
   ROLE_MAINS,
@@ -317,11 +317,11 @@ export function OnboardingForm() {
             </div>
           </div>
 
-          {/* Rol + Subrol */}
+          {/* Domeniu (rol principal) + Rolul tău (subrol) */}
           <div className="dt-row2" style={{ marginBottom: 20 }}>
             <div>
               <label htmlFor="dt-rol" style={labelStyle}>
-                Rol principal
+                Domeniu
               </label>
               <select
                 id="dt-rol"
@@ -333,7 +333,7 @@ export function OnboardingForm() {
                 style={{ ...inputStyle, cursor: "pointer", paddingRight: 38, color: rol ? "var(--foreground)" : "#a59a88" }}
               >
                 <option value="" disabled>
-                  Alege rolul
+                  Alege domeniul
                 </option>
                 {ROLE_MAINS.map((r) => (
                   <option key={r} value={r}>
@@ -344,7 +344,7 @@ export function OnboardingForm() {
             </div>
             <div>
               <label htmlFor="dt-subrol" style={labelStyle}>
-                Subrol
+                Rolul tău
               </label>
               <select
                 id="dt-subrol"
@@ -363,7 +363,7 @@ export function OnboardingForm() {
                 }}
               >
                 <option value="" disabled>
-                  {rol ? "Alege subrolul" : "Alege întâi rolul"}
+                  {rol ? "Alege rolul tău" : "Alege întâi domeniul"}
                 </option>
                 {subroluri.map((s) => (
                   <option key={s} value={s}>
@@ -428,22 +428,14 @@ export function OnboardingForm() {
               <label htmlFor="dt-oras" style={labelStyle}>
                 Locație
               </label>
-              <input
+              <CityAutocomplete
                 id="dt-oras"
                 name="location"
-                list="ro-cities"
-                autoComplete="off"
                 placeholder="Cluj-Napoca"
                 maxLength={80}
                 className="dt-field"
                 style={inputStyle}
               />
-              {/* Sugestii native (browser filtrează „Ti" → Timișoara). Câmpul rămâne text liber. */}
-              <datalist id="ro-cities">
-                {RO_CITIES.map((city) => (
-                  <option key={city} value={city} />
-                ))}
-              </datalist>
             </div>
             <div>
               <label htmlFor="dt-web" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>

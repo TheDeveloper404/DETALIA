@@ -12,6 +12,26 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/avif",
 ] as const;
 
+export const MAX_DOC_MB = 25;
+export const MAX_DOC_BYTES = MAX_DOC_MB * 1024 * 1024;
+export const ALLOWED_DOC_TYPES = ["application/pdf"] as const;
+
+// DWG/DXF nu au un MIME type standardizat (browserele raportează des "" sau
+// application/octet-stream) → validarea reală a extensiei se face server-side pe pathname
+// (vezi /api/blob/upload), nu doar pe content-type.
+export const MAX_CAD_MB = 50;
+export const MAX_CAD_BYTES = MAX_CAD_MB * 1024 * 1024;
+export const ALLOWED_CAD_TYPES = [
+  "application/octet-stream",
+  "image/vnd.dwg",
+  "image/vnd.dxf",
+  "application/dxf",
+  "application/dwg",
+  "application/x-dwg",
+  "application/acad",
+] as const;
+export const ALLOWED_CAD_EXTENSIONS = ["dwg", "dxf"] as const;
+
 // URL valid de Blob al store-ului nostru (acces public). Folosit la persistarea URL-ului întors
 // de upload-ul client → nu acceptăm URL-uri arbitrare în DB.
 export const BLOB_URL_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;

@@ -15,7 +15,7 @@ import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format";
-import { buildMentionToken, parseMentions } from "@/lib/mentions";
+import { buildMentionToken, mentionTokenEndingAt, parseMentions } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
 import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType } from "@/server/domain/validation";
@@ -153,11 +153,40 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
     : [];
   const open = query !== null && sketches.length > 0 && matches.length > 0;
 
+  // Când un autor are mai multe schițe, intrările din listă erau identice (nume+avatar) — imposibil
+  // de deosebit care schiță se menționeaza. Numerotăm „schiță N" per autor (ordinea = ordinea taburilor).
+  const authorCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of sketches) {
+      const key = s.authorName ?? "";
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
+  }, [sketches]);
+  const ordinalById = useMemo(() => {
+    const seen = new Map<string, number>();
+    const map = new Map<string, number>();
+    for (const s of sketches) {
+      const key = s.authorName ?? "";
+      const n = (seen.get(key) ?? 0) + 1;
+      seen.set(key, n);
+      map.set(s.id, n);
+    }
+    return map;
+  }, [sketches]);
+
   function pick(s: MentionSketch) {
     const el = ref.current;
     if (!query || !el) return;
     const caret = el.selectionStart ?? el.value.length;
-    const token = buildMentionToken(s.authorName ?? "Anonim", s.id);
+    const baseName = s.authorName ?? "Anonim";
+    // Etichetă cu ordinal ("Nume (schița 2)") când autorul are mai multe schițe — rămâne în comentariul
+    // salvat, nu doar în dropdown, ca cititorul să știe la care schiță se referă mențiunea.
+    const label =
+      (authorCounts.get(s.authorName ?? "") ?? 1) > 1
+        ? `${baseName} (schița ${ordinalById.get(s.id)})`
+        : baseName;
+    const token = buildMentionToken(label, s.id);
     el.value = el.value.slice(0, query.at) + token + " " + el.value.slice(caret);
     setQuery(null);
     const pos = query.at + token.length + 1;
@@ -194,6 +223,22 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
             setQuery(null);
           }
         }}
+        onKeyDownCapture={(e) => {
+          // Backspace imediat după un token de mențiune → șterge tot tokenul, nu caracter cu caracter
+          // (tokenul ascuns e „@[Nume](sid:uuid)", ~50 de caractere greu de șters manual).
+          if (e.key !== "Backspace") return;
+          const el = e.currentTarget;
+          if (el.selectionStart !== el.selectionEnd) return; // selecție activă → comportament nativ
+          const caret = el.selectionStart ?? 0;
+          const token = mentionTokenEndingAt(el.value, caret);
+          if (!token) return;
+          e.preventDefault();
+          el.value = el.value.slice(0, token.start) + el.value.slice(token.end);
+          requestAnimationFrame(() => {
+            el.focus();
+            el.setSelectionRange(token.start, token.start);
+          });
+        }}
         onBlur={() => setTimeout(() => setQuery(null), 120)}
       />
       {open && (
@@ -213,7 +258,11 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
               >
                 <AvatarInitials name={s.authorName} imageUrl={s.authorImage} size={24} />
                 <span className="truncate font-medium">{s.authorName ?? "Anonim"}</span>
-                <span className="ml-auto font-mono text-[10px] text-[#a59a88]">schiță</span>
+                <span className="ml-auto font-mono text-[10px] text-[#a59a88]">
+                  {(authorCounts.get(s.authorName ?? "") ?? 1) > 1
+                    ? `schița ${ordinalById.get(s.id)}`
+                    : "schiță"}
+                </span>
               </button>
             </li>
           ))}

@@ -139,14 +139,6 @@ export function FeedRail({
         </div>
       )}
 
-      {/* Nudge: validează pe rolul tău. */}
-      <div className="rounded-lg border border-border bg-secondary p-[18px]">
-        <div className="mb-1.5 font-bold text-foreground">Validează pe rolul tău</div>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
-          O dezaprobare vine mereu cu o justificare. Părerea ta cântărește prin rolul afișat lângă nume.
-        </p>
-      </div>
-
       {/* Copyright stil LinkedIn — ultimul element din rail. În flow normal stă mereu sub carduri,
           deci pe măsură ce apar containere noi deasupra, e împins natural în jos. */}
       <p className="px-1 pb-2 text-[11.5px] leading-relaxed text-muted-foreground">

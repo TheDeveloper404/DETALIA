@@ -47,6 +47,7 @@ export const detailResourceType = pgEnum("detail_resource_type", [
   "LINK",
   "TEXT",
   "PDF",
+  "CAD",
 ]);
 export const notificationType = pgEnum("notification_type", [
   "SKETCH_PROPOSED",

@@ -150,10 +150,17 @@ export async function listUsersForAdmin() {
     .orderBy(sql`${users.createdAt} desc`);
 }
 
-// Media (avatar + cover) pentru ștergerea blob-urilor la ștergerea contului.
+// Media (avatar + cover) pentru ștergerea blob-urilor la ștergerea contului + nume/locație pentru UI
+// (citite live din DB, NU din sesiune — JWT-ul cache-uiește doar valorile de la login, stale după onboarding).
 export async function getUserMedia(userId: string) {
   const [row] = await db
-    .select({ image: users.image, coverImage: users.coverImage, coverPosition: users.coverPosition })
+    .select({
+      image: users.image,
+      coverImage: users.coverImage,
+      coverPosition: users.coverPosition,
+      name: users.name,
+      location: users.location,
+    })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);

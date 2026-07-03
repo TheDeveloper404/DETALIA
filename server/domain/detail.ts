@@ -40,7 +40,7 @@ function isOneOf<T extends readonly string[]>(list: T, value: string): value is 
 }
 
 // Tipuri de resurse opționale (oglindesc enum-ul DB detail_resource_type).
-export const RESOURCE_TYPES = ["IMAGE", "LINK", "TEXT", "PDF"] as const;
+export const RESOURCE_TYPES = ["IMAGE", "LINK", "TEXT", "PDF", "CAD"] as const;
 export type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 export type DetailResourceInput = {
@@ -135,7 +135,7 @@ export function validateDetailInput(input: {
     if (!isValidResourceType(r.type)) return { ok: false, error: "INVALID_RESOURCE" };
     const url = r.url?.trim() || null;
     const body = r.body?.trim() || null;
-    // IMAGE/LINK/PDF au nevoie de URL; TEXT are nevoie de body.
+    // IMAGE/LINK/PDF/CAD au nevoie de URL; TEXT are nevoie de body.
     if (r.type === "TEXT") {
       // SEC-11: body mărginit (aceeași limită ca descrierea).
       if (!body || body.length > DESCRIPTION_MAX_LENGTH) return { ok: false, error: "INVALID_RESOURCE" };
