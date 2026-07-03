@@ -26,7 +26,8 @@ export type AuditEvent =
   | "access_denied_suspended" // cont non-ACTIVE a încercat o rută protejată (SEC-04)
   | "maintenance_toggled" // admin a schimbat modul de mentenanță (acțiune administrativă cu impact global)
   | "admin_login_success" // autentificare reușită în panoul de admin
-  | "admin_login_failed"; // încercare eșuată de login admin (user inexistent / parolă greșită) — semnal brute-force
+  | "admin_login_failed" // încercare eșuată de login admin (user inexistent / parolă greșită) — semnal brute-force
+  | "notifications_retention_cleanup"; // cron de retenție a șters notificări citite vechi (15 zile)
 
 export function audit(
   event: AuditEvent,

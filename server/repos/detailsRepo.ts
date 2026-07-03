@@ -17,7 +17,13 @@ import {
 } from "@/db/schema";
 import { DETAIL_STATUS, type DetailResourceInput } from "@/server/domain/detail";
 
-export async function insertDetail(input: {
+// Creează detaliul + categoriile + resursele într-un SINGUR `db.batch` (atomic). Neon HTTP nu are
+// tranzacții interactive, dar `batch` trimite toate query-urile într-o singură rundă atomică — posibil
+// aici pentru că id-ul detaliului e generat CLIENT-SIDE (crypto.randomUUID()), nu de `defaultRandom()`
+// al coloanei, deci detailCategories/detailResources pot referi id-ul înainte ca insert-ul să se fi
+// „întors" cu `.returning()`. Înlocuiește vechiul flux secvențial (detail → categorii → resurse), unde
+// o eroare la mijloc putea lăsa un detaliu fără categorii/resurse.
+export async function insertDetailWithRelations(input: {
   title: string;
   description: string | null;
   authorId: string;
@@ -27,10 +33,15 @@ export async function insertDetail(input: {
   seismicTc: string;
   snowLoad: string;
   windLoad: string;
-}) {
-  const [row] = await db
+  categoryIds: string[];
+  resources: DetailResourceInput[];
+}): Promise<{ id: string }> {
+  const id = crypto.randomUUID();
+
+  const insertDetailStatement = db
     .insert(details)
     .values({
+      id,
       title: input.title,
       description: input.description,
       authorId: input.authorId,
@@ -42,16 +53,34 @@ export async function insertDetail(input: {
       windLoad: input.windLoad,
       // status rămâne pe default „PUBLISHED" (moderare post-publicare).
     })
-    .returning();
-  return row;
-}
+    .returning({ id: details.id });
 
-// Categoriile bifate (Edi: „oricâte") — inserate separat, după detaliu (are nevoie de detailId).
-export async function insertDetailCategories(detailId: string, categoryIds: string[]) {
-  if (categoryIds.length === 0) return;
-  await db
-    .insert(detailCategories)
-    .values(categoryIds.map((categoryId) => ({ detailId, categoryId })));
+  // `db.batch` cere doar un array NEVID (`Readonly<[U, ...U[]]>`), nu un tuplu de lungime fixă 2/3 —
+  // insertDetailStatement e mereu prezent, deci array-ul e mereu nevid; nu e nevoie de ramuri separate
+  // pe combinația categorii/resurse (relații opționale viitoare se adaugă la fel, fără combinatorică nouă).
+  const optionalStatements = [
+    input.categoryIds.length
+      ? db
+          .insert(detailCategories)
+          .values(input.categoryIds.map((categoryId) => ({ detailId: id, categoryId })))
+      : null,
+    input.resources.length
+      ? db.insert(detailResources).values(
+          input.resources.map((r) => ({
+            detailId: id,
+            type: r.type,
+            url: r.url ?? null,
+            body: r.body ?? null,
+          })),
+        )
+      : null,
+  ].filter((s): s is NonNullable<typeof s> => s !== null);
+
+  const [detailResult] = await db.batch([insertDetailStatement, ...optionalStatements]);
+  if (detailResult.length === 0) {
+    throw new Error("insertDetailWithRelations: insertul detaliului nu a produs niciun rând");
+  }
+  return { id };
 }
 
 // EXISTS pe join-ul detail_categories — „acest detaliu are bifată cel puțin una din categoriile date".
@@ -63,18 +92,6 @@ function hasAnyCategory(categoryIds: string[]) {
       .where(
         and(eq(detailCategories.detailId, details.id), inArray(detailCategories.categoryId, categoryIds)),
       ),
-  );
-}
-
-export async function insertDetailResources(detailId: string, resources: DetailResourceInput[]) {
-  if (resources.length === 0) return;
-  await db.insert(detailResources).values(
-    resources.map((r) => ({
-      detailId,
-      type: r.type,
-      url: r.url ?? null,
-      body: r.body ?? null,
-    })),
   );
 }
 

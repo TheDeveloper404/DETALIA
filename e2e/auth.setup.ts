@@ -162,5 +162,18 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
       2,
     ),
   );
-  writeFileSync(SEED_PATH, JSON.stringify({ detailId: detail.id, detailTitle: DETAIL_TITLE }, null, 2));
+  writeFileSync(
+    SEED_PATH,
+    JSON.stringify(
+      {
+        detailId: detail.id,
+        detailTitle: DETAIL_TITLE,
+        testerUserId: user.id,
+        authorUserId: author.id,
+        categoryId: category.id,
+      },
+      null,
+      2,
+    ),
+  );
 });
