@@ -25,7 +25,7 @@ nu lăsate pe pilot automat.
 | Scalabilitate | 8.5/10 | OK pentru fază |
 | Clean architecture / principii | 9.5/10 | §11c igienă închisă |
 | Testare | 8.5/10 | E2E verde + teste în CI; rămâne schiță + integrare |
-| Observabilitate | 8/10 | Sentry live confirmat; rămân alertele active (rate-limit/suspendare) |
+| Observabilitate | 9/10 | Sentry live + alerte active pe rate-limit/suspendare/admin-login-failed |
 
 ---
 
@@ -108,16 +108,15 @@ producție). E2E-ul a și prins un drift real (`users.cover_position` lipsă pe 
 
 ---
 
-## Observabilitate — 8/10
+## Observabilitate — 9/10
 
 **De ce:** audit trail structurat (`lib/audit.ts`) + loguri Vercel native + ✅ **Sentry live confirmat pe prod**
-(2026-07-02, erori server/client/edge, `tunnelRoute` anti-adblock). Ce lipsește: nimeni nu e notificat activ —
-afli o problemă doar dacă te uiți în dashboard.
+(2026-07-02, erori server/client/edge, `tunnelRoute` anti-adblock) + ✅ **alerte active** (2026-07-03, Sentry
+Alerts pe tag `audit_event`: `rate_limited`, `rate_limit_unavailable`, `access_denied_suspended`,
+`admin_login_failed` → notificare Liviu pe email).
 
-**Cum ajunge la 9-10:**
-1. **Alerte** pe evenimentele de audit (rate-limit, access-denied) în Vercel/Upstash — cel mai ieftin pas rămas,
-   singurul care contează cu adevărat înainte de useri reali (altfel un abuz/atac trece neobservat).
-2. **Correlation ID** propagat prin request (acum evenimentele sunt punctuale) — util la debugging cap-coadă.
+**Cum ajunge la 10:**
+1. **Correlation ID** propagat prin request (acum evenimentele sunt punctuale) — util la debugging cap-coadă.
 
 ---
 
