@@ -11,6 +11,7 @@ import {
 } from "@/lib/email";
 import {
   countUnread,
+  deleteReadNotificationsOlderThan,
   insertNotification,
   listByRecipient,
   markAllRead,
@@ -116,4 +117,10 @@ export async function notifySketchDeleted(input: {
     emailHtml: sketchDeletedEmailHtml(input.detailTitle, url),
     emailText: sketchDeletedEmailText(input.detailTitle, url),
   });
+}
+
+// Retenție (cron, vezi app/api/cron/cleanup-notifications): șterge notificările CITITE mai vechi de
+// `retentionDays` — cele necitite rămân (userul trebuie să le vadă măcar o dată).
+export async function cleanupOldNotifications(retentionDays: number): Promise<number> {
+  return deleteReadNotificationsOlderThan(retentionDays);
 }

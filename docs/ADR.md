@@ -62,6 +62,17 @@ nudge blând, badge la verificat). Rol auto-declarat la signup.
 **Decizie:** Neon (serverless Postgres) + Drizzle (ORM tip-safe, fără engine binar).
 **Consecințe:** $0 la validare, scale-to-zero; pgvector disponibil pentru search semantic ulterior (upgrade, nu rescriere). _(ARHITECTURA §2, §8)_
 
+## ADR-011 — Schiță: publicare DIRECTĂ, fără coadă de acceptare
+**Context:** modelul inițial avea `DRAFT → PENDING_ACCEPTANCE → PUBLISHED/REJECTED` (autorul detaliului-mamă
+aproba/respingea fiecare schiță înainte să intre în teanc) — o fricțiune suplimentară care încetinea
+dezbaterea și adăuga o stare de așteptare fără beneficiu clar la scara unui MVP de validare.
+**Decizie (2026-06-30):** simplificat la `DRAFT → PUBLISHED` — autorul schiței publică direct, intră imediat
+în teanc, public. Moderarea rămâne **post-publicare**: autorul detaliului-mamă SAU autorul schiței poate
+șterge schița oricând (nu aprobare/respingere).
+**Consecințe:** `PENDING_ACCEPTANCE`/`REJECTED` rămân valori istorice în enumul `sketch_status` (date vechi),
+dar nu se mai produc. Notificările „schiță acceptată/respinsă" au fost eliminate (`SKETCH_ACCEPTED`/
+`SKETCH_REJECTED` rămân în `notification_type`, nemaifolosite). _(CHANGELOG 2026-06-30, SCHEMA.md)_
+
 ---
 
 > Deciziile noi sau schimbările se consemnează aici (formă scurtă) + în `CHANGELOG.md` (cronologic, cu dată).

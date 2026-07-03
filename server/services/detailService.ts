@@ -20,9 +20,7 @@ import {
   deleteSavedDetail,
   getDetailById,
   getDetailResources,
-  insertDetail,
-  insertDetailCategories,
-  insertDetailResources,
+  insertDetailWithRelations,
   insertSavedDetail,
   isDetailSavedByUser,
   listFeed,
@@ -82,9 +80,8 @@ export async function createDetail(input: {
   const existingCount = await countExistingCategoryIds(value.categoryIds);
   if (existingCount !== value.categoryIds.length) return { ok: false, error: "INVALID_CATEGORY" };
 
-  // 4) Inserare detaliu + categorii + resurse. Driverul Neon HTTP nu oferă tranzacții interactive;
-  //    inserăm secvențial — la MVP, o resursă orfană e tolerabilă (resursele sunt opționale).
-  const detail = await insertDetail({
+  // 4) Inserare detaliu + categorii + resurse — atomic într-un singur `db.batch` (id generat client-side).
+  const detail = await insertDetailWithRelations({
     title: value.title,
     description: value.description,
     authorId: input.authorId,
@@ -94,13 +91,9 @@ export async function createDetail(input: {
     seismicTc: value.seismicTc,
     snowLoad: value.snowLoad,
     windLoad: value.windLoad,
+    categoryIds: value.categoryIds,
+    resources: value.resources,
   });
-
-  await insertDetailCategories(detail.id, value.categoryIds);
-
-  if (value.resources.length > 0) {
-    await insertDetailResources(detail.id, value.resources);
-  }
 
   return { ok: true, detailId: detail.id };
 }

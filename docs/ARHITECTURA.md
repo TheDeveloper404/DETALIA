@@ -173,26 +173,27 @@ lângă fiecare poziție și comentariu. Mult mai simplu și exact ce a cerut cl
 
 ```
 User
-  id, email (unic), name, status (INVITED|ACTIVE|SUSPENDED),
-  invitedById, createdAt
-  // un singur rol per user (declarat la signup) — câmpurile de rol mai jos
+  id, email (unic), name, status (ACTIVE|SUSPENDED|DELETED), createdAt
+  // acces PUBLIC (2026-06-28: logica de invitații ELIMINATĂ complet, inclusiv tabelul) — un singur rol
+  // per user (declarat la signup) — câmpurile de rol mai jos
 
 Role (declarat de user la signup)
-  userId, roleMain (enum), subRole, verificationStatus (DECLARED|PENDING|VERIFIED|REJECTED),
+  userId, roleMain (enum), subRole, secondaryRole? (aditiv opțional, ex. Administrativ/Educație),
+  verificationStatus (DECLARED|PENDING|VERIFIED|REJECTED),
   verificationEvidence (ex. nr. OAR / CUI), verifiedByAdminId
   // un singur rol principal / user, afișat permanent lângă nume; badge la VERIFIED
-
-Invitation  // dă DOAR acces la beta închis; NU atribuie rolul
-  id, token (unic), email, expiresAt, usedAt, createdByAdminId
 
 Category (arbore)
   id, parentId (self-FK), name, slug
   // ex: Fundație → Beton → Hidroizolare ; Acoperiș → Cornișă → Jgheab
 
 Detail  («repository»)
-  id, title, authorId, categoryId,
-  climateZone (default „General"), seismicZone (default „General"),  // listă fixă
+  id, title, description?, authorId,
+  climateZone? (fără default, listă fixă Zona I..IV), seismicAg/seismicTc (default „General"),
+  snowLoad/windLoad (default „General"),  // parametri tehnici separați, listă fixă
   imageUrl (imaginea 2D: jpg/png/webp, ~5MB), status, createdAt
+DetailCategories       // many-to-many — un detaliu poate avea oricâte categorii (tag-uri, stil Pinterest)
+  detailId, categoryId  // PK compus; înlocuiește vechiul FK simplu categoryId de pe Detail
 DetailResource         // MAX 3 resurse opționale de înțelegere (imagine + link; PDF/text mai târziu)
   id, detailId, type (IMAGE|LINK|TEXT|PDF), url/body
 
@@ -347,11 +348,20 @@ Tratăm ca **CRITICAL** (auth, roluri, permisiuni):
 - **Magic link (Auth.js Email provider):** passwordless → fără parole de scurs/resetat, mai puțină suprafață
   de atac. Token cu durată scurtă, one-time.
 - **Validare pe server pentru toate regulile de business** (dezaprob necesită justificare; o poziție/user;
-  doar autorul-mamă acceptă schițe; upload de detalii dezactivat în v1). Frontend-ul nu e sursă de adevăr.
-- **Upload useri OPRIT în v1** (seed-only) → suprafață de atac mult redusă la lansare.
-- Fără secrete în cod; toate cheile (Resend, DB, Auth) în env management (Vercel env / `vercel env pull`).
-- PII (emailuri, tokenuri de invitație/magic link) **nu se loghează** — doar metadate. (Avem deja hook care
-  blochează asta — vezi §11.)
+  schița se publică direct — fără acceptare de la autorul-mamă, ADR-011). Frontend-ul nu e sursă de adevăr.
+- **Upload detalii DESCHIS** oricărui user cu rol declarat (ADR-009, 2026-06-28) — moderare **post-publicare**
+  (ștergere de către autorul-mamă/autorul conținutului), nu coadă de aprobare.
+- **Sesiune `jwt`** (2026-07-02, perf) — `status`-ul e stale până expiră tokenul pe *citire*; blocare TARE
+  (re-check DB + `signOut()` real) pe toate mutațiile care produc conținut (`lib/require-active-user.ts`).
+- **Rate-limit** (Upstash, fail-closed în prod) pe login/mutații/upload + **Cloudflare Turnstile** pe
+  login+signup (anti-bot).
+- **Audit trail structurat** (`lib/audit.ts`) + **Sentry** (erori + Alerts pe evenimente de securitate:
+  rate-limit, acces respins pe cont suspendat, login-admin eșuat).
+- Fără secrete în cod; toate cheile (Resend, DB, Auth, Upstash, Turnstile, Sentry) în env management (Vercel env).
+- PII (emailuri, tokenuri magic link, dovezi rol) **nu se loghează** — doar metadate. (Hook care blochează
+  asta — vezi §11.)
+- **Audit formal CRITICAL (13 categorii) — APROBAT** (2026-07-02, vezi `docs/SECURITATE.md`), 0 constatări
+  CRITICAL/HIGH/MEDIUM/LOW, verificat cu atacuri reale pe producție.
 
 ---
 
@@ -416,7 +426,7 @@ confirmi stack-ul.
 ## 13. Stadiul deciziilor
 
 ### Confirmate
-- **Auth = magic link** (passwordless, se mulează pe invite-only).
+- **Auth = magic link** (passwordless); sesiune `jwt` (2026-07-02, perf — vezi ADR-002).
 - **Un singur rol per user**; **rol auto-declarat** la signup + verificare în platformă cu **badge** (NU
   atribuit de admin la invitație).
 - **Verificarea rolului = „pull, nu push":** opțională, fără blocare; rol neverificat e funcțional 100%; nudge
