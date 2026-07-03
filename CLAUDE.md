@@ -63,7 +63,8 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
   (`deleteSketch`, ownership pe server, cascadă validări+comentarii+blob). Nu există aprobare/respingere.
 - La PUBLISH → `Notification` către autorul detaliului-mamă („X a schițat peste «detaliu» → vezi în teanc").
   La ștergerea de către autorul-mamă → `Notification` (`SKETCH_DELETED`) către autorul schiței.
-  **Notificările merg in-app ȘI pe email de la început** (via Resend), pentru brand awareness/recall.
+  **Notificările merg doar in-app** (decizie 2026-07-03: emailurile de notificare OPRITE — cota Resend
+  free rămâne pentru magic link-uri; repornibile cu `NOTIFICATION_EMAILS_ENABLED=true`).
 - **Validarea pe propriul conținut e interzisă** (`CANNOT_VALIDATE_OWN`, enforce pe server): autorul nu vede
   Aprob/Dezaprob pe propriul detaliu/schiță. Aprobarea propriului conținut e implicită prin publicare.
 - **Dezaprobare = alegere binară** (pe detaliu): „Scrie o justificare" (text → comentariu) SAU „Fă o schiță"
@@ -189,7 +190,7 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 - **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin).
 - **Verificarea rolului = „pull, nu push"** — opțională, fără blocare, rol neverificat funcțional 100%, nudge
   blând; userii vin singuri să se verifice, motivați de credibilitate. Fără scoring numeric.
-- Notificări **in-app + email** de la început.
+- Notificări **doar in-app** (email oprit 2026-07-03, repornibil din env — vezi mai sus).
 
 ## Decizii deschise
 - **Surse de verificare automată a rolului** (OAR/CUI confirmate?), dincolo de manual-admin: **pe HOLD**.

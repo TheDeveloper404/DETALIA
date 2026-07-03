@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs } from "@/lib/storage";
-import { BLOB_URL_RE } from "@/lib/upload-limits";
+import { isOwnBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { updateDetail } from "@/server/services/detailService";
 
@@ -78,7 +78,7 @@ export async function updateDetailAction(
   if (categoryIds.length === 0) return { error: ERROR_MESSAGES.CATEGORY_REQUIRED };
 
   const imageUrl = String(formData.get("imageUrl") ?? "");
-  if (!BLOB_URL_RE.test(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+  if (!isOwnBlobUrl(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   // Imaginea se reprocesează (validare + re-encodare fără metadata) DOAR dacă userul a schimbat-o.
   // Dacă a rămas cea existentă, e deja procesată → o trimitem ca atare (fără blob nou/orfan).

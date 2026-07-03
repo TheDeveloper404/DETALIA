@@ -6,10 +6,12 @@
 > verdict BLOCAT — depășit, categoriile lui erau deja rezolvate). Conținutul de mai jos e auditul CRITICAL
 > complet rulat pe codul live, actualizat cu follow-up-urile din aceeași zi (JWT + fix suspendare).
 
-**Ultima verificare:** 2026-07-02 · **Tip:** audit static CRITICAL (13 categorii, skill `security-audit`,
-gândit adversarial) + verificare live pe `detalia.ro` (2 conturi reale) + `npm audit`.
+**Ultima verificare:** 2026-07-03 · **Tip:** re-audit static complet (13 categorii, skill `security-audit`)
+pe toată suprafața (auth, authz, mutații, API, business logic, infra) + `npm audit`. Auditul anterior
+(2026-07-02, static + live pe `detalia.ro`) rămâne valabil ca bază; mai jos doar delta.
 
-**Verdict: APROBAT pentru MVP/producție.** Zero constatări CRITICAL / HIGH / MEDIUM / LOW de cod.
+**Verdict: APROBAT pentru MVP/producție.** Zero constatări CRITICAL / HIGH. Constatările MEDIUM/LOW din
+re-auditul 2026-07-03 (SEC-A1…A5) au fost **remediată toate în aceeași zi** — vezi secțiunea dedicată.
 
 Legendă: ✅ implementat structural · ⚠️ parțial/neverificat comportamental · ❌ lipsește/nefuncțional ·
 ⏸️ cod dormant, fără rută activă · **BLOCKER** — împiedică lansarea publică (niciunul activ acum).
@@ -25,6 +27,7 @@ Legendă: ✅ implementat structural · ⚠️ parțial/neverificat comportament
 | MEDIUM | 0 | — |
 | LOW | 0 | — |
 | Hardening / consistență | 2 | APLICATE (SEC-H01, SEC-04/JWT) |
+| Re-audit 2026-07-03 (SEC-A1…A5) | 5 | 1 MEDIUM + 3 LOW + 1 INFO — TOATE REMEDIATE |
 | Note / risk-acceptance | 4 | documentate |
 
 Postura generală: **foarte bună**. Modelul „deny-by-default" e aplicat consecvent (proxy → sesiune pe
@@ -65,6 +68,41 @@ Input-urile care ating coloane `uuid` sunt gardate cu `isUuid` (pattern „SEC-1
   - Anon (fără cookie) → 302 login (baseline).
 - **Cost operațional la deploy:** sesiunile `database` vechi nu au fost JWT valide → userii logați s-au
   delogat o dată la trecere, re-intrat cu magic link. Fără migrație DB.
+
+---
+
+## Re-audit 2026-07-03 — constatări + remediere (toate REMEDIATED în aceeași zi)
+
+### [SEC-A1] MEDIUM — Magic link ADMIN consumat la GET direct (fără anti-prefetch) — ✅ remediat
+- **Era:** emailul de admin trimitea direct la route handler-ul care consuma tokenul one-time → un scanner
+  de mail (GET automat) putea arde tokenul (DoS pe login) și provoca emiterea unei sesiuni de admin către
+  un terț. Fluxul de USER avea deja protecția (`/verify` click-through JS); adminul nu.
+- **Fix:** același pattern — `/admin-page/verify` e acum PAGINĂ inofensivă la GET; consumul real s-a mutat
+  pe `/admin-page/verify/confirm` (route handler), declanșat din JS la montare (`AutoVerify`, refolosit).
+  Target construit local (path fix + token) → fără open-redirect. Poarta din `proxy.ts` actualizată.
+
+### [SEC-A2] LOW — `BLOB_URL_RE` accepta orice store `*.public.blob.vercel-storage.com` — ✅ remediat
+- **Era:** validarea la persistare accepta URL-uri din ORICE store Vercel Blob (inclusiv al altui cont).
+  Impact aproape nul (imaginea era oricum re-encodată cu sharp + re-uploadată la noi), dar inutil de larg.
+- **Fix:** `lib/blob-url.ts` (server-only) — `isOwnBlobUrl()` pinuiește hostname-ul pe store ID-ul extras
+  din `BLOB_READ_WRITE_TOKEN`; fallback pe forma generală doar în dev fără Blob. Înlocuit în toate cele
+  5 puncte server (detalii new/edit, onboarding, profil, reprocesare imagine).
+
+### [SEC-A3] LOW — enumerare email la login/signup — ⚠️ risk-acceptance (decizie de produs, 2026-07-03)
+- Login-ul cu email fără cont spune explicit „nu există cont", signup-ul cu email existent spune „există
+  deja" → un terț poate confirma dacă un email are cont pe DETALIA. **Asumat conștient** pentru claritate
+  UX (platformă profesională, passwordless — fără parole de brute-forțat). Mitigare: rate-limit
+  5/h/email + 20/h/IP + Turnstile → enumerarea în masă e blocată; cea țintită (1 request/țintă) rămâne
+  posibilă prin natura deciziei. Dacă profilul de risc se schimbă → mesaj generic + email informativ.
+
+### [SEC-A4] LOW — fără update-uri automate de dependențe — ✅ remediat
+- **Fix:** `.github/dependabot.yml` — security updates imediate + version updates săptămânale (npm +
+  github-actions), grupate minor/patch, target `dev`, max 5 PR-uri. Merge manual, CI validează.
+- `npm audit` la zi: **0 vulnerabilități în producție**; 4 moderate doar în `drizzle-kit` (tooling local).
+
+### [SEC-A5] INFO — `deleteDetailAction`/`deleteDraftAction` fără rate-limit — ✅ remediat
+- Uniformizare: ambele au acum `limiters.mutation`, ca restul mutațiilor (abuzul era oricum limitat la
+  propriul conținut prin ownership).
 
 ---
 

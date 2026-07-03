@@ -9,6 +9,17 @@ export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
 }
 
+// Existența unui cont după email — folosit la login/signup ca să distingem cele două fluxuri
+// (Auth.js normalizează emailul cu `.toLowerCase().trim()` înainte de a-l stoca, replicăm aici).
+export async function userExistsByEmail(email: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, email.toLowerCase().trim()))
+    .limit(1);
+  return !!row;
+}
+
 // Datele de profil colectate la onboarding (text). Imaginile (image/coverImage) se setează separat,
 // după upload-ul în Blob. `name` îl compunem aici din first + last pentru codul care-l citește.
 export async function updateUserProfile(

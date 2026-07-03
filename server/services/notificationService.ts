@@ -25,7 +25,13 @@ function detailUrl(detailId: string): string {
   return `${base}/details/${detailId}`;
 }
 
-// Helper intern: notificare in-app + email (dacă avem contactul + credențiale).
+// Emailurile de notificare sunt OPRITE implicit (decizie Liviu 2026-07-03): notificarea in-app ajunge,
+// iar cota Resend free (100/zi) rămâne pentru magic link-uri (login/signup + admin), unde emailul e
+// singura cale de acces. Reversibil fără cod: NOTIFICATION_EMAILS_ENABLED=true în env le repornește
+// (motivul inițial „in-app + email pentru brand awareness" rămâne valabil când cota nu mai e o limită).
+const EMAILS_ENABLED = process.env.NOTIFICATION_EMAILS_ENABLED === "true";
+
+// Helper intern: notificare in-app + (opțional, vezi mai sus) email.
 async function notify(input: {
   recipientUserId: string;
   type: NotificationType;
@@ -39,6 +45,7 @@ async function notify(input: {
     type: input.type,
     payloadJson: input.payloadJson,
   });
+  if (!EMAILS_ENABLED) return;
   const contact = await getUserContact(input.recipientUserId);
   if (contact?.email) {
     await sendEmail({

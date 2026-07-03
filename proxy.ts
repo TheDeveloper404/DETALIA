@@ -49,7 +49,10 @@ export default auth(async (req) => {
   // login + verify (publice prin natura magic link-ului). Backstop: orice rută NOUĂ sub /admin-page e
   // protejată automat, fără să depindă de un check în pagină. Sesiune validată în DB + email în allowlist.
   if (pathname.startsWith("/admin-page")) {
-    const adminPublic = pathname === "/admin-page/login" || pathname === "/admin-page/verify";
+    const adminPublic =
+      pathname === "/admin-page/login" ||
+      pathname === "/admin-page/verify" || // pagina click-through anti-prefetch (GET inofensiv)
+      pathname === "/admin-page/verify/confirm"; // consumul real al tokenului (declanșat din JS de pagina de mai sus)
     if (!adminPublic) {
       const token = req.cookies.get("detalia-admin-session")?.value;
       const email = token ? await getValidAdminSessionEmail(token) : null;
