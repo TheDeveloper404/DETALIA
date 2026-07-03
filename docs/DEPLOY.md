@@ -54,6 +54,61 @@ Reguli:
   Conținutul demo a fost ELIMINAT din `db/seed.ts` (2026-06-28, vezi CHANGELOG) — nu mai există flag `SEED_DEMO`.
 - Curățare prod (dacă se murdărește): Neon → SQL Editor → ramura `production` → `DELETE FROM ...` (păstrând `categories`).
 
+### Cheatsheet SQL — curățare producție
+
+**Curățare totală** (păstrează `categories` și `platform_settings`):
+```sql
+TRUNCATE TABLE
+  users, sessions, accounts, verification_tokens, roles,
+  details, detail_categories, detail_resources, sketches,
+  validations, comments, saved_details, notifications,
+  admin_login_tokens, admin_sessions
+RESTART IDENTITY CASCADE;
+```
+
+**Verificare după curățare** (toate trebuie să dea 0, în afară de `categories` și `platform_settings`):
+```sql
+SELECT 'users' AS tabel, count(*) FROM users
+UNION ALL SELECT 'sessions', count(*) FROM sessions
+UNION ALL SELECT 'accounts', count(*) FROM accounts
+UNION ALL SELECT 'verification_tokens', count(*) FROM verification_tokens
+UNION ALL SELECT 'roles', count(*) FROM roles
+UNION ALL SELECT 'details', count(*) FROM details
+UNION ALL SELECT 'detail_categories', count(*) FROM detail_categories
+UNION ALL SELECT 'detail_resources', count(*) FROM detail_resources
+UNION ALL SELECT 'sketches', count(*) FROM sketches
+UNION ALL SELECT 'validations', count(*) FROM validations
+UNION ALL SELECT 'comments', count(*) FROM comments
+UNION ALL SELECT 'saved_details', count(*) FROM saved_details
+UNION ALL SELECT 'notifications', count(*) FROM notifications
+UNION ALL SELECT 'admin_login_tokens', count(*) FROM admin_login_tokens
+UNION ALL SELECT 'admin_sessions', count(*) FROM admin_sessions
+UNION ALL SELECT 'categories (trebuie nezero)', count(*) FROM categories
+UNION ALL SELECT 'platform_settings (config, nu-l atinge)', count(*) FROM platform_settings;
+```
+
+**Curățare selectivă — un singur user** (șterge tot conținutul lui, păstrează restul platformei).
+`users` are `ON DELETE CASCADE` spre `sessions`/`accounts`/`roles`, dar NU spre `details`/`sketches`
+(FK fără cascadă) → trebuie ștearse manual întâi, altfel `DELETE FROM users` pică pe constrângere FK:
+```sql
+-- înlocuiește '<EMAIL>' cu emailul userului de curățat
+WITH target AS (SELECT id FROM users WHERE email = '<EMAIL>')
+DELETE FROM validations WHERE user_id IN (SELECT id FROM target);
+WITH target AS (SELECT id FROM users WHERE email = '<EMAIL>')
+DELETE FROM comments WHERE author_id IN (SELECT id FROM target);
+WITH target AS (SELECT id FROM users WHERE email = '<EMAIL>')
+DELETE FROM sketches WHERE author_id IN (SELECT id FROM target);
+WITH target AS (SELECT id FROM users WHERE email = '<EMAIL>')
+DELETE FROM details WHERE author_id IN (SELECT id FROM target);
+DELETE FROM users WHERE email = '<EMAIL>'; -- cascadă: sessions, accounts, roles, saved_details, notifications
+```
+
+**Curățare selectivă — un singur tabel** (ex. doar notificările vechi, fără să atingi restul):
+```sql
+TRUNCATE TABLE notifications RESTART IDENTITY;
+-- sau condiționat: DELETE FROM notifications WHERE created_at < now() - interval '30 days';
+```
+
 ---
 
 ## 2c. Reguli de release (flux dev → PR → main, fără local)
