@@ -79,3 +79,6 @@ plan-detaliu.md
 # CLAUDE.md                   -> specificația de domeniu a proiectului
 # .env.example                -> template de env, fără valori reale
 
+
+.vercel
+.env*
