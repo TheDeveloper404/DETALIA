@@ -6,6 +6,8 @@ import { renderStrokes } from "@/lib/sketch-render";
 import type { Stroke } from "@/server/domain/sketch";
 
 // Viewer read-only: imaginea-mamă (intensitate normală) + stroke-urile schiței deasupra.
+// Se încadrează „contain" în containerul părinte (aceeași cutie 4/3 ca tabul Detaliu),
+// ca la comutarea între taburi imaginea să rămână exact pe loc.
 export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes: Stroke[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -21,8 +23,16 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
       const setSize = () => {
         const container = containerRef.current;
         if (!container) return;
-        const w = container.clientWidth;
-        setDims({ w, h: Math.round(w * (img.naturalHeight / img.naturalWidth)) });
+        const cw = container.clientWidth;
+        const ch = container.clientHeight;
+        const ratio = img.naturalHeight / img.naturalWidth;
+        let w = cw;
+        let h = Math.round(cw * ratio);
+        if (ch > 0 && h > ch) {
+          h = ch;
+          w = Math.round(ch / ratio);
+        }
+        setDims({ w, h });
       };
       setSize();
       observer = new ResizeObserver(setSize);
@@ -44,8 +54,14 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
   }, [dims, strokes]);
 
   return (
-    <div ref={containerRef} className="w-full overflow-hidden rounded-lg ring-1 ring-foreground/10">
-      <canvas ref={canvasRef} width={dims.w} height={dims.h} className="block w-full" style={{ height: dims.h }} />
+    <div ref={containerRef} className="flex h-full w-full items-center justify-center">
+      <canvas
+        ref={canvasRef}
+        width={dims.w}
+        height={dims.h}
+        className="block"
+        style={{ width: dims.w, height: dims.h }}
+      />
     </div>
   );
 }

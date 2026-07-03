@@ -4,6 +4,31 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — fix(BUG): @mențiuni — tokenul brut `@[Nume](sid:uuid)` nu mai apare în textarea
+
+- Raport: la compunere, selectarea unei mențiuni insera tokenul tehnic (~50 caractere) direct în
+  câmp — urât și derutant. Acum textarea afișează doar eticheta lizibilă („@Nume" sau
+  „@Nume — schița 2" la autori cu mai multe schițe); maparea etichetă→sketchId se ține în memorie,
+  iar corpul cu tokeni se reconstruiește nevăzut într-un `<input hidden name="body">` la fiecare
+  modificare → serverul primește exact același format ca înainte (validare sid-uri neschimbată).
+- Backspace după o mențiune șterge toată eticheta dintr-o apăsare (o etichetă ruptă pe la mijloc
+  n-ar mai fi recunoscută la reconstruire — degradează la text simplu, fără link).
+- Separatorul ordinalului a devenit „—" (em dash) în loc de paranteze — `buildMentionToken` curăța
+  parantezele din etichetă, deci afișat ≠ salvat.
+- Limitare cunoscută: formularul de EDITARE a unui comentariu existent încă arată tokenii bruți
+  (follow-up separat).
+
+## 2026-07-04 — fix(BUG): imaginea „tremura" la comutarea Detaliu ↔ Schiță în teanc
+
+- Cauză: cele două taburi randau imaginea cu geometrii diferite — tabul Detaliu în cutie fixă
+  `aspect-[4/3]` cu `object-contain` (+ fundal grilă), tabul Schiță cu un canvas la raportul natural
+  al imaginii, pe toată lățimea, cu înălțime 0 până la încărcare → containerul își schimba înălțimea
+  și imaginea se redimensiona/deplasa la fiecare comutare.
+- Fix: `detail-workspace.tsx` — grila de fundal + cutia `aspect-[4/3] max-w-xl` sunt acum comune
+  ambelor taburi; doar conținutul din interior se schimbă (Image / SketchViewer).
+  `sketch-viewer.tsx` — canvas-ul se încadrează „contain" în cutia părinte (centrat, la raportul
+  imaginii), identic cu `object-contain` de pe tabul Detaliu; scos ring-ul propriu (diferență vizuală).
+
 ## 2026-07-04 — security: audit sesiune (upload PDF/CAD, date live din DB, onboarding) + fix blob orfan
 
 - **Audit dedicat** (subagent security-engineer) pe toate modificările din sesiunea 2026-07-04 (upload
