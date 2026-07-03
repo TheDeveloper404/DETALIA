@@ -278,38 +278,35 @@ export function DetailWorkspace({
           <div className="relative flex min-h-[300px] items-center justify-center border-b border-[#eee6da] bg-[#faf7f1] p-6 md:border-b-0 md:border-r">
             {/* CTA principal — cât mai la vedere, chiar în fereastra cu imaginea (nu lângă ea) */}
             <div className="absolute right-3 top-3 z-[3]">{startSketchBtn}</div>
-            {isBase ? (
-              <>
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 opacity-50"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
-                    backgroundSize: "28px 28px",
-                  }}
-                />
-                <div className="relative z-[1] aspect-[4/3] w-full max-w-xl">
-                  <Image
-                    src={imageUrl}
-                    alt={header.title}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 55vw"
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <span className="absolute left-3 top-3 z-[2] rounded-md border border-[#e6dccd] bg-white/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#7c7060]">
-                  schiță peste detaliu
-                </span>
-                <div className="w-full max-w-xl">
-                  <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
-                </div>
-              </>
+            {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 opacity-50"
+              style={{
+                backgroundImage:
+                  "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
+                backgroundSize: "28px 28px",
+              }}
+            />
+            {!isBase && (
+              <span className="absolute left-3 top-3 z-[2] rounded-md border border-[#e6dccd] bg-white/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#7c7060]">
+                schiță peste detaliu
+              </span>
             )}
+            <div className="relative z-[1] aspect-[4/3] w-full max-w-xl">
+              {isBase ? (
+                <Image
+                  src={imageUrl}
+                  alt={header.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 55vw"
+                  className="object-contain"
+                  priority
+                />
+              ) : (
+                <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
+              )}
+            </div>
           </div>
 
           {/* panou dreapta: autorul tabului activ + (schiță) badge + ștergere */}

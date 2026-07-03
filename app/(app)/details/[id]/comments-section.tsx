@@ -15,7 +15,7 @@ import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format";
-import { buildMentionToken, mentionTokenEndingAt, parseMentions } from "@/lib/mentions";
+import { buildMentionToken, parseMentions } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
 import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType } from "@/server/domain/validation";
@@ -127,13 +127,28 @@ export function CommentsSection({
 }
 
 // Compozitor cu autocomplete @schiță: la tastarea `@` (la început de cuvânt) apare un dropdown cu schițele
-// detaliului; selectarea inserează un token `@[Nume](sid:id)` în text. Textarea e NECONTROLAT (valoarea o
-// gestionăm prin ref la inserția tokenului) → name="body" trimite tokenii pe server (unde se validează
-// că aparțin detaliului). Reset-ul câmpului îl face form.reset() din părinte, la succes.
+// detaliului; selectarea inserează în textarea DOAR eticheta lizibilă („@Nume (schița 2)"), nu tokenul
+// tehnic `@[Nume](sid:uuid)` (~50 caractere, deranjant la compunere). Maparea etichetă→sid se ține într-un
+// ref; corpul cu tokeni se reconstruiește nevăzut într-un <input hidden name="body"> la fiecare modificare
+// → serverul primește același format ca înainte (validat că sid-urile aparțin detaliului).
+// Textarea e NECONTROLAT; reset-ul câmpurilor îl face form.reset() din părinte, la succes.
 function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; disabled?: boolean }) {
   const ref = useRef<HTMLTextAreaElement>(null);
+  const hiddenRef = useRef<HTMLInputElement>(null);
+  const labelsRef = useRef(new Map<string, string>()); // etichetă afișată → sketchId
   const [query, setQuery] = useState<{ text: string; at: number } | null>(null);
   const [highlight, setHighlight] = useState(0);
+
+  // Reconstruiește corpul cu tokeni din textul afișat: fiecare `@Etichetă` cunoscută devine tokenul ei.
+  // Etichetele mai lungi primele („Nume (schița 2)" înaintea lui „Nume") ca să nu fie sparte de un prefix.
+  function syncHidden(displayText: string) {
+    let out = displayText;
+    const entries = [...labelsRef.current.entries()].sort((a, b) => b[0].length - a[0].length);
+    for (const [label, sid] of entries) {
+      out = out.split(`@${label}`).join(buildMentionToken(label, sid));
+    }
+    if (hiddenRef.current) hiddenRef.current.value = out;
+  }
 
   // Detectează un `@query` activ la poziția cursorului (@ la început sau după spațiu; query fără spații).
   function detect(text: string, caret: number) {
@@ -182,14 +197,17 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
     const baseName = s.authorName ?? "Anonim";
     // Etichetă cu ordinal ("Nume (schița 2)") când autorul are mai multe schițe — rămâne în comentariul
     // salvat, nu doar în dropdown, ca cititorul să știe la care schiță se referă mențiunea.
-    const label =
+    // Fără paranteze în etichetă (buildMentionToken le curăță) → „Nume — schița 2", identic afișat și în token.
+    const label = (
       (authorCounts.get(s.authorName ?? "") ?? 1) > 1
-        ? `${baseName} (schița ${ordinalById.get(s.id)})`
-        : baseName;
-    const token = buildMentionToken(label, s.id);
-    el.value = el.value.slice(0, query.at) + token + " " + el.value.slice(caret);
+        ? `${baseName} — schița ${ordinalById.get(s.id)}`
+        : baseName
+    ).replace(/[\]()\r\n]/g, " ").trim() || "Anonim";
+    labelsRef.current.set(label, s.id);
+    el.value = el.value.slice(0, query.at) + "@" + label + " " + el.value.slice(caret);
+    syncHidden(el.value);
     setQuery(null);
-    const pos = query.at + token.length + 1;
+    const pos = query.at + label.length + 2;
     requestAnimationFrame(() => {
       el.focus();
       el.setSelectionRange(pos, pos);
@@ -198,15 +216,18 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
 
   return (
     <div className="relative">
+      <input ref={hiddenRef} type="hidden" name="body" />
       <Textarea
         ref={ref}
-        name="body"
         required
         rows={2}
         maxLength={COMMENT_MAX_LENGTH}
         disabled={disabled}
         placeholder="Adaugă la dezbatere — părerea ta apare cu rolul tău lângă nume…"
-        onChange={(e) => detect(e.target.value, e.target.selectionStart ?? e.target.value.length)}
+        onChange={(e) => {
+          detect(e.target.value, e.target.selectionStart ?? e.target.value.length);
+          syncHidden(e.target.value);
+        }}
         onClick={(e) => detect(e.currentTarget.value, e.currentTarget.selectionStart ?? 0)}
         onKeyDown={(e) => {
           if (!open) return;
@@ -224,19 +245,25 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
           }
         }}
         onKeyDownCapture={(e) => {
-          // Backspace imediat după un token de mențiune → șterge tot tokenul, nu caracter cu caracter
-          // (tokenul ascuns e „@[Nume](sid:uuid)", ~50 de caractere greu de șters manual).
+          // Backspace imediat după o mențiune afișată („@Etichetă") → șterge toată mențiunea dintr-o
+          // apăsare (o etichetă ruptă pe la mijloc n-ar mai fi recunoscută la reconstruirea tokenului).
           if (e.key !== "Backspace") return;
           const el = e.currentTarget;
           if (el.selectionStart !== el.selectionEnd) return; // selecție activă → comportament nativ
           const caret = el.selectionStart ?? 0;
-          const token = mentionTokenEndingAt(el.value, caret);
-          if (!token) return;
+          const upto = el.value.slice(0, caret);
+          let hit: string | null = null;
+          for (const label of labelsRef.current.keys()) {
+            if (upto.endsWith(`@${label}`) && (!hit || label.length > hit.length)) hit = label;
+          }
+          if (!hit) return;
           e.preventDefault();
-          el.value = el.value.slice(0, token.start) + el.value.slice(token.end);
+          const start = caret - hit.length - 1;
+          el.value = el.value.slice(0, start) + el.value.slice(caret);
+          syncHidden(el.value);
           requestAnimationFrame(() => {
             el.focus();
-            el.setSelectionRange(token.start, token.start);
+            el.setSelectionRange(start, start);
           });
         }}
         onBlur={() => setTimeout(() => setQuery(null), 120)}
