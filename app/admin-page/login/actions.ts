@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 
 import { createAdminLoginUrl, adminLinkTtlMinutes, isAdminEmail } from "@/lib/admin-auth";
 import { audit } from "@/lib/audit";
-import { magicLinkEmailHtml, magicLinkEmailText, sendEmail } from "@/lib/email";
+import { adminLoginEmailHtml, adminLoginEmailText, sendEmail } from "@/lib/email";
 import { checkLimit, clientIp, hashAuditId, limiters } from "@/lib/rate-limit";
 
 export type AdminLoginState = { sent: boolean; error: string | null };
@@ -36,8 +36,8 @@ export async function requestAdminLinkAction(
     await sendEmail({
       to: email,
       subject: "Acces administrare DETALIA",
-      html: magicLinkEmailHtml(url, ttl),
-      text: magicLinkEmailText(url, ttl),
+      html: adminLoginEmailHtml(url, ttl),
+      text: adminLoginEmailText(url, ttl),
     });
     audit("admin_login_success", { stage: "link_sent", emailHash: hashAuditId(email) }, "info");
   } else {
