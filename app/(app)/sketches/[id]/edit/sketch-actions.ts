@@ -37,6 +37,11 @@ export async function saveStrokesAction(
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  // SEC-01: salvarea scrie în DB la fiecare apel (poate fi declanșată des din editor) → limită per user.
+  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+
   const res = await saveStrokes({
     sketchId,
     authorId: session.user.id,

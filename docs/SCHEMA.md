@@ -2,7 +2,9 @@
 
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
-> _Ultima verificare față de cod: 2026-06-27 — codul EXISTĂ (`db/schema.ts`). La orice divergență, codul câștigă._
+> _Ultima verificare față de cod: 2026-07-03 — sincronizat cu `db/schema.ts` (era stale din 2026-06-27:
+> lipseau `detail_categories`, tabelele de admin, `platform_settings`, parametrii tehnici multipli pe
+> `details`, `secondary_role`; `invited_by_id`/`INVITED` erau reziduuri din invitațiile eliminate)._
 >
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.
@@ -14,7 +16,7 @@
 ## Enum-uri
 
 ```
-user_status            : INVITED | ACTIVE | SUSPENDED | DELETED
+user_status            : ACTIVE | SUSPENDED | DELETED
 role_main              : PROIECTANT | EXECUTANT | FURNIZOR | BENEFICIAR
 verification_status    : DECLARED | PENDING | VERIFIED | REJECTED
 target_type            : DETAIL | SKETCH        -- polimorfism validare/comentariu
@@ -37,12 +39,13 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `name` | text | nullable (compus din `first_name` + `last_name` la onboarding) |
 | `image` | text | avatar (Blob) |
 | `status` | `user_status` | default `ACTIVE` |
-| `invited_by_id` | uuid | nullable |
 | `first_name` / `last_name` | text | profil extins (onboarding) |
 | `headline` | text | profil public (titlu/headline) |
 | `about` | text | descriere profil |
 | `location` / `website` | text | profil public |
+| `company` | text | firma reprezentată (opțional, auto-declarat) |
 | `cover_image` | text | copertă profil (Blob) |
+| `cover_position` | integer | default `50`; poziția verticală a coperții (object-position Y, 0..100) |
 | `created_at` | timestamptz | (NU există `updated_at` pe `users`) |
 
 > Tabelele Auth.js (`accounts`, `sessions`, `verification_tokens`) sunt gestionate de adapterul Drizzle — vezi `db/schema.ts`, nu le mâna manual.
@@ -54,6 +57,7 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `user_id` | uuid FK→users.id | **UNIQUE** (un rol/user), **index** |
 | `role_main` | `role_main` | not null |
 | `sub_role` | text | ex. „arhitect", „inginer structurist" |
+| `secondary_role` | text | nullable; rol aditiv opțional (Administrativ/Educație) — peste meseria de bază |
 | `verification_status` | `verification_status` | default `DECLARED` |
 | `verification_evidence` | text | nr. OAR / CUI — **PII, nu se loghează** |
 | `verified_by_admin_id` | uuid FK→users.id | nullable; **index** |
@@ -81,12 +85,23 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `title` | text | not null |
 | `description` | text | nullable; text liber „deasupra" imaginii (stil post) |
 | `author_id` | uuid FK→users.id | **index** |
-| `category_id` | uuid FK→categories.id | **index** |
-| `climate_zone` | text | default `'General'` (listă fixă) |
-| `seismic_zone` | text | default `'General'` (listă fixă) |
+| `climate_zone` | text | nullable, fără default (Zona I..IV — n-are variantă neutră) |
+| `seismic_ag` | text | default `'General'` (listă fixă) |
+| `seismic_tc` | text | default `'General'` (listă fixă) |
+| `snow_load` | text | default `'General'` (listă fixă) |
+| `wind_load` | text | default `'General'` (listă fixă) |
 | `image_url` | text | imaginea 2D (jpg/png/webp, ~5MB) |
-| `status` | text | publicat/draft (seed) |
+| `status` | text | default `'PUBLISHED'` |
 | `created_at` / `updated_at` | timestamptz | |
+
+### `detail_categories` (many-to-many — bifezi oricâte categorii pe un detaliu)
+| coloană | tip | note |
+|---|---|---|
+| `detail_id` | uuid FK→details.id | cascade; parte din PK compus |
+| `category_id` | uuid FK→categories.id | **index**; parte din PK compus |
+
+PK compus `(detail_id, category_id)`. Înlocuiește vechiul `details.category_id` (FK simplu, un singur
+detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pinterest.
 
 ### `detail_resources` (MAX 3 resurse opționale/detaliu)
 | coloană | tip | note |
@@ -155,6 +170,38 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `created_at` | timestamptz | ordinea în lista `/saved` (recent salvate primele) |
 
 PK compus `(user_id, detail_id)` → un user nu poate salva același detaliu de două ori.
+
+### Admin — autentificare SEPARATĂ de useri
+Adminii NU sunt useri ai platformei: login propriu prin magic link (allowlist `ADMIN_EMAILS` din env, fără
+tabel de conturi/parole), sesiune proprie (cookie dedicat), acces izolat la `/admin-page`.
+
+**`admin_login_tokens`** (token one-time la cererea de login):
+| coloană | tip | note |
+|---|---|---|
+| `token` | text PK | |
+| `email` | text | din allowlist; **index** |
+| `expires` | timestamptz | |
+| `created_at` | timestamptz | |
+
+**`admin_sessions`** (sesiune de admin, token opac în cookie HttpOnly, revocabilă din DB):
+| coloană | tip | note |
+|---|---|---|
+| `token` | text PK | |
+| `email` | text | **index** — identitatea = emailul din allowlist, nu un FK spre `users` |
+| `expires` | timestamptz | |
+| `created_at` | timestamptz | |
+
+### `platform_settings` (single-row — config global, administrat din `/admin-page`)
+| coloană | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `announcement_enabled` | boolean | default `false`; banner programat în feed |
+| `announcement_date` | date | nullable |
+| `announcement_message` | text | nullable; override text implicit |
+| `lockdown_enabled` | boolean | default `false`; „site în lucru" — doar adminul intră |
+| `lockdown_message` | text | nullable |
+| `updated_by` | text | emailul adminului (allowlist, NU user) |
+| `updated_at` | timestamptz | |
 
 ---
 

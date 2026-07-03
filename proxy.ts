@@ -14,6 +14,11 @@ import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
 import { userHasRole } from "@/server/services/roleService";
 
+// Rutele de cron invocate de Vercel (fără sesiune de user) — autorizare reală prin CRON_SECRET, în
+// handler. EXACTE (nu un prefix larg gen "/api/cron"), ca o rută cron nouă să NU devină public/scutită de
+// lockdown implicit doar pentru că împarte prefixul — adaugi aici explicit, o dată cu handler-ul nou.
+const CRON_PATHS = ["/api/cron/cleanup-notifications"];
+
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
 const PUBLIC_PATHS = [
   "/", // landing
@@ -26,7 +31,10 @@ const PUBLIC_PATHS = [
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
   "/admin-page",
+  ...CRON_PATHS,
 ];
+
+const isCronPath = (pathname: string) => CRON_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
 export default auth(async (req) => {
   const { pathname, origin } = req.nextUrl;
@@ -56,7 +64,7 @@ export default auth(async (req) => {
   // LOCKDOWN global (mentenanță totală). Tot ce nu e /admin-page* și nu e deja ecranul de mentenanță →
   // rewrite la /maintenance (URL-ul rămâne neschimbat). Adminul intră pe /admin-page ca să-l oprească.
   // Cost: un SELECT (single-row) per request de pagină — acceptabil MVP; mentenanța e rară.
-  if (!pathname.startsWith("/admin-page") && pathname !== "/maintenance") {
+  if (!pathname.startsWith("/admin-page") && !isCronPath(pathname) && pathname !== "/maintenance") {
     const settings = await getSettingsRow();
     if (settings?.lockdownEnabled) {
       return NextResponse.rewrite(new URL("/maintenance", origin));

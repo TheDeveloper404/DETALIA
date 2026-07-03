@@ -1,11 +1,11 @@
 # DETALIA — Confidențialitate & GDPR (notă de lucru + schelet ToS)
 
-> ⚠️ **Risc real, nu birocrație — acum mai urgent.** DETALIA colectează **emailuri**, **dovezi de verificare rol
-> (nr. OAR / CUI)** și **conținut încărcat de useri** (detalii + schițe, imagini ce pot conține PII) = date cu
-> caracter personal, în RO/UE. **Decizia de acces e PUBLIC** (înregistrare deschisă, upload deschis userilor,
-> confirmat iunie 2026), deci NU mai există faza „beta închis cu cunoscuți" în care riscul era mic: **nota de confidențialitate
-> + ToS trebuie publicate ÎNAINTE de lansarea publică**, nu „mai târziu". Acest document e **nota de lucru** +
-> scheletul textelor — **nu** consultanță juridică. Înainte de public: revizuire de jurist.
+> ⚠️ **Risc real, nu birocrație — dar NON-BLOCANT pentru cod/lansare (decizie Liviu, confirmată 2026-07-02,
+> vezi `CLAUDE.md`).** DETALIA colectează **emailuri**, **dovezi de verificare rol (nr. OAR / CUI)** și
+> **conținut încărcat de useri** (detalii + schițe, imagini ce pot conține PII) = date cu caracter personal,
+> în RO/UE. Platforma e deja **live public** din 2026-06-29 fără Notă de confidențialitate/ToS publicate —
+> decizie asumată, de rezolvat **mai târziu**, nu ține pe loc deploy-ul. Acest document e **nota de lucru** +
+> scheletul textelor — **nu** consultanță juridică. Înainte de publicare: revizuire de jurist.
 
 ---
 
@@ -81,6 +81,8 @@ Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în 
 | Neon | baza de date (PII la rest) | regiune UE recomandată |
 | Resend | trimitere email (adrese) | DPA disponibil |
 | Vercel Blob | imagini/thumbnail-uri | fără PII direct |
+| Sentry | erori server/client/edge (poate include user id, URL) | DPA disponibil |
+| Cloudflare Turnstile | verificare anti-bot (IP, comportament) pe login+signup | DPA disponibil |
 
 > Decizii deschise aici (entitatea operator, regiunea DB) → `.remember/remember.md` §„Decizii / HOLD".
 
