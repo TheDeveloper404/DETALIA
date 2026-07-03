@@ -4,6 +4,23 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-03 — feat(ui): cookie notice pe landing + email admin vizual distinct + fix XSS în emailuri
+
+- **`components/cookie-consent.tsx`** (nou): notă informativă despre cookie-uri (NU consent cu opțiuni —
+  DETALIA folosește doar cookie-ul de sesiune Auth.js, strict necesar, deci sub GDPR/ePrivacy nu cere
+  opt-in). Apare o singură dată, la 10s după intrarea pe landing, jos-stânga (nu în footer); alegerea
+  persistă în `localStorage`. Montat în `app/page.tsx`.
+- **`lib/email.ts`:** `emailLayout()` acceptă acum `{ accent, badge }` opțional. Nou `adminLoginEmailHtml`/
+  `Text` — email de acces admin vizual distinct de login-ul normal (badge „PANOU ADMIN" + accent
+  albastru-ardezie `#33465e` în loc de teracota de brand, ca admin să recunoască instant emailul + semnal
+  anti-phishing). `app/admin-page/login/actions.ts` folosește noul template.
+- **Fix XSS (găsit de review automat, MEDIUM):** link-ul fallback din `magicLinkEmailHtml` și
+  `adminLoginEmailHtml` nu era escapat (`${url}` brut în `href`+text) — reparat cu `esc()`, consistent cu
+  `emailButton`. `magicLinkEmailHtml` dedus să refolosească `emailButton` în loc să dubleze markup-ul.
+- `tsc --noEmit` verde.
+
+---
+
 ## 2026-07-03 — fix(review): code review pe modificările zilei (cron, atomicitate, IDOR) — 7 găsiri reparate
 
 - **De ce:** code review riguros (8 unghiuri paralele) pe tot ce s-a schimbat azi (cron retenție, atomicitate
