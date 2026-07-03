@@ -4,6 +4,104 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-03 — fix(review): code review pe modificările zilei (cron, atomicitate, IDOR) — 7 găsiri reparate
+
+- **De ce:** code review riguros (8 unghiuri paralele) pe tot ce s-a schimbat azi (cron retenție, atomicitate
+  `createDetail`, teste IDOR/integrare, `auth.setup.ts` JWT). Verificat direct în sursă (`neon-http/session.js`)
+  că `db.batch` chiar rulează o tranzacție Postgres reală (`client.transaction(...)`) — fix-ul de atomicitate
+  de mai devreme e solid, nu doar aparent.
+- **`app/api/cron/cleanup-notifications/route.ts`:** fail-closed explicit dacă `CRON_SECRET` lipsește din env
+  (înainte, comparația cădea pe literalul `"Bearer undefined"` — bypass posibil). Mutată logica din route direct
+  în `server/services/notificationService.ts` (`cleanupOldNotifications`) — ruta nu mai atinge repo-ul direct
+  (regulă CLAUDE.md: mutațiile trec prin services).
+- **`server/repos/detailsRepo.ts`:** `insertDetailWithRelations` simplificat de la 4 ramuri manuale
+  (`if`/`else if` pe combinația categorii/resurse) la un singur `db.batch` + `filter(Boolean)` — tipul real al
+  `db.batch` cere doar array nevid, nu tuplu de lungime fixă. Adăugat `.returning()` + verificare explicită că
+  insert-ul a produs un rând (arunca eroare altfel, în loc să întoarcă tăcut un `detailId` fantomă).
+  Reconfirmat printr-un pic mai atent: **atomicitatea e reală** (nu doar „o rundă HTTP", ci o tranzacție Postgres).
+- **`proxy.ts`:** `/api/cron` era prefix larg în `PUBLIC_PATHS` (orice rută viitoare sub el ar fi devenit public/
+  scutită de lockdown implicit) — înlocuit cu `CRON_PATHS` (listă exactă) + `isCronPath()` folosit consecvent
+  în ambele gate-uri (public + lockdown).
+- **`e2e/seed.ts`** (nou): `getSeed()` centralizat, elimină duplicarea byte-cu-byte din `security.spec.ts` +
+  `integration.spec.ts`.
+- **DB:** rândurile vechi din `sessions` (moștenite din strategia `database`, nemaifolosite din migrarea la
+  JWT) curățate manual (`TRUNCATE TABLE sessions`) pe preview/dev și producție.
+- **22/22 teste E2E verzi** (rerulate după fiecare fix), `tsc --noEmit` verde.
+
+---
+
+## 2026-07-03 — feat(ops+test): retenție notificări (cron) + teste de integrare (atomicitate/cascadă/polimorfism)
+
+- **De ce:** ultimele 2 goluri fezabile din `evaluare-mvp.md`. (1) tabelul `notifications` creștea nemărginit
+  — nicio politică de retenție. (2) „teste de integrare handler→service→repo" lipseau — doar unit (mock) + E2E
+  UI existau, nimic nu verifica direct atomicitatea/cascada/polimorfismul la nivel de service+DB real.
+- **`app/api/cron/cleanup-notifications/route.ts`** (nou): șterge notificările **citite** mai vechi de
+  **15 zile** (decizie Liviu 2026-07-03) — cele necitite rămân (userul trebuie să le vadă măcar o dată).
+  Autorizat prin header `Authorization: Bearer $CRON_SECRET` (convenția Vercel Cron). **`vercel.json`** (nou):
+  programează cron-ul zilnic (`0 3 * * *`). `proxy.ts`: `/api/cron` adăugat ca prefix public (autorizarea
+  reală e în handler, nu în proxy) + exclus din rewrite-ul de lockdown (altfel cron-ul n-ar rula în mentenanță).
+  **De configurat în Vercel (Liviu):** env `CRON_SECRET` (Production) — orice string random lung.
+- **`server/repos/notificationsRepo.ts`:** `deleteReadNotificationsOlderThan(days)` (nou).
+- **`e2e/integration.spec.ts`** (nou, proiect `security`): 2 teste — `createDetail` inserează detaliu +
+  categorii + resurse atomic (`insertDetailWithRelations`, verificat pe DB real); `deleteDetail` cascadează
+  corect peste o schiță CU validare+comentariu polimorfice pe ea (targetType SKETCH), toate dispar.
+  `e2e/auth.setup.ts` extins cu `categoryId` în `seed.json`.
+- **22/22 teste E2E verzi.** `tsc --noEmit` verde.
+
+---
+
+## 2026-07-03 — feat(perf+test): atomicitate creare detaliu + E2E IDOR (comentariu/schiță)
+
+- **De ce:** două goluri rămase din `evaluare-mvp.md`. (1) `createDetail` insera detaliu→categorii→resurse
+  secvențial (Neon HTTP n-are tranzacții interactive) — o eroare la mijloc putea lăsa detaliul fără categorii.
+  (2) IDOR-ul (C.2 comentariu, C.1/C.3 schiță) fusese verificat doar manual cu `curl` în audit, fără regresie
+  automată.
+- **`server/repos/detailsRepo.ts`:** `insertDetailWithRelations` (nou) — id generat client-side
+  (`crypto.randomUUID()`) + `db.batch` cu toate insert-urile (detaliu + categorii + resurse) într-o singură
+  rundă atomică. Înlocuiește `insertDetail`/`insertDetailCategories`/`insertDetailResources` (șterse).
+- **`server/services/detailService.ts`:** `createDetail` folosește noul `insertDetailWithRelations`.
+- **`e2e/security.spec.ts`** (nou, proiect `security` în `playwright.config.ts`): 3 teste IDOR — apel direct
+  pe service+DB real (fără browser), reproduc automat scenariile din audit: attacker nu poate edita/șterge
+  comentariul victimei (`NOT_FOUND`), nu poate șterge o schiță a altcuiva (`FORBIDDEN`); victima supraviețuiește
+  în toate cazurile. `e2e/auth.setup.ts` extins să scrie `testerUserId`/`authorUserId` în `seed.json`.
+- **20/20 teste E2E verzi** (`npm run e2e`, pe preview/dev). `tsc --noEmit` verde.
+
+---
+
+## 2026-07-03 — fix(security): rate-limit pe saveStrokesAction + override postcss (curățare recomandări audit)
+
+- **`app/(app)/sketches/[id]/edit/sketch-actions.ts`:** `saveStrokesAction` (salvare ciornă schiță) primea
+  scrieri DB fără limită per user — singura mutație de schiță fără `checkLimit`. Adăugat `limiters.mutation`,
+  la fel ca `publish`/`deleteSketch`.
+- **`package.json`:** `overrides.postcss: "^8.5.10"` — curăță advisory-ul moderat tranzitiv (bundle-uit în
+  `next`, XSS la stringify CSS ne-de-încredere, nu-l foloseam expus). `npm audit`: 6 → 4 moderate rămase
+  (esbuild via `drizzle-kit`, neexploatabil — dev-server only).
+- Deciziile din `docs/SECURITATE.md` §Recomandări actualizate (JWT `maxAge` scurt = respins, restul = făcut).
+
+---
+
+## 2026-07-03 — test(e2e): suită schiță (publish/delete) + fix sesiune setup + fix robustețe canvas
+
+- **De ce:** ultimul punct rămas din audit — E2E pe fluxul de schiță. La scriere, `e2e/auth.setup.ts` seeda
+  încă o sesiune stil `database` (rând în `sessions` + token hex random în cookie) — stale de la migrarea
+  sesiunii pe JWT (2026-07-02). Cu strategia `jwt`, Auth.js nu mai validează DB, ci decriptează cookie-ul →
+  toate testele authed (nu doar cele noi) picau cu redirect la `/login`.
+- **`e2e/auth.setup.ts`:** nu mai scrie în `sessions`; emite cookie JWT valid cu `encode()` din
+  `@auth/core/jwt` (`salt` = numele cookie-ului, payload `{ sub, id, status, name, email }` — exact ce pune
+  callback-ul `jwt()` din `lib/auth.ts` la login real). Necesită `AUTH_SECRET` (Preview) în `.env.e2e`.
+- **`components/sketch/sketch-canvas.tsx`:** bug real găsit în timpul testării, NU doar de test — dacă
+  imaginea-mamă eșuează la încărcare (blob șters, CORS, outage rețea), `dims` rămânea `0x0` PERMANENT
+  (canvas invizibil, editor inutilizabil). Adăugat `img.onerror` → degradează la foaie goală (`aspectRatio`),
+  la fel ca fluxul fără imagine.
+- **`e2e/sketch.spec.ts`** (nou): pornește schiță → desen real (drag pe canvas, tool `pen` implicit) →
+  Publică → verifică tab nou în teanc + badge „în teanc · publicată" → șterge (autor) → verifică dispariția.
+- **`playwright.config.ts`:** `sketch.spec.ts` adăugat la `testMatch` al proiectului `authed`.
+- **17/17 teste E2E verzi** (`npm run e2e`, pe preview/dev). `docs/DEPLOY.md` §2b: cheatsheet curățare DB
+  producție (total + selectiv pe user/tabel) + Sentry Alerts configurate (`rate_limited`,
+  `rate_limit_unavailable`, `access_denied_suspended`, `admin_login_failed` → notify Liviu).
+
+---
+
 ## 2026-07-02 — fix(email): template-uri brand pentru notificările de schiță + curățare docs (voce impersonală, `EMAILURI.md`)
 
 - **De ce:** `notifySketchProposed`/`notifySketchDeleted` trimiteau HTML brut (`<p>...`), fără brand-ul DETALIA

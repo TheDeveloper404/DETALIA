@@ -47,7 +47,7 @@ Input-urile care ating coloane `uuid` sunt gardate cu `isUuid` (pattern „SEC-1
   exploatabil — doar o inconsecvență de stil.
 - **Aplicat (defensiv):** `if (!isUuid(userId)) return null;` — aliniază ultima cale de citire la SEC-11.
 
-### [SEC-04 / JWT] Sesiune `database` → `jwt` + blocare tare a suspendării pe mutații — ✅ implementat (`dev`, de deployat pe `main`)
+### [SEC-04 / JWT] Sesiune `database` → `jwt` + blocare tare a suspendării pe mutații — ✅ deployat (main)
 - **Context:** strategia `database` interoga Neon la fiecare `auth()` (fiecare render + acțiune) — pârghia #1
   de latență. Decizie: migrare la `jwt` (`lib/auth.ts`).
 - **Tradeoff introdus:** cu JWT, `status`-ul din sesiune vine din token și e **stale** (înghețat la login) —
@@ -63,8 +63,8 @@ Input-urile care ating coloane `uuid` sunt gardate cu `isUuid` (pattern „SEC-1
   - Aceeași sesiune + click „Aprob" (mutație) → **blocat instant**, „contul a fost suspendat", delogare reală
     (verificat: refresh nu păstrează mesajul stale, back nu mai duce în feed — cookie-ul a fost șters).
   - Anon (fără cookie) → 302 login (baseline).
-- **Cost operațional la deploy:** sesiunile `database` vechi nu sunt JWT valide → userii logați se deloghează
-  o dată la trecere, re-intră cu magic link. Fără migrație DB.
+- **Cost operațional la deploy:** sesiunile `database` vechi nu au fost JWT valide → userii logați s-au
+  delogat o dată la trecere, re-intrat cu magic link. Fără migrație DB.
 
 ---
 
@@ -183,12 +183,14 @@ curl -sSI https://detalia.ro/ | grep -iE 'strict-transport|x-frame|x-content-typ
 
 ## Recomandări (prioritizate)
 
-1. **Deploy JWT** (`dev` → PR → `main`) — SEC-H01 e deja pe `main`; rămân de deployat cele două commit-uri
-   JWT + fix signOut.
-2. **Opțional:** token JWT cu `maxAge` scurt + re-check status la refresh, dacă se vrea și tăierea rapidă a
-   accesului de *citire* al unui cont suspendat (acum poate citi până expiră tokenul — acceptat ca tradeoff).
-3. **Configurează alerte** (rate/cost) în Vercel Logs + Upstash pe `rate_limited` / `access_denied_suspended`.
-4. **Opțional cod:** rate-limit pe `saveStrokesAction` (Notă 2); `overrides` pe `postcss>=8.5.10`.
+1. ~~Deploy JWT~~ — **FĂCUT**, JWT + SEC-H01 pe `main`.
+2. ~~Configurează alerte~~ — **FĂCUT** (2026-07-03): Sentry Alerts pe `audit_event` (`rate_limited`,
+   `rate_limit_unavailable`, `access_denied_suspended`, `admin_login_failed`) → notify Liviu.
+3. **Opțional, neimplementat (decizie 2026-07-03):** token JWT cu `maxAge` scurt + re-check status la refresh —
+   respins; costă friction (relogin mai des) pentru un beneficiu marginal (citirea unui cont suspendat nu e
+   periculoasă, mutațiile sunt deja blocate tare).
+4. ~~Rate-limit pe `saveStrokesAction`; `overrides` pe `postcss>=8.5.10`~~ — **FĂCUT 2026-07-03** (vezi
+   CHANGELOG). npm audit: 6 → 4 moderate.
 
 ---
 *Audit inițial 2026-07-02, actualizat același jurnal odată cu implementarea JWT + fix-ul de suspendare.

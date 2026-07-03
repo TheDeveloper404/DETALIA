@@ -18,6 +18,9 @@
 | **Google Workspace** | Email pe domeniu (`support@detalia.ro` etc.) | ✅ Configurat |
 | **Hostico** | Registrar (de unde e cumpărat `detalia.ro`) | ✅ Deține domeniul |
 | **Cloudflare** | DNS host (DNS-only în fața Vercel, fără proxy/WAF — decis 2026-07-02) | ✅ Active |
+| **Cloudflare Turnstile** | Anti-bot pe login+signup (widget, verificare server-side) | ✅ Configurat 2026-07-02 |
+| **Upstash Redis** | Rate-limit (login, mutații, upload) — fail-closed în prod la outage | ✅ Configurat |
+| **Sentry** | Erori server/client/edge, tunnel prin `/sentry-tunnel` + Alerts pe `audit_event` | ✅ Configurat 2026-07-02/03 |
 
 **Concepte (ca să nu se amestece):**
 - **Registrar** (Hostico) = deține domeniul. Singurul lucru pe care-l mai faci în Hostico: schimbi nameserverele spre Cloudflare.
@@ -32,8 +35,11 @@
 - Neon: branching automat (prod = ramura `production`, fiecare preview = ramură efemeră). `DATABASE_URL` injectat de integrare.
 - Vercel Blob: `BLOB_READ_WRITE_TOKEN` injectat automat.
 - Env vars în Vercel (Production + Preview): `AUTH_SECRET`, `AUTH_URL` (= `https://detalia.ro` pe prod), `AUTH_TRUST_HOST=true`,
-  `ADMIN_EMAILS`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `MAGIC_LINK_TTL_MINUTES`. *(`INVITATION_TTL_HOURS` eliminat
-  2026-06-28 odată cu logica de invitații — nu mai există în `.env.example`.)*
+  `ADMIN_EMAILS`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `MAGIC_LINK_TTL_MINUTES`, `ADMIN_SESSION_TTL_HOURS`,
+  `ADMIN_LOGIN_TOKEN_TTL_MINUTES` + **Upstash** (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
+  opțional `RATE_LIMIT_FAIL_OPEN`) + **Turnstile** (`TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`)
+  + **Sentry** (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`).
+  *(`INVITATION_TTL_HOURS` eliminat 2026-06-28 odată cu logica de invitații — nu mai există în `.env.example`.)*
 
 ---
 
@@ -108,6 +114,28 @@ DELETE FROM users WHERE email = '<EMAIL>'; -- cascadă: sessions, accounts, role
 TRUNCATE TABLE notifications RESTART IDENTITY;
 -- sau condiționat: DELETE FROM notifications WHERE created_at < now() - interval '30 days';
 ```
+
+> **Retenția notificărilor citite (15 zile) e AUTOMATĂ** din 2026-07-03 — Vercel Cron zilnic
+> (`app/api/cron/cleanup-notifications`, `vercel.json`), nu mai trebuie făcută manual. SQL-ul de mai sus
+> rămâne util doar pentru curățare ad-hoc/imediată.
+
+### Rotația secretelor (procedură — de executat manual, când decizi)
+
+Niciun secret nu se rotește automat. Pentru fiecare, pasul e „generează valoare nouă → pune-o în Vercel →
+redeploy → verifică → (dacă aplicabil) revocă valoarea veche la sursă":
+
+| Secret | Unde-l schimbi | Efect la rotație |
+|---|---|---|
+| `AUTH_SECRET` | Vercel → Env Vars (Production) | **Delogează TOȚI userii** (cookie-urile JWT vechi devin invalide) — re-login cu magic link. Fă-o într-o fereastră cu trafic mic. |
+| `DATABASE_URL` (parola Neon) | Neon → proiect → Reset password → copiezi noul connection string în Vercel | Fără impact pe useri (transparent) — doar redeploy ca noua valoare să fie citită. |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash → Database → regenerează tokenul → Vercel | Fără impact pe useri; rate-limit-ul continuă normal după redeploy. |
+| `AUTH_RESEND_KEY` | Resend → API Keys → creezi una nouă, ștergi cea veche → Vercel | Fără impact — magic link-urile în curs de livrare la momentul schimbării pot eșua (rar, tranzitoriu). |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile → widget → regenerează secretul → Vercel | Fără impact pe useri — verificarea anti-bot continuă după redeploy. |
+| `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens → regenerezi → Vercel | Afectează doar upload-ul de source maps la build, nu runtime-ul. |
+| `CRON_SECRET` | Generezi tu (ex. `openssl rand -base64 32`) → Vercel | Fără impact pe useri — doar cron-ul de retenție trebuie să folosească noua valoare (automat, citește din env). |
+
+**Regulă:** schimbi UN secret o dată, redeploy, verifici (login funcțional, feed se încarcă, o mutație merge),
+abia apoi treci la următorul. Nu le rotești pe toate simultan — dacă ceva se strică, vrei să știi exact care.
 
 ---
 

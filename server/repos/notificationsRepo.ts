@@ -1,5 +1,5 @@
 // Repo notificări — singurul loc cu acces Drizzle pentru tabelul `notifications` (in-app).
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
@@ -63,4 +63,15 @@ export async function markOneRead(userId: string, id: string) {
         isNull(notifications.readAt),
       ),
     );
+}
+
+// Retenție (cron): șterge notificările CITITE mai vechi de `days`. Necitite rămân (userul trebuie să
+// le vadă măcar o dată) — doar cele deja consumate se curăță, ca tabelul să nu crească nemărginit.
+export async function deleteReadNotificationsOlderThan(days: number): Promise<number> {
+  const cutoff = new Date(Date.now() - days * 86_400_000);
+  const deleted = await db
+    .delete(notifications)
+    .where(and(isNotNull(notifications.readAt), lt(notifications.createdAt, cutoff)))
+    .returning({ id: notifications.id });
+  return deleted.length;
 }

@@ -55,5 +55,12 @@ export default defineConfig({
         storageState: "e2e/.auth/state.json",
       },
     },
+    // Securitate (IDOR) + integrare (service→repo, atomicitate, cascadă, polimorfism) — apeluri directe
+    // service+DB (fără browser), dependință DOAR de seed.json (id-uri de user), nu de storageState/sesiune.
+    {
+      name: "security",
+      testMatch: [/security\.spec\.ts/, /integration\.spec\.ts/],
+      dependencies: ["setup"],
+    },
   ],
 });

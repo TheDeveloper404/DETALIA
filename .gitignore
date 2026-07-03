@@ -67,6 +67,7 @@ skills-lock.json
 
 # === Continuitate sesiune (local, nu cod de proiect) ===
 .remember/
+code-review.md
 
 # === Documente care NU se comit (client + arhivă de docs) ===
 /documente_client
