@@ -1,4 +1,4 @@
-import { FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
+import { Compass, FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -44,6 +44,7 @@ function toWorkspaceSketch(r: SketchRow, validation: WorkspaceSketch["validation
 const RESOURCE_ICON = {
   IMAGE: ImageIcon,
   PDF: FileText,
+  CAD: Compass,
   LINK: LinkIcon,
   TEXT: FileText,
 } as const;
