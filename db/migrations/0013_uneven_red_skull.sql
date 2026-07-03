@@ -1,0 +1,1 @@
+ALTER TYPE "public"."detail_resource_type" ADD VALUE 'CAD';

@@ -1,8 +1,9 @@
-import { PencilRuler, Search } from "lucide-react";
+import { House, PencilRuler, Search } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
 import { getNotifications } from "@/server/services/notificationService";
+import { getUserMedia } from "@/server/repos/usersRepo";
 
 import { BrandLogo } from "./brand-logo";
 import { NotificationBell, type NotificationView } from "./notification-bell";
@@ -22,8 +23,12 @@ export async function AppHeader() {
   const session = await auth();
   if (!session?.user?.id) return null;
 
-  // Lista pentru dropdown-ul din clopoțel (mapată la o formă serializabilă pt client).
-  const rows = await getNotifications(session.user.id);
+  // Poza de profil vine din DB, nu din sesiune (JWT-ul cache-uiește `image` doar la login →
+  // stale după onboarding/schimbare poză, până la re-login).
+  const [rows, media] = await Promise.all([
+    getNotifications(session.user.id),
+    getUserMedia(session.user.id),
+  ]);
   const notifications: NotificationView[] = rows.map((n) => {
     const p = (n.payloadJson ?? {}) as NotificationPayload;
     return {
@@ -65,6 +70,14 @@ export async function AppHeader() {
 
         <div className="flex items-center gap-1">
           <Link
+            href="/feed"
+            aria-label="Acasă"
+            title="Acasă"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <House className="size-[18px]" strokeWidth={2} />
+          </Link>
+          <Link
             href="/sketches/drafts"
             aria-label="Ciornele mele"
             title="Ciornele mele"
@@ -73,7 +86,7 @@ export async function AppHeader() {
             <PencilRuler className="size-[18px]" strokeWidth={2} />
           </Link>
           <NotificationBell notifications={notifications} count={unread} />
-          <UserMenu name={session.user.name ?? null} image={session.user.image ?? null} />
+          <UserMenu name={session.user.name ?? null} image={media?.image ?? null} />
         </div>
       </div>
     </header>

@@ -4,6 +4,102 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — security: audit sesiune (upload PDF/CAD, date live din DB, onboarding) + fix blob orfan
+
+- **Audit dedicat** (subagent security-engineer) pe toate modificările din sesiunea 2026-07-04 (upload
+  PDF/CAD, `getUserMedia` extins cu name/location, paralelizare reprocesare imagini onboarding,
+  autocomplete localitate, ordinal @mențiuni). **Verdict: APROBAT** — 0 Critical/High, 2 Low + 1 Info.
+- **[Info] Fix:** la onboarding, dacă avatarul și cover-ul se reprocesau în paralel și unul eșua în
+  timp ce celălalt reușise deja, blob-ul reprocesat cu succes rămânea orfan în storage (urcat, dar
+  niciodată referit în DB). `app/onboarding/actions.ts`: pe eșec parțial, blob-ul reușit se șterge
+  (`deleteBlobs`, best-effort) înainte de a respinge.
+- Restul găsirilor (rel="noopener noreferrer" pe linkurile de resurse, extensia CAD validată doar
+  cosmetic din pathname) erau deja acoperite / acceptate ca risc — fără schimbare de cod necesară.
+
+## 2026-07-04 — fix(ui): jump de imagine la comutarea tab bază↔schiță în workspace
+
+- **Bug (raportat vizual, Edi):** la trecerea între tab-ul „detaliu de bază" și un tab de schiță,
+  imaginea se redimensiona/repoziționa vizibil — cauza: cutiile aveau lățimi diferite (`max-w-xl` la
+  bază vs `max-w-md` la schiță). Aliniat la aceeași lățime în `detail-workspace.tsx`.
+
+## 2026-07-04 — fix(ui): @mențiuni în comentarii — schițe multiple ale aceluiași autor + backspace pe token
+
+- **Ambiguitate:** dacă un autor avea mai multe schițe, apărea identic de mai multe ori în dropdown-ul
+  de `@mențiuni` (nume+avatar), imposibil de deosebit care schiță se menționează. Numerotare „schița N"
+  per autor în dropdown, propagată și în eticheta salvată în comentariu (`Nume (schița 2)`).
+- **Bug:** tokenul brut `@[Nume](sid:uuid)` (~50 caractere) trebuia șters caracter cu caracter din
+  textarea. Backspace imediat după un token de mențiune îl șterge acum dintr-o singură apăsare.
+  Helper nou `mentionTokenEndingAt()` în `lib/mentions.ts`.
+
+## 2026-07-04 — feat(ui): buton „Acasă" în header
+
+- Header-ul avea o singură cale spre feed (click pe logo, nedescoperibil). Buton nou (icon `House`),
+  înainte de „Ciornele mele", link direct spre `/feed`.
+
+## 2026-07-04 — fix(ui): nume/locație stale în sidebar-ul feed-ului (aceeași cauză ca bug-ul pozei)
+
+- `session.user.name` vine din JWT, cache-uit doar la login → userii care completau numele abia la
+  onboarding vedeau fallback-ul generic „Profilul tău" până la re-login. `getUserMedia` (repo) extins
+  cu `name`+`location` citite live din DB; `feed/page.tsx` + `feed-sidebar.tsx` actualizate să le
+  folosească (cu fallback pe sesiune doar dacă DB n-are nimic). Locația apare acum sub rol, în sidebar.
+
+## 2026-07-04 — perf(onboarding): procesare avatar+cover în paralel (lag la submit final)
+
+- **Bug raportat:** butonul final de onboarding părea „blocat" câteva secunde. Cauză: avatarul și
+  cover-ul se re-procesau (fetch blob → sharp resize/re-encode → re-upload → ștergere original)
+  **secvențial**, 6 round-trip-uri de rețea una după alta. Rulate acum în paralel (`Promise.all`) în
+  `app/onboarding/actions.ts` — ~jumătate din timp când ambele imagini sunt setate.
+
+## 2026-07-04 — fix+feat(onboarding): etichete Domeniu/Rolul tău + autocomplete localitate
+
+- **Etichete onboarding:** „Rol principal" → „Domeniu", „Subrol" → „Rolul tău" (+ placeholder-ele
+  corelate) — clarifică relația dintre cele două câmpuri.
+- **Bug „Locație":** `<input list>` + `<datalist>` nativ arăta toată lista (~200 orașe) pe click,
+  cât tot ecranul, înainte să scrii ceva. Componentă nouă `components/city-autocomplete.tsx` —
+  nimic nu apare până nu tastezi, apoi listă scurtă filtrată (max 8) sub câmp. Înlocuit în onboarding
+  (`onboarding-form.tsx`) și editare profil (`profile-forms.tsx`); câmpul rămâne text liber.
+
+## 2026-07-04 — feat(ui): buton „Adaugă detaliu" mutat din sidebar în buton fix global (FAB)
+
+- **Bug raportat:** poziția butonului din sidebar depindea de layout (se muta când se expandau
+  categoriile), obligând la scroll ca să fie găsit — pentru CTA-ul principal al platformei, inacceptabil.
+- Component nou `components/add-detail-fab.tsx`, montat în `app/(app)/layout.tsx` — fix pe ecran
+  (dreapta-jos), vizibil pe toate paginile din zona autentificată indiferent de scroll. Scos din
+  `feed-sidebar.tsx` (`addHref` prop eliminat, era neutilizat).
+
+## 2026-07-04 — feat(ui): card „Validează pe rolul tău" mutat din rail-ul din dreapta în sidebar-ul din stânga
+
+- Mutat între cardul „Profilul tău" și „Categorii" (`feed-sidebar.tsx`) — scos din `feed-rail.tsx`.
+  Fiecare card își păstrează un singur scop (identitate vs. nudge educativ).
+
+## 2026-07-04 — feat(resurse): upload de fișier pentru PDF + tip nou de resursă CAD (DWG/DXF)
+
+- Resursele PDF/CAD ale unui detaliu pot fi acum urcate direct (nu doar link extern), prin Blob.
+- `lib/upload-limits.ts`: allowlist-uri + limite noi (PDF max 25MB; CAD max 50MB — MIME nesigur pt.
+  DWG/DXF în browsere → gate real pe extensia din pathname, server-side).
+- `app/api/blob/upload/route.ts`: tokenul acceptă acum un `kind` (`image`/`pdf`/`cad`) trimis din
+  client (`clientPayload`), alege allowlist-ul + mărimea corespunzătoare.
+- `lib/blob-upload.ts`: helper nou `uploadDocToBlob()`. `server/domain/detail.ts`: `RESOURCE_TYPES`
+  + `"CAD"`. `db/schema.ts` + migrație `0013_uneven_red_skull.sql` (`ALTER TYPE ... ADD VALUE 'CAD'`,
+  rulată manual în Neon dev+prod). Formular nou/editare detaliu + pagina de detaliu actualizate
+  (selector, buton de upload cu stare „se încarcă"/eroare per rând, iconiță `Compass` pt. chip CAD).
+
+## 2026-07-04 — fix(ui): CTA „Schițează peste detaliu" mutat ca overlay peste imagine + text tab schiță
+
+- **Bug raportat:** butonul „Schițează peste detaliu" era în banda de taburi, nu suficient de vizibil;
+  poziția lui era condiționată de UI-ul din jur. Mutat ca overlay fix în colțul dreapta-sus **al
+  ferestrei cu imaginea** (`detail-workspace.tsx`), vizibil automat indiferent de tab, mai proeminent
+  (fără `size="sm"`, cu umbră).
+- Tab-ul „detaliu de bază" arăta text generic „Detaliul de bază"; acum arată avatar + numele
+  autorului + eticheta „Autor detaliu" (activ), la fel ca tab-urile de schiță.
+- Text „schiță peste detaliul-mamă" → „schiță peste detaliu" (etichetă pe viewport-ul unei schițe).
+
+## 2026-07-04 — fix(ui): poza de profil din header rămânea stale până la re-login
+
+- **Bug raportat:** poza de profil nu apărea în header după onboarding, doar după logout/login.
+  Cauză: header-ul (`app-header.tsx`) folosea `session.user.image` (JWT, cache-uit doar la login).
+  Aliniat cu sidebar-ul feed-ului, care deja citea imaginea live din DB via `getUserMedia`.
+
 ## 2026-07-03 — chore(notificări): emailurile de notificare OPRITE (rămân doar in-app)
 
 - **Decizie Liviu:** notificările `SKETCH_PROPOSED`/`SKETCH_DELETED` nu mai trimit email — in-app ajunge,

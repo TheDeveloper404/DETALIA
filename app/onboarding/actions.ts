@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { isOwnBlobUrl } from "@/lib/blob-url";
+import { deleteBlobs } from "@/lib/storage";
 import { normalizeWebsite } from "@/lib/url";
 import {
   updateUserCoverImage,
@@ -108,15 +109,27 @@ export async function onboardingAction(
 
   // ── URL-urile imaginilor (opționale, deja în Blob) ────
   // SEC-02: validează + re-encodează (strip metadata) + plafonează; salvăm DOAR URL-ul curat. Eșec → respinge.
-  if (avatarUrl) {
-    const p = await reprocessBlobImage(avatarUrl, "avatars");
-    if (!p.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
-    await updateUserImage(userId, p.url);
+  // Avatar + cover se procesează ÎN PARALEL (fiecare = fetch+sharp+reupload+delete, secvențial ar dubla
+  // latența la onboarding, unde de regulă ambele sunt setate deodată).
+  const [avatarResult, coverResult] = await Promise.all([
+    avatarUrl ? reprocessBlobImage(avatarUrl, "avatars") : null,
+    coverUrl ? reprocessBlobImage(coverUrl, "covers") : null,
+  ]);
+  // Eșec parțial (una din cele două reușește, cealaltă nu) → blob-ul deja reprocesat/urcat cu succes
+  // ar rămâne orfan (urcat, dar niciodată referit în DB) dacă doar am respinge fără cleanup.
+  if (avatarResult && !avatarResult.ok) {
+    if (coverResult?.ok) await deleteBlobs([coverResult.url]);
+    return { error: ERROR_MESSAGES.INVALID_TYPE };
   }
-  if (coverUrl) {
-    const p = await reprocessBlobImage(coverUrl, "covers");
-    if (!p.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
-    await updateUserCoverImage(userId, p.url);
+  if (coverResult && !coverResult.ok) {
+    if (avatarResult?.ok) await deleteBlobs([avatarResult.url]);
+    return { error: ERROR_MESSAGES.INVALID_TYPE };
+  }
+  if (avatarResult?.ok) {
+    await updateUserImage(userId, avatarResult.url);
+  }
+  if (coverResult?.ok) {
+    await updateUserCoverImage(userId, coverResult.url);
     // Poziția verticală a cover-ului (0..100); clamp server-side (frontend nu e sursa de adevăr).
     const coverPosition = Math.min(100, Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)));
     await updateUserCoverPosition(userId, coverPosition);

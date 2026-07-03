@@ -3,7 +3,23 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
+import {
+  ALLOWED_CAD_EXTENSIONS,
+  ALLOWED_CAD_TYPES,
+  ALLOWED_DOC_TYPES,
+  ALLOWED_IMAGE_TYPES,
+  MAX_CAD_BYTES,
+  MAX_DOC_BYTES,
+  MAX_IMAGE_BYTES,
+} from "@/lib/upload-limits";
+
+// "kind" vine din clientPayload (setat de client în uploadFileToBlob) — alege allowlist-ul de
+// tip/mărime pe server. Default "image" dacă lipsește/e necunoscut (fail-safe, cel mai restrictiv).
+type UploadKind = "image" | "pdf" | "cad";
+function resolveKind(clientPayload: string | null): UploadKind {
+  if (clientPayload === "pdf" || clientPayload === "cad") return clientPayload;
+  return "image";
+}
 
 // Emite tokenul pentru upload CLIENT direct în Blob (browser → Blob). Ocolește limita de body a
 // server actions (1MB implicit în Next) ȘI plafonul de ~4.5MB al funcțiilor Vercel → fișiere mari OK.
@@ -20,7 +36,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const json = await handleUpload({
       body,
       request,
-      onBeforeGenerateToken: async () => {
+      onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user?.id) {
           throw new Error("UNAUTHORIZED");
@@ -28,6 +44,28 @@ export async function POST(request: Request): Promise<NextResponse> {
         // SEC-01: cotă de upload per user (emiterea tokenului = poarta).
         if (!(await checkLimit(limiters.upload, session.user.id)).ok) {
           throw new Error("RATE_LIMITED");
+        }
+
+        const kind = resolveKind(clientPayload);
+        if (kind === "pdf") {
+          return {
+            allowedContentTypes: [...ALLOWED_DOC_TYPES],
+            maximumSizeInBytes: MAX_DOC_BYTES,
+            addRandomSuffix: true,
+          };
+        }
+        if (kind === "cad") {
+          // DWG/DXF n-au MIME type de încredere din browser → gate real pe extensia din pathname
+          // (pe care ÎL controlăm noi, vezi uploadFileToBlob), nu doar pe content-type.
+          const ext = pathname.split(".").pop()?.toLowerCase();
+          if (!ext || !(ALLOWED_CAD_EXTENSIONS as readonly string[]).includes(ext)) {
+            throw new Error("INVALID_TYPE");
+          }
+          return {
+            allowedContentTypes: [...ALLOWED_CAD_TYPES],
+            maximumSizeInBytes: MAX_CAD_BYTES,
+            addRandomSuffix: true,
+          };
         }
         return {
           allowedContentTypes: [...ALLOWED_IMAGE_TYPES],

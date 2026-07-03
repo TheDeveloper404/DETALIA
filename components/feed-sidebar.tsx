@@ -10,6 +10,7 @@ export type SidebarProfile = {
   image: string | null;
   coverImage: string | null;
   coverPosition: number | null;
+  location: string | null;
   roleLabel: string | null;
   verified: boolean;
 };
@@ -25,14 +26,12 @@ export function FeedSidebar({
   categories,
   activeId,
   basePath = "/feed",
-  addHref = "/details/new",
   total,
 }: {
   profile: SidebarProfile;
   categories: SidebarCategory[];
   activeId: string | null;
   basePath?: string;
-  addHref?: string;
   total: number;
 }) {
   return (
@@ -70,11 +69,23 @@ export function FeedSidebar({
               </span>
             )}
           </div>
-          {profile.roleLabel && (
-            <div className="mt-1 font-mono text-xs text-muted-foreground">{profile.roleLabel}</div>
+          {(profile.roleLabel || profile.location) && (
+            <div className="mt-1 font-mono text-xs text-muted-foreground">
+              {profile.roleLabel}
+              {profile.roleLabel && profile.location && " · "}
+              {profile.location}
+            </div>
           )}
         </div>
       </Link>
+
+      {/* Nudge: validează pe rolul tău. */}
+      <div className="rounded-lg border border-border bg-secondary p-[18px]">
+        <div className="mb-1.5 font-bold text-foreground">Validează pe rolul tău</div>
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          O dezaprobare vine mereu cu o justificare. Părerea ta cântărește prin rolul afișat lângă nume.
+        </p>
+      </div>
 
       {/* Categorii. */}
       <nav
@@ -91,16 +102,6 @@ export function FeedSidebar({
           total={total}
         />
       </nav>
-
-      <Link
-        href={addHref}
-        className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#95492e] bg-primary px-4 py-3 font-semibold text-primary-foreground no-underline transition-colors hover:bg-[#974a2e]"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-        Adaugă detaliu
-      </Link>
     </aside>
   );
 }

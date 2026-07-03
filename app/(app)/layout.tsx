@@ -1,3 +1,4 @@
+import { AddDetailFab } from "@/components/add-detail-fab";
 import { AppHeader } from "@/components/app-header";
 
 // Layout al zonei autentificate (feed, details, profile, sketches, notifications): aici trăiește
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <>
       <AppHeader />
       {children}
+      <AddDetailFab />
     </>
   );
 }
