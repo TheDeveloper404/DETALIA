@@ -1,16 +1,18 @@
-import { randomBytes } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { encode } from "@auth/core/jwt";
 import { test as setup, expect } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { categories, detailCategories, details, roles, sessions, users } from "../db/schema";
+import { categories, detailCategories, details, roles, users } from "../db/schema";
 
-// Setup AUTHED — seedează direct în DB o sesiune validă Auth.js (strategie `database`): user ACTIVE cu rol
-// declarat + rând în `sessions` + cookie `authjs.session-token`. ZERO cod de bypass în producție: e exact
-// modelul de sesiune al Auth.js, doar pre-populat. Salvează storageState (cookie) + seed.json (id detaliu țintă).
+// Setup AUTHED — seedează direct în DB un user ACTIVE cu rol declarat, apoi emite un cookie de sesiune
+// JWT valid (strategie `session.strategy = "jwt"`, vezi lib/auth.ts) prin `encode()` din `@auth/core/jwt`
+// — ACELAȘI mecanism folosit de Auth.js la login real, doar pre-populat. Tabelul `sessions` NU se mai
+// scrie (sesiunea trăiește în cookie, nu în DB) de la migrarea 2026-07-02. Salvează storageState (cookie)
+// + seed.json (id detaliu țintă).
 
 const AUTH_DIR = path.resolve(__dirname, ".auth");
 const STATE_PATH = path.join(AUTH_DIR, "state.json");
@@ -30,6 +32,10 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
   expect(
     process.env.DATABASE_URL,
     "DATABASE_URL lipsește din .env.e2e — necesar pt seed-ul de sesiune (vezi e2e/README.md)",
+  ).toBeTruthy();
+  expect(
+    process.env.AUTH_SECRET,
+    "AUTH_SECRET lipsește din .env.e2e — necesar pt semnarea cookie-ului JWT (aceeași valoare ca pe preview/dev, din Vercel → Environment Variables)",
   ).toBeTruthy();
 
   // 1) Categorie țintă (preview-ul are categorii din db:seed; fallback dacă lipsesc).
@@ -91,11 +97,11 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
     await db.insert(roles).values({ userId: author.id, roleMain: "PROIECTANT", subRole: "Arhitect" });
   }
 
-  // 4) Sesiune proaspătă (curăță vechile sesiuni ale userului de test, apoi inserează una nouă).
-  await db.delete(sessions).where(eq(sessions.userId, user.id));
-  const sessionToken = randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000);
-  await db.insert(sessions).values({ sessionToken, userId: user.id, expires });
+  // 4) Cookie de sesiune JWT — construit exact ca token-ul produs de callback-ul `jwt()` din lib/auth.ts
+  // la login real (token.id + token.status), apoi criptat cu `encode()` (același AUTH_SECRET + salt =
+  // numele cookie-ului, pe care Auth.js îl folosește la `decode()` server-side).
+  const maxAgeSeconds = SESSION_DAYS * 86_400;
+  const expires = new Date(Date.now() + maxAgeSeconds * 1000);
 
   // 5) Detaliu țintă pentru testele de validare (reutilizat între rulări), autorat de `author`, NU de `user`.
   let detail = (
@@ -123,6 +129,15 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
   const url = new URL(baseURL);
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
+
+  // `salt` = numele cookie-ului (așa derivează Auth.js cheia de criptare la decode, vezi
+  // @auth/core/lib/utils/session.js). Payload-ul mimează exact ce pune callback-ul `jwt()` la login real.
+  const sessionToken = await encode({
+    secret: process.env.AUTH_SECRET!,
+    salt: cookieName,
+    maxAge: maxAgeSeconds,
+    token: { sub: user.id, id: user.id, status: "ACTIVE", name: TEST_NAME, email: TEST_EMAIL },
+  });
 
   mkdirSync(AUTH_DIR, { recursive: true });
   writeFileSync(

@@ -312,6 +312,15 @@ export const SketchCanvas = forwardRef<
         observer = new ResizeObserver(fit);
         if (containerRef.current) observer.observe(containerRef.current);
       };
+      // Imaginea-mamă poate eșua la încărcare (blob șters, CORS, outage rețea) — fără fallback, `dims`
+      // rămâne 0x0 permanent și editorul devine inutilizabil. Degradăm la foaie goală (aspectRatio).
+      img.onerror = () => {
+        imgRef.current = null;
+        ratio = aspectRatio;
+        fit();
+        observer = new ResizeObserver(fit);
+        if (containerRef.current) observer.observe(containerRef.current);
+      };
       img.src = imageUrl;
     } else {
       imgRef.current = null;
