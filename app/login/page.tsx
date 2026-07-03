@@ -17,6 +17,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   RateLimited: "Prea multe cereri. Așteaptă câteva minute și încearcă din nou.",
   CaptchaFailed: "Verificarea anti-robot a eșuat. Reîncarcă pagina și încearcă din nou.",
   AccessDenied: "Contul tău este suspendat. Contactează-ne dacă e o greșeală.",
+  NoAccount: "Nu există niciun cont cu acest email. Creează unul.",
   default: "Ceva n-a mers. Încearcă din nou.",
 };
 

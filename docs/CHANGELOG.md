@@ -4,6 +4,45 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-03 — chore(notificări): emailurile de notificare OPRITE (rămân doar in-app)
+
+- **Decizie Liviu:** notificările `SKETCH_PROPOSED`/`SKETCH_DELETED` nu mai trimit email — in-app ajunge,
+  iar cota Resend free (100/zi) rămâne pentru magic link-uri (login/signup + admin), unde emailul e
+  singura cale de acces. **Reversibil fără cod:** `NOTIFICATION_EMAILS_ENABLED=true` în env le repornește.
+- `server/services/notificationService.ts` (gate în `notify()`), CLAUDE.md actualizat (2 locuri).
+
+## 2026-07-03 — security: re-audit complet (13 categorii) + remedieri SEC-A1…A5
+
+- **Re-audit static complet** (skill `security-audit`) pe toată suprafața: auth, authz (IDOR pe toate
+  mutațiile), API, business logic (validări/schițe/notificări), rate-limit, Turnstile, PII, Blob, cron,
+  CSP/headers, dependențe. Verdict: **APROBAT** — 0 Critical/High; 1 Medium + 3 Low + 1 Info, toate
+  remediate în aceeași zi. Detalii + raționament: `docs/SECURITATE.md` §„Re-audit 2026-07-03".
+- **[SEC-A1][MEDIUM] Anti-prefetch pe magic link-ul de ADMIN:** consumul tokenului mutat de pe
+  `/admin-page/verify` (acum pagină click-through inofensivă la GET, cu `AutoVerify` refolosit) pe
+  `/admin-page/verify/confirm` (route handler). Scanerele de mail nu mai pot arde tokenul one-time /
+  provoca emiterea unei sesiuni. `proxy.ts`: poarta admin-public extinsă la `/verify/confirm`.
+- **[SEC-A2][LOW] Pin pe store-ul Blob propriu:** nou `lib/blob-url.ts` (server-only) — `isOwnBlobUrl()`
+  cere hostname-ul exact al store-ului nostru (store ID extras din `BLOB_READ_WRITE_TOKEN`), nu orice
+  `*.public.blob.vercel-storage.com`. Înlocuit `BLOB_URL_RE.test()` în cele 5 puncte server.
+- **[SEC-A4][LOW] `.github/dependabot.yml`:** security updates imediate + version updates săptămânale
+  (npm + github-actions, grupate minor/patch, target `dev`). `npm audit` prod: 0 vulnerabilități.
+- **[SEC-A5][INFO] Rate-limit pe `deleteDetailAction` + `deleteDraftAction`** (`limiters.mutation`) —
+  uniformizare cu restul mutațiilor.
+- **[SEC-A3][LOW] Enumerare email la login/signup = risk-acceptance** (consecință a fluxurilor separate
+  de mai jos) — documentat în SECURITATE.md, fără schimbare de cod.
+
+## 2026-07-03 — fix(auth): Turnstile la navigare SPA + fluxuri login/signup separate după existența contului
+
+- **Turnstile nu se randa la navigare client-side** (signup→login etc.): scriptul Cloudflare, injectat o
+  singură dată de `next/script`, nu re-scanează DOM-ul la a doua montare → widget lipsă → orice submit
+  pica cu `CaptchaFailed` până la refresh. **Fix:** randare explicită (`components/auth-form.tsx` —
+  `TurnstileWidget` cu `turnstile.render()` în `useEffect` + `?render=explicit` pe script).
+- **Login ≠ signup (decizie produs):** `/login` cu email fără cont → „Nu există niciun cont cu acest
+  email" (`NoAccount`); `/signup` cu email existent → „Există deja un cont cu acest email"
+  (`AccountExists`). Nu se mai trimite magic link „orb" în ambele cazuri. Verificarea (nou
+  `userExistsByEmail` în `usersRepo`) rulează DUPĂ rate-limit + Turnstile. Trade-off enumerare asumat
+  (vezi SEC-A3 mai sus).
+
 ## 2026-07-03 — feat(ui): cookie notice pe landing + email admin vizual distinct + fix XSS în emailuri
 
 - **`components/cookie-consent.tsx`** (nou): notă informativă despre cookie-uri (NU consent cu opțiuni —
