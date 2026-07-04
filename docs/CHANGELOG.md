@@ -28,6 +28,21 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - **Env nou (opțional):** `NEXT_PUBLIC_TLDRAW_LICENSE_KEY` — gol la MVP (watermark). *(Momentan nepasat în cod;
   se poate adăuga `licenseKey` pe `<Tldraw>` când se cumpără licența.)*
 - `tsc --noEmit`, `eslint`, `next build` — toate verzi. **Teste de rulat de Liviu:** `npm test` (unit `canvas.ts`).
+- **4 fixuri UI după verificarea vizuală (aceeași zi):**
+  1. **Editorul Planșă stătea SUB chrome-ul aplicației** (header z-50 + FAB peste canvas) — root-ul n-avea
+     z-index. Fix: `z-[60] bg-background` pe containerul editorului (ca editorul de schiță).
+  2. **Popover „Trimite în Planșă" se tăia la marginea de sus** (se deschidea în sus, `bottom-full`) — pe
+     pagina detaliului butonul e sus. Fix: deschidere în jos, aliniat dreapta (`top-full right-0`).
+  3. **Aliniere inconsistentă acțiuni în cardul de feed:** cu butoane de validare, „Trimite în Planșă" trecea
+     pe rândul 2 (flex-wrap la 4 elemente). Fix: validarea pe rândul ei, „Schițează peste" + „Trimite în Planșă"
+     MEREU împreună pe rândul de sub → layout identic pe toate cardurile (`detail-card.tsx`).
+  4. **Card feed mai mare + thumbnail mai vizibil** (cerere Liviu): `min-h-[220px]`, thumbnail `200→260px` +
+     umple toată înălțimea cardului pe desktop (scos `self-start`). Mobil rămâne aspect 4/3.
+  5. **CSP bloca asset-urile tldraw** (fonturi/iconițe/traduceri/watermark de pe `cdn.tldraw.com`) → editorul
+     apărea rupt. Fix: adăugat `https://cdn.tldraw.com` la `img-src`/`font-src`/`connect-src` în `lib/csp.ts`.
+     **RELAXARE de audiat** (CDN terț + watermark phone-home); alternativă = self-host `@tldraw/assets` + licență.
+- **Rămas pt sesiunea viitoare:** verificare riguroasă + debugging + **audit de securitate țintit** pe feature
+  (inclusiv decizia CSP tldraw: self-host asset-uri vs. CDN terț).
 
 ## 2026-07-04 — audit pe SCENARII #1: Validare (metodă nouă) + 2 fixuri
 
