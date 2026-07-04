@@ -73,17 +73,18 @@ export function DetailCard({
   const canValidate = !currentUserId || detail.authorId !== currentUserId;
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 sm:flex-row">
-      {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. */}
+    <article className="flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
+      {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. Pe desktop umple toată
+          înălțimea cardului (self-stretch), mai mare și mai vizibilă; pe mobil rămâne aspect 4/3 sus. */}
       <Link
         href={href}
-        className="relative block aspect-[4/3] w-full shrink-0 self-stretch border-b border-border bg-secondary sm:w-[200px] sm:self-start sm:border-b-0 sm:border-r"
+        className="relative block aspect-[4/3] w-full shrink-0 self-stretch border-b border-border bg-secondary sm:w-[260px] sm:border-b-0 sm:border-r"
       >
         <Image
           src={detail.imageUrl}
           alt={detail.title}
           fill
-          sizes="(max-width: 640px) 100vw, 200px"
+          sizes="(max-width: 640px) 100vw, 260px"
           className="object-cover"
         />
         {detail.categories.length > 0 && (
@@ -137,19 +138,26 @@ export function DetailCard({
           <span>{detail.sketchCount} schițe în teanc</span>
         </div>
 
-        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob) + scurtătură „Schițează peste".
-            Validarea e ascunsă pe propriul detaliu; scurtătura de schițare rămâne vizibilă tuturor.
+        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob) pe rândul ei (ascunsă pe propriul
+            detaliu), iar scurtăturile secundare („Schițează peste" + „Trimite în Planșă") MEREU împreună pe
+            un rând sub ea → layout consistent indiferent dacă validarea e prezentă sau nu.
             Link secundar (NU buton): duce în pagina detaliului la teanc (context), fără să creeze draft. */}
-        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-2">
-          {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
-          <Link
-            href={`${href}#schiteaza`}
-            className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
-          >
-            <PencilRuler className="size-3.5" strokeWidth={2} />
-            Schițează peste
-          </Link>
-          {currentUserId && <SendToCanvasButton detailId={detail.id} />}
+        <div className="mt-auto flex flex-col gap-2">
+          {canValidate && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <FeedValidationActions detailId={detail.id} myPosition={myPosition} />
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Link
+              href={`${href}#schiteaza`}
+              className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+            >
+              <PencilRuler className="size-3.5" strokeWidth={2} />
+              Schițează peste
+            </Link>
+            {currentUserId && <SendToCanvasButton detailId={detail.id} />}
+          </div>
         </div>
       </div>
     </article>
