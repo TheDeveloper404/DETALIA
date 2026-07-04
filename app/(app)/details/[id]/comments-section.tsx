@@ -15,7 +15,7 @@ import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format";
-import { buildMentionToken, parseMentions } from "@/lib/mentions";
+import { mentionsToDisplay, parseMentions, replaceLabelsWithTokens } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
 import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType } from "@/server/domain/validation";
@@ -83,7 +83,7 @@ export function CommentsSection({
           <input type="hidden" name="targetType" value={targetType} />
           <input type="hidden" name="targetId" value={targetId} />
           <input type="hidden" name="detailId" value={detailId} />
-          <MentionComposer sketches={mentionSketches} disabled={pending} />
+          <MentionComposer sketches={mentionSketches} disabled={pending} resetSignal={state} />
           {state.error && (
             <p role="alert" className="mt-1.5 text-xs text-destructive">
               {state.error}
@@ -132,22 +132,36 @@ export function CommentsSection({
 // ref; corpul cu tokeni se reconstruiește nevăzut într-un <input hidden name="body"> la fiecare modificare
 // → serverul primește același format ca înainte (validat că sid-urile aparțin detaliului).
 // Textarea e NECONTROLAT; reset-ul câmpurilor îl face form.reset() din părinte, la succes.
-function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; disabled?: boolean }) {
+function MentionComposer({
+  sketches,
+  disabled,
+  resetSignal,
+}: {
+  sketches: MentionSketch[];
+  disabled?: boolean;
+  resetSignal?: AddCommentState; // identitate nouă la fiecare rezultat de acțiune; .ok = succes
+}) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const hiddenRef = useRef<HTMLInputElement>(null);
   const labelsRef = useRef(new Map<string, string>()); // etichetă afișată → sketchId
   const [query, setQuery] = useState<{ text: string; at: number } | null>(null);
   const [highlight, setHighlight] = useState(0);
+  const [tooLong, setTooLong] = useState(false);
 
-  // Reconstruiește corpul cu tokeni din textul afișat: fiecare `@Etichetă` cunoscută devine tokenul ei.
-  // Etichetele mai lungi primele („Nume (schița 2)" înaintea lui „Nume") ca să nu fie sparte de un prefix.
+  // După un comentariu trimis cu succes, golește maparea etichetă→sid — altfel un „@Nume" scris de
+  // mână în comentariul URMĂTOR s-ar tokeniza automat (greșit). Doar refs → fără cascadă de render.
+  useEffect(() => {
+    if (resetSignal?.ok) labelsRef.current.clear();
+  }, [resetSignal]);
+
+  // Reconstruiește corpul cu tokeni din textul afișat (înlocuire cu graniță de cuvânt — vezi
+  // replaceLabelsWithTokens: „@Ana" nu se potrivește în „@Anatol").
   function syncHidden(displayText: string) {
-    let out = displayText;
-    const entries = [...labelsRef.current.entries()].sort((a, b) => b[0].length - a[0].length);
-    for (const [label, sid] of entries) {
-      out = out.split(`@${label}`).join(buildMentionToken(label, sid));
-    }
+    const out = replaceLabelsWithTokens(displayText, labelsRef.current);
     if (hiddenRef.current) hiddenRef.current.value = out;
+    // Tokenii expandați (~+45 char/mențiune) pot împinge corpul REAL peste limită deși textul afișat
+    // e sub maxLength — serverul respinge oricum; aici doar avertizăm din timp, lizibil.
+    setTooLong(out.length > COMMENT_MAX_LENGTH);
   }
 
   // Detectează un `@query` activ la poziția cursorului (@ la început sau după spațiu; query fără spații).
@@ -261,6 +275,7 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
           const start = caret - hit.length - 1;
           el.value = el.value.slice(0, start) + el.value.slice(caret);
           syncHidden(el.value);
+          detect(el.value, start); // reîmprospătează starea dropdown-ului (altfel rămâne stale o tastă)
           requestAnimationFrame(() => {
             el.focus();
             el.setSelectionRange(start, start);
@@ -268,6 +283,11 @@ function MentionComposer({ sketches, disabled }: { sketches: MentionSketch[]; di
         }}
         onBlur={() => setTimeout(() => setQuery(null), 120)}
       />
+      {tooLong && (
+        <p role="alert" className="mt-1.5 text-xs text-destructive">
+          Comentariul depășește limita după includerea mențiunilor — scurtează textul.
+        </p>
+      )}
       {open && (
         <ul className="absolute z-20 mt-1 max-h-56 w-full max-w-xs overflow-auto rounded-lg border border-border bg-card py-1 shadow-lg">
           {matches.map((s, i) => (
@@ -353,14 +373,29 @@ function CommentItem({
 }) {
   const isDisapproval = Boolean(c.originValidationId);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(c.body);
+  const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // La editare, corpul stocat (cu tokeni `@[Nume](sid:uuid)`) se afișează ca text lizibil (`@Nume`);
+  // maparea etichetă→sid se ține aici și corpul cu tokeni se reconstruiește la salvare (server-ul
+  // re-validează oricum sid-urile). Mențiuni NOI nu se pot adăuga din editare (fără autocomplete aici).
+  const editLabelsRef = useRef(new Map<string, string>());
+
+  function startEdit() {
+    const { display, labels } = mentionsToDisplay(c.body);
+    editLabelsRef.current = labels;
+    setDraft(display);
+    setEditing(true);
+  }
 
   function saveEdit() {
     setError(null);
     startTransition(async () => {
-      const res = await editCommentAction(c.id, detailId, draft);
+      const res = await editCommentAction(
+        c.id,
+        detailId,
+        replaceLabelsWithTokens(draft, editLabelsRef.current),
+      );
       if (res.error) setError(res.error);
       else setEditing(false);
     });
@@ -401,10 +436,7 @@ function CommentItem({
             <span className="ml-auto flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => {
-                  setDraft(c.body);
-                  setEditing(true);
-                }}
+                onClick={startEdit}
                 className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               >
                 <Pencil className="size-3" strokeWidth={2} /> Editează

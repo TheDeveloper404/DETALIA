@@ -50,7 +50,13 @@ test.describe.serial("Validare pe rol", () => {
   test("Dezaprob cere justificare → devine comentariu argumentat", async ({ page }) => {
     await page.goto(detailUrl());
     // Poziția APPROVE din testul anterior e activă → butoanele sunt colapsate; retragem întâi.
-    await page.getByRole("button", { name: /retrage/ }).click();
+    // Butoanele reapar OPTIMIST (înainte de răspunsul serverului) → așteptăm round-trip-ul acțiunii
+    // de retract (POST-ul server action), altfel dezaprobarea poate ajunge pe server ÎNAINTEA
+    // retract-ului și e ștearsă de el (test flaky + poziție pierdută).
+    await Promise.all([
+      page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+      page.getByRole("button", { name: /retrage/ }).click(),
+    ]);
     const dezaprob = page.getByRole("button", { name: "Dezaprob", exact: true });
     await dezaprob.click();
     // Pe DETAIL, Dezaprob deschide întâi alegerea binară (text/schiță) — vezi validation-panel.tsx.

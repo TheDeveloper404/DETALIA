@@ -4,6 +4,34 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — audit (code review + securitate) pe modificările zilei + remedieri
+
+- **Audit dublu (subagenți Opus)** pe diff-ul `4ef77f8..HEAD` (fix viewport, @mențiuni, redesign validare,
+  fade-in, E2E). **Securitate: APROBAT, 0 Critical/High/Medium** — lanțul @mențiuni validat anti-IDOR pe
+  server (`filterSketchIdsByDetail`: apartenență detaliu + PUBLISHED), randare integral JSX (fără XSS),
+  editarea re-validează sid-urile server-side, butoanele noi nu ocolesc gărzile (justificare obligatorie,
+  `CANNOT_VALIDATE_OWN`, poziție unică DB). **Code review: 1 Medium + 2 Low + 2 Nit.**
+- **Remedieri aplicate:**
+  - **CR-002 (Low, E2E):** cursă retrage→dezaprobă în `authed.spec.ts` — acum se așteaptă round-trip-ul
+    POST al retract-ului înainte de dezaprobare (butoanele reapar optimist, înaintea serverului).
+  - **CR-003 (Low):** scos `crossOrigin="anonymous"` din `sketch-viewer.tsx` (citim doar naturalWidth/Height;
+    dependință CORS gratuită care putea face stroke-urile să dispară silențios la schimbare de host).
+  - **CR-001 (Medium):** reconstruirea corpului cu tokeni nu mai folosește `split/join` naiv —
+    `replaceLabelsWithTokens` (nou în `lib/mentions.ts`) înlocuiește cu **graniță de cuvânt** („@Ana" nu
+    se mai potrivește în „@Anatol" → corp corupt) + `labelsRef` se golește după trimitere reușită
+    (un „@Nume" scris de mână în comentariul următor nu se mai tokeniza automat).
+  - **Cunoscut #1 (editare comentariu):** formularul de editare nu mai arată tokenii bruți —
+    `mentionsToDisplay` (nou) convertește corpul stocat în text lizibil (`@Nume`) + mapare etichetă→sid;
+    la salvare corpul se reconstruiește cu aceiași helperi (serverul re-validează oricum). Mențiuni NOI
+    din editare rămân text simplu (fără autocomplete în editare — asumat).
+  - **Cunoscut #2 (Info):** avertisment lizibil în composer când corpul REAL (cu tokeni expandați)
+    depășește limita de 5000, deși textul afișat e sub `maxLength` — serverul respingea corect dar sec.
+- **Teste noi:** `lib/mentions.test.ts` (graniță de cuvânt, prioritate etichete lungi, idempotență pe
+  tokeni formați, round-trip display↔tokeni, escape regex în etichete). Le rulează Liviu (`npm test`).
+- **Nit-urile, făcute și ele:** taburile de schiță primesc ordinalul „Nume — schița N" când autorul are
+  mai multe schițe (identic cu eticheta mențiunilor — corelabile); după Backspace atomic pe un token,
+  dropdown-ul de mențiuni se reîmprospătează imediat (`detect()` după ștergere), nu la următoarea tastă.
+
 ## 2026-07-04 — polish: fade-in la comutarea taburilor (confirmat: v5 a rezolvat tremurul)
 
 - Liviu confirmă: **tremurul e rezolvat** cu v5. Cerință nouă: tranziția instantă între taburi să fie
