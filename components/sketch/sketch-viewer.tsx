@@ -5,21 +5,22 @@ import { useEffect, useRef, useState } from "react";
 import { renderStrokes } from "@/lib/sketch-render";
 import type { Stroke } from "@/server/domain/sketch";
 
-// Viewer read-only: imaginea-mamă (intensitate normală) + stroke-urile schiței deasupra.
-// Se încadrează „contain" în containerul părinte (aceeași cutie 4/3 ca tabul Detaliu),
-// ca la comutarea între taburi imaginea să rămână exact pe loc.
+// Overlay read-only: DOAR stroke-urile schiței, suprapuse peste imaginea-mamă deja randată de părinte
+// (<Image fill object-contain> permanent montată în cutia 4/3). Canvas-ul se poziționează exact pe
+// dreptunghiul „contain" al imaginii în cutie — imaginea nu se remontează la comutarea taburilor,
+// deci nimic nu „pocnește"/tremură; doar stroke-urile apar/dispar deasupra ei.
 export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes: Stroke[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const [dims, setDims] = useState({ w: 0, h: 0 });
+  const [rect, setRect] = useState({ x: 0, y: 0, w: 0, h: 0 });
 
+  // Avem nevoie de raportul natural al imaginii ca să calculăm dreptunghiul „contain" (identic cu
+  // object-contain de pe <Image>). Imaginea e deja afișată de părinte; aici doar îi citim dimensiunile.
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     let observer: ResizeObserver | null = null;
     img.onload = () => {
-      imgRef.current = img;
       const setSize = () => {
         const container = containerRef.current;
         if (!container) return;
@@ -27,12 +28,12 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
         const ch = container.clientHeight;
         const ratio = img.naturalHeight / img.naturalWidth;
         let w = cw;
-        let h = Math.round(cw * ratio);
+        let h = cw * ratio;
         if (ch > 0 && h > ch) {
           h = ch;
-          w = Math.round(ch / ratio);
+          w = ch / ratio;
         }
-        setDims({ w, h });
+        setRect({ x: (cw - w) / 2, y: (ch - h) / 2, w: Math.round(w), h: Math.round(h) });
       };
       setSize();
       observer = new ResizeObserver(setSize);
@@ -48,19 +49,17 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const img = imgRef.current;
-    if (img) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     renderStrokes(ctx, strokes, canvas.width, canvas.height);
-  }, [dims, strokes]);
+  }, [rect, strokes]);
 
   return (
-    <div ref={containerRef} className="flex h-full w-full items-center justify-center">
+    <div ref={containerRef} className="pointer-events-none absolute inset-0">
       <canvas
         ref={canvasRef}
-        width={dims.w}
-        height={dims.h}
-        className="block"
-        style={{ width: dims.w, height: dims.h }}
+        width={rect.w}
+        height={rect.h}
+        className="absolute"
+        style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       />
     </div>
   );

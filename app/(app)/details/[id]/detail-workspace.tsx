@@ -294,18 +294,17 @@ export function DetailWorkspace({
               </span>
             )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-xl">
-              {isBase ? (
-                <Image
-                  src={imageUrl}
-                  alt={header.title}
-                  fill
-                  sizes="(max-width: 1024px) 100vw, 55vw"
-                  className="object-contain"
-                  priority
-                />
-              ) : (
-                <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
-              )}
+              {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
+                  altfel reîncărca async și „pocnea"); schița e doar un overlay cu stroke-uri peste ea */}
+              <Image
+                src={imageUrl}
+                alt={header.title}
+                fill
+                sizes="(max-width: 1024px) 100vw, 55vw"
+                className="object-contain"
+                priority
+              />
+              {!isBase && <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />}
             </div>
           </div>
 
