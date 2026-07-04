@@ -322,6 +322,21 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 - Co-desenare în timp real. Layere multiple per foaie. Pen pressure avansat. Editare colaborativă pe aceeași
   foaie. Toate astea vin după ce validăm că dezbaterea se aprinde.
 
+### 7.7 Planșa (canvas privat per user) — implementat 2026-07-05
+Spec completă: `Detalia_Canvas.md`. Spațiu de lucru **strict privat**, canvas infinit: userul adună detalii
+(„Trimite în Planșă"), le aranjează liber și schițează peste ansamblu (caz fondator: compune o secțiune de
+perete din detalii disparate).
+- **Engine: tldraw v5** (watermark gratis la MVP). Distinct de engine-ul de schițare (perfect-freehand): sunt
+  două engine-uri până la Val 2. DB/storage/auth pe stack-ul nostru (Neon+Drizzle, Auth.js, Blob), NU Supabase/RLS.
+- **Model:** `canvases` (owner_id, name, `state` jsonb = snapshot tldraw = sursă de randare, thumbnail_url) +
+  `canvas_items` (index relațional planșă↔detalii, PK compus = un detaliu o dată/planșă). Ownership enforce în
+  `canvasService` (nu RLS); planșă nedeținută → NOT_FOUND (privat-by-design). Cap 30 items/planșă.
+- **Reconciliere la load:** snapshot = adevărul de randare; `canvas_items` = index. Editorul materializează
+  shape-uri pentru items adăugate din popover (nu-s încă în snapshot) și pune placeholder „Detaliu indisponibil"
+  pe shape-urile al căror detaliu a dispărut (cascadă FK curăță indexul).
+- **Linia roșie (NU în v1):** share/public, colaborare real-time, straturi per autor, planșă→detaliu publicabil,
+  versionare, snapping, creație completă pe mobil (consum DA).
+
 ---
 
 ## 8. Feed și căutare
