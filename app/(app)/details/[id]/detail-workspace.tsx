@@ -213,7 +213,10 @@ export function DetailWorkspace({
             Anti-tremur: min-h FIX (înălțimea rândului nu fluctuează cu starea pastilelor) + flex-NOWRAP
             (lărgirea pastilei active nu poate împinge pastilele pe rândul doi → fără salt de ~40px sub ele;
             la overflow se face scroll orizontal, nu wrap). */}
-        <div className="flex min-h-11 flex-nowrap items-center gap-1.5 overflow-x-auto px-4 pt-3 sm:px-5">
+        {/* pb: „overflow-x-auto" transformă rândul într-un container de scroll pe ambele axe (per spec CSS,
+            overflow-x != visible face overflow-y „auto" implicit) → fără padding jos, inelul avatarului
+            (box-shadow) și descendentele literelor (ș/ț) se tăiau la marginea de jos. */}
+        <div className="flex min-h-11 flex-nowrap items-center gap-1.5 overflow-x-auto px-4 pb-1.5 pt-3 sm:px-5">
           <button
             type="button"
             onClick={() => setTab(0)}

@@ -1,7 +1,7 @@
 // Service Cont — ștergerea contului (GDPR, „dreptul de a fi uitat").
 //
 // Politică: ANONIMIZARE (tombstone), nu hard-delete. Ștergem datele personale din DB și revocăm accesul,
-// dar PĂSTRĂM conținutul (detalii, schițe, comentarii, validări) atribuit „Utilizator șters" — altfel am
+// dar PĂSTRĂM conținutul (detalii, schițe, comentarii, validări) atribuit „[cont șters]" — altfel am
 // distruge teancul și dezbaterile altor useri (model GitHub/StackOverflow).
 //
 // Neon HTTP nu are tranzacții interactive → pașii sunt secvențiali. Ordinea: întâi scrubul de PII + statusul

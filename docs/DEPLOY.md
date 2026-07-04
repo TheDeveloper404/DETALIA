@@ -139,6 +139,34 @@ abia apoi treci la următorul. Nu le rotești pe toate simultan — dacă ceva s
 
 ---
 
+### Backup & Restore Neon (procedură TESTATĂ 2026-07-04, funcțională)
+
+Neon ține istoric automat (fereastra vizibilă în Neon → branch `production` → **Backup & Restore**, azi:
+6 ore pe planul curent — crește cu planul plătit). Restore-ul NU se face direct pe `production` din
+panoul principal („Restore" de acolo suprascrie branch-ul LIVE cu date vechi — distructiv, doar pentru
+un incident real, nu pentru testare).
+
+**Procedura de restore SIGURĂ (branch nou, `production` neatins):**
+1. Neon → **Branches** → **Create branch**.
+2. `Parent branch` = `production`.
+3. `Branch data and schema from a past point in time` → alegi data/ora dorită.
+4. `Auto-delete`: pune un TTL scurt (6h/24h) dacă e doar de verificare, nu „Never".
+5. **Create** → branch-ul nou apare instant, cu datele de la acel moment. Copiezi connection string-ul lui
+   (Neon → branch nou → Connection Details) — e o bază Postgres separată, complet izolată de `production`.
+6. Verificare de integritate (rulează cheatsheet-ul SQL de mai sus — counts pe tabele — pe connection
+   string-ul branch-ului nou, NU pe `production`): confirmă că numărul de rânduri + relațiile (FK-uri,
+   status-uri) sunt coerente.
+7. Șterge branch-ul de test după verificare (Neon → Branches → branch → Delete) dacă nu are TTL.
+
+**În caz de incident REAL** (date corupte/șterse din greșeală pe `production`): pasul 1-6 identic, dar
+branch-ul nou devine sursa de recuperare — fie promovezi acel branch la `production` (Neon → branch →
+„Set as production" / redenumire, verifică opțiunea curentă în UI), fie exporți datele necesare din el
+și le re-inserezi manual pe `production`. Alege în funcție de cât de mare e diferența față de starea
+curentă (un „set as production" pierde și orice scriere legitimă întâmplată după momentul restaurat).
+
+**Rezultatul testului din 2026-07-04:** branch creat din `production` la un timestamp cu ~3.5h în urmă →
+counts + rânduri (users, details, sketches cu FK-uri valide) confirmate corecte. Procedura funcționează.
+
 ## 2c. Reguli de release (flux dev → PR → main, fără local)
 
 Lucrăm **direct pe preview Vercel**, nu local. Testarea oricărei schimbări se face pe URL-ul de preview al PR-ului.

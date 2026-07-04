@@ -22,7 +22,7 @@ export function DeleteAccountSection() {
       <p className="text-xs text-muted-foreground">
         Ștergerea e <strong>definitivă</strong>. Îți ștergem datele personale (email, nume, poze, website,
         dovezile de rol). Detaliile, schițele, comentariile și validările tale rămân în comunitate, atribuite
-        „Utilizator șters”, ca să nu stricăm dezbaterile altora.
+        „[cont șters]”, ca să nu stricăm dezbaterile altora.
       </p>
 
       {!open ? (

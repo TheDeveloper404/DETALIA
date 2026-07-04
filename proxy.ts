@@ -138,6 +138,10 @@ export default auth(async (req) => {
   requestHeaders.set("content-security-policy", csp);
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("content-security-policy", csp);
+  // Rutele protejate nu intră în bfcache-ul browserului — pe un calculator partajat, „Back" după logout
+  // nu mai poate reafișa pagina din cache-ul de istoric (mutațiile erau oricum blocate fără cookie;
+  // asta acoperă și citirea tranzitorie).
+  if (!isPublic) res.headers.set("Cache-Control", "no-store, must-revalidate");
   return res;
 });
 
