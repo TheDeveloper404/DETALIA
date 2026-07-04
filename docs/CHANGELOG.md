@@ -4,6 +4,14 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — polish: fade-in la comutarea taburilor (confirmat: v5 a rezolvat tremurul)
+
+- Liviu confirmă: **tremurul e rezolvat** cu v5. Cerință nouă: tranziția instantă între taburi să fie
+  „lină". Fix: `animate-in fade-in duration-200` (din `tw-animate-css`, deja importat) pe elementele care
+  se schimbă la comutare — overlay-ul `SketchViewer`, badge-ul „schiță peste detaliu", panoul dreapta
+  (autor) și zona `ValidationPanel` — fiecare cheiat pe tab ca animația să repornească. Doar opacitate,
+  nicio schimbare de dimensiune/poziție → nu redeschide tremurul (v1-v5 rămân valabile).
+
 ## 2026-07-04 — fix(BUG, v5): tremurul persistă după v4 → eliminate ultimele surse de mișcare la comutare
 
 - Liviu confirmă că tremurul persistă și după v4 (min-height blocat pe zona de validare). Analiză: singurele
