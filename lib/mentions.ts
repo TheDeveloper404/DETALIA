@@ -52,6 +52,37 @@ export function mentionTokenEndingAt(text: string, caret: number): { start: numb
   return null;
 }
 
+// Reconstruiește corpul cu tokeni din textul AFIȘAT: fiecare `@Etichetă` cunoscută devine tokenul ei.
+// Înlocuire cu GRANIȚĂ de cuvânt (nu substring naiv): `@Ana` NU se potrivește în `@Anatol` — altfel
+// corpul salvat iese corupt (`@[Ana](sid:...)tol`). Etichetele lungi primele („Nume — schița 2"
+// înaintea lui „Nume"); tokenii deja formați nu pot fi re-loviți (încep cu `@[`, nu cu `@Litera`).
+export function replaceLabelsWithTokens(display: string, labels: Map<string, string>): string {
+  let out = display;
+  const entries = [...labels.entries()].sort((a, b) => b[0].length - a[0].length);
+  for (const [label, sid] of entries) {
+    const esc = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    out = out.replace(
+      new RegExp(`@${esc}(?![\\p{L}\\p{N}_])`, "gu"),
+      () => buildMentionToken(label, sid),
+    );
+  }
+  return out;
+}
+
+// Inversul: corpul STOCAT (cu tokeni) → text lizibil pentru editare (`@Etichetă`) + maparea
+// etichetă→sid, ca la salvare corpul să se reconstruiască prin `replaceLabelsWithTokens`.
+export function mentionsToDisplay(body: string): { display: string; labels: Map<string, string> } {
+  const labels = new Map<string, string>();
+  const display = parseMentions(body)
+    .map((seg) => {
+      if (seg.type === "text") return seg.value;
+      labels.set(seg.name, seg.sketchId);
+      return `@${seg.name}`;
+    })
+    .join("");
+  return { display, labels };
+}
+
 // Id-urile de schiță referite în corp (pentru validarea pe server).
 export function extractMentionSketchIds(body: string): string[] {
   const ids = new Set<string>();

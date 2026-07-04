@@ -245,7 +245,14 @@ export function DetailWorkspace({
             )}
           </button>
           {sketches.map((s, i) => {
-            const label = s.author.name ?? `Schiță ${i + 1}`;
+            // Autor cu mai multe schițe → eticheta primește ordinalul („Nume — schița 2"), IDENTIC cu
+            // eticheta mențiunilor din dezbatere (comments-section) — cititorul le poate corela.
+            const baseName = s.author.name ?? "Anonim";
+            const sameAuthor = sketches.filter((x) => (x.author.name ?? "") === (s.author.name ?? ""));
+            const label =
+              sameAuthor.length > 1
+                ? `${baseName} — schița ${sameAuthor.findIndex((x) => x.id === s.id) + 1}`
+                : baseName;
             const isActive = safeTab === i + 1;
             return (
               <button
