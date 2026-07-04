@@ -1,6 +1,9 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import {
@@ -39,6 +42,17 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user?.id) {
+          throw new Error("UNAUTHORIZED");
+        }
+        // SEC-04: status JWT e stale → re-check proaspăt din DB. Un cont suspendat/șters nu mai primește
+        // token de upload (aici e „poarta"; require-active-user face redirect, nepotrivit într-o rută JSON,
+        // deci verificăm inline → UNAUTHORIZED, ca restul mutațiilor să nu fie singurele blocate).
+        const [row] = await db
+          .select({ status: users.status })
+          .from(users)
+          .where(eq(users.id, session.user.id))
+          .limit(1);
+        if (!row || row.status !== "ACTIVE") {
           throw new Error("UNAUTHORIZED");
         }
         // SEC-01: cotă de upload per user (emiterea tokenului = poarta).

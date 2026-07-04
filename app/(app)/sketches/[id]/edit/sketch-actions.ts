@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { uploadSketchThumbnail } from "@/lib/storage";
+import { deleteBlobs, uploadSketchThumbnail } from "@/lib/storage";
 import { publish, saveStrokes } from "@/server/services/sketchService";
 
 export type SketchActionResult = { ok: boolean; error?: string };
@@ -30,6 +30,9 @@ function parseStrokes(raw: string): unknown {
 }
 
 // Salvează ciorna (autorul, doar cât e DRAFT). Nu redirecționează.
+// SEC-04 — EXCEPȚIE DELIBERATĂ: autosave e hot-path (apelat la câteva secunde în editor), un SELECT de
+// status per apel ar costa degeaba; ciorna e PRIVATĂ, iar singura ieșire publică (publish) e gardată
+// cu requireActiveUserId. Rămâne pe auth() (sesiune), nu pe status proaspăt.
 export async function saveStrokesAction(
   sketchId: string,
   strokesJson: string,
@@ -75,6 +78,9 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
 
   const res = await publish({ sketchId, authorId: userId, strokes, thumbnailUrl });
   if (!res.ok) {
+    // Thumbnail-ul s-a urcat ÎNAINTE de verificările din publish (autor/stare/strokes) — dacă publicarea
+    // a picat, îl ștergem, altfel rămâne blob orfan (risipă de storage la fiecare eșec).
+    if (thumbnailUrl) await deleteBlobs([thumbnailUrl]);
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut publica." };
   }
