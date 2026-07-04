@@ -3,7 +3,7 @@
 import { Activity, Pencil, Snowflake, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
@@ -100,16 +100,6 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === sketchId);
     if (idx >= 0) setTab(idx + 1);
   }
-
-  // Anti-„tremur" la comutarea taburilor: conținutul ValidationPanel diferă per țintă (lista de poziții,
-  // pastila proprie) → zona își schimba înălțimea și împingea Dezbaterea în sus/jos. Blocăm min-height
-  // la MAXIMUL văzut între taburi (măsurat la comutare, după remount — formularele deschise nu se prind).
-  const validationZoneRef = useRef<HTMLDivElement>(null);
-  const [validationMinH, setValidationMinH] = useState(0);
-  useLayoutEffect(() => {
-    const h = validationZoneRef.current?.offsetHeight ?? 0;
-    setValidationMinH((m) => (h > m ? h : m));
-  }, [safeTab]);
 
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
     id: s.id,
@@ -220,9 +210,10 @@ export function DetailWorkspace({
         </div>
 
         {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover).
-            min-h FIX: în timpul animației pastilei (transition-all) înălțimea rândului fluctua cu ~1px
-            → tot conținutul de sub el (viewport+validare+dezbatere) „tremura" la fiecare comutare. */}
-        <div className="flex min-h-11 flex-wrap items-center gap-1.5 px-4 pt-3 sm:px-5">
+            Anti-tremur: min-h FIX (înălțimea rândului nu fluctuează cu starea pastilelor) + flex-NOWRAP
+            (lărgirea pastilei active nu poate împinge pastilele pe rândul doi → fără salt de ~40px sub ele;
+            la overflow se face scroll orizontal, nu wrap). */}
+        <div className="flex min-h-11 flex-nowrap items-center gap-1.5 overflow-x-auto px-4 pt-3 sm:px-5">
           <button
             type="button"
             onClick={() => setTab(0)}
@@ -230,7 +221,7 @@ export function DetailWorkspace({
             aria-label={detailAuthor.name ?? "Autor detaliu"}
             aria-current={isBase ? "true" : undefined}
             className={cn(
-              "inline-flex items-center gap-2 rounded-full transition-all",
+              "inline-flex items-center gap-2 rounded-full transition-colors",
               isBase
                 ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
                 : "p-0.5 opacity-70 hover:opacity-100",
@@ -265,7 +256,7 @@ export function DetailWorkspace({
                 aria-label={label}
                 aria-current={isActive ? "true" : undefined}
                 className={cn(
-                  "inline-flex items-center gap-2 rounded-full transition-all",
+                  "inline-flex items-center gap-2 rounded-full transition-colors",
                   isActive
                     ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
                     : "p-0.5 opacity-70 hover:opacity-100",
@@ -375,13 +366,8 @@ export function DetailWorkspace({
           </div>
         </div>
 
-        {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte);
-            min-height blocat la maximul dintre taburi ca să nu mai împingă Dezbaterea la comutare */}
-        <div
-          ref={validationZoneRef}
-          style={validationMinH > 0 ? { minHeight: validationMinH } : undefined}
-          className="border-t border-[#eee6da] p-5 sm:px-6"
-        >
+        {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte) */}
+        <div className="border-t border-[#eee6da] p-5 sm:px-6">
           <ValidationPanel
             key={isBase ? "DETAIL" : activeSketch!.id}
             targetType={isBase ? "DETAIL" : "SKETCH"}
