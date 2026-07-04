@@ -4,6 +4,31 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-05 — feature nou: PLANȘA (canvas privat per user)
+
+- **Ce e:** spațiu de lucru privat, canvas infinit, în care userul **adună** detalii („Trimite în Planșă"),
+  le **aranjează** liber (mută/scalează/z-order) și **schițează** peste ansamblu. STRICT privat la MVP
+  (fără share/colaborare). Spec: `Detalia_Canvas.md`.
+- **Engine: tldraw** (v5, watermark „Made with tldraw" gratis — acceptabil pentru MVP privat; business
+  license doar dacă feature-ul validează per §9 spec). Decizie confirmată cu Liviu; DB/storage/auth mapate pe
+  stack-ul nostru real (Neon+Drizzle, Auth.js, Vercel Blob), NU Supabase/RLS/tldraw-sync din spec.
+- **DB (migrație `0014`):** tabele noi `canvases` (owner_id, name, `state` jsonb = snapshot tldraw,
+  thumbnail_url) + `canvas_items` (PK compus canvas_id+detail_id = index relațional planșă↔detalii, ambele FK
+  cascadă). **De rulat manual în Neon SQL Editor** (vezi handoff pentru SQL).
+- **Straturi:** `server/domain/canvas.ts` (validări nume + cap bytes state, +test) · `canvasesRepo` ·
+  `canvasService` (ownership/IDOR pe fiecare read+mutație; planșă nedeținută → NOT_FOUND, privat-by-design) ·
+  server actions (`canvas-actions.ts` autosave+thumbnail, `canvas-list-actions.ts` CRUD+add). `requireActiveUserId`
+  pe mutațiile care produc conținut; autosave pe `auth()` (hot-path, ca la schițe) + rate-limit.
+- **UI:** editor tldraw (`/canvases/[id]/edit`, dynamic ssr:false, autosave debounced, reconciliere index↔shapes
+  la load: materializează items adăugate din popover + placeholder „Detaliu indisponibil" pt detalii dispărute,
+  overlay „Deschide detaliul"/„Elimină de pe planșă", Export PNG) · „Planșele mele" (`/canvases`, listă+creare+
+  redenumire+ștergere) · buton „Trimite în Planșă" (popover) pe cardul de feed + pagina detaliului · link în header.
+- **Decizii §6 spec:** fără dublură detaliu/planșă (6.3, unique PK) · cap 30 items/planșă (6.4) · thumbnail DA
+  (6.5, via `editor.toImage` → `uploadSketchThumbnail`) · export PNG DA (6.6).
+- **Env nou (opțional):** `NEXT_PUBLIC_TLDRAW_LICENSE_KEY` — gol la MVP (watermark). *(Momentan nepasat în cod;
+  se poate adăuga `licenseKey` pe `<Tldraw>` când se cumpără licența.)*
+- `tsc --noEmit`, `eslint`, `next build` — toate verzi. **Teste de rulat de Liviu:** `npm test` (unit `canvas.ts`).
+
 ## 2026-07-04 — audit pe SCENARII #1: Validare (metodă nouă) + 2 fixuri
 
 - **Metodă nouă de audit, decisă cu Liviu:** audituri **pe scenarii** (matrice actor × acțiune × perturbare,

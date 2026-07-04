@@ -16,6 +16,8 @@ import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
 import type { TargetPosition } from "@/server/repos/validationsRepo";
 
+import { SendToCanvasButton } from "@/components/send-to-canvas-button";
+
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
 import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
@@ -138,6 +140,11 @@ export function DetailWorkspace({
             <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
               {header.title}
             </h1>
+            {currentUserId && (
+              <div className="shrink-0 pt-1">
+                <SendToCanvasButton detailId={detailId} />
+              </div>
+            )}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
