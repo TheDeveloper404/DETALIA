@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — fix(BUG, v4) + redesign validare: pastilă de poziție + înălțime stabilă la comutarea taburilor
+
+- **Redesign butoane Aprob/Dezaprob** (`validation-panel.tsx`, decizie Liviu): după alegerea unei poziții,
+  cele două butoane COLAPSEAZĂ într-o singură pastilă colorată (verde „Ai aprobat…" / roșu „Ai dezaprobat…")
+  cu butonul „× retrage" integrat. Bannerul separat „Ai aprobat acest detaliu · retrage poziția" a fost
+  eliminat (redundant + adăuga un rând de înălțime). Formularele de dezaprobare (alegere/justificare) se
+  randează doar fără poziție activă; `onRetract` resetează și `mode`.
+- **Fix v4 tremur** (`detail-workspace.tsx`, soluția lui Liviu — „mărește containerul"): zona ValidationPanel
+  are conținut diferit per tab (lista de poziții, pastila proprie) → își schimba înălțimea și împingea
+  Dezbaterea la fiecare comutare. Acum `min-height` pe zonă e BLOCAT la maximul măsurat între taburi
+  (ref + `useLayoutEffect` pe schimbarea tabului; măsurarea se face după remount-ul panoului, deci
+  formularele deschise nu umflă valoarea). Zona doar crește o dată la primul tab mai înalt, apoi e stabilă.
+- E2E actualizat (`e2e/authed.spec.ts`): asertările pe `aria-pressed` înlocuite cu vizibilitatea pastilei
+  („Ai aprobat/dezaprobat acest detaliu" + buton „retrage"); testul de dezaprobare retrage întâi poziția
+  APPROVE rămasă din testul anterior (serial).
+- **Feed aliniat** (`feed-validation-actions.tsx`, follow-up în aceeași zi): același model de colaps —
+  cu poziție activă rămâne o singură pastilă compactă („✓ Ai aprobat" / „✕ Ai dezaprobat") cu „× retrage"
+  integrat; linkul separat „retrage poziția" eliminat. Culorile neutre din feed (verde/roșu pal) păstrate.
+
 ## 2026-07-04 — fix(BUG, v3): tremur la comutare — cauza reală găsită prin analiza video cadru cu cadru
 
 - Reproducere: clip de la Liviu (bug.mp4), extras cadre la 30fps + măsurat numeric bbox-ul logo-ului
