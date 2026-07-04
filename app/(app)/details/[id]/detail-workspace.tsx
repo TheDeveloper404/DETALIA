@@ -3,7 +3,7 @@
 import { Activity, Pencil, Snowflake, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
@@ -100,6 +100,16 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === sketchId);
     if (idx >= 0) setTab(idx + 1);
   }
+
+  // Anti-„tremur" la comutarea taburilor: conținutul ValidationPanel diferă per țintă (lista de poziții,
+  // pastila proprie) → zona își schimba înălțimea și împingea Dezbaterea în sus/jos. Blocăm min-height
+  // la MAXIMUL văzut între taburi (măsurat la comutare, după remount — formularele deschise nu se prind).
+  const validationZoneRef = useRef<HTMLDivElement>(null);
+  const [validationMinH, setValidationMinH] = useState(0);
+  useLayoutEffect(() => {
+    const h = validationZoneRef.current?.offsetHeight ?? 0;
+    setValidationMinH((m) => (h > m ? h : m));
+  }, [safeTab]);
 
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
     id: s.id,
@@ -365,8 +375,13 @@ export function DetailWorkspace({
           </div>
         </div>
 
-        {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte) */}
-        <div className="border-t border-[#eee6da] p-5 sm:px-6">
+        {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte);
+            min-height blocat la maximul dintre taburi ca să nu mai împingă Dezbaterea la comutare */}
+        <div
+          ref={validationZoneRef}
+          style={validationMinH > 0 ? { minHeight: validationMinH } : undefined}
+          className="border-t border-[#eee6da] p-5 sm:px-6"
+        >
           <ValidationPanel
             key={isBase ? "DETAIL" : activeSketch!.id}
             targetType={isBase ? "DETAIL" : "SKETCH"}
