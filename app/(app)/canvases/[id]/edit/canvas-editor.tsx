@@ -149,7 +149,7 @@ export default function CanvasEditor({ canvasId, name, initialState, items }: Pr
   }, [editor, name]);
 
   return (
-    <div className="fixed inset-0 flex flex-col">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       {/* Antet */}
       <header className="flex items-center gap-3 border-b bg-card px-3 py-2">
         <Link
