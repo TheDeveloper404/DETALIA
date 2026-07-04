@@ -8,6 +8,8 @@ import { toggleSavedDetail } from "@/server/services/detailService";
 
 // Comută „salvează detaliu" (bookmark) pentru userul din sesiune. `userId` vine DOAR din sesiune
 // (nu din formular) → un user salvează/scoate strict pentru el (fără IDOR). Toggle-ul e reversibil.
+// SEC-04 — EXCEPȚIE DELIBERATĂ: bookmark-ul e PRIVAT și inconsecvent (nu produce conținut vizibil altora),
+// deci rămâne pe `auth()` — un SELECT de status per toggle ar costa degeaba (ca la autosave-ul de schiță).
 export async function toggleSaveDetailAction(formData: FormData): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");

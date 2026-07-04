@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { deleteBlobs } from "@/lib/storage";
@@ -45,11 +45,11 @@ export async function onboardingAction(
   _prev: OnboardingState,
   formData: FormData,
 ): Promise<OnboardingState> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
-  const userId = session.user.id;
+  // SEC-04: onboarding SCRIE PII (nume, headline etc.) în rândul user ÎNAINTE de declareRole. Cu doar
+  // `auth()` (JWT stale), un cont DELETED (anonimizat) sau SUSPENDED cu token încă viu (≤7 zile) putea
+  // re-POSTa acest formular și rescrie PII real peste rândul anonimizat — anulând ștergerea GDPR (declareRole
+  // ar fi picat cu ALREADY_HAS_ROLE, dar DUPĂ scrieri). Re-check status proaspăt din DB → DELETED/SUSPENDED = signOut.
+  const userId = await requireActiveUserId();
 
   // ── Câmpuri text ────────────────────────────────────────────────
   const firstName = clean(formData.get("firstName"));

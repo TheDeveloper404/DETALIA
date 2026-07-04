@@ -4,8 +4,9 @@
 > pentru fiecare. Exclude din scor: blocajele cunoscute, deciziile pe HOLD și cele intenționate (vezi `CLAUDE.md`
 > „Decizii deschise" + handoff). Sursa de adevăr pentru securitate = `SECURITATE.md`; aici e doar sinteza + planul.
 >
-> **Data evaluării:** 2026-07-03. De re-evaluat după fiecare fază mare. Istoricul „ce s-a făcut și când" trăiește
-> în `docs/CHANGELOG.md` — aici stau doar starea curentă + golurile rămase, nu un jurnal de implementare.
+> **Data evaluării:** 2026-07-04 (actualizat după auditul pe scenarii). De re-evaluat după fiecare fază mare.
+> Istoricul „ce s-a făcut și când" trăiește în `docs/CHANGELOG.md` — aici stau doar starea curentă + golurile
+> rămase, nu un jurnal de implementare.
 
 ---
 
@@ -21,7 +22,7 @@ nu lăsate pe pilot automat.
 
 | Capitol | Notă | Direcția |
 |---|---|---|
-| Securitate | 9.8/10 | audit APROBAT, alerte active — rămâne doar rotația secretelor (netestată) |
+| Securitate | 9.8/10 | audit categorii + **audit pe scenarii (7 feature-uri, 9 fixuri)** — clasa SEC-04 închisă uniform |
 | Performanță | 9/10 | indexare corectă; rămâne doar profilarea pe trafic real (netestabilă acum) |
 | Scalabilitate | 8.5/10 | OK pentru fază |
 | Clean architecture / principii | 9.5/10 | §11c igienă închisă |
@@ -35,12 +36,26 @@ nu lăsate pe pilot automat.
 **De ce:** deny-by-default, IDOR enforce în services, rate-limit distribuit (Upstash) + alerte Sentry active pe
 evenimentele de audit, upload re-procesat (strip EXIF, validare din magic bytes), allowlist URL/Blob (anti-SSRF),
 CSP + security headers, validare UUID centralizată, audit trail fără PII, ștergere cont GDPR. Audit formal
-CRITICAL (13 categorii) APROBAT, 0 CRITICAL/HIGH/MEDIUM/LOW, verificat cu atacuri reale pe prod — detalii în
-`docs/SECURITATE.md` (sursa unică de adevăr pentru securitate).
+CRITICAL (13 categorii) APROBAT, verificat cu atacuri reale pe prod — detalii în `docs/SECURITATE.md` (sursa
+unică de adevăr pentru securitate).
+
+**Audit pe SCENARII (2026-07-04) — complementar auditului pe categorii.** Metodă nouă: matrice
+actor×acțiune×perturbare executată prin cod (nu checklist), pe toate cele 7 feature-uri cu mutații (~99
+scenarii). A prins ce auditul pe categorii nu vede — **comportament**, nu proprietăți statice. **9 fixuri:**
+5 goluri SEC-04 (cont suspendat cu JWT viu putea încă face mutații — retragere poziție, ștergere/creare schiță,
+ștergere ciornă/detaliu/comentariu, plus poarta de upload; acum **clasa e închisă UNIFORM**), 1 race atomic la
+dublu-submit dezaprobare (comentarii duplicate), 1 consum atomic al token-ului de magic link admin (evită sesiuni
+duble), 1 de-anonimizare GDPR la onboarding (PII rescris peste cont șters), 1 cleanup thumbnail orfan. Detalii →
+CHANGELOG 2026-07-04 (#1–#7).
+
+> ⚠️ **Verificare:** fixurile sunt validate cu `tsc`+eslint + citire cap-coadă; #1 are teste unit noi
+> (`validationService.test.ts`). **Rulează `npm test`** înainte de următorul deploy; restul fixurilor (SEC-04,
+> token admin, upload) sunt corecturi mici/atomice fără test dedicat (greu de acoperit unitar fără browser/DB).
 
 **Cum ajunge la 10 (rămas):**
 1. ✅ Procedura de **rotație a secretelor** e scrisă (`docs/DEPLOY.md` §2b) — rămâne doar **executată o dată**
    (manual, de Liviu) + validat **backup/restore** Neon.
+2. Materializează în teste scenariile confirmate care încă n-au acoperire (consum token admin; SEC-04 pe acțiuni).
 
 ---
 
@@ -89,7 +104,9 @@ cascada la ștergere detaliu + polimorfism validare/comentariu pe schiță). Aut
 fără bypass în producție. CI rulează `npm test` (vitest) pe fiecare PR; E2E NU rulează în CI (cere preview +
 bypass), manual pe preview.
 
-**Cum ajunge la 10:** aproape închis — restul e doar volum (mai multe fluxuri acoperite pe măsură ce apar).
+**Cum ajunge la 10:** aproape închis — restul e doar volum. **Gol punctual (2026-07-04):** cele 9 fixuri din
+auditul pe scenarii sunt verificate static (`tsc`+eslint) dar doar #1 are teste unit noi; `npm test` de rulat +
+de adăugat teste pe consumul token-ului admin și pe blocarea SEC-04 la nivel de acțiune.
 
 ---
 
