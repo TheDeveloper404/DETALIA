@@ -96,7 +96,7 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
           <div
             role="dialog"
             aria-label="Trimite în Planșă"
-            className="absolute bottom-full left-0 z-40 mb-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+            className="absolute right-0 top-full z-40 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-lg"
           >
             {added ? (
               <div className="p-3 text-[13px]">
