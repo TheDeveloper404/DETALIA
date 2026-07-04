@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
+import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
 import {
   removeAvatar,
@@ -32,7 +33,7 @@ async function requireUserId() {
 // app/api/blob/upload/route.ts). Acceptăm DOAR un URL de Blob al store-ului nostru (nu URL-uri
 // arbitrare în DB). Tipul/mărimea au fost deja impuse la emiterea tokenului, pe server.
 export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
-  const userId = await requireUserId();
+  const userId = await requireActiveUserId();
   const res = await setAvatar(userId, url);
   if (!res.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
   revalidatePath("/profile");
@@ -43,7 +44,7 @@ export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
 
 // Idem pentru imaginea de cover (banda de sus a profilului).
 export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
-  const userId = await requireUserId();
+  const userId = await requireActiveUserId();
   const res = await setCover(userId, url);
   if (!res.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
   revalidatePath("/profile");
@@ -53,7 +54,7 @@ export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
 
 // Șterge poza de profil. Reversibil prin re-upload.
 export async function deleteAvatar(): Promise<ProfileFormState> {
-  const userId = await requireUserId();
+  const userId = await requireActiveUserId();
   await removeAvatar(userId);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -62,7 +63,7 @@ export async function deleteAvatar(): Promise<ProfileFormState> {
 
 // Salvează poziția verticală a cover-ului (0..100).
 export async function saveCoverPosition(position: number): Promise<ProfileFormState> {
-  const userId = await requireUserId();
+  const userId = await requireActiveUserId();
   await setCoverPosition(userId, position);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -71,7 +72,7 @@ export async function saveCoverPosition(position: number): Promise<ProfileFormSt
 
 // Șterge imaginea de cover.
 export async function deleteCover(): Promise<ProfileFormState> {
-  const userId = await requireUserId();
+  const userId = await requireActiveUserId();
   await removeCover(userId);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -89,7 +90,7 @@ export async function updateProfileDetailsAction(
   _prev: ProfileFormState,
   formData: FormData,
 ): Promise<ProfileFormState> {
-  const userId = await requireUserId();
+  const userId = await requireActiveUserId();
   const res = await updateProfileDetails(userId, {
     name: String(formData.get("name") ?? ""),
     headline: String(formData.get("headline") ?? ""),

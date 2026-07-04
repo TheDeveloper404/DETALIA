@@ -176,7 +176,7 @@ export async function anonymizeUserRow(userId: string, placeholderEmail: string)
     .set({
       email: placeholderEmail,
       emailVerified: null,
-      name: "Utilizator șters",
+      name: "[cont șters]",
       firstName: null,
       lastName: null,
       image: null,

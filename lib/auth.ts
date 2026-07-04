@@ -30,7 +30,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  session: { strategy: "jwt" },
+  // maxAge: mărginește fereastra în care un JWT cu status stale (ACTIVE la login) mai poate CITI
+  // conținut protejat după o suspendare/ștergere de cont — mutațiile sunt oricum blocate imediat de
+  // requireActiveUserId (re-check DB). Fără maxAge, default-ul Auth.js e 30 de zile.
+  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
   trustHost: true,
   // Pagini custom: folosim ecrane proprii în limbajul vizual DETALIA în loc de cele default Auth.js.
   pages: {
