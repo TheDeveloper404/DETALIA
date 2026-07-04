@@ -209,8 +209,10 @@ export function DetailWorkspace({
           )}
         </div>
 
-        {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover) */}
-        <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 sm:px-5">
+        {/* strip taburi: [DETALIU DE BAZĂ] + avatar-only per schiță (activ = avatar+nume, tooltip la hover).
+            min-h FIX: în timpul animației pastilei (transition-all) înălțimea rândului fluctua cu ~1px
+            → tot conținutul de sub el (viewport+validare+dezbatere) „tremura" la fiecare comutare. */}
+        <div className="flex min-h-11 flex-wrap items-center gap-1.5 px-4 pt-3 sm:px-5">
           <button
             type="button"
             onClick={() => setTab(0)}

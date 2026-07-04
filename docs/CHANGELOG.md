@@ -4,6 +4,19 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — fix(BUG, v3): tremur la comutare — cauza reală găsită prin analiza video cadru cu cadru
+
+- Reproducere: clip de la Liviu (bug.mp4), extras cadre la 30fps + măsurat numeric bbox-ul logo-ului
+  din imagine per cadru. Rezultat: imaginea NU se mișcă între taburi (fixurile v1/v2 țin), dar chiar
+  la comutare TOT conținutul de sub rândul de taburi sare **1px în sus și revine** (y 167→166→167),
+  în ambele direcții.
+- Cauză: pastila de tab activă (avatar+nume, py-1) are altă înălțime decât cea inactivă (doar avatar,
+  p-0.5); în timpul animației `transition-all` înălțimea rândului de taburi fluctuează cu ~1px →
+  viewport + validare + dezbatere „tremură" la fiecare click.
+- Fix: `min-h-11` (44px, peste înălțimea maximă a pastilei) pe rândul de taburi → înălțimea rândului
+  e constantă indiferent de starea/animația pastilelor. Lărgirea pastilei active (apare numele) rămâne
+  — confirmat de Liviu că e design, nu bug.
+
 ## 2026-07-04 — fix(BUG, v2): tremur la comutarea Detaliu ↔ Schiță — imaginea-mamă montată permanent
 
 - Fixul v1 (cutie 4/3 comună) nu era suficient: `SketchViewer` remontat la fiecare comutare reîncărca
