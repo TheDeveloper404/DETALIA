@@ -10,15 +10,16 @@ export async function insertAdminLoginToken(token: string, email: string, expire
   await db.insert(adminLoginTokens).values({ token, email, expires });
 }
 
-// Consumă un token (one-time): îl întoarce DOAR dacă e valid + neexpirat, apoi îl șterge. null altfel.
+// Consumă un token (one-time) ATOMIC: DELETE … WHERE valid+neexpirat RETURNING email. Postgres serializează
+// ștergerea rândului → din două cereri concurente cu ACELAȘI token (dublu-click pe fallback, retry AutoVerify,
+// prefetch) DOAR una primește email-ul (și creează sesiune); a doua nu întoarce nimic → null. SELECT-apoi-DELETE
+// separat (varianta veche) lăsa o fereastră în care ambele citeau tokenul valid → două sesiuni de admin.
+// (neon-http nu are tranzacții → soluția e single-statement, nu SELECT+DELETE în BEGIN/COMMIT.)
 export async function consumeAdminLoginToken(token: string): Promise<string | null> {
   const [row] = await db
-    .select({ email: adminLoginTokens.email })
-    .from(adminLoginTokens)
+    .delete(adminLoginTokens)
     .where(and(eq(adminLoginTokens.token, token), gt(adminLoginTokens.expires, new Date())))
-    .limit(1);
-  // Ștergem mereu token-ul cerut (consumat sau expirat) — one-time, fără reutilizare.
-  await db.delete(adminLoginTokens).where(eq(adminLoginTokens.token, token));
+    .returning({ email: adminLoginTokens.email });
   return row?.email ?? null;
 }
 

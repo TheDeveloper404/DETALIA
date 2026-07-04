@@ -1,5 +1,5 @@
 // Repo validări — singurul loc cu acces Drizzle pentru tabelul `validations` (polimorfic Detail/Sketch).
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { roles, users, validations } from "@/db/schema";
@@ -67,6 +67,35 @@ export async function upsertPosition(input: {
     })
     .returning();
   return row;
+}
+
+// Upsert DISAPPROVE atomic: „a avut loc tranziția spre DISAPPROVE?" se decide ÎN Postgres, într-un singur
+// statement — dacă poziția existentă e deja DISAPPROVE, `setWhere` sare update-ul și RETURNING nu întoarce
+// nimic (→ null). Altfel read-then-write-ul din service ar lăsa o fereastră în care două cereri paralele
+// (dublu-submit) văd amândouă „nu era DISAPPROVE" și creează două comentarii-justificare.
+// (Driverul neon-http nu are tranzacții — de aceea soluția e single-statement, nu BEGIN/COMMIT.)
+export async function upsertDisapprovalIfTransition(input: {
+  userId: string;
+  targetType: TargetType;
+  targetId: string;
+  roleSnapshot: RoleSnapshot;
+}) {
+  const [row] = await db
+    .insert(validations)
+    .values({
+      userId: input.userId,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      position: "DISAPPROVE",
+      roleSnapshot: input.roleSnapshot,
+    })
+    .onConflictDoUpdate({
+      target: [validations.userId, validations.targetType, validations.targetId],
+      set: { position: "DISAPPROVE", roleSnapshot: input.roleSnapshot, updatedAt: new Date() },
+      setWhere: sql`${validations.position} <> 'DISAPPROVE'`,
+    })
+    .returning();
+  return row ?? null; // null = era deja DISAPPROVE → apelantul NU creează alt comentariu-justificare
 }
 
 export async function deletePosition(

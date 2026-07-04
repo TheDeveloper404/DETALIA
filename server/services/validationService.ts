@@ -19,9 +19,9 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
 import {
   deletePosition,
-  getUserPosition,
   listPositionsForTarget,
   listUserPositionsForTargets,
+  upsertDisapprovalIfTransition,
   upsertPosition,
 } from "@/server/repos/validationsRepo";
 
@@ -117,23 +117,22 @@ export async function disapprove(input: {
   if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
   if (authorId === input.userId) return { ok: false, error: "CANNOT_VALIDATE_OWN" };
 
-  // O poziție DISAPPROVE deja existentă → un singur comentariu-justificare (evită duplicate la re-trimitere).
-  const prior = await getUserPosition(input.userId, input.targetType, input.targetId);
-  const validation = await upsertPosition({
+  // O poziție DISAPPROVE deja existentă → un singur comentariu-justificare. Tranziția se decide ATOMIC în DB
+  // (nu read-then-write) — altfel dublu-submit-ul paralel ar crea comentarii duplicate.
+  const transition = await upsertDisapprovalIfTransition({
     userId: input.userId,
     targetType: input.targetType,
     targetId: input.targetId,
-    position: "DISAPPROVE",
     roleSnapshot: snapshotFromRole(role),
   });
 
-  if (prior?.position !== "DISAPPROVE") {
+  if (transition) {
     await insertComment({
       targetType: input.targetType,
       targetId: input.targetId,
       authorId: input.userId,
       body: j.value,
-      originValidationId: validation.id,
+      originValidationId: transition.id,
     });
   }
 
@@ -155,21 +154,20 @@ export async function recordSketchDisapproval(input: {
   const authorId = await getTargetAuthorId("DETAIL", input.detailId);
   if (!authorId || authorId === input.userId) return; // țintă inexistentă sau propriul detaliu
 
-  const prior = await getUserPosition(input.userId, "DETAIL", input.detailId);
-  const validation = await upsertPosition({
+  // Aceeași fereastră de race ca la disapprove (dublu-publish) → aceeași tranziție atomică în DB.
+  const transition = await upsertDisapprovalIfTransition({
     userId: input.userId,
     targetType: "DETAIL",
     targetId: input.detailId,
-    position: "DISAPPROVE",
     roleSnapshot: snapshotFromRole(role),
   });
-  if (prior?.position !== "DISAPPROVE") {
+  if (transition) {
     await insertComment({
       targetType: "DETAIL",
       targetId: input.detailId,
       authorId: input.userId,
       body: "Am propus o schiță alternativă ca dezaprobare — vezi teancul de schițe.",
-      originValidationId: validation.id,
+      originValidationId: transition.id,
     });
   }
 }
