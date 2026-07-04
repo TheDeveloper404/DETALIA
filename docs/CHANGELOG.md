@@ -4,6 +4,17 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — fix(BUG, v2): tremur la comutarea Detaliu ↔ Schiță — imaginea-mamă montată permanent
+
+- Fixul v1 (cutie 4/3 comună) nu era suficient: `SketchViewer` remontat la fiecare comutare reîncărca
+  imaginea async → o clipă cutia era goală, apoi imaginea „pocnea" înăuntru (perceput ca tremur).
+- Acum `<Image>` mamă rămâne montată PERMANENT în cutia 4/3 pe ambele taburi; `SketchViewer` a devenit
+  overlay doar cu stroke-uri (`absolute inset-0`, canvas poziționat pe dreptunghiul „contain" al
+  imaginii, `pointer-events-none`). La comutare doar stroke-urile apar/dispar — imaginea nu se mai
+  atinge deloc.
+- Sursă secundară de mișcare, NEatinsă (decizie de design): pastila de tab activă se lărgește
+  (avatar → avatar+nume), mutând rândul de avatare la fiecare comutare.
+
 ## 2026-07-04 — fix(BUG): @mențiuni — tokenul brut `@[Nume](sid:uuid)` nu mai apare în textarea
 
 - Raport: la compunere, selectarea unei mențiuni insera tokenul tehnic (~50 caractere) direct în
