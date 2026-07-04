@@ -72,42 +72,42 @@ export function FeedValidationActions({
 
   return (
     <div className="mt-auto flex flex-wrap items-center gap-2.5">
-      <button
-        type="button"
-        onClick={onApprove}
-        aria-pressed={approved}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors",
-          approved
-            ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
-            : "border-[#cfe3d2] bg-[#e9f2ea] text-[#2f6b3f] hover:bg-[#dbe9dd]",
-        )}
-      >
-        ✓ {approved ? "Ai aprobat" : "Aprob"}
-      </button>
+      {/* Aliniat cu ValidationPanel: fără poziție → două butoane; cu poziție → colaps într-o singură
+          pastilă colorată cu „retrage" integrat (fără link separat). */}
+      {!myPos ? (
+        <>
+          <button
+            type="button"
+            onClick={onApprove}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#cfe3d2] bg-[#e9f2ea] px-3.5 py-1.5 text-[13.5px] font-semibold text-[#2f6b3f] transition-colors hover:bg-[#dbe9dd]"
+          >
+            ✓ Aprob
+          </button>
 
-      <button
-        type="button"
-        onClick={() => setShowJustify(true)}
-        aria-pressed={disapproved}
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-[13.5px] font-semibold transition-colors",
-          disapproved
-            ? "border-destructive bg-destructive text-white shadow-sm"
-            : "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20",
-        )}
-      >
-        ✕ {disapproved ? "Ai dezaprobat" : "Dezaprob"}
-      </button>
-
-      {myPos && (
-        <button
-          type="button"
-          onClick={onRetract}
-          className="font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          <button
+            type="button"
+            onClick={() => setShowJustify(true)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-1.5 text-[13.5px] font-semibold text-destructive transition-colors hover:bg-destructive/20"
+          >
+            ✕ Dezaprob
+          </button>
+        </>
+      ) : (
+        <div
+          className={cn(
+            "inline-flex items-center gap-2.5 rounded-lg border px-3.5 py-1.5 text-[13.5px] font-semibold text-white shadow-sm",
+            approved ? "border-emerald-700 bg-emerald-600" : "border-destructive bg-destructive",
+          )}
         >
-          retrage poziția
-        </button>
+          <span>{approved ? "✓ Ai aprobat" : "✕ Ai dezaprobat"}</span>
+          <button
+            type="button"
+            onClick={onRetract}
+            className="inline-flex items-center rounded-md border border-white/40 px-1.5 py-0.5 font-mono text-[10.5px] font-normal text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+          >
+            × retrage
+          </button>
+        </div>
       )}
 
       {/* Modal de justificare — overlay fix, nu împinge layout-ul cardului. */}

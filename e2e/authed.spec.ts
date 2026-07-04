@@ -42,11 +42,15 @@ test.describe.serial("Validare pe rol", () => {
     // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.
     const aprob = page.getByRole("button", { name: "Aprob", exact: true });
     await aprob.click();
-    await expect(aprob).toHaveAttribute("aria-pressed", "true");
+    // După click butoanele colapsează într-o pastilă cu poziția + „retrage" (vezi validation-panel.tsx).
+    await expect(page.getByText(/Ai aprobat acest detaliu/)).toBeVisible();
+    await expect(page.getByRole("button", { name: /retrage/ })).toBeVisible();
   });
 
   test("Dezaprob cere justificare → devine comentariu argumentat", async ({ page }) => {
     await page.goto(detailUrl());
+    // Poziția APPROVE din testul anterior e activă → butoanele sunt colapsate; retragem întâi.
+    await page.getByRole("button", { name: /retrage/ }).click();
     const dezaprob = page.getByRole("button", { name: "Dezaprob", exact: true });
     await dezaprob.click();
     // Pe DETAIL, Dezaprob deschide întâi alegerea binară (text/schiță) — vezi validation-panel.tsx.
@@ -56,7 +60,7 @@ test.describe.serial("Validare pe rol", () => {
     await page.getByPlaceholder(/Explică de ce dezaprobi/).fill(justif);
     await page.getByRole("button", { name: "Trimite dezaprobarea" }).click();
 
-    await expect(dezaprob).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText(/Ai dezaprobat acest detaliu/)).toBeVisible();
     // Justificarea devine comentariu vizibil în dezbatere (fără „dezaprobare mută").
     await expect(page.getByText(justif)).toBeVisible();
   });

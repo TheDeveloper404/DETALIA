@@ -61,7 +61,6 @@ export function ValidationPanel({
 
   const myPos = opt.pos;
   const approved = myPos === "APPROVE";
-  const disapproved = myPos === "DISAPPROVE";
   const totalValidari = opt.approve + opt.disapprove;
 
   // FormData comun pentru acțiunile 1-click (aceleași câmpuri ca `hidden`, dar apelate programatic).
@@ -80,6 +79,7 @@ export function ValidationPanel({
     });
   }
   function onRetract() {
+    setMode("none");
     startTransition(async () => {
       applyOpt("RETRACT");
       await retractAction(targetFormData());
@@ -111,40 +111,61 @@ export function ValidationPanel({
       {/* Butoanele de validare apar DOAR dacă te poți valida (nu pe propriul conținut). */}
       {canValidate && (
         <>
-          {/* Butoane — identice pentru toți; greutatea o dă rolul, nu un scor. */}
+          {/* Fără poziție: cele două butoane. Cu poziție: colaps într-o SINGURĂ pastilă colorată cu
+              „retrage" integrat (fără banner separat) — mai puțin zgomot + înălțime constantă a zonei. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={onApprove}
-              aria-pressed={approved}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-[10px] border font-bold transition-colors",
-                validateBtnClass,
-                approved
-                  ? "border-emerald-700 bg-emerald-600 text-white shadow-sm"
-                  : "border-border bg-card text-foreground hover:border-primary",
-              )}
-            >
-              <Check className="size-[17px]" strokeWidth={2.6} />
-              Aprob
-            </button>
+            {!myPos ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onApprove}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-card font-bold text-foreground transition-colors hover:border-primary",
+                    validateBtnClass,
+                  )}
+                >
+                  <Check className="size-[17px]" strokeWidth={2.6} />
+                  Aprob
+                </button>
 
-            <button
-              type="button"
-              onClick={() => setMode((m) => (m === "none" ? (allowSketch ? "choose" : "text") : "none"))}
-              aria-expanded={mode !== "none"}
-              aria-pressed={disapproved}
-              className={cn(
-                "inline-flex items-center justify-center gap-2 rounded-[10px] border font-bold transition-colors",
-                validateBtnClass,
-                disapproved
-                  ? "border-destructive bg-destructive text-white shadow-sm"
-                  : "border-border bg-card text-foreground hover:border-primary",
-              )}
-            >
-              <X className="size-4" strokeWidth={2.6} />
-              Dezaprob
-            </button>
+                <button
+                  type="button"
+                  onClick={() => setMode((m) => (m === "none" ? (allowSketch ? "choose" : "text") : "none"))}
+                  aria-expanded={mode !== "none"}
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-card font-bold text-foreground transition-colors hover:border-primary",
+                    validateBtnClass,
+                  )}
+                >
+                  <X className="size-4" strokeWidth={2.6} />
+                  Dezaprob
+                </button>
+              </>
+            ) : (
+              <div
+                className={cn(
+                  "inline-flex items-center justify-between gap-3 rounded-[10px] border font-bold text-white shadow-sm",
+                  validateBtnClass,
+                  approved ? "border-emerald-700 bg-emerald-600" : "border-destructive bg-destructive",
+                )}
+              >
+                <span className="inline-flex items-center gap-2">
+                  {approved ? (
+                    <Check className="size-[17px]" strokeWidth={2.6} />
+                  ) : (
+                    <X className="size-4" strokeWidth={2.6} />
+                  )}
+                  {approved ? `Ai aprobat ${targetNoun}` : `Ai dezaprobat ${targetNoun}`}
+                </span>
+                <button
+                  type="button"
+                  onClick={onRetract}
+                  className="inline-flex items-center rounded-md border border-white/40 px-2 py-0.5 font-mono text-[11px] font-normal text-white/90 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  × retrage
+                </button>
+              </div>
+            )}
 
             <span className="font-mono text-[11px] leading-tight text-[#a59a88] sm:ml-auto sm:text-right">
               o singură poziție
@@ -153,7 +174,7 @@ export function ValidationPanel({
           </div>
 
           {/* Pas de ALEGERE (doar pe detaliu): una din două — argumentezi în text SAU desenezi o schiță. */}
-          {mode === "choose" && (
+          {!myPos && mode === "choose" && (
             <div className="mt-4 flex flex-col gap-2">
               <p className="text-sm font-medium">Cum vrei să dezaprobi?</p>
               <div className="grid gap-2 sm:grid-cols-2">
@@ -194,7 +215,7 @@ export function ValidationPanel({
           )}
 
           {/* Ramura TEXT: justificare OBLIGATORIE (devine comentariu pe server). Fără „dezaprobare mută". */}
-          {mode === "text" && (
+          {!myPos && mode === "text" && (
             <form action={formAction} className="mt-4 flex flex-col gap-2">
               {hidden}
               <label className="flex flex-col gap-1 text-sm">
@@ -225,28 +246,6 @@ export function ValidationPanel({
             </form>
           )}
 
-          {/* Confirmarea poziției proprii + retragere (reversibilă oricând). */}
-          {myPos && (
-            <div
-              className={cn(
-                "mt-4 flex items-center gap-3 rounded-[9px] border px-3.5 py-2.5 text-sm",
-                approved
-                  ? "border-emerald-600/30 bg-emerald-50 text-emerald-800"
-                  : "border-destructive/30 bg-destructive/5 text-destructive",
-              )}
-            >
-              <span className="leading-snug">
-                {approved ? `Ai aprobat ${targetNoun}.` : `Ai dezaprobat ${targetNoun}.`}
-              </span>
-              <button
-                type="button"
-                onClick={onRetract}
-                className="ml-auto font-mono text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
-              >
-                retrage poziția
-              </button>
-            </div>
-          )}
         </>
       )}
 
