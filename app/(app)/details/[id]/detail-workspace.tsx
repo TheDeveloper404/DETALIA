@@ -292,13 +292,18 @@ export function DetailWorkspace({
               }}
             />
             {!isBase && (
-              <span className="absolute left-3 top-3 z-[2] rounded-md border border-[#e6dccd] bg-white/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#7c7060]">
+              <span
+                key={`badge-${safeTab}`}
+                className="absolute left-3 top-3 z-[2] animate-in fade-in rounded-md border border-[#e6dccd] bg-white/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#7c7060] duration-200"
+              >
                 schiță peste detaliu
               </span>
             )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-xl">
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
-                  altfel reîncărca async și „pocnea"); schița e doar un overlay cu stroke-uri peste ea */}
+                  altfel reîncărca async și „pocnea"); schița e doar un overlay cu stroke-uri peste ea.
+                  Efect lin la comutare: overlay-ul re-face fade-in (opacity, FĂRĂ animație de layout —
+                  nu redeschide problema tremurului) cheiat pe tab. */}
               <Image
                 src={imageUrl}
                 alt={header.title}
@@ -307,12 +312,16 @@ export function DetailWorkspace({
                 className="object-contain"
                 priority
               />
-              {!isBase && <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />}
+              {!isBase && (
+                <div key={`sketch-${safeTab}`} className="absolute inset-0 animate-in fade-in duration-200">
+                  <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
+                </div>
+              )}
             </div>
           </div>
 
-          {/* panou dreapta: autorul tabului activ + (schiță) badge + ștergere */}
-          <div className="flex flex-col gap-4 p-5">
+          {/* panou dreapta: autorul tabului activ + (schiță) badge + ștergere — fade-in la comutare */}
+          <div key={`panel-${safeTab}`} className="flex flex-col gap-4 p-5 animate-in fade-in duration-200">
             <div>
               <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#a59a88]">
                 {isBase ? "Autor detaliu" : "Autor schiță"}
@@ -366,8 +375,12 @@ export function DetailWorkspace({
           </div>
         </div>
 
-        {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte) */}
-        <div className="border-t border-[#eee6da] p-5 sm:px-6">
+        {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte);
+            fade-in la comutare (opacity, fără animație de layout — nu redeschide tremurul) */}
+        <div
+          key={isBase ? "DETAIL" : activeSketch!.id}
+          className="animate-in fade-in border-t border-[#eee6da] p-5 duration-200 sm:px-6"
+        >
           <ValidationPanel
             key={isBase ? "DETAIL" : activeSketch!.id}
             targetType={isBase ? "DETAIL" : "SKETCH"}
