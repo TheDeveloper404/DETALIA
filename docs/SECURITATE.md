@@ -28,6 +28,7 @@ Legendă: ✅ implementat structural · ⚠️ parțial/neverificat comportament
 | LOW | 0 | — |
 | Hardening / consistență | 2 | APLICATE (SEC-H01, SEC-04/JWT) |
 | Re-audit 2026-07-03 (SEC-A1…A5) | 5 | 1 MEDIUM + 3 LOW + 1 INFO — TOATE REMEDIATE |
+| Audit pe scenarii 2026-07-04 (SEC-S1…S5) | 9 fixuri | ~99 scenarii, 7 feature-uri — TOATE REMEDIATE (SEC-04 uniform) |
 | Note / risk-acceptance | 4 | documentate |
 
 Postura generală: **foarte bună**. Modelul „deny-by-default" e aplicat consecvent (proxy → sesiune pe
@@ -103,6 +104,64 @@ Input-urile care ating coloane `uuid` sunt gardate cu `isUuid` (pattern „SEC-1
 ### [SEC-A5] INFO — `deleteDetailAction`/`deleteDraftAction` fără rate-limit — ✅ remediat
 - Uniformizare: ambele au acum `limiters.mutation`, ca restul mutațiilor (abuzul era oricum limitat la
   propriul conținut prin ownership).
+
+---
+
+## Audit pe SCENARII 2026-07-04 — constatări + remediere (toate REMEDIATED în aceeași zi)
+
+> **Metodă (nouă, complementară auditului pe categorii):** matrice **actor × acțiune × perturbare** executată
+> prin cod (UI → action → service → DB), NU checklist. Actori: rău-intenționat autentificat · neautentificat/
+> sesiune expirată · neatent (back/reload/dublu-click/tab vechi) · concurent cu el însuși · fost user (cont
+> șters, sesiune/link vechi). Acțiuni: extrase din cod (server actions + route handlers) → complete prin
+> construcție. Perturbări: repet/replay · ordine greșită · ținta dispare · identitatea se schimbă · input la
+> limită. Acoperire: **7 feature-uri cu mutații, ~99 scenarii, 9 constatări**. A prins **comportament** (ce nu
+> vede auditul static pe categorii). Scenariile confirmate → țintă de teste (model `e2e/security.spec.ts`).
+
+### [SEC-S1] LOW — clasa SEC-04 aplicată INCONSECVENT pe mutații — ✅ remediat (uniformizat)
+- **Era:** invariantul „cont suspendat/șters = zero mutații + delogare la prima încercare" (SEC-04) era
+  aplicat doar pe unele acțiuni. Cu sesiune `jwt` (status stale ≤7 zile), un cont suspendat cu token viu putea
+  încă executa mutații pe acțiunile rămase pe `auth()` simplu: `retractAction` (validare), `deleteSketch`/
+  `startSketch`/`deleteDraft` (schițe), `deleteDetailAction` (ștergerea cascadează peste conținutul ALTORA),
+  `deleteCommentAction`, plus **ruta `api/blob/upload`** („poarta" emitea token-uri de upload doar pe sesiune).
+- **Fix:** toate acțiunile de mai sus trecute pe `requireActiveUserId` (re-check status proaspăt din DB →
+  DELETED/SUSPENDED = signOut). Ruta upload (JSON, unde `redirect()` nu se potrivește) face check inline
+  `status === ACTIVE` → 401. **Clasa e acum închisă UNIFORM pe TOATE mutațiile.**
+- **Excepții DELIBERATE (documentate în cod):** autosave schiță + toggle bookmark + marcare notificări citite
+  rămân pe `auth()` — private, inconsecvente, nu produc conținut vizibil altora; un SELECT/apel ar costa
+  degeaba. `deleteAccountAction` rămâne pe `auth()` — un cont SUSPENDED **trebuie** să-și poată șterge contul
+  (dreptul GDPR de erasure).
+
+### [SEC-S2] LOW-MEDIUM — de-anonimizare GDPR prin JWT stale la onboarding — ✅ remediat
+- **Era:** `onboardingAction` (pe `auth()`) SCRIE PII (nume, headline…) în rândul user ÎNAINTE de `declareRole`.
+  Un cont DELETED (deja anonimizat „[cont șters]") sau SUSPENDED cu JWT viu putea re-POSTa formularul → PII real
+  rescris peste rândul anonimizat, **anulând ștergerea GDPR** (`declareRole` pica cu ALREADY_HAS_ROLE, dar DUPĂ
+  scrierile de PII).
+- **Fix:** `requireActiveUserId` → non-ACTIVE blocat înainte de orice scriere. Userii noi (status default ACTIVE)
+  neafectați.
+
+### [SEC-S3] LOW — consum ne-atomic al token-ului de magic link ADMIN — ✅ remediat
+- **Era:** `consumeAdminLoginToken` făcea SELECT-valid → DELETE separat. Pe neon-http (fără tranzacții) două
+  cereri paralele cu ACELAȘI token (dublu-click pe fallback noscript, retry `AutoVerify`) puteau citi ambele
+  tokenul valid înainte de ștergere → **două sesiuni de admin dintr-un token one-time** (calea cu cel mai mare
+  privilegiu). Anti-prefetch-ul (SEC-A1) reducea, dar nu închidea fereastra de concurență.
+- **Fix:** `DELETE … WHERE token+neexpirat RETURNING email` — Postgres serializează ștergerea rândului, doar o
+  cerere primește email-ul.
+
+### [SEC-S4] LOW — race la dublu-submit pe dezaprobare → comentarii-justificare duplicate — ✅ remediat
+- **Era:** `disapprove` făcea read-then-write (`getUserPosition` → `upsertPosition` → `insertComment`) fără
+  tranzacție. Dublu-submit paralel → ambele cereri vedeau „nu era DISAPPROVE" → **2 comentarii-justificare**
+  identice (poziția rămânea una, salvată de constrângerea unică). Spam în dezbatere (produsul).
+- **Fix:** `upsertDisapprovalIfTransition` — un singur statement `INSERT … ON CONFLICT DO UPDATE … setWhere
+  position <> 'DISAPPROVE' RETURNING`; rând întors = tranziție reală → comentariu; nimic = era deja DISAPPROVE.
+  Aplicat și în `recordSketchDisapproval` (dublu-publish). Teste unit noi în `validationService.test.ts`.
+
+### [SEC-S5] INFO — thumbnail orfan la publicare eșuată de schiță — ✅ remediat (nu e vulnerabilitate)
+- Thumbnail-ul se urca în Blob ÎNAINTE de verificările din `publish`; la eșec rămânea orfan permanent. Fix:
+  `deleteBlobs([thumbnailUrl])` pe ramura de eșec în `sendSketchAction`.
+
+> **Verificare:** toate fixurile validate `tsc`+eslint + citire cap-coadă; SEC-S4 are teste unit noi. **De
+> rulat `npm test`** înainte de următorul deploy. Rămân de materializat în teste: consumul token admin (SEC-S3)
+> și blocarea SEC-04 la nivel de acțiune (greu fără browser/DB real).
 
 ---
 

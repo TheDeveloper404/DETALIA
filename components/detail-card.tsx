@@ -12,6 +12,7 @@ import type { FeedItem } from "@/server/repos/detailsRepo";
 
 import { FeedValidationActions } from "./feed-validation-actions";
 import { RolePill } from "./role-pill";
+import { SendToCanvasButton } from "./send-to-canvas-button";
 
 function initials(name: string | null): string {
   if (!name) return "?";
@@ -148,6 +149,7 @@ export function DetailCard({
             <PencilRuler className="size-3.5" strokeWidth={2} />
             Schițează peste
           </Link>
+          {currentUserId && <SendToCanvasButton detailId={detail.id} />}
         </div>
       </div>
     </article>

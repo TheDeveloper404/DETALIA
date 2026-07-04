@@ -396,5 +396,48 @@ export const platformSettings = pgTable("platform_settings", {
     .$onUpdate(() => new Date()),
 });
 
+// Planșă (canvas privat) — spațiu de lucru per user (canvas infinit): adună detalii din platformă,
+// le aranjează liber și schițează peste ansamblu. STRICT privat la MVP (fără share/colaborare) —
+// ownership-ul se enforce în canvasService (NU RLS). `state` = snapshot serializat al store-ului tldraw
+// (document), sursă de adevăr pentru randare; `canvas_items` = index relațional planșă↔detalii.
+export const canvases = pgTable(
+  "canvases",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    state: jsonb().notNull().default({}), // snapshot tldraw (document); opac, cap de bytes în domain
+    thumbnailUrl: text(), // PNG randat client-side la salvare (pt „Planșele mele")
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("canvases_owner_id_idx").on(t.ownerId)],
+);
+
+// Relația planșă ↔ detalii (index relațional + integritate). PK compus = unicitate (un detaliu apare
+// o singură dată pe o planșă, decizie v1). Ambele FK cad în cascadă (planșa ștearsă / detaliul șters →
+// item-ul dispare din index; snapshot-ul se reconciliază la load → placeholder „Detaliu indisponibil").
+export const canvasItems = pgTable(
+  "canvas_items",
+  {
+    canvasId: uuid()
+      .notNull()
+      .references(() => canvases.id, { onDelete: "cascade" }),
+    detailId: uuid()
+      .notNull()
+      .references(() => details.id, { onDelete: "cascade" }),
+    addedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.canvasId, t.detailId] }),
+    index("canvas_items_detail_id_idx").on(t.detailId),
+  ],
+);
+
 // Notă: FK `target_id` (polimorfic, validări/comentarii) nu are .references() forțat
 // — integritatea lui se asigură în services (vezi docs/SECURITATE.md §4).
