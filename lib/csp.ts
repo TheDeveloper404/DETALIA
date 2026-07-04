@@ -22,9 +22,12 @@ export function buildCspHeader(nonce: string, isDev = false): string {
     // nonce + host vercel.live (preview) + challenges.cloudflare.com (widget-ul Turnstile pe auth).
     `script-src 'self' 'nonce-${nonce}' https://vercel.live https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'", // vezi nota: atributele style din React nu pot fi noncuite
-    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://vercel.live https://vercel.com",
-    "font-src 'self' data: https://vercel.live",
-    "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://vercel.live wss://*.pusher.com https://*.pusher.com https://challenges.cloudflare.com",
+    // cdn.tldraw.com: fonturi/iconițe/traduceri + watermark ale editorului Planșă (tldraw). RELAXARE de audiat
+    // (2026-07-05): CDN terț + watermark phone-home. Alternativă curată = self-host asset-uri (@tldraw/assets) +
+    // licență ca să elimini CDN-ul și watermark-ul. Vezi handoff „AUDIT SECURITATE Planșă".
+    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://vercel.live https://vercel.com https://cdn.tldraw.com",
+    "font-src 'self' data: https://vercel.live https://cdn.tldraw.com",
+    "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://vercel.live wss://*.pusher.com https://*.pusher.com https://challenges.cloudflare.com https://cdn.tldraw.com",
     // frame-src: toolbar vercel.live (preview) + iframe-ul Turnstile.
     "frame-src https://vercel.live https://challenges.cloudflare.com",
     "upgrade-insecure-requests",
