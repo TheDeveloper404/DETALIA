@@ -17,8 +17,9 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
   // Avem nevoie de raportul natural al imaginii ca să calculăm dreptunghiul „contain" (identic cu
   // object-contain de pe <Image>). Imaginea e deja afișată de părinte; aici doar îi citim dimensiunile.
   useEffect(() => {
+    // FĂRĂ crossOrigin: citim doar naturalWidth/Height (nu desenăm imaginea pe canvas) — cu
+    // crossOrigin, un host fără CORS ar face onload să nu mai vină → stroke-urile ar dispărea silențios.
     const img = new Image();
-    img.crossOrigin = "anonymous";
     let observer: ResizeObserver | null = null;
     img.onload = () => {
       const setSize = () => {
