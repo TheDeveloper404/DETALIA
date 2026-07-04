@@ -4,6 +4,51 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — request-uri Liviu (pre-lansare): fix vizual, admin, audit securitate țintit
+
+- **Fix vizual + copywriting:** pastila „Autor detaliu"/tab de schiță se tăia jos — `overflow-x-auto`
+  (v5, anti-tremur) transformă rândul într-un container de scroll pe AMBELE axe (per spec CSS), iar
+  rândul avea `pt-3` fără padding jos → inelul avatarului (box-shadow) și descendentele (ș/ț) se tăiau.
+  Fix: `pb-1.5` pe rând (`detail-workspace.tsx`). Eticheta „Utilizator șters" → **„[cont șters]"**
+  (convenție paranteze pătrate, gen GitHub/Reddit — clar placeholder, nu nume real); schimbat la sursă
+  (`usersRepo.anonymizeUserRow`) — SQL de migrare pt rândurile deja anonimizate mai jos.
+- **Politica de retenție (confirmată, informativ):** ștergerea de cont ANONIMIZEAZĂ (tombstone), nu
+  șterge definitiv — conținutul (detalii/schițe/comentarii/validări) rămâne atribuit „[cont șters]" ca
+  să nu se strice dezbaterile altora. NU exista până acum niciun cron/job de purjare automată — datele
+  rămâneau pentru totdeauna. Vezi punctul de mai jos (admin) pentru purjare manuală.
+- **„Copiază linkul" — investigat, nu modificat:** copiază azi doar URL-ul paginii de bază a detaliului
+  (tab-ul activ e stare client, nu apare în URL) și ruta `/details/[id]` NU e publică — un vizitator
+  fără cont e redirecționat direct la login. Ideea unui link public spre O schiță anume (vizibilă fără
+  cont) NU există — ar fi o rută publică nouă, de proiectat separat ca decizie de produs.
+- **Admin — coloană „Șters la" + purjare conturi inerte:** schema `users` primește `deletedAt` (setat
+  la anonimizare); pagina admin arată data ștergerii; buton nou „Purjează conturile șterse fără conținut"
+  (`purgeInertDeletedUsers`, hard delete REAL, ireversibil) — eligibil DOAR dacă userul DELETED nu a
+  autorizat NIMIC (`details`/`sketches` sunt FK RESTRICT — ar eșua oricum; `comments`/`validations` sunt
+  CASCADE — le-am exclus explicit ca purjarea să nu șteargă silențios conținut din dezbatere, contrazicând
+  politica de mai sus). Conturile șterse CU conținut rămân definitiv (by design), acum vizibile cu dată.
+- **Audit securitate țintit (Opus), cerut explicit de Liviu — rute/API neprotejate + „back button" după
+  logout/ștergere cont.** Verdict: **APROBAT CU OBSERVAȚII** (0 Critical/High). Toate rutele, API-urile
+  și cele 15 fișiere de server actions verificate — deny-by-default corect, IDOR acoperit sistematic
+  (ownership verificat pe server peste tot), admin protejat prin sesiune reală (nu obscuritate). Găsiri
+  remediate în aceeași zi:
+  - **SEC-B1 (Medium):** acțiunile de profil (`profile/actions.ts` — avatar/cover/poziție cover/detalii
+    text) foloseau doar `auth()`, nu `requireActiveUserId()` → un cont SUSPENDAT putea în continuare să
+    editeze câmpuri PUBLICE (nume, headline, website etc.) până la expirarea JWT-ului. Aliniat la gate-ul
+    „tare" folosit deja pe restul mutațiilor publice.
+  - **SEC-B2 (Low):** `session.maxAge` lipsea (default Auth.js = 30 zile) → fereastră lungă în care un
+    JWT cu status stale (ACTIVE la login) mai putea CITI conținut protejat după suspendare/ștergere.
+    Redus la 7 zile (`lib/auth.ts`).
+  - **SEC-B3 (Low):** paginile protejate nu setau `Cache-Control` → pe un calculator PARTAJAT, „Back"
+    după logout putea reda conținut din bfcache-ul browserului. Adăugat `no-store, must-revalidate` pe
+    ramura protejată din `proxy.ts`.
+  - **SEC-B4 (Info, opțional):** `CRON_SECRET` comparat cu `!==` (risc practic neglijabil, dar rigoare
+    ieftină) → `timingSafeEqual` în `api/cron/cleanup-notifications/route.ts`.
+- **SQL de rulat manual în Neon** (dev întâi, apoi prod — regula DB a proiectului):
+  ```sql
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
+  UPDATE users SET name = '[cont șters]' WHERE name = 'Utilizator șters';
+  ```
+
 ## 2026-07-04 — audit (code review + securitate) pe modificările zilei + remedieri
 
 - **Audit dublu (subagenți Opus)** pe diff-ul `4ef77f8..HEAD` (fix viewport, @mențiuni, redesign validare,
