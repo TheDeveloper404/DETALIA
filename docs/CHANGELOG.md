@@ -4,6 +4,21 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — fix(BUG, v5): tremurul persistă după v4 → eliminate ultimele surse de mișcare la comutare
+
+- Liviu confirmă că tremurul persistă și după v4 (min-height blocat pe zona de validare). Analiză: singurele
+  lucruri care se mai schimbă în DOM la comutare sunt (a) scrollbar-ul paginii — deja acoperit, `scrollbar-gutter:
+  stable` există pe `html` din altă cauză; (b) WRAP-ul tranzitoriu al rândului de taburi când pastila activă
+  se lărgește (min-h-11 limitează minimul, nu maximul); (c) `transition-all` pe pastile — animă layout
+  (padding/width) cu cadre intermediare fracționare.
+- Fix: rândul de taburi devine `flex-nowrap` + `overflow-x-auto` (lărgirea pastilei nu mai poate împinge
+  pastilele pe rândul doi) și `transition-all` → `transition-colors` (lărgirea pastilei active e instant,
+  fără animație de layout). Design-ul lărgirii rămâne.
+- **Revert v4 min-height** (cerință Liviu): zona ValidationPanel înapoi la forma dinainte (fără lock
+  `useLayoutEffect`) — redundant dacă (b)/(c) sunt cauza și lăsa spațiu gol.
+- **Consecvență culori**: butoanele Aprob/Dezaprob din pagina de detaliu (stare neutră) preiau culorile pal
+  din feed (verde `#e9f2ea`/`#2f6b3f`, roșu `destructive/10`) în loc de alb.
+
 ## 2026-07-04 — fix(BUG, v4) + redesign validare: pastilă de poziție + înălțime stabilă la comutarea taburilor
 
 - **Redesign butoane Aprob/Dezaprob** (`validation-panel.tsx`, decizie Liviu): după alegerea unei poziții,

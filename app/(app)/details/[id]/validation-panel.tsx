@@ -116,11 +116,12 @@ export function ValidationPanel({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {!myPos ? (
               <>
+                {/* Culorile pal verde/roșu = aceleași ca în feed (feed-validation-actions) — consecvență. */}
                 <button
                   type="button"
                   onClick={onApprove}
                   className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-card font-bold text-foreground transition-colors hover:border-primary",
+                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#cfe3d2] bg-[#e9f2ea] font-bold text-[#2f6b3f] transition-colors hover:bg-[#dbe9dd]",
                     validateBtnClass,
                   )}
                 >
@@ -133,7 +134,7 @@ export function ValidationPanel({
                   onClick={() => setMode((m) => (m === "none" ? (allowSketch ? "choose" : "text") : "none"))}
                   aria-expanded={mode !== "none"}
                   className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-border bg-card font-bold text-foreground transition-colors hover:border-primary",
+                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-destructive/30 bg-destructive/10 font-bold text-destructive transition-colors hover:bg-destructive/20",
                     validateBtnClass,
                   )}
                 >
