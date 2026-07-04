@@ -4,6 +4,132 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-04 — audit pe SCENARII #1: Validare (metodă nouă) + 2 fixuri
+
+- **Metodă nouă de audit, decisă cu Liviu:** audituri **pe scenarii** (matrice actor × acțiune × perturbare,
+  executată prin cod), nu pe categorii-checklist — categoriile rămân doar plasă de siguranță. Inventar din cod:
+  31 mutații, ~90 scenarii, ordine: Validare → Schițe → Ștergere cont → Auth → Detalii → Comentarii → restul.
+  Detalii metodă în handoff (`.remember/remember.md`).
+- **Auditul #1 — Validare (approve/retract/disapprove): 16 scenarii executate, 14 ✅, 2 găsiri, ambele fixate:**
+  1. **Race dublu-submit pe dezaprobare → comentarii-justificare duplicate.** `disapprove` făcea
+     read-then-write (`getUserPosition` → `upsertPosition` → `insertComment`) fără tranzacție (neon-http nu
+     are tranzacții) — două cereri paralele vedeau ambele „nu era DISAPPROVE" și scriau 2 comentarii. Fix:
+     **`upsertDisapprovalIfTransition`** în `validationsRepo` — un singur statement
+     `INSERT … ON CONFLICT DO UPDATE … setWhere position <> 'DISAPPROVE' RETURNING`; rând întors = tranziție
+     reală → comentariu; nimic întors = era deja DISAPPROVE → fără comentariu. Postgres serializează pe
+     constrângerea unică → atomic. Aplicat și în `recordSketchDisapproval` (aceeași fereastră la dublu-publish).
+     `getUserPosition` eliminat din service (rămâne în repo, neutilizat).
+  2. **`retractAction` folosea `auth()` în loc de `requireActiveUserId`** — un cont suspendat cu JWT viu
+     (max 7 zile) putea retrage poziții, spart invariantul SEC-04 („suspendat = zero mutații + delogare la
+     prima încercare"). Fix: o linie în `validation-actions.ts`.
+- **Teste actualizate** (`validationService.test.ts`): mock pe noul repo-call + 2 teste noi (tranziție null =
+  cerere paralelă pierzătoare / dublu-publish → fără comentariu dublu). **De rulat de Liviu: `npm test`.**
+- Notă (nu găsire): `detailId` din formData ajunge în `revalidatePath` → poate invalida cache-ul unui path
+  arbitrar; efect practic ~zero (doar purge de cache, rate-limited). Lăsat așa.
+- `tsc --noEmit` verde.
+
+## 2026-07-04 — audit pe SCENARII #7 (ULTIMUL): Notificări + Blob upload + Cron — 1 găsire fixată
+
+- **~12 scenarii executate.** Notificări: `markOneRead`/`markAllRead` scoped pe `recipientUserId` (anti-IDOR),
+  acțiunile pe `auth()` = OK deliberat (marcare privată, inofensivă, ca bookmark). Cron cleanup: `timingSafeEqual`
+  pe `CRON_SECRET` + fail-closed dacă lipsește env. Blob upload: sesiune + rate-limit per user + allowlist
+  tip/mărime per `kind` pe server (CAD gate pe extensie fiindcă MIME-ul nu e de încredere) + `addRandomSuffix`;
+  imaginile sunt oricum reprocesate (strip metadata) la persistare.
+- **Găsirea — ruta de upload (`api/blob/upload`) nu re-verifica statusul contului:** „poarta" cerea doar
+  sesiune (`auth()`), deci un cont SUSPENDED/DELETED cu JWT viu (≤7 zile) putea încă obține token-uri de upload
+  (risipă de storage; conținutul vizibil e oricum blocat, fiindcă persistarea URL-ului trece prin acțiuni deja
+  gate-uite). Fix: verificare inline a `status === ACTIVE` din DB (nu `requireActiveUserId` — acela face
+  redirect, nepotrivit într-o rută JSON) → non-ACTIVE = 401.
+- **Decizie DELIBERATĂ:** acțiunile de notificări rămân pe `auth()` (private, inofensive).
+- `tsc --noEmit` + eslint: verzi.
+- **✅ AUDIT PE SCENARII COMPLET (7/7).** Total: ~99 scenarii, **9 fixuri** (1 race atomic dezaprobare, 1 consum
+  atomic token admin, 1 de-anonimizare GDPR, 5 goluri SEC-04 pe mutații/gate + upload, 1 cleanup thumbnail orfan).
+  Metodă nouă (matrice actor×acțiune×perturbare) documentată în handoff.
+
+## 2026-07-04 — audit pe SCENARII #6: Comentarii — 1 găsire fixată
+
+- **~12 scenarii executate** (add/edit/delete). Foarte solid: add+edit deja pe `requireActiveUserId`,
+  ownership atomic în repo (`updateCommentByAuthor`/`deleteFreeCommentByAuthor` = single-statement cu
+  condiție pe authorId + RETURNING → fără IDOR, fără race), ștergerea RESTRICȚIONATĂ la comentarii libere
+  (`originValidationId IS NULL` → justificările de dezaprobare nu pot fi șterse, altfel „dezaprobare mută"),
+  body validat pe server, mențiuni @schiță sanitizate anti-IDOR la ADD **și** la EDIT, SEC-11 peste tot.
+  IDOR-urile de bază erau deja acoperite cu teste în `e2e/security.spec.ts`.
+- **Găsirea — `deleteCommentAction` pe `auth()` în loc de `requireActiveUserId`:** singura acțiune de
+  comentariu inconsecventă (add+edit erau deja gate-uite); un cont suspendat cu JWT viu (≤7 zile) putea
+  șterge conținut de dezbatere. Fix: `requireActiveUserId` + curățat importul `auth` nefolosit.
+- `tsc --noEmit` + eslint: verzi. Fără teste noi.
+
+## 2026-07-04 — audit pe SCENARII #5: Detalii — 1 găsire fixată
+
+- **~16 scenarii executate** (create/update/delete/save). Foarte solid: create+update deja pe
+  `requireActiveUserId`, ownership pe server (FORBIDDEN, nu 404-ascuns), IDOR acoperit (author/userId din
+  sesiune), FK categorii validate + SEC-11, imagini reprocesate (strip metadata) + cleanup orfan pe
+  editare, cascadă de ștergere atomică în repo, bookmark cu PK (userId,detailId)+onConflictDoNothing
+  (dublu-click safe).
+- **Găsirea — `deleteDetailAction` pe `auth()` în loc de `requireActiveUserId`:** ștergerea unui detaliu
+  cascadează peste conținutul ALTORA (schițe/comentarii/validări de pe el); un cont suspendat cu JWT viu
+  (≤7 zile) își putea nuci contribuțiile (evadare de moderare), inconsecvent cu create/update. Fix:
+  `requireActiveUserId`.
+- **Decizie DELIBERATĂ (nu găsire):** `toggleSaveDetailAction` (bookmark) rămâne pe `auth()` — privat,
+  inconsecvent, nu produce conținut vizibil altora; gate-ul ar costa un SELECT degeaba (ca autosave-ul).
+- `tsc --noEmit` + eslint: verzi. Fără teste noi (service-ul de detalii avea deja ownership/validări testate).
+
+## 2026-07-04 — audit pe SCENARII #4: Auth — 1 găsire fixată
+
+- **~14 scenarii executate** (signInWithEmail user + admin login/verify/logout + setPlatform). Solid: poarta
+  publică are rate-limit dublu (email+IP) + Turnstile înainte de Resend/DB; magic link-ul de admin are pas
+  anti-prefetch (consum din JS, scanerele de mail nu ard tokenul — SEC-A1); sesiune admin cookie HttpOnly+
+  Secure+SameSite, re-verificată în allowlist la fiecare acces; setPlatform deny-by-default + audit; admin
+  login anti-enumerare (răspuns generic).
+- **Găsirea — consum ne-atomic al tokenului de magic link ADMIN** (calea cu cel mai mare privilegiu).
+  `consumeAdminLoginToken` făcea SELECT-valid → DELETE separat; pe neon-http (fără tranzacții) două cereri
+  paralele cu ACELAȘI token (dublu-click pe fallback noscript, retry AutoVerify) puteau citi ambele tokenul
+  valid ÎNAINTE de ștergere → **două sesiuni de admin dintr-un token one-time**. Fix: `DELETE … WHERE
+  token+neexpirat RETURNING email` — Postgres serializează ștergerea rândului, doar o cerere primește email-ul.
+  Anti-prefetch-ul exista deja; asta închide fereastra de concurență rămasă.
+- **Decizie DELIBERATĂ (nu găsire):** `signInWithEmailAction` dezvăluie existența contului (NoAccount /
+  AccountExists) — enumerare de emailuri, dar e decizie de produs confirmată (Liviu 2026-07-03: login/signup
+  fluxuri distincte). Admin login rămâne anti-enumerare.
+- `tsc --noEmit` + eslint: verzi. Fără teste noi (repo call, greu de testat unitar fără DB).
+
+## 2026-07-04 — audit pe SCENARII #3: Profil & Ștergere cont — 1 găsire fixată
+
+- **18 scenarii executate** (saveAvatar/saveCover/deleteAvatar/deleteCover/coverPosition/updateDetails/
+  requestVerification/deleteAccount + onboarding). Foarte solid: toate mutațiile de profil deja pe
+  `requireActiveUserId` (DELETED/suspended blocat), IDOR acoperit (userId din sesiune), blob URL validat
+  `isOwnBlobUrl` (anti-SSRF), imagini reprocesate (strip EXIF), cleanup orfan pe eșec parțial.
+- **Găsirea — de-anonimizare GDPR prin JWT stale la onboarding:** `onboardingAction` folosea `auth()` și
+  SCRIE PII (nume, headline, locație…) în rândul user ÎNAINTE de `declareRole`. Un cont DELETED (deja
+  anonimizat „[cont șters]") sau SUSPENDED cu JWT încă viu (≤7 zile) putea re-POSTa formularul → PII real
+  rescris peste rândul anonimizat, anulând ștergerea GDPR. (`declareRole` pica cu ALREADY_HAS_ROLE, dar
+  DUPĂ ce scrierile de PII se executaseră.) Fix: `requireActiveUserId` → status proaspăt din DB, DELETED/
+  SUSPENDED = signOut. Userii noi au `status` default ACTIVE → onboarding legitim neafectat.
+- **Decizii DELIBERATE (nu găsiri):** `deleteAccountAction` rămâne pe `auth()` simplu — un cont SUSPENDED
+  TREBUIE să-și poată șterge contul (dreptul GDPR de erasure); `requireActiveUserId` l-ar bloca greșit.
+  `requestVerificationAction` e no-op (flux pe HOLD).
+- **Notă (tradeoff acceptat, documentat de la SEC-04):** după ștergere, alte dispozitive cu JWT viu pot încă
+  CITI pagini ≤7 zile (reads nu re-verifică status); mutațiile sunt blocate. Nemodificat.
+- `tsc --noEmit` + eslint: verzi.
+
+## 2026-07-04 — audit pe SCENARII #2: Schițe — 2 găsiri fixate
+
+- **17 scenarii executate** (start/saveStrokes/publish/deleteSketch/deleteDraft), 14 ✅ din prima —
+  solid: publish deja atomic (`publishFromDraft` cu guard pe status+autor → dublu-publish fără efecte duble),
+  strokes cu limite anti-abuz + coordonate 0..1, thumbnail validat ca imagine + capat la mărime, IDOR acoperit.
+- **Găsirea 1 — goluri SEC-04 pe acțiunile de schiță:** `deleteSketchAction` (cea gravă: MODERARE — un autor
+  de detaliu suspendat putea șterge schițele altora până la 7 zile, cât trăiește JWT-ul), `startSketchAction`
+  și `deleteDraftAction` foloseau `auth()` în loc de `requireActiveUserId`. Fixate toate trei.
+  **Excepție DELIBERATĂ, documentată în cod:** `saveStrokesAction` (autosave) rămâne pe `auth()` — hot-path
+  (apel la câteva secunde), ciorna e privată, singura ieșire publică (publish) e gardată.
+- **Găsirea 2 — blob-uri orfane la publish eșuat:** thumbnail-ul se urcă în Blob ÎNAINTE de verificările din
+  `publish` (autor/stare/strokes); la eșec rămânea orfan pentru totdeauna. Fix: `deleteBlobs([thumbnailUrl])`
+  pe ramura de eșec în `sendSketchAction`. (Nu era gaură de securitate — imagine validată + rate-limit.)
+- **Notă (nefixat, transparență):** autorul unui detaliu poate șterge prin `deleteSketch` și o ciornă
+  nepublicată a altcuiva de pe detaliul lui, dacă i-ar ști UUID-ul — neghicibil, ciornele nu apar public;
+  practic neexploatabil.
+- `tsc --noEmit` + eslint pe fișierele modificate: verzi. Fără teste noi (fixurile sunt în actions, nu în
+  service; service-ul de schițe avea deja guard-urile testate).
+
 ## 2026-07-04 — request-uri Liviu (pre-lansare): fix vizual, admin, audit securitate țintit
 
 - **Fix vizual + copywriting:** pastila „Autor detaliu"/tab de schiță se tăia jos — `overflow-x-auto`

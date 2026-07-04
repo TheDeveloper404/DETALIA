@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
@@ -50,13 +49,13 @@ export async function approveAction(formData: FormData): Promise<void> {
 }
 
 export async function retractAction(formData: FormData): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: și retragerea e o mutație — fără excepții de la „suspendat = zero mutații + delogare".
+  const userId = await requireActiveUserId();
 
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) return;
+  if (!(await checkLimit(limiters.mutation, userId)).ok) return;
 
   const { targetType, targetId, detailId } = readTarget(formData);
-  await retract({ userId: session.user.id, targetType, targetId });
+  await retract({ userId, targetType, targetId });
 
   revalidatePath(`/details/${detailId}`);
 }

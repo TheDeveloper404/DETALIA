@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
@@ -73,14 +72,15 @@ export async function deleteCommentAction(
   commentId: string,
   detailId: string,
 ): Promise<{ error: string | null }> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  // SEC-04: ștergerea de comentariu e mutație pe conținut de dezbatere — consecvent cu add/edit, un cont
+  // suspendat cu JWT viu nu o mai poate face.
+  const userId = await requireActiveUserId();
 
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
-  const res = await deleteComment({ userId: session.user.id, commentId });
+  const res = await deleteComment({ userId, commentId });
   if (!res.ok) {
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }

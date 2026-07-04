@@ -6,16 +6,16 @@ vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({ getSketchById: vi.fn() }));
 vi.mock("@/server/repos/validationsRepo", () => ({
   deletePosition: vi.fn(),
-  getUserPosition: vi.fn(),
   listPositionsForTarget: vi.fn(),
   listUserPositionsForTargets: vi.fn(),
+  upsertDisapprovalIfTransition: vi.fn(),
   upsertPosition: vi.fn(),
 }));
 
 import { insertComment } from "@/server/repos/commentsRepo";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
-import { getUserPosition, upsertPosition } from "@/server/repos/validationsRepo";
+import { upsertDisapprovalIfTransition, upsertPosition } from "@/server/repos/validationsRepo";
 
 import { approve, disapprove, recordSketchDisapproval } from "./validationService";
 
@@ -27,6 +27,7 @@ beforeEach(() => {
   vi.mocked(getRoleByUserId).mockResolvedValue(ROLE as never);
   vi.mocked(getDetailById).mockResolvedValue({ id: "22222222-2222-4222-8222-222222222222", authorId: "x", title: "T" } as never);
   vi.mocked(upsertPosition).mockResolvedValue({ id: "v-1" } as never);
+  vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue({ id: "v-1" } as never);
 });
 
 describe("rol declarat obligatoriu — poziția „cântărește” prin rol", () => {
@@ -49,15 +50,14 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
   it("disapprove fără justificare → JUSTIFICATION_REQUIRED, fără scriere", async () => {
     const r = await disapprove({ ...target, justification: "   " });
     expect(r).toEqual({ ok: false, error: "JUSTIFICATION_REQUIRED" });
-    expect(upsertPosition).not.toHaveBeenCalled();
+    expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
     expect(insertComment).not.toHaveBeenCalled();
   });
 
-  it("disapprove nou → upsert poziție + comentariu-justificare exact o dată", async () => {
-    vi.mocked(getUserPosition).mockResolvedValue(null as never);
+  it("disapprove nou → tranziție atomică + comentariu-justificare exact o dată", async () => {
     const r = await disapprove({ ...target, justification: "  nu rezistă la îngheț  " });
     expect(r).toEqual({ ok: true });
-    expect(upsertPosition).toHaveBeenCalledTimes(1);
+    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
     expect(insertComment).toHaveBeenCalledTimes(1);
     expect(vi.mocked(insertComment).mock.calls[0][0]).toMatchObject({
       body: "nu rezistă la îngheț", // trimmed
@@ -65,8 +65,10 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
     });
   });
 
-  it("re-dezaprobare (poziție deja DISAPPROVE) → NU dublează comentariul", async () => {
-    vi.mocked(getUserPosition).mockResolvedValue({ position: "DISAPPROVE" } as never);
+  // Acoperă și race-ul dublu-submit: repo-ul întoarce null când poziția era DEJA DISAPPROVE
+  // (decis atomic în DB, nu prin read-then-write) → a doua cerere nu mai creează comentariu.
+  it("re-dezaprobare / cerere paralelă pierzătoare (tranziție null) → NU dublează comentariul", async () => {
+    vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue(null as never);
     const r = await disapprove({ ...target, justification: "iar nu merge" });
     expect(r).toEqual({ ok: true });
     expect(insertComment).not.toHaveBeenCalled();
@@ -105,25 +107,31 @@ describe("nu te validezi pe propriul conținut — CANNOT_VALIDATE_OWN (enforce 
   it("disapprove pe propriul detaliu → CANNOT_VALIDATE_OWN, fără upsert/comentariu", async () => {
     const r = await disapprove({ ...target, justification: "motiv valid" });
     expect(r).toEqual({ ok: false, error: "CANNOT_VALIDATE_OWN" });
-    expect(upsertPosition).not.toHaveBeenCalled();
+    expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
     expect(insertComment).not.toHaveBeenCalled();
   });
 });
 
 describe("recordSketchDisapproval — materializarea dezaprobării la publicarea schiței", () => {
-  it("autorul schiței ≠ autorul detaliului → upsert DISAPPROVE + comentariu auto", async () => {
+  it("autorul schiței ≠ autorul detaliului → tranziție DISAPPROVE + comentariu auto", async () => {
     vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: "owner-x", title: "T" } as never);
-    vi.mocked(getUserPosition).mockResolvedValue(null as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
-    expect(vi.mocked(upsertPosition).mock.calls[0][0]).toMatchObject({ position: "DISAPPROVE" });
+    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
     expect(insertComment).toHaveBeenCalledTimes(1);
     expect(vi.mocked(insertComment).mock.calls[0][0]).toMatchObject({ originValidationId: "v-1" });
+  });
+
+  it("dublu-publish / dezaprobare deja existentă (tranziție null) → fără comentariu dublu", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: "owner-x", title: "T" } as never);
+    vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue(null as never);
+    await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
+    expect(insertComment).not.toHaveBeenCalled();
   });
 
   it("autorul-mamă schițează pe propriul detaliu → no-op (nu se auto-dezaprobă)", async () => {
     vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: target.userId, title: "T" } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
-    expect(upsertPosition).not.toHaveBeenCalled();
+    expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
     expect(insertComment).not.toHaveBeenCalled();
   });
 });
