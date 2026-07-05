@@ -108,8 +108,10 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <Link href={`/canvases/${canvas.id}/edit`} className="block">
+    <div className="group relative flex flex-col rounded-lg border border-border bg-card">
+      {/* `overflow-hidden` STRICT local pe thumbnail (nu pe wrapper-ul cardului) — altfel clipează
+          dropdown-ul kebab (redenumește/șterge) din zona de sub thumbnail. */}
+      <Link href={`/canvases/${canvas.id}/edit`} className="block overflow-hidden rounded-t-lg">
         <div className="relative aspect-[4/3] w-full bg-secondary">
           {canvas.thumbnailUrl ? (
             <Image

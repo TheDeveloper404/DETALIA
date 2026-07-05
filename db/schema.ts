@@ -398,8 +398,8 @@ export const platformSettings = pgTable("platform_settings", {
 
 // Planșă (canvas privat) — spațiu de lucru per user (canvas infinit): adună detalii din platformă,
 // le aranjează liber și schițează peste ansamblu. STRICT privat la MVP (fără share/colaborare) —
-// ownership-ul se enforce în canvasService (NU RLS). `state` = snapshot serializat al store-ului tldraw
-// (document), sursă de adevăr pentru randare; `canvas_items` = index relațional planșă↔detalii.
+// ownership-ul se enforce în canvasService (NU RLS). `state` = scena serializată Excalidraw
+// ({ elements, appState, files }), sursă de adevăr pentru randare; `canvas_items` = index relațional planșă↔detalii.
 export const canvases = pgTable(
   "canvases",
   {
@@ -408,7 +408,7 @@ export const canvases = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     name: text().notNull(),
-    state: jsonb().notNull().default({}), // snapshot tldraw (document); opac, cap de bytes în domain
+    state: jsonb().notNull().default({}), // scenă Excalidraw (document); opac, cap de bytes în domain
     thumbnailUrl: text(), // PNG randat client-side la salvare (pt „Planșele mele")
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })

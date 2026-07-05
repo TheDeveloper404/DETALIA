@@ -29,7 +29,7 @@ function parseState(raw: string): unknown {
   }
 }
 
-// Autosave snapshot tldraw — doar owner-ul. Nu redirecționează.
+// Autosave scenă Excalidraw — doar owner-ul. Nu redirecționează.
 // SEC-04 — EXCEPȚIE DELIBERATĂ (ca la schițe): autosave e hot-path (debounced la câteva secunde), un SELECT
 // de status per apel ar costa degeaba; planșa e PRIVATĂ. Rămâne pe auth() (sesiune), nu pe status proaspăt.
 export async function saveCanvasStateAction(
