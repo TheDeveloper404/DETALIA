@@ -4,7 +4,28 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
-## 2026-07-05 — migrare engine Planșă: tldraw → **Excalidraw**
+## 2026-07-05 — Planșa SCOASĂ complet din MVP (feature + engine + DB)
+
+- **De ce:** discuție cu Liviu — Planșa (canvas privat, orice engine: tldraw sau Excalidraw) e un wrapper
+  subțire peste un whiteboard generic. Risc de identitate de produs: userul întreabă „de ce nu folosesc
+  direct Excalidraw/Figma?". Nu servește întrebarea pe care MVP-ul o testează (dezbaterea pe roluri). Cost
+  de a construi un engine propriu diferențiat (shape-uri, selecție, transformări) e mult peste bugetul fazei
+  de validare de piață. Decizie: scoatem tot acum; Edi decide separat dacă/cum se reia, cu engine propriu.
+- **Ce s-a scos:** ruta `/canvases` (listă + editor), `SendToCanvasButton` (feed + pagina detaliului), link-ul
+  din header, `server/domain/canvas.ts` (+test), `canvasesRepo`, `canvasService`, dependența
+  `@excalidraw/excalidraw` + scripturile `predev`/`prebuild`/`postinstall` de copiere fonturi, stub-ul
+  mermaid din `next.config.ts`, comentariul CSP din `lib/csp.ts`, tabelele `canvases`/`canvas_items` din
+  `db/schema.ts`, allowlist-ul de audit pentru cele 3 GHSA lodash-es (`scripts/audit-check.mjs`) și secțiunea
+  SEC-A6 din `docs/SECURITATE.md` (nu mai există dependința care aducea vulnerabilitatea).
+- **DB (migrație `0015`):** `DROP TABLE canvas_items, canvases` — **de rulat manual în Neon SQL Editor**
+  (vezi handoff).
+- **Neatins:** Schița (engine separat, HTML5 Canvas + `perfect-freehand`) — nicio legătură cu Planșa.
+- `tsc --noEmit` + `eslint` verzi (rulate după curățare). `npm install` a scos 214 pachete (arborele
+  Excalidraw). `docs/ARHITECTURA.md` §7.7 actualizat (feature marcat scos).
+
+---
+
+## 2026-07-05 — migrare engine Planșă: tldraw → **Excalidraw** *(revocat, vezi intrarea de mai sus)*
 
 - **De ce:** tldraw încarcă asset-uri (fonturi/iconițe/traduceri/watermark) de pe `cdn.tldraw.com` → cerea
   relaxare de CSP (CDN terț + watermark phone-home) și, în producție, editorul apărea rupt când fetch-ul spre
@@ -28,9 +49,12 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
   `detail-card.tsx` / `canvases-list.tsx`.
 - `tsc --noEmit` + `eslint` + `next build` verzi; verificat **live** (Excalidraw montează, RO, fără watermark;
   reconciliere detaliu→imagine, autosave în format `excalidraw`, reload, overlay selecție, „Elimină de pe planșă").
-- **Securitate — CI:** Excalidraw aduce tranzitiv un HIGH fără fix upstream (`lodash-es` via mermaid/chevrotain,
-  cod path neinvocat — vezi SEC-A6 în `docs/SECURITATE.md`). Poarta de audit a trecut de la `npm audit --audit-level=high`
-  la `scripts/audit-check.mjs`: allowlist **țintit** pe cele 3 GHSA lodash-es, **orice alt high/critical nou tot blochează PR-ul**.
+- **Securitate — mermaid blocat + CI:** Excalidraw aduce tranzitiv un HIGH fără fix upstream (`lodash-es` via
+  mermaid/chevrotain — vezi SEC-A6 în `docs/SECURITATE.md`). **Blocat la 3 niveluri:** (1) dialogul mermaid nu e
+  randat în UI; (2) **alias la stub** în `next.config.ts` (`stubs/mermaid-to-excalidraw.js`) → lanțul vulnerabil
+  NU intră în bundle (verificat post-build: 0 chunk-uri cu cod chevrotain); (3) poarta de audit a trecut de la
+  `npm audit --audit-level=high` la `scripts/audit-check.mjs` — allowlist **țintit** pe cele 3 GHSA lodash-es
+  (npm audit scanează lockfile-ul), **orice alt high/critical nou tot blochează PR-ul**.
 
 ---
 

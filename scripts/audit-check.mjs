@@ -7,15 +7,7 @@
 import { execFileSync } from "node:child_process";
 
 // Advisory-uri HIGH acceptate explicit (GHSA). Fiecare intrare = risk-acceptance cu motiv.
-const ALLOWLIST = new Map([
-  // lodash-es (code injection `_.template` + prototype pollution `_.unset`/`_.omit`). Adus TRANZITIV prin
-  // @excalidraw/mermaid-to-excalidraw → mermaid → chevrotain/langium. DETALIA NU folosește mermaid (doar
-  // desen freehand peste imagine) → code path neinvocat. Fără fix upstream: lodash-es@4.17.21 e ultima
-  // versiune publicată, iar advisory-ul cere >4.17.23 (inexistentă). Reevaluat la fiecare bump de Excalidraw.
-  ["GHSA-r5fr-rjxr-66jc", "lodash-es _.template code injection (mermaid/Excalidraw, unused)"],
-  ["GHSA-f23m-r3pf-42rh", "lodash-es prototype pollution _.unset/_.omit (mermaid/Excalidraw, unused)"],
-  ["GHSA-xxjr-mmjv-4gpg", "lodash-es prototype pollution _.unset/_.omit (mermaid/Excalidraw, unused)"],
-]);
+const ALLOWLIST = new Map([]);
 
 const BLOCKING = new Set(["high", "critical"]);
 const ghsaFromUrl = (url) => (typeof url === "string" ? url.split("/advisories/")[1] ?? url : "");
