@@ -396,5 +396,49 @@ export const platformSettings = pgTable("platform_settings", {
     .$onUpdate(() => new Date()),
 });
 
+// Planșă v2 (canvas privat, ENGINE PROPRIU — nu Excalidraw/tldraw) — spațiu de lucru per user: adună
+// detalii din platformă, le aranjează (mută/scalează/z-order) și desenează freehand peste ansamblu.
+// STRICT privat la MVP — ownership enforce în plansaService (NU RLS). `state` = CanvasDocument
+// ({ version, items, strokes } — vezi server/domain/plansa.ts), opac pt Drizzle, validat structural
+// pe server la fiecare save; `canvas_items` = index relațional planșă↔detalii.
+export const canvases = pgTable(
+  "canvases",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    state: jsonb(), // CanvasDocument (items + strokes); null = planșă nou-creată, încă fără conținut
+    thumbnailUrl: text(), // PNG compus client-side la salvare (pt „Planșele mele")
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index("canvases_owner_id_idx").on(t.ownerId)],
+);
+
+// Relația planșă ↔ detalii (index de apartenență + integritate). PK compus = un detaliu apare o singură
+// dată pe o planșă. Ambele FK cad în cascadă (planșa ștearsă / detaliul șters → item-ul dispare din index;
+// geometria din `state.items` se reconciliază la load → placeholder „Detaliu indisponibil").
+export const canvasItems = pgTable(
+  "canvas_items",
+  {
+    canvasId: uuid()
+      .notNull()
+      .references(() => canvases.id, { onDelete: "cascade" }),
+    detailId: uuid()
+      .notNull()
+      .references(() => details.id, { onDelete: "cascade" }),
+    addedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.canvasId, t.detailId] }),
+    index("canvas_items_detail_id_idx").on(t.detailId),
+  ],
+);
+
 // Notă: FK `target_id` (polimorfic, validări/comentarii) nu are .references() forțat
 // — integritatea lui se asigură în services (vezi docs/SECURITATE.md §4).

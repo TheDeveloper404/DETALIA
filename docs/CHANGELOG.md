@@ -4,6 +4,43 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-05 — Planșă v2: RECONSTRUITĂ de la zero cu engine PROPRIU (nu Excalidraw/tldraw)
+
+- **De ce:** după ce Planșa a fost scoasă complet mai devreme azi (vezi intrarea de mai jos), discuție cu
+  Liviu — feature-ul rămâne valoros (adună detalii + aranjează + desenează peste ansamblu), dar NU pe un
+  engine generic de whiteboard. Decizie: rescriem de la zero, pe modelul Schiței (HTML5 Canvas +
+  `perfect-freehand`, deja marcă proprie). Plan aprobat: `C:\dev\persist\claude\plans\te-trec-n-plan-happy-volcano.md`.
+- **Scop v1 (confirmat, simplificări deliberate):** fără rotație (resize doar din colțuri, aspect blocat),
+  fără multi-select (un singur item selectat/mutat), fără canvas literalmente infinit (zonă de lucru fixă
+  16:10 + pan/zoom liber).
+- **Model de date nou** — `CanvasDocument = { version, items: CanvasItem[], strokes: Stroke[] }`. `items`
+  = imagini-detaliu poziționate (x/y/width/height normalizate 0..1, `z` explicit — nu index array).
+  `strokes` = tipul EXACT din `server/domain/sketch.ts`, reutilizat 1:1 (nu duplicat).
+- **Straturi noi** (pattern identic cu Schița — domain pur → repo Drizzle izolat → service cu authz):
+  `server/domain/plansa.ts` (+`plansa.test.ts`), `server/repos/plansaRepo.ts`, `server/services/plansaService.ts`.
+  Authz: `WHERE id=? AND owner_id=?` condiționat direct în SQL pe orice mutație (anti-TOCTOU/anti-IDOR),
+  planșă nedeținută → `NOT_FOUND` uniform (niciodată `FORBIDDEN` — nu scurgem existența UUID-ului).
+- **Engine nou** — `components/plansa/plansa-canvas.tsx`: selecție/hit-test pe bounding box, drag/move
+  (commit la mouseup), resize din colțuri cu aspect blocat, z-order (adu în față/trimite în spate), strat
+  global de desen freehand (reutilizează `renderStrokes` din `lib/sketch-render.ts` fără nicio adaptare),
+  undo/redo unificat (items+strokes într-un singur snapshot, reducer identic cu cel de la Schiță), export
+  thumbnail (compunere manuală pe canvas offscreen: imagini + strokes), pan/zoom pe zonă fixă.
+- **DB (migrație `0016`):** re-adăugate `canvases`/`canvas_items` (schemă aproape identică cu varianta
+  veche) — **de rulat manual în Neon SQL Editor** (dev, apoi production; vezi handoff pt SQL exact).
+- **Storage:** `uploadCanvasThumbnail` nou în `lib/storage.ts` (`processAndUploadImage(blob, "canvases")`
+  — folder SEPARAT de `sketches/`, ca să fie distinctibile la audit de blob-uri orfane).
+- **UI + integrare feed:** `/canvases` (listă) + `/canvases/[id]/edit` (editor), `SendToCanvasButton`
+  reintrodus în cardul de feed + pagina detaliului, link nav în header — toate recuperate ~neschimbate din
+  varianta veche (doar payload-urile adaptate la noul model).
+- `tsc --noEmit` + `eslint` + `next build` verzi; `scripts/audit-check.mjs` confirmă 0 vulnerabilități noi
+  (fără nicio dependință externă de whiteboard — engine 100% intern). **Teste de rulat de Liviu:** `npm test`
+  (unit `plansa.test.ts`, urmează convenția din `sketch.test.ts`).
+- **Rămas pt sesiunea viitoare:** verificare vizuală/funcțională live (creare planșă → trimite detalii →
+  aranjează/desenează → autosave/reload → export → ștergere) + eventual audit de securitate țintit
+  (IDOR pe canvases/canvas_items, plafoane anti-abuz) înainte de a considera feature-ul stabil.
+
+---
+
 ## 2026-07-05 — Planșa SCOASĂ complet din MVP (feature + engine + DB)
 
 - **De ce:** discuție cu Liviu — Planșa (canvas privat, orice engine: tldraw sau Excalidraw) e un wrapper
