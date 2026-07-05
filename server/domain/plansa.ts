@@ -16,8 +16,11 @@ export const MAX_NAME_LENGTH = 80;
 export const MAX_ITEMS_PER_CANVAS = 30;
 
 // Plafon pe dimensiunea documentului serializat (bytes din JSON.stringify). Barieră anti-abuz finală
-// (payload injectat de client), nu un target.
-export const MAX_STATE_BYTES = 5_000_000; // 5 MB
+// (payload injectat de client), nu un target. Sub `bodySizeLimit` (4 MB, `next.config.ts` — partajat de
+// TOATE server actions, nu doar de Planșă) cu marjă pt overhead-ul de serializare al server action-ului
+// însuși — altfel un document sub 5 MB ar pica cu o eroare de transport (413) înainte să ajungă la
+// validarea de mai jos, care ar fi trebuit să-l accepte.
+export const MAX_STATE_BYTES = 3_000_000; // 3 MB
 
 // Dimensiuni item (normalizate 0..1 față de zona de lucru). Sub MIN = imagine inutilizabil de mică;
 // peste MAX = permite depășire parțială a cadrului, nu absurd de mare (anti-abuz).
