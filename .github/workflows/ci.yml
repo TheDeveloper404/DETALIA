@@ -50,11 +50,13 @@ jobs:
         if: steps.detect.outputs.ready == 'true'
         run: npm ci
 
-      # Fail DOAR pe high/critical → cele 6 moderate (postcss/esbuild) rămân risk-acceptance MVP,
-      # dar orice vulnerabilitate nouă high/critical blochează PR-ul.
+      # Fail pe high/critical, CU EXCEPȚIA advisory-urilor din allowlist-ul documentat (risk-acceptance) —
+      # vezi scripts/audit-check.mjs. Moderatele (postcss/esbuild) rămân sub prag ca înainte; orice high/
+      # critical NOU, neacceptat, blochează PR-ul. (Înlocuiește `npm audit --audit-level=high` ca să putem
+      # accepta țintit un high fără fix upstream — lodash-es via mermaid/Excalidraw, cod path neinvocat.)
       - name: Audit dependențe
         if: steps.detect.outputs.ready == 'true'
-        run: npm audit --audit-level=high
+        run: node scripts/audit-check.mjs
 
       - name: Type-check
         if: steps.detect.outputs.ready == 'true'
