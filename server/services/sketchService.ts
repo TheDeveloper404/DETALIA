@@ -14,6 +14,7 @@ import {
   insertDraft,
   deleteDraftByAuthor,
   deleteSketchCascade,
+  getPublicSketchTeaser,
   listDraftsByAuthor,
   listPublishedByDetail,
   listRecentPublished,
@@ -179,6 +180,13 @@ export function getTeanc(detailId: string) {
 // Schițe noi în teanc, din toată platforma (rail feed) — cele mai recent publicate.
 export function getRecentSketches(limit = 4) {
   return listRecentPublished(limit);
+}
+
+// Teaser PUBLIC (fără sesiune) — DOAR schițe PUBLISHED (repo-ul filtrează; o schiță ștearsă/DRAFT
+// întoarce null, uniform, fără să distingem cauza — anti-enumerare, la fel ca restul platformei).
+export function getPublicSketch(sketchId: string) {
+  if (!isUuid(sketchId)) return Promise.resolve(null);
+  return getPublicSketchTeaser(sketchId);
 }
 
 // Ciornele userului curent (DRAFT) — pentru pagina „Ciornele mele" (reluare oricând).

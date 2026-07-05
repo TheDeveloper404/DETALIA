@@ -17,11 +17,15 @@ export function DetailActionsMenu({
   authorId,
   isAuthor,
   isSaved,
+  activeSketchId,
 }: {
   detailId: string;
   authorId: string;
   isAuthor: boolean;
   isSaved: boolean;
+  // Tab-ul de schiță activ (null pe tab-ul de bază) — „Copiază linkul" păstrează contextul: dacă userul
+  // se uită la o schiță anume, link-ul copiat deschide direct pe acel tab (?sketch=id), nu pe bază.
+  activeSketchId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -36,7 +40,10 @@ export function DetailActionsMenu({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(window.location.href);
+      const url = activeSketchId
+        ? `${window.location.origin}${pathname}?sketch=${activeSketchId}`
+        : `${window.location.origin}${pathname}`;
+      await navigator.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {

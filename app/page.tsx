@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { CookieConsent } from "@/components/cookie-consent";
 import { HeroPreview } from "@/components/hero-preview";
 import { IntroSplash } from "@/components/intro-splash";
@@ -97,7 +98,7 @@ const SUBLINE = "Alătură-te chiar azi comunității";
 const eyebrowDiamond: CSSProperties = {
   width: 6,
   height: 6,
-  background: "#a9573a",
+  background: "var(--primary)",
   transform: "rotate(45deg)",
   display: "inline-block",
 };
@@ -109,7 +110,7 @@ const eyebrow: CSSProperties = {
   fontSize: 12,
   letterSpacing: "0.16em",
   textTransform: "uppercase",
-  color: "#a9573a",
+  color: "var(--primary)",
   marginBottom: 18,
 };
 const h2: CSSProperties = {
@@ -127,30 +128,30 @@ const primaryBtn: CSSProperties = {
   justifyContent: "center",
   gap: 8,
   whiteSpace: "nowrap",
-  background: "#a9573a",
-  color: "#ffffff",
+  background: "var(--primary)",
+  color: "var(--primary-foreground)",
   fontFamily: SANS,
   fontWeight: 600,
   fontSize: 16,
   padding: "14px 26px",
   borderRadius: "var(--radius)",
   textDecoration: "none",
-  border: "1px solid #95492e",
+  border: "1px solid var(--primary-button-border)",
 };
 const outlineBtn: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   justifyContent: "center",
   gap: 8,
-  background: "#ffffff",
-  color: "#211d18",
+  background: "var(--card)",
+  color: "var(--foreground)",
   fontFamily: SANS,
   fontWeight: 600,
   fontSize: 16,
   padding: "14px 26px",
   borderRadius: "var(--radius)",
   textDecoration: "none",
-  border: "1px solid #d8cfc0",
+  border: "1px solid var(--border)",
 };
 
 function Eyebrow({ children }: { children: ReactNode }) {
@@ -171,8 +172,8 @@ export default function Home() {
       className="dc-landing"
       style={{
         fontFamily: SANS,
-        color: "#211d18",
-        background: "#faf8f4",
+        color: "var(--foreground)",
+        background: "var(--background)",
         fontSize: 16,
         lineHeight: 1.5,
         flex: 1,
@@ -190,9 +191,9 @@ export default function Home() {
           height: 76,
           display: "flex",
           alignItems: "center",
-          background: "rgba(250,248,244,0.86)",
+          background: "var(--header-bg-translucent)",
           backdropFilter: "blur(10px)",
-          borderBottom: "1px solid #e3ddd2",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         <div
@@ -206,12 +207,9 @@ export default function Home() {
             justifyContent: "space-between",
           }}
         >
-          <Link href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-            <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
-          </Link>
+          <BrandLogo size={32} />
           <div className="dc-header-cta" style={{ display: "flex", alignItems: "center", gap: 24 }}>
-            <Link href="/login" className="dc-link" style={{ fontSize: 16, color: "#211d18", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
+            <Link href="/login" className="dc-link" style={{ fontSize: 16, color: "var(--foreground)", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
               Autentificare
             </Link>
             <Link href="/signup" className="dc-btn-primary" style={{ ...primaryBtn, fontSize: 15.5, padding: "11px 20px", borderRadius: "var(--radius)" }}>
@@ -222,7 +220,7 @@ export default function Home() {
       </header>
 
       {/* ===== HERO (varianta B — planșă în panou + voturi pe roluri) ===== */}
-      <section style={{ background: "#faf8f4", position: "relative", overflow: "hidden" }}>
+      <section style={{ background: "var(--background)", position: "relative", overflow: "hidden" }}>
         {/* Fundal blueprint — identic cu login/signup (grilă fină mascată radial spre dreapta). */}
         <div
           aria-hidden
@@ -232,7 +230,7 @@ export default function Home() {
             zIndex: 0,
             pointerEvents: "none",
             backgroundImage:
-              "linear-gradient(#eae0cf 1px,transparent 1px),linear-gradient(90deg,#eae0cf 1px,transparent 1px)",
+              "linear-gradient(var(--blueprint-grid) 1px,transparent 1px),linear-gradient(90deg,var(--blueprint-grid) 1px,transparent 1px)",
             backgroundSize: "34px 34px",
             opacity: 0.6,
             WebkitMaskImage: "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
@@ -257,13 +255,13 @@ export default function Home() {
                 lineHeight: 1.05,
                 letterSpacing: "-0.02em",
                 margin: "0 0 22px",
-                color: "#211d18",
+                color: "var(--foreground)",
                 textWrap: "balance",
               }}
             >
-              Detaliul de execuție, pus la dezbatere <span style={{ color: "#a9573a" }}>pe roluri</span>.
+              Detaliul de execuție, pus la dezbatere <span style={{ color: "var(--primary)" }}>pe roluri</span>.
             </h1>
-            <p style={{ fontSize: 18, lineHeight: 1.55, color: "#5d564c", margin: "0 0 34px", maxWidth: 520, textWrap: "pretty" }}>
+            <p style={{ fontSize: 18, lineHeight: 1.55, color: "var(--muted-foreground)", margin: "0 0 34px", maxWidth: 520, textWrap: "pretty" }}>
               Publici un detaliu, alți profesioniști desenează propuneri direct peste el, iar comunitatea îl
               validează deschis — fiecare cu numele și rolul lui.
             </p>
@@ -275,7 +273,7 @@ export default function Home() {
                 Autentificare
               </Link>
             </div>
-            <div style={{ fontFamily: MONO, fontSize: 12.5, color: "#8a8073", marginTop: 20, letterSpacing: "0.02em" }}>
+            <div style={{ fontFamily: MONO, fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 20, letterSpacing: "0.02em" }}>
               {SUBLINE}
             </div>
           </div>
@@ -286,13 +284,13 @@ export default function Home() {
       </section>
 
       {/* ===== 01 · PROBLEMA & SOLUȚIA ===== */}
-      <section style={{ background: "#faf8f4", borderTop: "1px solid #ece4d6" }}>
+      <section style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Eyebrow>01 — Problema &amp; soluția</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 8px", maxWidth: "20ch" }}>
             Detaliile bune se pierd. Greșelile se repetă.
           </h2>
-          <p style={{ fontSize: 17, color: "#5d564c", margin: "0 0 44px", maxWidth: "60ch", textWrap: "pretty" }}>
+          <p style={{ fontSize: 17, color: "var(--muted-foreground)", margin: "0 0 44px", maxWidth: "60ch", textWrap: "pretty" }}>
             Același detaliu de execuție e desenat de zeci de ori, în zeci de feluri, fără ca cineva să-l pună la
             îndoială pe roluri.
           </p>
@@ -301,10 +299,10 @@ export default function Home() {
           <Reveal>
           <div
             style={{
-              border: "1px solid #e3ddd2",
+              border: "1px solid var(--border)",
               borderRadius: "var(--radius)",
               overflow: "hidden",
-              background: "#fffdf9",
+              background: "var(--card)",
               boxShadow: "0 20px 48px -32px rgba(33,29,24,0.32)",
             }}
           >
@@ -314,26 +312,26 @@ export default function Home() {
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: "12px 18px",
-                borderBottom: "1px solid #eee6da",
-                background: "#f6f1e8",
+                borderBottom: "1px solid var(--border)",
+                background: "var(--secondary)",
                 fontFamily: MONO,
                 fontSize: 12,
                 letterSpacing: "0.04em",
-                color: "#8a8073",
+                color: "var(--muted-foreground)",
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                <span style={{ width: 8, height: 8, background: "#a9573a", transform: "rotate(45deg)", display: "inline-block" }} />
+                <span style={{ width: 8, height: 8, background: "var(--primary)", transform: "rotate(45deg)", display: "inline-block" }} />
                 starea-breslei.diff
               </span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 12, fontWeight: 600 }}>
                 <span style={{ color: "#2f6b3f" }}>+4</span>
-                <span style={{ color: "#b0463c" }}>−4</span>
+                <span style={{ color: "var(--destructive)" }}>−4</span>
               </span>
             </div>
 
             {DIFF.map((d, i) => (
-              <div key={d.minus} style={{ borderTop: i ? "1px solid #f0e9dd" : "none" }}>
+              <div key={d.minus} style={{ borderTop: i ? "1px solid var(--border)" : "none" }}>
                 <DiffLine sign="−" text={d.minus} kind="del" />
                 <DiffLine sign="+" text={d.plus} kind="add" />
               </div>
@@ -344,7 +342,7 @@ export default function Home() {
       </section>
 
       {/* ===== 02 · CUM FUNCȚIONEAZĂ ===== */}
-      <section style={{ background: "#f3efe8", borderTop: "1px solid #e6ddcf" }}>
+      <section style={{ background: "var(--secondary)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Eyebrow>02 — Cum funcționează</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "20ch" }}>Trei pași, de la desen la validare.</h2>
@@ -372,7 +370,7 @@ export default function Home() {
       </section>
 
       {/* ===== 03 · CE CÂȘTIGI ===== */}
-      <section style={{ background: "#faf8f4", borderTop: "1px solid #e6ddcf" }}>
+      <section style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Reveal>
           <div className="dt-gains">
@@ -382,7 +380,7 @@ export default function Home() {
               <h2 style={{ ...h2, margin: "0 0 16px" }}>
                 Un detaliu cântărit de breaslă, nu de un singur autor.
               </h2>
-              <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "#5d564c", margin: 0, maxWidth: "38ch" }}>
+              <p style={{ fontSize: 16.5, lineHeight: 1.6, color: "var(--muted-foreground)", margin: 0, maxWidth: "38ch" }}>
                 Nu doar un loc unde ții detalii — un mecanism prin care fiecare detaliu iese mai bun
                 decât a intrat.
               </p>
@@ -406,7 +404,7 @@ export default function Home() {
       </section>
 
       {/* ===== 04 · PENTRU CINE ===== */}
-      <section style={{ background: "#f3efe8", borderTop: "1px solid #e6ddcf" }}>
+      <section style={{ background: "var(--secondary)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Eyebrow>04 — Pentru cine</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "20ch" }}>Patru roluri, în jurul aceluiași detaliu.</h2>
@@ -532,14 +530,14 @@ function DiffLine({ sign, text, kind }: { sign: string; text: string; kind: "del
           fontWeight: 700,
           textAlign: "center",
           padding: "13px 0",
-          color: del ? "#b0463c" : "#2f6b3f",
+          color: del ? "var(--destructive)" : "#2f6b3f",
           borderRight: `1px solid ${del ? "rgba(176,70,60,0.18)" : "rgba(47,107,63,0.18)"}`,
           userSelect: "none",
         }}
       >
         {sign}
       </span>
-      <span style={{ padding: "13px 18px", fontSize: 15.5, lineHeight: 1.5, color: del ? "#6f675c" : "#34302a" }}>
+      <span style={{ padding: "13px 18px", fontSize: 15.5, lineHeight: 1.5, color: del ? "var(--muted-foreground)" : "var(--foreground)" }}>
         {text}
       </span>
     </div>
@@ -555,7 +553,7 @@ function FlowFrame({ step }: { step: 1 | 2 | 3 }) {
         position: "relative",
         height: 150,
         borderRadius: "var(--radius)",
-        border: "1px solid #e3ddd2",
+        border: "1px solid var(--border)",
         background: "#faf7f1",
         overflow: "hidden",
       }}
@@ -566,7 +564,7 @@ function FlowFrame({ step }: { step: 1 | 2 | 3 }) {
           position: "absolute",
           inset: 0,
           backgroundImage:
-            "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
+            "linear-gradient(var(--blueprint-grid) 1px,transparent 1px),linear-gradient(90deg,var(--blueprint-grid) 1px,transparent 1px)",
           backgroundSize: "22px 22px",
           opacity: 0.5,
         }}
@@ -587,7 +585,7 @@ function FlowFrame({ step }: { step: 1 | 2 | 3 }) {
         </g>
         {/* pasul 2: propunerea desenată peste (terracotta) */}
         {step === 2 && (
-          <path d="M58 78 C 82 44, 108 94, 150 52" stroke="#a9573a" strokeWidth="3" fill="none" strokeLinecap="round" />
+          <path d="M58 78 C 82 44, 108 94, 150 52" stroke="var(--primary)" strokeWidth="3" fill="none" strokeLinecap="round" />
         )}
         {/* pasul 3: validări pe roluri */}
         {step === 3 && (
@@ -596,8 +594,8 @@ function FlowFrame({ step }: { step: 1 | 2 | 3 }) {
             <text x="80" y="61" textAnchor="middle" fontSize="15" fontWeight="700" fill="#2f6b3f">
               ✓
             </text>
-            <circle cx="124" cy="66" r="15" fill="rgba(176,70,60,0.12)" stroke="#b0463c" strokeWidth="1.5" />
-            <text x="124" y="71" textAnchor="middle" fontSize="14" fontWeight="700" fill="#b0463c">
+            <circle cx="124" cy="66" r="15" fill="rgba(176,70,60,0.12)" stroke="var(--destructive)" strokeWidth="1.5" />
+            <text x="124" y="71" textAnchor="middle" fontSize="14" fontWeight="700" fill="var(--destructive)">
               ✕
             </text>
           </>
@@ -611,26 +609,26 @@ function FlowStep({ step, data }: { step: 1 | 2 | 3; data: { n: string; title: s
   return (
     <div>
       <FlowFrame step={step} />
-      <div style={{ fontFamily: MONO, fontSize: 12, color: "#a9573a", letterSpacing: "0.1em", margin: "16px 0 8px" }}>
+      <div style={{ fontFamily: MONO, fontSize: 12, color: "var(--primary)", letterSpacing: "0.1em", margin: "16px 0 8px" }}>
         {data.n}
       </div>
-      <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "#211d18" }}>
+      <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "var(--foreground)" }}>
         {data.title}
       </h3>
-      <p style={{ fontSize: 15, color: "#5d564c", lineHeight: 1.55, margin: 0 }}>{data.body}</p>
+      <p style={{ fontSize: 15, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>{data.body}</p>
     </div>
   );
 }
 
 function RoleCard({ emoji, title, body }: { emoji: string; title: string; body: string }) {
   return (
-    <div className="dt-role-card" style={{ background: "#ffffff", border: "1px solid #e6dfd3", borderRadius: "var(--radius)", padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
+    <div className="dt-role-card" style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: 28, display: "flex", gap: 18, alignItems: "flex-start" }}>
       <span className="dt-role-emoji" aria-hidden>
         {emoji}
       </span>
       <div>
-        <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "#211d18" }}>{title}</h3>
-        <p style={{ fontSize: 15.5, color: "#5d564c", lineHeight: 1.55, margin: 0 }}>{body}</p>
+        <h3 style={{ fontFamily: SANS, fontWeight: 700, fontSize: 20, margin: "0 0 8px", color: "var(--foreground)" }}>{title}</h3>
+        <p style={{ fontSize: 15.5, color: "var(--muted-foreground)", lineHeight: 1.55, margin: 0 }}>{body}</p>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, Loader2, MoreVertical, Plus, Trash2 } from "lucide-react";
+import { Copy, LayoutDashboard, Loader2, MoreVertical, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import {
   createCanvasAction,
   deleteCanvasAction,
+  duplicateCanvasAction,
   renameCanvasAction,
 } from "./canvas-list-actions";
 
@@ -105,7 +106,19 @@ export function CanvasesList({ canvases }: { canvases: CanvasItem[] }) {
 function CanvasCard({ canvas }: { canvas: CanvasItem }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [duplicating, startDuplicate] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Apel direct (NU <form type="submit">): vrem să închidem meniul DUPĂ ce acțiunea termină, nu la click
+  // (același bug ca la Șterge — onClick pe un submit ar demonta form-ul înaintea submit-ului nativ).
+  const duplicate = () => {
+    const fd = new FormData();
+    fd.set("canvasId", canvas.id);
+    startDuplicate(async () => {
+      await duplicateCanvasAction(fd);
+      setMenuOpen(false);
+    });
+  };
 
   return (
     <div className="group relative flex flex-col rounded-lg border border-border bg-card">
@@ -178,11 +191,26 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
                 >
                   Redenumește
                 </button>
+                <button
+                  type="button"
+                  onClick={duplicate}
+                  disabled={duplicating}
+                  className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[13px] hover:bg-muted disabled:opacity-50"
+                >
+                  {duplicating ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Copy className="size-3.5" strokeWidth={2} />
+                  )}
+                  Duplică
+                </button>
                 <form action={deleteCanvasAction}>
                   <input type="hidden" name="canvasId" value={canvas.id} />
+                  {/* FĂRĂ onClick care închide meniul: ar demonta form-ul sincron, înaintea acțiunii
+                      native de submit a browserului, și click-ul nu ar mai ajunge la server action.
+                      Meniul dispare oricum când cardul e eliminat din listă după revalidatePath. */}
                   <button
                     type="submit"
-                    onClick={() => setMenuOpen(false)}
                     className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[13px] text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="size-3.5" strokeWidth={2} />

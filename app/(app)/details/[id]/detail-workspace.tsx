@@ -3,11 +3,13 @@
 import { Activity, Pencil, Snowflake, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
 import { SendToCanvasButton } from "@/components/send-to-canvas-button";
+import { CopySketchLinkButton } from "@/components/sketch/copy-sketch-link-button";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
@@ -91,8 +93,15 @@ export function DetailWorkspace({
   currentUserImage?: string | null;
 }) {
   // 0 = detaliul de bază; 1..N = schițele (index i → sketches[i-1]). După o ștergere lista se scurtează
-  // → clamp pe un tab valid.
-  const [tab, setTab] = useState(0);
+  // → clamp pe un tab valid. `?sketch=<id>` din URL (dacă e prezent) deschide direct pe tab-ul acela —
+  // e ținta linkului din „Copiază linkul" cât timp o schiță e activă (vezi DetailActionsMenu).
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState(() => {
+    const wanted = searchParams.get("sketch");
+    if (!wanted) return 0;
+    const idx = sketches.findIndex((s) => s.id === wanted);
+    return idx >= 0 ? idx + 1 : 0;
+  });
   const safeTab = Math.min(tab, sketches.length); // max = N (ultima schiță)
   const isBase = safeTab === 0;
   const activeSketch = isBase ? null : sketches[safeTab - 1];
@@ -140,7 +149,10 @@ export function DetailWorkspace({
             <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
               {header.title}
             </h1>
-            {currentUserId && (
+            {/* DOAR pe tab-ul de bază: modelul CanvasItem trimite mereu imaginea DETALIULUI-mamă, nu a
+                schiței active (canvas_items nu are noțiune de sketch_id) — pe tab de schiță, butonul
+                ar trimite silențios altceva decât ce vede userul. Ascuns, nu îl lăsăm să mintă. */}
+            {currentUserId && isBase && (
               <div className="shrink-0 pt-1">
                 <SendToCanvasButton detailId={detailId} />
               </div>
@@ -173,6 +185,7 @@ export function DetailWorkspace({
                 authorId={detailAuthor.id ?? ""}
                 isAuthor={isDetailAuthor}
                 isSaved={header.isSaved}
+                activeSketchId={isBase ? null : activeSketch!.id}
               />
             </span>
           </div>
@@ -357,9 +370,12 @@ export function DetailWorkspace({
             </div>
 
             {!isBase && (
-              <span className="self-start rounded-full border border-emerald-600/30 bg-emerald-50 px-2.5 py-1 font-mono text-[11px] text-emerald-700">
-                în teanc · publicată
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full border border-emerald-600/30 bg-emerald-50 px-2.5 py-1 font-mono text-[11px] text-emerald-700">
+                  în teanc · publicată
+                </span>
+                <CopySketchLinkButton sketchId={activeSketch!.id} />
+              </div>
             )}
 
             {canDeleteActive && activeSketch && (
