@@ -108,9 +108,9 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+    <div className="group relative flex flex-col rounded-lg border border-border bg-card">
       <Link href={`/canvases/${canvas.id}/edit`} className="block">
-        <div className="relative aspect-[4/3] w-full bg-secondary">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-lg bg-secondary">
           {canvas.thumbnailUrl ? (
             <Image
               src={canvas.thumbnailUrl}

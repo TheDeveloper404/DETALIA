@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_POINTS_PER_STROKE,
   MAX_STROKES,
+  MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
   validateStrokes,
@@ -28,6 +29,24 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
   it("respinge peste MAX_STROKES (anti-abuz jsonb)", () => {
     const many = Array.from({ length: MAX_STROKES + 1 }, () => freeStroke());
     expect(validateStrokes(many)).toEqual({ ok: false, error: "TOO_MANY_STROKES" });
+  });
+
+  it("respinge documentul peste MAX_STROKES_BYTES chiar sub MAX_STROKES/MAX_POINTS_PER_STROKE", () => {
+    // Puține stroke-uri (sub MAX_STROKES), fiecare cu MAX_POINTS_PER_STROKE puncte cu zecimale lungi
+    // (evită rotunjirea la valori scurte) — payload agregat mare, dar fiecare limită individuală respectată.
+    const heavyStroke = () =>
+      freeStroke({
+        points: Array.from({ length: MAX_POINTS_PER_STROKE }, (_, i) => [
+          (i % 3) / 3,
+          ((i + 1) % 3) / 3,
+        ]),
+      });
+    const heavy = Array.from({ length: 20 }, heavyStroke);
+    expect(heavy.length).toBeLessThan(MAX_STROKES);
+    const r = validateStrokes(heavy);
+    expect(r).toEqual({ ok: false, error: "TOO_LARGE" });
+    // sanity-check pe premisă: payload-ul construit chiar depășește plafonul testat.
+    expect(new TextEncoder().encode(JSON.stringify(heavy)).length).toBeGreaterThan(MAX_STROKES_BYTES);
   });
 
   it("respinge culoarea ne-hex (input controlat de client)", () => {
