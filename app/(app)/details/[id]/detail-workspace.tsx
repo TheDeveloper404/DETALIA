@@ -16,7 +16,6 @@ import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
 import type { TargetPosition } from "@/server/repos/validationsRepo";
 
-import { SendToCanvasButton } from "@/components/send-to-canvas-button";
 
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
@@ -136,16 +135,9 @@ export function DetailWorkspace({
       <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
         {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
         <div className="border-b border-[#eee6da] px-5 py-5 sm:px-6">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
-              {header.title}
-            </h1>
-            {currentUserId && (
-              <div className="shrink-0 pt-1">
-                <SendToCanvasButton detailId={detailId} />
-              </div>
-            )}
-          </div>
+          <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
+            {header.title}
+          </h1>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
             <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />
