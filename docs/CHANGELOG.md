@@ -26,7 +26,11 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 - **Bonus (fix separat, aceeași sesiune):** popover „Trimite în Planșă" (feed) și meniul kebab (`/canvases`)
   erau clipate de `overflow-hidden` de pe card → mutat `overflow-hidden` strict pe thumbnail. Vezi
   `detail-card.tsx` / `canvases-list.tsx`.
-- `tsc --noEmit` + `eslint` verzi. **De verificat live** (server repornit pt swap-ul de dependințe) + `next build`.
+- `tsc --noEmit` + `eslint` + `next build` verzi; verificat **live** (Excalidraw montează, RO, fără watermark;
+  reconciliere detaliu→imagine, autosave în format `excalidraw`, reload, overlay selecție, „Elimină de pe planșă").
+- **Securitate — CI:** Excalidraw aduce tranzitiv un HIGH fără fix upstream (`lodash-es` via mermaid/chevrotain,
+  cod path neinvocat — vezi SEC-A6 în `docs/SECURITATE.md`). Poarta de audit a trecut de la `npm audit --audit-level=high`
+  la `scripts/audit-check.mjs`: allowlist **țintit** pe cele 3 GHSA lodash-es, **orice alt high/critical nou tot blochează PR-ul**.
 
 ---
 
