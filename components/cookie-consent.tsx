@@ -30,9 +30,9 @@ export function CookieConsent() {
   return (
     <div
       role="status"
-      className="fixed bottom-5 left-5 z-50 max-w-sm rounded-xl border border-[#e3ddd2] bg-white p-4 shadow-lg"
+      className="fixed bottom-5 left-5 z-50 max-w-sm rounded-xl border border-border bg-card p-4 shadow-lg"
     >
-      <p className="text-sm leading-relaxed text-[#5d564c]">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Folosim doar cookie-ul strict necesar pentru autentificare — fără tracking, fără marketing.
       </p>
       <div className="mt-3 flex justify-end">

@@ -78,7 +78,7 @@ export function IntroSplash() {
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        background: "#faf8f4",
+        background: "var(--background)",
         opacity: phase === "hiding" ? 0 : 1,
         transition: `opacity ${FADE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
         // În timpul fade-out-ului overlay-ul nu mai interceptează nimic (clicks trec spre landing).
@@ -118,7 +118,7 @@ export function IntroSplash() {
           fontFamily: "var(--font-plex-mono), monospace",
           fontSize: 12.5,
           letterSpacing: "0.04em",
-          color: "#8a8073",
+          color: "var(--muted-foreground)",
           background: "transparent",
           border: "none",
           cursor: "pointer",

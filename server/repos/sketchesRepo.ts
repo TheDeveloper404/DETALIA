@@ -146,6 +146,34 @@ export function listRecentPublished(limit: number) {
 
 export type RecentPublishedSketch = Awaited<ReturnType<typeof listRecentPublished>>[number];
 
+// Teaser PUBLIC (fără autentificare) al unei schițe — DOAR PUBLISHED (draft-urile nu sunt niciodată
+// accesibile fără cont). Randăm `thumbnailUrl` (imaginea deja compusă la publicare: detaliul-mamă +
+// stroke-urile suprapuse) — read-only, fără strokesJson (nu expunem datele vectoriale unui vizitator
+// anonim, doar rezultatul randat).
+export async function getPublicSketchTeaser(id: string) {
+  const [row] = await db
+    .select({
+      id: sketches.id,
+      thumbnailUrl: sketches.thumbnailUrl,
+      acceptedAt: sketches.acceptedAt,
+      detailId: sketches.detailId,
+      detailTitle: details.title,
+      authorName: users.name,
+      authorRoleMain: roles.roleMain,
+      authorSubRole: roles.subRole,
+      authorVerification: roles.verificationStatus,
+    })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .leftJoin(users, eq(users.id, sketches.authorId))
+    .leftJoin(roles, eq(roles.userId, sketches.authorId))
+    .where(and(eq(sketches.id, id), eq(sketches.status, "PUBLISHED")))
+    .limit(1);
+  return row ?? null;
+}
+
+export type PublicSketchTeaser = Awaited<ReturnType<typeof getPublicSketchTeaser>>;
+
 // Ciornele (DRAFT) ale unui autor — cu titlul + imaginea detaliului-mamă, pentru a le relua din „Ciornele mele".
 export function listDraftsByAuthor(authorId: string) {
   return db

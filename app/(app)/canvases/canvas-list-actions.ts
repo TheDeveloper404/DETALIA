@@ -10,6 +10,7 @@ import {
   addDetailToCanvas,
   createCanvas,
   deleteCanvas,
+  duplicateCanvas,
   listMyCanvases,
   renameCanvas,
 } from "@/server/services/plansaService";
@@ -91,6 +92,15 @@ export async function renameCanvasAction(formData: FormData): Promise<void> {
   const name = String(formData.get("name") ?? "");
   if (!(await checkLimit(limiters.mutation, userId)).ok) redirect("/canvases");
   await renameCanvas({ canvasId, ownerId: userId, name });
+  revalidatePath("/canvases");
+}
+
+// Duplică o planșă (din „Planșele mele"). Form action → revalidate; copia apare în listă.
+export async function duplicateCanvasAction(formData: FormData): Promise<void> {
+  const userId = await requireActiveUserId();
+  const canvasId = String(formData.get("canvasId") ?? "");
+  if (!(await checkLimit(limiters.mutation, userId)).ok) redirect("/canvases");
+  await duplicateCanvas({ canvasId, ownerId: userId });
   revalidatePath("/canvases");
 }
 

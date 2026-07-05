@@ -23,7 +23,7 @@ const labelStyle: React.CSSProperties = {
   fontSize: 11,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "#8a8073",
+  color: "var(--muted-foreground)",
   marginBottom: 8,
 };
 
@@ -188,8 +188,8 @@ export function OnboardingForm() {
             alignItems: "center",
             gap: 15,
             padding: "18px 24px",
-            background: "#f6f2ea",
-            borderBottom: "1px solid #ece4d6",
+            background: "var(--secondary)",
+            borderBottom: "1px solid var(--border)",
           }}
         >
           <span
@@ -200,8 +200,8 @@ export function OnboardingForm() {
               height: 50,
               borderRadius: "50%",
               overflow: "hidden",
-              background: "#e3d6c4",
-              border: "1px solid #ddceba",
+              background: "var(--secondary)",
+              border: "1px solid var(--border)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -219,7 +219,7 @@ export function OnboardingForm() {
                 style={{
                   fontFamily: "var(--font-plex-mono), monospace",
                   fontSize: 15,
-                  color: "#7c7060",
+                  color: "var(--muted-foreground)",
                 }}
               >
                 {initials}
@@ -233,14 +233,14 @@ export function OnboardingForm() {
                 fontSize: 10,
                 letterSpacing: "0.14em",
                 textTransform: "uppercase",
-                color: "#a59a88",
+                color: "var(--muted-foreground)",
                 marginBottom: 5,
               }}
             >
               Cum vei apărea
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ fontWeight: 700, fontSize: 17, color: "#211d18" }}>
+              <span style={{ fontWeight: 700, fontSize: 17, color: "var(--foreground)" }}>
                 {displayName}
               </span>
               {pillText && (
@@ -248,8 +248,8 @@ export function OnboardingForm() {
                   style={{
                     fontFamily: "var(--font-plex-mono), monospace",
                     fontSize: 12,
-                    color: "#fff",
-                    background: "#a9573a",
+                    color: "var(--primary-foreground)",
+                    background: "var(--primary)",
                     padding: "3px 10px",
                     borderRadius: 999,
                     whiteSpace: "nowrap",
@@ -274,7 +274,7 @@ export function OnboardingForm() {
                 background: "rgba(176,70,60,0.08)",
                 padding: "11px 14px",
                 fontSize: 14,
-                color: "#b0463c",
+                color: "var(--destructive)",
               }}
             >
               {clientErr ?? state.error}
@@ -330,7 +330,7 @@ export function OnboardingForm() {
                 onChange={(e) => onRol(e.target.value)}
                 required
                 className="dt-field dt-select"
-                style={{ ...inputStyle, cursor: "pointer", paddingRight: 38, color: rol ? "var(--foreground)" : "#a59a88" }}
+                style={{ ...inputStyle, cursor: "pointer", paddingRight: 38, color: rol ? "var(--foreground)" : "var(--muted-foreground)" }}
               >
                 <option value="" disabled>
                   Alege domeniul
@@ -358,7 +358,7 @@ export function OnboardingForm() {
                   ...inputStyle,
                   cursor: rol ? "pointer" : "not-allowed",
                   paddingRight: 38,
-                  color: subrol ? "var(--foreground)" : "#a59a88",
+                  color: subrol ? "var(--foreground)" : "var(--muted-foreground)",
                   opacity: rol ? 1 : 0.6,
                 }}
               >
@@ -378,7 +378,7 @@ export function OnboardingForm() {
           <div style={{ marginBottom: 20 }}>
             <label htmlFor="dt-rol-aditional" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
               Rol adițional{" "}
-              <span style={{ color: "#b8ad9b", letterSpacing: "0.04em", textTransform: "none" }}>
+              <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
                 (opțional)
               </span>
             </label>
@@ -392,7 +392,7 @@ export function OnboardingForm() {
                 ...inputStyle,
                 cursor: "pointer",
                 paddingRight: 38,
-                color: rolAditional ? "var(--foreground)" : "#a59a88",
+                color: rolAditional ? "var(--foreground)" : "var(--muted-foreground)",
               }}
             >
               <option value="">Niciunul</option>
@@ -417,7 +417,7 @@ export function OnboardingForm() {
               className="dt-field"
               style={inputStyle}
             />
-            <div style={{ fontSize: 12.5, color: "#a59a88", marginTop: 7, lineHeight: 1.4 }}>
+            <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 7, lineHeight: 1.4 }}>
               O linie scurtă, ca pe LinkedIn — apare sub numele tău pe profil.
             </div>
           </div>
@@ -440,7 +440,7 @@ export function OnboardingForm() {
             <div>
               <label htmlFor="dt-web" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
                 Website{" "}
-                <span style={{ color: "#b8ad9b", letterSpacing: "0.04em", textTransform: "none" }}>
+                <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
                   (opțional)
                 </span>
               </label>
@@ -459,7 +459,7 @@ export function OnboardingForm() {
           <div style={{ marginBottom: 24 }}>
             <label htmlFor="dt-company" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
               Firmă{" "}
-              <span style={{ color: "#b8ad9b", letterSpacing: "0.04em", textTransform: "none" }}>
+              <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
                 (opțional)
               </span>
             </label>
@@ -476,7 +476,7 @@ export function OnboardingForm() {
           {/* Media: avatar + cover */}
           <div
             className="dt-media"
-            style={{ alignItems: "stretch", paddingTop: 22, borderTop: "1px solid #ece4d6" }}
+            style={{ alignItems: "stretch", paddingTop: 22, borderTop: "1px solid var(--border)" }}
           >
             {/* avatar */}
             <div>
@@ -490,8 +490,8 @@ export function OnboardingForm() {
                     height: 72,
                     borderRadius: "50%",
                     overflow: "hidden",
-                    background: "#f3efe8",
-                    border: "1.5px dashed #cbbfa9",
+                    background: "var(--secondary)",
+                    border: "1.5px dashed var(--border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -501,13 +501,13 @@ export function OnboardingForm() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   ) : (
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a9573a" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="9" r="3.2" />
                       <path d="M5.5 19a6.5 6.5 0 0 1 13 0" />
                     </svg>
                   )}
                 </span>
-                <span style={{ fontWeight: 600, fontSize: 14, color: "#a9573a" }}>
+                <span style={{ fontWeight: 600, fontSize: 14, color: "var(--primary)" }}>
                   {avatarUrl ? "Schimbă poza" : "Încarcă o poză"}
                 </span>
               </label>
@@ -524,7 +524,7 @@ export function OnboardingForm() {
             <div style={{ minWidth: 0 }}>
               <label style={{ ...labelStyle, marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
                 Imagine de cover{" "}
-                <span style={{ color: "#b8ad9b", letterSpacing: "0.04em", textTransform: "none" }}>
+                <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
                   (opțional)
                 </span>
               </label>
@@ -539,7 +539,7 @@ export function OnboardingForm() {
                     height: 72,
                     borderRadius: "var(--radius)",
                     overflow: "hidden",
-                    border: "1.5px solid #cbbfa9",
+                    border: "1.5px solid var(--border)",
                     cursor: "grab",
                     touchAction: "none",
                   }}
@@ -609,16 +609,16 @@ export function OnboardingForm() {
                       height: 72,
                       borderRadius: "var(--radius)",
                       overflow: "hidden",
-                      background: "#f6f2ea",
-                      border: "1.5px dashed #cbbfa9",
+                      background: "var(--secondary)",
+                      border: "1.5px dashed var(--border)",
                     }}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a9573a" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="5" width="18" height="14" rx="2" />
                       <circle cx="8.5" cy="10" r="1.6" />
                       <path d="m21 16-5-5L5 19" />
                     </svg>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: "#a9573a" }}>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: "var(--primary)" }}>
                       Adaugă o bandă de cover
                     </span>
                   </span>
@@ -653,14 +653,14 @@ export function OnboardingForm() {
               fontSize: 16.5,
               padding: "15px 20px",
               borderRadius: "var(--radius)",
-              border: "1px solid #95492e",
+              border: "1px solid var(--primary-button-border)",
               cursor: pending || uploading ? "default" : "pointer",
               opacity: pending || uploading ? 0.75 : 1,
             }}
           >
             {uploading ? "Se încarcă imaginile…" : pending ? "Se salvează…" : "Continuă în feed"}
             {!pending && !uploading && (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary-foreground)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14" />
                 <path d="m12 5 7 7-7 7" />
               </svg>
@@ -670,7 +670,7 @@ export function OnboardingForm() {
             style={{
               textAlign: "center",
               fontSize: 13,
-              color: "#8a8073",
+              color: "var(--muted-foreground)",
               lineHeight: 1.5,
               margin: "14px 0 0",
             }}

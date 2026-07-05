@@ -646,7 +646,7 @@ export const SketchCanvas = forwardRef<
   return (
     <div className="flex min-h-0 flex-1">
       {/* RAIL UNELTE */}
-      <aside className="z-10 flex w-[86px] flex-none flex-col items-center gap-3.5 overflow-y-auto border-r border-border bg-[#faf8f4] py-4">
+      <aside className="z-10 flex w-[86px] flex-none flex-col items-center gap-3.5 overflow-y-auto border-r border-border bg-background py-4">
         <RailLabel>Unealtă</RailLabel>
         <div className="grid w-full grid-cols-2 justify-items-center gap-1.5 px-1.5">
           {TOOL_ITEMS.map(({ value, label, Icon }) => {
@@ -684,7 +684,7 @@ export const SketchCanvas = forwardRef<
                 if (tool === "eraser") setTool("pen");
               }}
               className={cn(
-                "size-6 rounded-full ring-offset-[#faf8f4] transition-shadow",
+                "size-6 rounded-full ring-offset-background transition-shadow",
                 drawActive && color === c
                   ? "ring-2 ring-foreground ring-offset-2"
                   : "ring-1 ring-foreground/15",
@@ -708,7 +708,7 @@ export const SketchCanvas = forwardRef<
             style={{
               width: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
               height: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
-              backgroundColor: drawActive ? color : "#8a8073",
+              backgroundColor: drawActive ? color : "var(--muted-foreground)",
             }}
           />
           <input
@@ -911,7 +911,7 @@ export const SketchCanvas = forwardRef<
                 <Pencil className="size-4" strokeWidth={2} />
               </TextCtrlBtn>
               <TextCtrlBtn label="Șterge" onClick={deleteSelectedText}>
-                <Trash2 className="size-4 text-[#b0463c]" strokeWidth={2} />
+                <Trash2 className="size-4 text-destructive" strokeWidth={2} />
               </TextCtrlBtn>
             </div>
           )}

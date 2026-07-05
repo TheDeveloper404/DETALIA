@@ -16,14 +16,14 @@ const stackAvatar: CSSProperties = {
   width: 24,
   height: 24,
   borderRadius: "50%",
-  background: "#ece4d6",
-  border: "2px solid #ffffff",
+  background: "var(--secondary)",
+  border: "2px solid var(--card)",
   marginLeft: -7,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   fontSize: 9.5,
-  color: "#6f685e",
+  color: "var(--muted-foreground)",
   fontFamily: MONO,
 };
 
@@ -32,12 +32,12 @@ const voteAvatar: CSSProperties = {
   width: 26,
   height: 26,
   borderRadius: "50%",
-  background: "#ece4d6",
+  background: "var(--secondary)",
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
   fontSize: 10.5,
-  color: "#6f685e",
+  color: "var(--muted-foreground)",
   fontFamily: MONO,
 };
 
@@ -47,9 +47,9 @@ const rolePill: CSSProperties = {
   alignItems: "center",
   fontFamily: MONO,
   fontSize: 11,
-  color: "#a9573a",
-  background: "#f6ede4",
-  border: "1px solid #ecdcc8",
+  color: "var(--primary)",
+  background: "var(--secondary)",
+  border: "1px solid var(--border)",
   padding: "2px 8px",
   borderRadius: 999,
   whiteSpace: "nowrap",
@@ -71,8 +71,8 @@ export function HeroPreview() {
       <div
         key={cycle}
         style={{
-          background: "#ffffff",
-          border: "1px solid #e3ddd2",
+          background: "var(--card)",
+          border: "1px solid var(--border)",
           borderRadius: "var(--radius)",
           boxShadow: "0 24px 60px -28px rgba(33,29,24,0.28)",
           overflow: "hidden",
@@ -153,14 +153,14 @@ export function HeroPreview() {
         {/* Conținutul cardului — chrome-ul real din feed, apare după ce planșa s-a desenat. */}
         <div style={{ padding: "16px 18px 4px" }}>
           {/* Titlu */}
-          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "#211d18", animationDelay: "2.5s" }}>
+          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "var(--foreground)", animationDelay: "2.5s" }}>
             Atic acoperiș terasă
           </div>
 
           {/* Autor + rol */}
           <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "2.7s" }}>
             <span style={voteAvatar}>MP</span>
-            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "#211d18" }}>M. Popa</span>
+            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>M. Popa</span>
             <span style={rolePill}>Proiectant</span>
           </div>
 
@@ -169,27 +169,27 @@ export function HeroPreview() {
             <span style={stackAvatar}>IR</span>
             <span style={stackAvatar}>AS</span>
             <span style={stackAvatar}>DV</span>
-            <span style={{ ...stackAvatar, fontWeight: 600, color: "#8a8073" }}>+9</span>
+            <span style={{ ...stackAvatar, fontWeight: 600, color: "var(--muted-foreground)" }}>+9</span>
           </div>
 
           {/* Contoare — ca în feed: validări · comentarii · schițe în teanc. */}
-          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "#8a8073", animationDelay: "3.45s" }}>
+          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "var(--muted-foreground)", animationDelay: "3.45s" }}>
             <span>12 validări</span>
-            <span style={{ color: "#ddd4c4" }}>·</span>
+            <span style={{ color: "var(--border)" }}>·</span>
             <span>3 comentarii</span>
-            <span style={{ color: "#ddd4c4" }}>·</span>
+            <span style={{ color: "var(--border)" }}>·</span>
             <span>5 schițe în teanc</span>
           </div>
         </div>
 
         {/* Pozițiile pe roluri — partea „vie" a dezbaterii (Aprobă / Dezaprobă cu justificare). */}
-        <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid #eee6da", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
           <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "3.9s" }}>
             <span style={voteAvatar}>MP</span>
             <span style={{ fontSize: 13.5, flex: 1 }}>
-              <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "#8a8073" }}>· Proiectant</span>
+              <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
             </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2f6b3f", background: "#e9f2ea", border: "1px solid #d3e6d6", padding: "3px 9px", borderRadius: 999 }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2f6b3f", background: "rgba(47,107,63,0.12)", border: "1px solid rgba(47,107,63,0.3)", padding: "3px 9px", borderRadius: 999 }}>
               ✓ Aprobă
             </span>
           </div>
@@ -198,13 +198,13 @@ export function HeroPreview() {
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13.5 }}>
-                  <b style={{ fontWeight: 600 }}>I. Radu</b> <span style={{ color: "#8a8073" }}>· Executant</span>
+                  <b style={{ fontWeight: 600 }}>I. Radu</b> <span style={{ color: "var(--muted-foreground)" }}>· Executant</span>
                 </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#9a3a30", background: "#f6ebe9", border: "1px solid #ecd6d2", padding: "3px 9px", borderRadius: 999, marginLeft: "auto" }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#9a3a30", background: "rgba(176,70,60,0.12)", border: "1px solid rgba(176,70,60,0.3)", padding: "3px 9px", borderRadius: 999, marginLeft: "auto" }}>
                   ✕ Dezaprobă
                 </span>
               </div>
-              <div style={{ fontSize: 12.5, color: "#6f685e", marginTop: 4, lineHeight: 1.45 }}>
+              <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.45 }}>
                 „Șorțul nu acoperă rostul — apa intră pe la atic.”
               </div>
             </div>

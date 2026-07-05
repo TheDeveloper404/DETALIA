@@ -58,8 +58,8 @@ export function magicLinkEmailHtml(url: string, ttlMinutes: number): string {
     </p>
     ${emailButton(url, "Conectează-te")}
     <p style="margin:22px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
-      Dacă butonul nu merge, copiază acest link în browser:<br>
-      <a href="${esc(url)}" style="color:${BRAND.accent};word-break:break-all;">${esc(url)}</a>
+      Dacă butonul nu merge,
+      <a href="${esc(url)}" style="color:${BRAND.accent};">deschide linkul de autentificare</a>.
     </p>
   `);
 }
@@ -109,8 +109,8 @@ export function adminLoginEmailHtml(url: string, ttlMinutes: number): string {
     </p>
     ${emailButton(url, "Intră în panoul de admin", ADMIN_ACCENT)}
     <p style="margin:22px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
-      Dacă butonul nu merge, copiază acest link în browser:<br>
-      <a href="${esc(url)}" style="color:${ADMIN_ACCENT};word-break:break-all;">${esc(url)}</a>
+      Dacă butonul nu merge,
+      <a href="${esc(url)}" style="color:${ADMIN_ACCENT};">deschide linkul de acces</a>.
     </p>
     <p style="margin:18px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
       Nu ai cerut tu acces admin? Ignoră acest email — contul tău normal nu e afectat.
