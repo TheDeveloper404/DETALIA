@@ -101,6 +101,17 @@ Input-urile care ating coloane `uuid` sunt gardate cu `isUuid` (pattern „SEC-1
   github-actions), grupate minor/patch, target `dev`, max 5 PR-uri. Merge manual, CI validează.
 - `npm audit` la zi: **0 vulnerabilități în producție**; 4 moderate doar în `drizzle-kit` (tooling local).
 
+### [SEC-A6] HIGH `lodash-es` via Excalidraw/mermaid — ⚠️ risk-acceptance (2026-07-05)
+- La migrarea Planșei pe **Excalidraw** a intrat tranzitiv `lodash-es@4.17.21` (advisories GHSA-r5fr-rjxr-66jc
+  code injection `_.template` + GHSA-f23m-r3pf-42rh / GHSA-xxjr-mmjv-4gpg prototype pollution `_.unset`/`_.omit`)
+  prin lanțul `@excalidraw/mermaid-to-excalidraw → mermaid → chevrotain/langium`.
+- **De ce acceptat:** DETALIA folosește Excalidraw **doar pentru desen freehand** peste imagine; funcția de
+  import **mermaid** (singura care încarcă chevrotain/lodash-es) **nu e expusă în UI și nu se invocă**. Nu
+  există **fix upstream** — `lodash-es@4.17.21` e ultima versiune publicată, advisory-ul cere `>4.17.23` (inexistentă).
+- **Poarta rămâne strictă:** CI folosește `scripts/audit-check.mjs` — allowlist **doar** pe aceste 3 GHSA
+  (documentate); **orice alt high/critical nou blochează PR-ul**. Reevaluat la fiecare bump de `@excalidraw/excalidraw`
+  (dacă mermaid devine folosit sau apare fix → se scoate din allowlist).
+
 ### [SEC-A5] INFO — `deleteDetailAction`/`deleteDraftAction` fără rate-limit — ✅ remediat
 - Uniformizare: ambele au acum `limiters.mutation`, ca restul mutațiilor (abuzul era oricum limitat la
   propriul conținut prin ownership).

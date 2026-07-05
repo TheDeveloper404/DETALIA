@@ -73,12 +73,14 @@ export function DetailCard({
   const canValidate = !currentUserId || detail.authorId !== currentUserId;
 
   return (
-    <article className="flex flex-col overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
+    <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
       {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. Pe desktop umple toată
-          înălțimea cardului (self-stretch), mai mare și mai vizibilă; pe mobil rămâne aspect 4/3 sus. */}
+          înălțimea cardului (self-stretch), mai mare și mai vizibilă; pe mobil rămâne aspect 4/3 sus.
+          `overflow-hidden` STRICT local (nu pe <article>) — altfel clipează popover-ul „Trimite în
+          Planșă" din zona de acțiuni, care se deschide sub linia cardului (vezi send-to-canvas-button.tsx). */}
       <Link
         href={href}
-        className="relative block aspect-[4/3] w-full shrink-0 self-stretch border-b border-border bg-secondary sm:w-[260px] sm:border-b-0 sm:border-r"
+        className="relative block aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r"
       >
         <Image
           src={detail.imageUrl}

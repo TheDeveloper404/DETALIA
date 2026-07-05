@@ -1,36 +1,53 @@
 "use client";
 
-// Editorul de Planșă — montează tldraw (canvas infinit) peste snapshot-ul persistat + reconciliază
-// items-urile planșei (detalii adăugate din popover-ul feed) cu shape-urile din store. STRICT privat.
+// Editorul de Planșă — montează Excalidraw (canvas infinit) peste scena persistată + reconciliază items-urile
+// planșei (detalii adăugate din popover-ul feed) cu elementele din scenă. STRICT privat.
 //
-// tldraw se încarcă DOAR pe client (dynamic ssr:false) — componenta atinge API-uri de browser la render.
-// Utilitarele (getSnapshot/loadSnapshot/AssetRecordType/...) se importă normal (nu ating window la import).
+// Excalidraw se încarcă DOAR pe client (dynamic ssr:false) — atinge API-uri de browser la render.
+// Fonturile sunt SELF-HOSTATE din public/excalidraw-assets (window.EXCALIDRAW_ASSET_PATH), NU de pe CDN
+// extern → zero relaxare de CSP (spre deosebire de tldraw, care cerea cdn.tldraw.com; înlocuit 2026-07-05).
 
+import { convertToExcalidrawElements, exportToBlob, serializeAsJSON } from "@excalidraw/excalidraw";
+import "@excalidraw/excalidraw/index.css";
+import { ArrowLeft, Download, ExternalLink, Trash2 } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeft, Download, ExternalLink, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  AssetRecordType,
-  getSnapshot,
-  loadSnapshot,
-  useEditor,
-  useValue,
-  type Editor,
-  type TLImageShape,
-  type TLShapeId,
-  type TLStoreSnapshot,
-} from "tldraw";
-import "tldraw/tldraw.css";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+
 import {
   removeDetailFromCanvasAction,
   saveCanvasStateAction,
   saveCanvasThumbnailAction,
 } from "./canvas-actions";
 
-const Tldraw = dynamic(() => import("tldraw").then((m) => m.Tldraw), { ssr: false });
+// Fonturile Excalidraw se servesc din același origin → CSP `font-src 'self'` le acoperă, fără CDN terț.
+// Trebuie setat ÎNAINTE ca Excalidraw să-și ceară fonturile (modul „use client", înainte de lazy import).
+if (typeof window !== "undefined") {
+  (window as unknown as { EXCALIDRAW_ASSET_PATH?: string }).EXCALIDRAW_ASSET_PATH = "/excalidraw-assets/";
+}
+
+const Excalidraw = dynamic(async () => (await import("@excalidraw/excalidraw")).Excalidraw, {
+  ssr: false,
+});
+
+// API imperativ Excalidraw — tipăm doar metodele folosite (tipurile complete nu-s exportate din entry-point).
+type ExcalidrawFile = { id: string; mimeType: string; dataURL: string; created: number };
+type ExcalidrawElementLike = {
+  id: string;
+  type: string;
+  fileId?: string | null;
+  customData?: Record<string, unknown> | null;
+  isDeleted?: boolean;
+};
+type ExcalidrawApi = {
+  getSceneElements: () => readonly ExcalidrawElementLike[];
+  getAppState: () => Record<string, unknown>;
+  getFiles: () => Record<string, ExcalidrawFile>;
+  addFiles: (files: ExcalidrawFile[]) => void;
+  updateScene: (scene: { elements?: unknown[]; captureUpdate?: unknown }) => void;
+};
 
 // Placeholder afișat când detaliul din spatele unei instanțe a dispărut (șters/nepublicat) — păstrăm poziția.
 const PLACEHOLDER_SRC =
@@ -49,104 +66,208 @@ export type CanvasEditItem = { detailId: string; imageUrl: string; title: string
 type Props = {
   canvasId: string;
   name: string;
-  initialState: unknown; // snapshot document tldraw (sau {} gol)
+  initialState: unknown; // scenă serializată Excalidraw ({ elements, appState, files }) sau {} gol
   items: CanvasEditItem[]; // detaliile accesibile din index (pt materializare + reconciliere)
 };
 
-// meta.detailId al unui shape (dacă e o instanță de detaliu). Restul shape-urilor (schița liberă) n-au.
-function shapeDetailId(shape: { meta?: Record<string, unknown> }): string | null {
-  const id = shape.meta?.detailId;
-  return typeof id === "string" ? id : null;
+// fileId determinist per detaliu → reconcilierea e idempotentă între reîncărcări.
+const fileIdForDetail = (detailId: string) => `detail-${detailId}`;
+
+// Scena inițială = scena persistată + reconciliere cu items (materializează detalii noi, placeholder pt cele
+// dispărute). Calculată SINCRON înainte de mount → o pasăm ca initialData (fără reconciliere async post-mount,
+// care ar depinde de ordinea de inițializare a API-ului).
+function buildInitialScene(initialState: unknown, items: CanvasEditItem[]) {
+  const stored =
+    initialState && typeof initialState === "object" && !Array.isArray(initialState)
+      ? (initialState as {
+          elements?: unknown[];
+          appState?: Record<string, unknown>;
+          files?: Record<string, ExcalidrawFile>;
+        })
+      : {};
+
+  const elements: ExcalidrawElementLike[] = Array.isArray(stored.elements)
+    ? (stored.elements as ExcalidrawElementLike[])
+    : [];
+  const files: Record<string, ExcalidrawFile> = { ...(stored.files ?? {}) };
+  const appState = stored.appState ?? {};
+
+  const accessible = new Map(items.map((it) => [it.detailId, it]));
+
+  // Detalii deja prezente ca elemente (după customData.detailId).
+  const present = new Set<string>();
+  for (const el of elements) {
+    const detailId = typeof el.customData?.detailId === "string" ? (el.customData.detailId as string) : null;
+    if (!detailId || el.isDeleted) continue;
+    present.add(detailId);
+    // Detaliu dispărut → înlocuiește sursa fișierului cu placeholder (păstrează poziția/mărimea).
+    if (
+      !accessible.has(detailId) &&
+      el.fileId &&
+      files[el.fileId] &&
+      files[el.fileId].dataURL !== PLACEHOLDER_SRC
+    ) {
+      files[el.fileId] = { ...files[el.fileId], dataURL: PLACEHOLDER_SRC };
+    }
+  }
+
+  // Items accesibile fără element încă → creează fișier + element imagine (plasare în grilă, zonă liberă).
+  const newSkeletons: Record<string, unknown>[] = [];
+  let idx = present.size;
+  for (const it of items) {
+    if (present.has(it.detailId)) continue;
+    const col = idx % 3;
+    const row = Math.floor(idx / 3);
+    const fileId = fileIdForDetail(it.detailId);
+    files[fileId] = {
+      id: fileId,
+      mimeType: "image/png",
+      // dataURL acceptă și un URL remote (Excalidraw îl încarcă) → nu embed-uim base64 în state.
+      dataURL: it.imageUrl,
+      created: Date.now(),
+    };
+    newSkeletons.push({
+      type: "image",
+      fileId,
+      status: "saved",
+      x: 80 + col * (DEFAULT_W + 60),
+      y: 80 + row * (DEFAULT_H + 80),
+      width: DEFAULT_W,
+      height: DEFAULT_H,
+      customData: { detailId: it.detailId },
+    });
+    idx++;
+  }
+
+  const newElements = newSkeletons.length
+    ? (convertToExcalidrawElements(newSkeletons as never) as unknown as ExcalidrawElementLike[])
+    : [];
+
+  const allElements = [...elements, ...newElements];
+  // Prima deschidere (fără scroll persistat) → centrează pe conținut ca userul să-și vadă detaliile.
+  const scrollToContent = !stored.appState && allElements.length > 0;
+
+  return { elements: allElements, appState, files, scrollToContent };
+}
+
+// Semnătură ușoară a scenei (versiuni + nr. elemente/fișiere) → autosave sare peste onChange-uri care schimbă
+// DOAR selecția/viewport-ul (nu conținutul).
+function sceneSignature(elements: readonly ExcalidrawElementLike[], files: Record<string, unknown>): string {
+  let v = 0;
+  for (const el of elements) v += (el as { version?: number }).version ?? 0;
+  return `${elements.length}:${Object.keys(files).length}:${v}`;
 }
 
 export default function CanvasEditor({ canvasId, name, initialState, items }: Props) {
-  const [editor, setEditor] = useState<Editor | null>(null);
+  const apiRef = useRef<ExcalidrawApi | null>(null);
   const [saved, setSaved] = useState(true);
+  const [selectedDetail, setSelectedDetail] = useState<{ elementId: string; detailId: string } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastThumb = useRef(0);
-  const reconciled = useRef(false);
+  const lastSig = useRef<string | null>(null);
+  // Oglindă a selecției curente — Excalidraw cheamă onChange la FIECARE render; fără gard, un setState cu
+  // obiect nou de fiecare dată re-declanșează render→onChange la infinit („Maximum update depth exceeded").
+  const lastSelectedId = useRef<string | null>(null);
 
-  const persist = useCallback(
-    async (ed: Editor) => {
-      const { document } = getSnapshot(ed.store);
-      const res = await saveCanvasStateAction(canvasId, JSON.stringify(document));
-      if (res.ok) setSaved(true);
+  const initialData = useMemo(() => buildInitialScene(initialState, items), [initialState, items]);
 
-      // Thumbnail throttled (randare + upload sunt scumpe) — o dată la ~20s, pe fundal, best-effort.
-      if (Date.now() - lastThumb.current > THUMB_THROTTLE_MS) {
-        lastThumb.current = Date.now();
-        try {
-          const ids = ed.getCurrentPageShapeIds();
-          if (ids.size > 0) {
-            const img = await ed.toImage([...ids], { format: "png", background: true, padding: 24 });
-            if (img?.blob) {
-              const fd = new FormData();
-              fd.append("canvasId", canvasId);
-              fd.append("thumbnail", img.blob, "canvas.png");
-              await saveCanvasThumbnailAction(fd);
-            }
-          }
-        } catch {
-          // thumbnail e nice-to-have; o eroare nu trebuie să deranjeze editarea
+  const persist = useCallback(async () => {
+    const api = apiRef.current;
+    if (!api) return;
+    const elements = api.getSceneElements();
+    const appState = api.getAppState();
+    const files = api.getFiles();
+
+    const stateJson = serializeAsJSON(elements as never, appState as never, files as never, "local");
+    const res = await saveCanvasStateAction(canvasId, stateJson);
+    if (res.ok) setSaved(true);
+
+    // Thumbnail throttled (randare + upload sunt scumpe) — o dată la ~20s, pe fundal, best-effort.
+    if (Date.now() - lastThumb.current > THUMB_THROTTLE_MS && elements.length > 0) {
+      lastThumb.current = Date.now();
+      try {
+        const blob = await exportToBlob({
+          elements: elements as never,
+          appState: appState as never,
+          files: files as never,
+          mimeType: "image/png",
+          exportPadding: 24,
+        });
+        if (blob) {
+          const fd = new FormData();
+          fd.append("canvasId", canvasId);
+          fd.append("thumbnail", blob, "canvas.png");
+          await saveCanvasThumbnailAction(fd);
         }
+      } catch {
+        // thumbnail e nice-to-have; o eroare nu trebuie să deranjeze editarea
       }
-    },
-    [canvasId],
-  );
+    }
+  }, [canvasId]);
 
-  const scheduleSave = useCallback(
-    (ed: Editor) => {
+  const onChange = useCallback(
+    (
+      elements: readonly ExcalidrawElementLike[],
+      appState: Record<string, unknown>,
+      files: Record<string, unknown>,
+    ) => {
+      // 1) Selecție: un singur element-detaliu selectat → overlay „Deschide / Elimină".
+      // Gard cu ref: setState DOAR când selecția s-a schimbat efectiv (altfel loop infinit, vezi lastSelectedId).
+      const selectedIds = Object.keys((appState.selectedElementIds as Record<string, boolean>) ?? {});
+      let next: { elementId: string; detailId: string } | null = null;
+      if (selectedIds.length === 1) {
+        const el = elements.find((e) => e.id === selectedIds[0] && !e.isDeleted);
+        const detailId =
+          el && typeof el.customData?.detailId === "string" ? (el.customData.detailId as string) : null;
+        if (el && detailId) next = { elementId: el.id, detailId };
+      }
+      if ((next?.elementId ?? null) !== lastSelectedId.current) {
+        lastSelectedId.current = next?.elementId ?? null;
+        setSelectedDetail(next);
+      }
+
+      // 2) Autosave: doar dacă s-a schimbat CONȚINUTUL (nu selecția/viewport-ul).
+      const sig = sceneSignature(elements, files);
+      if (sig === lastSig.current) return;
+      lastSig.current = sig;
       setSaved(false);
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => void persist(ed), AUTOSAVE_MS);
+      saveTimer.current = setTimeout(() => void persist(), AUTOSAVE_MS);
     },
     [persist],
   );
 
-  const handleMount = useCallback(
-    (ed: Editor) => {
-      setEditor(ed);
-
-      // 1) Încarcă snapshot-ul persistat (dacă are conținut).
-      if (initialState && typeof initialState === "object" && Object.keys(initialState).length > 0) {
-        try {
-          loadSnapshot(ed.store, { document: initialState as TLStoreSnapshot });
-        } catch {
-          // snapshot corupt / incompatibil — pornim de la o planșă goală, nu crăpăm
-        }
-      }
-
-      // 2) Reconciliere index ↔ shape-uri (o singură dată la mount).
-      if (!reconciled.current) {
-        reconciled.current = true;
-        reconcile(ed, items);
-      }
-
-      // 3) Autosave la orice modificare de document făcută de user.
-      ed.store.listen(() => scheduleSave(ed), { scope: "document", source: "user" });
-    },
-    [initialState, items, scheduleSave],
-  );
-
-  useEffect(() => {
-    return () => {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-    };
-  }, []);
-
   const exportPng = useCallback(async () => {
-    if (!editor) return;
-    const ids = editor.getCurrentPageShapeIds();
-    if (ids.size === 0) return;
-    const img = await editor.toImage([...ids], { format: "png", background: true, padding: 32, scale: 2 });
-    if (!img?.blob) return;
-    const url = URL.createObjectURL(img.blob);
+    const api = apiRef.current;
+    if (!api) return;
+    const elements = api.getSceneElements();
+    if (elements.length === 0) return;
+    const blob = await exportToBlob({
+      elements: elements as never,
+      appState: api.getAppState() as never,
+      files: api.getFiles() as never,
+      mimeType: "image/png",
+      exportPadding: 32,
+    });
+    if (!blob) return;
+    const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${name || "plansa"}.png`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [editor, name]);
+  }, [name]);
+
+  const removeSelected = useCallback(async () => {
+    const api = apiRef.current;
+    if (!api || !selectedDetail) return;
+    const res = await removeDetailFromCanvasAction(canvasId, selectedDetail.detailId);
+    if (!res.ok) return;
+    const remaining = api.getSceneElements().filter((e) => e.id !== selectedDetail.elementId);
+    api.updateScene({ elements: remaining as unknown[] });
+    lastSelectedId.current = null;
+    setSelectedDetail(null);
+  }, [canvasId, selectedDetail]);
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
@@ -164,7 +285,7 @@ export default function CanvasEditor({ canvasId, name, initialState, items }: Pr
           {saved ? "salvat ✓" : "se salvează…"}
         </span>
         <div className="ml-auto">
-          <Button variant="outline" size="sm" onClick={exportPng} disabled={!editor}>
+          <Button variant="outline" size="sm" onClick={exportPng}>
             <Download className="size-4" strokeWidth={2} />
             Export PNG
           </Button>
@@ -173,106 +294,38 @@ export default function CanvasEditor({ canvasId, name, initialState, items }: Pr
 
       {/* Canvas */}
       <div className="relative flex-1">
-        <Tldraw onMount={handleMount}>
-          <SelectionActions canvasId={canvasId} />
-        </Tldraw>
+        <Excalidraw
+          initialData={initialData as never}
+          excalidrawAPI={(api: unknown) => {
+            apiRef.current = api as ExcalidrawApi;
+          }}
+          onChange={onChange as never}
+          langCode="ro-RO"
+        />
+
+        {/* Overlay acțiuni pe instanța de detaliu selectată. */}
+        {selectedDetail && (
+          <div className="pointer-events-auto absolute left-1/2 top-3 z-[400] flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-card px-2 py-1.5 shadow-lg">
+            <a
+              href={`/details/${selectedDetail.detailId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <ExternalLink className="size-3.5" strokeWidth={2} />
+              Deschide detaliul
+            </a>
+            <button
+              type="button"
+              onClick={() => void removeSelected()}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[12px] text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="size-3.5" strokeWidth={2} />
+              Elimină de pe planșă
+            </button>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
-
-// Materializează shape-uri pentru items adăugate din popover (nu-s încă în snapshot) + pune placeholder pe
-// shape-urile al căror detaliu a dispărut. Rulează o dată la mount.
-function reconcile(ed: Editor, items: CanvasEditItem[]) {
-  const accessible = new Map(items.map((it) => [it.detailId, it]));
-  const shapes = ed.getCurrentPageShapes();
-
-  const present = new Set<string>();
-  for (const shape of shapes) {
-    const detailId = shapeDetailId(shape);
-    if (!detailId) continue;
-    present.add(detailId);
-    // Detaliu dispărut → înlocuiește sursa asset-ului cu placeholder (păstrează poziția/mărimea).
-    if (!accessible.has(detailId) && shape.type === "image") {
-      const assetId = (shape as TLImageShape).props.assetId;
-      if (assetId) {
-        const asset = ed.getAsset(assetId);
-        if (asset && asset.type === "image" && asset.props.src !== PLACEHOLDER_SRC) {
-          ed.updateAssets([{ ...asset, props: { ...asset.props, src: PLACEHOLDER_SRC } }]);
-        }
-      }
-    }
-  }
-
-  // Items accesibile care nu au încă un shape → creează-le (plasare în grilă, zonă liberă).
-  let idx = present.size;
-  for (const it of items) {
-    if (present.has(it.detailId)) continue;
-    const col = idx % 3;
-    const row = Math.floor(idx / 3);
-    const assetId = AssetRecordType.createId();
-    ed.createAssets([
-      AssetRecordType.create({
-        id: assetId,
-        type: "image",
-        props: {
-          src: it.imageUrl,
-          w: DEFAULT_W,
-          h: DEFAULT_H,
-          mimeType: "image/png",
-          name: it.title,
-          isAnimated: false,
-        },
-      }),
-    ]);
-    ed.createShape({
-      type: "image",
-      x: 80 + col * (DEFAULT_W + 60),
-      y: 80 + row * (DEFAULT_H + 80),
-      props: { assetId, w: DEFAULT_W, h: DEFAULT_H },
-      meta: { detailId: it.detailId },
-    });
-    idx++;
-  }
-}
-
-// Overlay de acțiuni pe instanța de detaliu selectată: „Deschide detaliul" + „Elimină de pe planșă".
-// Rulează în contextul tldraw (are acces la editor). Se afișează doar când e selectat un singur shape-detaliu.
-function SelectionActions({ canvasId }: { canvasId: string }) {
-  const editor = useEditor();
-  const selected = useValue("selected-detail", () => editor.getSelectedShapes(), [editor]);
-
-  const only = selected.length === 1 ? selected[0] : null;
-  const detailId = only ? shapeDetailId(only) : null;
-  if (!only || !detailId) return null;
-
-  const remove = async () => {
-    const res = await removeDetailFromCanvasAction(canvasId, detailId);
-    if (res.ok) editor.deleteShapes([only.id as TLShapeId]);
-  };
-
-  return (
-    <div
-      className="pointer-events-auto absolute left-1/2 top-3 z-[400] flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-card px-2 py-1.5 shadow-lg"
-      style={{ pointerEvents: "auto" }}
-    >
-      <a
-        href={`/details/${detailId}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[12px] text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <ExternalLink className="size-3.5" strokeWidth={2} />
-        Deschide detaliul
-      </a>
-      <button
-        type="button"
-        onClick={() => void remove()}
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-[12px] text-destructive hover:bg-destructive/10"
-      >
-        <Trash2 className="size-3.5" strokeWidth={2} />
-        Elimină de pe planșă
-      </button>
     </div>
   );
 }
