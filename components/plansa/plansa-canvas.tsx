@@ -13,6 +13,7 @@ import {
   ArrowUpRight,
   BringToFront,
   Circle,
+  Copy,
   Eraser,
   ExternalLink,
   Minus,
@@ -50,6 +51,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   MAX_ITEM_SIZE,
+  MAX_ITEMS_PER_CANVAS,
   MIN_ITEM_SIZE,
   type CanvasDocument,
   type CanvasItem,
@@ -63,8 +65,12 @@ import {
   type Stroke,
 } from "@/server/domain/sketch";
 
-// Raportul zonei de lucru (16:10) — spațiul logic de referință al coordonatelor normalizate.
-export const WORKSPACE_RATIO = 10 / 16;
+// Raportul zonei de lucru (16:9 — mărit față de 16:10 inițial, mai multă lățime pt aranjat mai multe
+// detalii pe rând) — spațiul logic de referință al coordonatelor normalizate. ATENȚIE: items existente
+// deja salvate cu `height` calculat la un raport VECHI (vezi `fixAspect`, care „coace" înălțimea
+// normalizată folosind WORKSPACE_RATIO din momentul materializării) vor apărea ușor distorsionate după
+// schimbare — acceptabil acum (pre-lansare, doar date de test), NU retroactiv corect pt planșe reale.
+export const WORKSPACE_RATIO = 9 / 16;
 // Rezoluția thumbnail-ului exportat (aceeași rație).
 const THUMB_W = 800;
 const THUMB_H = Math.round(THUMB_W * WORKSPACE_RATIO);
@@ -908,15 +914,34 @@ export const PlansaCanvas = forwardRef<
     });
   }
 
+  // Duplică item-ul selectat (aceeași imagine, poziționată puțin decalat, deasupra celorlalte). Nu
+  // atinge index-ul canvas_items — detailId-ul e deja acolo (idempotent), doar documentul capătă un
+  // al doilea CanvasItem cu id nou. Respectă plafonul total de items (validat oricum pe server la save).
+  function duplicateSelectedItem() {
+    if (!selectedItem || present.items.length >= MAX_ITEMS_PER_CANVAS) return;
+    const maxZ = present.items.reduce((m, it) => Math.max(m, it.z), 0);
+    const OFFSET = 0.03;
+    const newItem: CanvasItem = {
+      ...selectedItem,
+      id: crypto.randomUUID(),
+      x: Math.min(1.9, selectedItem.x + OFFSET),
+      y: Math.min(1.9, selectedItem.y + OFFSET),
+      z: maxZ + 1,
+    };
+    dispatch({ type: "commit", present: { ...present, items: [...present.items, newItem] } });
+    setSelection({ kind: "item", id: newItem.id });
+  }
+
   function removeSelectedItem() {
     if (!selectedItem) return;
     const detailId = selectedItem.detailId;
-    dispatch({
-      type: "commit",
-      present: { ...present, items: present.items.filter((it) => it.id !== selectedItem.id) },
-    });
+    const remaining = present.items.filter((it) => it.id !== selectedItem.id);
+    dispatch({ type: "commit", present: { ...present, items: remaining } });
     setSelection(null);
-    onRemoveItem?.(detailId);
+    // Nu elimină indexul (canvas_items) dacă mai rămâne un alt item (duplicat) care referă același
+    // detaliu — altfel duplicatul rămas și-ar pierde sursa imaginii la următoarea încărcare.
+    const stillUsed = remaining.some((it) => it.detailId === detailId);
+    if (!stillUsed) onRemoveItem?.(detailId);
   }
 
   const selectedSource = selectedItem
@@ -931,7 +956,7 @@ export const PlansaCanvas = forwardRef<
   return (
     <div className="flex min-h-0 flex-1">
       {/* RAIL UNELTE */}
-      <aside className="z-10 flex w-[86px] flex-none flex-col items-center gap-3.5 overflow-y-auto border-r border-border bg-[#faf8f4] py-4">
+      <aside className="z-10 flex w-[86px] flex-none flex-col items-center gap-3.5 overflow-y-auto border-r border-border bg-background py-4">
         <RailLabel>Unealtă</RailLabel>
         <div className="grid w-full grid-cols-2 justify-items-center gap-1.5 px-1.5">
           {TOOL_ITEMS.map(({ value, label, Icon }) => {
@@ -966,7 +991,7 @@ export const PlansaCanvas = forwardRef<
                 if (tool === "eraser" || tool === "select") setTool("pen");
               }}
               className={cn(
-                "size-6 rounded-full ring-offset-[#faf8f4] transition-shadow",
+                "size-6 rounded-full ring-offset-background transition-shadow",
                 drawActive && color === c ? "ring-2 ring-foreground ring-offset-2" : "ring-1 ring-foreground/15",
               )}
               style={{ backgroundColor: c }}
@@ -984,7 +1009,7 @@ export const PlansaCanvas = forwardRef<
             style={{
               width: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
               height: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
-              backgroundColor: drawActive ? color : "#8a8073",
+              backgroundColor: drawActive ? color : "var(--muted-foreground)",
             }}
           />
           <input
@@ -1186,7 +1211,7 @@ export const PlansaCanvas = forwardRef<
                 <Pencil className="size-4" strokeWidth={2} />
               </CtrlBtn>
               <CtrlBtn label="Șterge" onClick={deleteSelectedText}>
-                <Trash2 className="size-4 text-[#b0463c]" strokeWidth={2} />
+                <Trash2 className="size-4 text-destructive" strokeWidth={2} />
               </CtrlBtn>
             </div>
           )}
@@ -1220,8 +1245,12 @@ export const PlansaCanvas = forwardRef<
                 <SendToBack className="size-4" strokeWidth={2} />
               </CtrlBtn>
               <span className="mx-0.5 h-5 w-px bg-[#e6dccd]" />
+              <CtrlBtn label="Duplică" onClick={duplicateSelectedItem}>
+                <Copy className="size-4" strokeWidth={2} />
+              </CtrlBtn>
+              <span className="mx-0.5 h-5 w-px bg-[#e6dccd]" />
               <CtrlBtn label="Elimină de pe planșă" onClick={removeSelectedItem}>
-                <Trash2 className="size-4 text-[#b0463c]" strokeWidth={2} />
+                <Trash2 className="size-4 text-destructive" strokeWidth={2} />
               </CtrlBtn>
             </div>
           )}

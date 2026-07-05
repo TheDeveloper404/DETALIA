@@ -69,7 +69,7 @@ export function AuthShell({
           className="pointer-events-none absolute inset-0 z-0"
           style={{
             backgroundImage:
-              "linear-gradient(#eae0cf 1px,transparent 1px),linear-gradient(90deg,#eae0cf 1px,transparent 1px)",
+              "linear-gradient(var(--blueprint-grid) 1px,transparent 1px),linear-gradient(90deg,var(--blueprint-grid) 1px,transparent 1px)",
             backgroundSize: "34px 34px",
             opacity: 0.6,
             WebkitMaskImage:

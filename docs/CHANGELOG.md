@@ -4,6 +4,89 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-05/06 — Feature-uri Planșă/Schiță + dark mode încercat și scos
+
+- **Link public schiță** (`/s/[id]`) — teaser read-only, fără cont: imagine deja compusă (detaliu-mamă +
+  strokes), titlu, autor+rol, CTA „Creează cont". `getPublicSketchTeaser` filtrează strict PUBLISHED, fără
+  `strokesJson` brut expus. Rută adăugată în `PUBLIC_PATHS` (`proxy.ts`). Buton „Copiază linkul" nou pe tab-ul
+  unei schițe în `detail-workspace.tsx` (`CopySketchLinkButton`).
+- **„Copiază linkul" (kebab detaliu) păstrează tab-ul activ** — `DetailActionsMenu` primește `activeSketchId`;
+  linkul copiat include `?sketch=id` dacă ești pe tab de schiță; `detail-workspace.tsx` citește parametrul la
+  mount (`useSearchParams`) și deschide direct pe tabul respectiv.
+- **Duplicare planșă** (din „Planșele mele" — meniu kebab) — copiază documentul + indexul de detalii pe o
+  planșă nouă („X (copie)"); thumbnail-ul NU se copiază (rămâne null, regenerat la autosave — evită ca
+  ștergerea originalului să șteargă blob-ul de sub copie). `duplicateCanvas` în `plansaService.ts`.
+- **Duplicare item** (din interiorul editorului Planșă, lângă „Adu în față"/„Trimite în spate") — clonează
+  imaginea selectată cu offset mic, deasupra celorlalte. Fix corelat: `removeSelectedItem` nu mai șterge
+  indexul `canvas_items` dacă mai rămâne un alt item (duplicat) care referă același `detailId` — altfel
+  duplicatul rămas își pierdea sursa imaginii la reload.
+- **Zona de lucru Planșă lărgită** — `WORKSPACE_RATIO` 16:10 → 16:9 (mai multă lățime pt aranjat detalii pe
+  rând). Planșe deja salvate cu imagini pot apărea ușor distorsionate (înălțimea era „coaptă" la raportul
+  vechi) — acceptabil acum, doar date de test în DB.
+- **„Trimite în Planșă" ascuns pe tab de schiță** — butonul era legat mereu de `detailId` (bază), inclusiv
+  când te uitai la o schiță anume → ar fi trimis silențios altceva decât ce vedeai. Modelul `canvas_items` nu
+  are `sketch_id` (doar `detail_id`) — suport real pt „trimite ACEASTĂ schiță" ar cere schimbare de schemă,
+  neimplementat; deocamdată butonul dispare pe tab de schiță (nu mai minte).
+- **Magic link email — link de rezervă scurtat vizual** (`lib/email.ts`, login + admin): textul afișat
+  devine „deschide linkul de autentificare" în loc de URL-ul complet (lung, cu token); `href` neschimbat,
+  aceeași securitate.
+- **Dark mode — implementat, apoi scos complet la cererea lui Liviu** (paleta „antracit cald + teracotă
+  deschisă" citită ca prea generic-AI, gen Claude/Anthropic). Eliminat: `next-themes` (dezinstalat), toggle
+  din `user-menu.tsx`, `ThemeProvider` din `layout.tsx`, blocul `.dark` din `globals.css`, clasele `dark:`
+  adăugate în Planșă/Schiță. **Păstrat** (curățenie de cod validă indiferent de temă, zero schimbare vizuală):
+  hex hardcodat → tokeni semantici (`var(--foreground)`, `bg-card`, `border-border` etc.) în landing
+  (`app/page.tsx`), `onboarding-form.tsx`, `auth-shell.tsx`, `hero-preview.tsx`, `intro-splash.tsx`,
+  `cookie-consent.tsx`. Bonus găsit pe parcurs: `BrandLogo` avea variantă „light" fixă (logo negru) folosită
+  peste tot fără condiționare — inofensiv acum (fără dark mode), dar ar fi fost invizibil dacă temă întunecată
+  s-ar fi activat vreodată fără acest fix.
+- `tsc`/`eslint`/`next build`/`audit-check` verzi pe tot parcursul. Nicio schimbare de schemă DB.
+
+---
+
+## 2026-07-05 — Debugging sesiune completă (accent Planșă) — 7 bug-uri găsite + fixate
+
+- **Metodă:** citire riguroasă cod (Planșă 100% linie cu linie) + fork-uri paralele pe restul platformei
+  (auth/sesiuni, feed/comentarii/notificări, upload/profil/rol, schiță/validare/rate-limit) + debugging
+  vizual live pe preview Vercel cu sesiune JWT seedată direct (cookie semnat cu `AUTH_SECRET`, ocolind magic
+  link) + bypass Deployment Protection. Restul platformei (auth, feed, comentarii, validare, rate-limit,
+  upload, ownership/IDOR) verificat riguros — **curat, zero bug-uri găsite**.
+- **#1 — Resize aspect-locked nu clampa ambele dimensiuni** (`plansa-canvas.tsx`): `newW` clampat la
+  `MAX_ITEM_SIZE`, dar `newH` derivat proporțional din `newW` fără propriul clamp → la imagini portrait,
+  resize putea produce o înălțime peste limita din `server/domain/plansa.ts` → item invalid la salvare.
+  Fix: clamp pe `scale` (nu post-hoc pe `newW`), ambele dimensiuni garantat în `[MIN_ITEM_SIZE, MAX_ITEM_SIZE]`.
+- **#2 — Autosave eșuat la Planșă = tăcere completă** (`canvas-editor.tsx`): `res.error` exista dar nu era
+  citit niciodată; UI rămânea blocat pe „se salvează…” la infinit, fără eroare vizibilă, pierdere de muncă
+  neobservată. Combinat cu #1 → orice item invalid bloca silențios TOATE salvările viitoare ale planșei.
+  Fix: `saveError` afișat în header (roșu), resetat la fiecare încercare nouă.
+- **#3 — Mismatch limită domeniu vs. transport**: `MAX_STATE_BYTES` (5MB, Planșă) > `bodySizeLimit` (4mb,
+  `next.config.ts`, partajat de toate server actions) → documente sub 5MB puteau eșua cu eroare de transport
+  neclară. Fix: `MAX_STATE_BYTES` redus la 3MB (marjă sub limita de transport, nu s-a ridicat limita globală).
+- **#4 — Schiță fără cap agregat de bytes** (doar cap pe număr de stroke-uri/puncte, teoretic sute de MB):
+  adăugat `MAX_STROKES_BYTES` (3MB) în `server/domain/sketch.ts`, același raționament ca la Planșă. Test nou
+  în `sketch.test.ts` (20 stroke-uri × puncte la limită individuală, dar peste plafonul agregat).
+- **#5 — Ștergerea unei planșe nu funcționa deloc** (`canvases-list.tsx`): butonul de submit avea
+  `onClick={() => setMenuOpen(false)}`, care demonta sincron `<form>`-ul înainte ca browser-ul să declanșeze
+  submit-ul nativ — zero request POST confirmat în network. Fix: `onClick` scos; meniul dispare oricum la
+  refresh după `revalidatePath`. Confirmat vizual pe preview (click real prin Playwright, 404 după ștergere).
+- **Bonus găsit în același fișier:** meniul kebab din „Planșele mele” era invizibil/inclicabil — cardul avea
+  `overflow-hidden` pe TOT containerul (pt colțurile rotunjite ale thumbnail-ului), care tăia din randare
+  dropdown-ul ce ieșea sub cutia cardului. Fix: `overflow-hidden` mutat doar pe wrapper-ul thumbnail-ului.
+- **#6 — Text fals despre notificări email** (`notification-bell.tsx`): „Primești aceleași anunțuri și pe
+  email” afișat necondiționat, deși emailurile sunt oprite din 2026-07-03. Rând scos.
+- **#7 — CTA greșit la căutare/filtru fără rezultate** (`feed-empty.tsx`): „Adaugă **primul** detaliu” apărea
+  și când căutarea/categoria nu găsea nimic, deși platforma are deja detalii. Fix: text condiționat.
+- **Verificat vizual, fără bug:** feed, pagina de detaliu, dezbatere/comentarii (istoric dezaprobări —
+  comportament intenționat, documentat în cod), profil + grafic contribuții, căutare, ciorne (ștergere +
+  editor desen + salvare ciornă), creare+ștergere detaliu (flux complet, inclusiv dialogul de confirmare),
+  popover „Trimite în Planșă”, admin login (pagină, nu flux complet — fără credențiale).
+- **Neacoperit** (necesită cont nou/date reale, nu blocante): onboarding, upload avatar/cover cu fișier
+  real, admin dincolo de login, dark mode (neimplementat), verificare rol (funcție inactivă), notificări
+  reale (nu empty state), pagini publice, concurență multi-tab.
+- `tsc --noEmit` + `eslint` verzi pe toate fișierele atinse. **De rulat de Liviu:** `npm test` (118 teste,
+  toate verzi la ultima rulare inclusiv testul nou `TOO_LARGE`).
+
+---
+
 ## 2026-07-05 — Planșă v2: RECONSTRUITĂ de la zero cu engine PROPRIU (nu Excalidraw/tldraw)
 
 - **De ce:** după ce Planșa a fost scoasă complet mai devreme azi (vezi intrarea de mai jos), discuție cu

@@ -18,6 +18,9 @@ export function FeedEmpty({
   const body = search
     ? "Nu am găsit niciun detaliu care să se potrivească acestei căutări."
     : "Fii primul care pune un detaliu de execuție la dezbatere. Publici desenul, breasla îl cântărește pe roluri.";
+  // „primul detaliu" e corect DOAR când platforma chiar nu are niciun detaliu — la căutare/filtru fără
+  // rezultate există deja detalii în altă parte, „primul" ar fi fals.
+  const cta = search || filtered ? "Adaugă detaliu" : "Adaugă primul detaliu";
 
   return (
     <div className="flex flex-col items-center rounded-lg border border-dashed border-border bg-card px-8 py-16 text-center">
@@ -44,7 +47,7 @@ export function FeedEmpty({
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M12 5v14M5 12h14" />
         </svg>
-        Adaugă primul detaliu
+        {cta}
       </Link>
     </div>
   );

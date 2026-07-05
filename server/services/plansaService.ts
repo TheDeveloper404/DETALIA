@@ -10,7 +10,13 @@
 
 import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
-import { MAX_ITEMS_PER_CANVAS, validateCanvasDocument, validateCanvasName } from "@/server/domain/plansa";
+import {
+  MAX_ITEMS_PER_CANVAS,
+  MAX_NAME_LENGTH,
+  type CanvasDocument,
+  validateCanvasDocument,
+  validateCanvasName,
+} from "@/server/domain/plansa";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import {
   type CanvasListItem,
@@ -18,7 +24,9 @@ import {
   deleteItem,
   getCanvasById,
   insertCanvas,
+  insertCanvasWithState,
   insertItem,
+  insertItems,
   listByOwner,
   listItemDetailIds,
   renameCanvasOwned,
@@ -47,6 +55,28 @@ export async function createCanvas(input: {
   if (!name.ok) return { ok: false, error: "INVALID_NAME" };
   const row = await insertCanvas({ ownerId: input.ownerId, name: name.value });
   return { ok: true, value: { canvasId: row.id } };
+}
+
+// Duplică o planșă deținută (document + index de detalii). Thumbnail-ul NU se copiază (rămâne null,
+// regenerat la primul autosave al copiei) — evită ca ștergerea originalului să șteargă blob-ul
+// thumbnail-ului sub picioarele copiei (același URL ar fi fost referit din două rânduri).
+export async function duplicateCanvas(input: {
+  canvasId: string;
+  ownerId: string;
+}): Promise<CanvasResult<{ canvasId: string }>> {
+  if (!isUuid(input.canvasId)) return { ok: false, error: "NOT_FOUND" };
+  const source = await getCanvasById(input.canvasId);
+  if (!source || source.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
+
+  const itemIds = await listItemDetailIds(input.canvasId);
+  const name = `${source.name} (copie)`.slice(0, MAX_NAME_LENGTH);
+  const created = await insertCanvasWithState({
+    ownerId: input.ownerId,
+    name,
+    state: source.state as CanvasDocument | null,
+  });
+  await insertItems(created.id, itemIds);
+  return { ok: true, value: { canvasId: created.id } };
 }
 
 export async function renameCanvas(input: {

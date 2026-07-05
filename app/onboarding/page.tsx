@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { auth } from "@/lib/auth";
 import { userHasRole } from "@/server/services/roleService";
 
@@ -22,8 +23,8 @@ export default async function OnboardingPage() {
       className="dt-onb-page"
       style={{
         fontFamily: "var(--font-archivo), sans-serif",
-        color: "#211d18",
-        background: "#faf8f4",
+        color: "var(--foreground)",
+        background: "var(--background)",
         minHeight: "100vh",
         display: "flex",
         flexDirection: "column",
@@ -36,8 +37,8 @@ export default async function OnboardingPage() {
           flex: "none",
           display: "flex",
           alignItems: "center",
-          borderBottom: "1px solid #e3ddd2",
-          background: "#faf8f4",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--background)",
           position: "relative",
           zIndex: 2,
         }}
@@ -53,10 +54,7 @@ export default async function OnboardingPage() {
             justifyContent: "space-between",
           }}
         >
-          <span style={{ display: "flex", alignItems: "center" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-            <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
-          </span>
+          <BrandLogo size={32} />
           {email && (
             <span
               style={{
@@ -65,7 +63,7 @@ export default async function OnboardingPage() {
                 gap: 8,
                 fontFamily: "var(--font-plex-mono), monospace",
                 fontSize: 12,
-                color: "#8a8073",
+                color: "var(--muted-foreground)",
               }}
             >
               <span
@@ -100,7 +98,7 @@ export default async function OnboardingPage() {
             position: "absolute",
             inset: 0,
             backgroundImage:
-              "linear-gradient(#eae0cf 1px,transparent 1px),linear-gradient(90deg,#eae0cf 1px,transparent 1px)",
+              "linear-gradient(var(--blueprint-grid) 1px,transparent 1px),linear-gradient(90deg,var(--blueprint-grid) 1px,transparent 1px)",
             backgroundSize: "34px 34px",
             opacity: 0.6,
             pointerEvents: "none",
@@ -122,17 +120,17 @@ export default async function OnboardingPage() {
                 fontSize: 11.5,
                 letterSpacing: "0.16em",
                 textTransform: "uppercase",
-                color: "#a9573a",
+                color: "var(--primary)",
                 marginBottom: 16,
               }}
             >
-              <span style={{ width: 6, height: 6, background: "#a9573a", transform: "rotate(45deg)", display: "inline-block" }} />
+              <span style={{ width: 6, height: 6, background: "var(--primary)", transform: "rotate(45deg)", display: "inline-block" }} />
               Hai să-ți facem profilul
             </div>
-            <h1 style={{ fontWeight: 700, fontSize: 34, lineHeight: 1.12, letterSpacing: "-0.02em", margin: "0 0 10px", color: "#211d18" }}>
+            <h1 style={{ fontWeight: 700, fontSize: 34, lineHeight: 1.12, letterSpacing: "-0.02em", margin: "0 0 10px", color: "var(--foreground)" }}>
               Bun venit în DETALIA
             </h1>
-            <p style={{ fontSize: 16, color: "#5d564c", lineHeight: 1.5, margin: "0 auto", maxWidth: "46ch" }}>
+            <p style={{ fontSize: 16, color: "var(--muted-foreground)", lineHeight: 1.5, margin: "0 auto", maxWidth: "46ch" }}>
               Spune-ne cine ești — rolul tău apare lângă nume de fiecare dată când publici sau validezi.
             </p>
           </div>
