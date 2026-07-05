@@ -41,12 +41,18 @@ export type Stroke = {
 export const MAX_STROKES = 2000;
 export const MAX_POINTS_PER_STROKE = 10000;
 export const MAX_STROKE_SIZE = 100;
+// Plafon agregat pe dimensiunea documentului serializat (bytes din JSON.stringify) — MAX_STROKES ×
+// MAX_POINTS_PER_STROKE lasă teoretic sute de MB; fără acest cap, autosave-ul repetat (rate-limit-at,
+// dar tot posibil) ar putea umple jsonb-ul din DB fără control agregat. Sub `bodySizeLimit` (4 MB,
+// `next.config.ts`, partajat de toate server actions) cu marjă pt overhead de serializare — vezi
+// MAX_STATE_BYTES din server/domain/plansa.ts (același raționament).
+export const MAX_STROKES_BYTES = 3_000_000; // 3 MB
 
 const HEX_COLOR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 export type StrokesValidationResult =
   | { ok: true; value: Stroke[] }
-  | { ok: false; error: "TOO_MANY_STROKES" | "INVALID_STROKE" | "EMPTY" };
+  | { ok: false; error: "TOO_MANY_STROKES" | "INVALID_STROKE" | "EMPTY" | "TOO_LARGE" };
 
 function isNormalized(n: unknown): n is number {
   return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
@@ -114,5 +120,14 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
         : { color: s.color, size: s.size, points, kind },
     );
   }
+
+  let bytes: number;
+  try {
+    bytes = new TextEncoder().encode(JSON.stringify(value)).length;
+  } catch {
+    return { ok: false, error: "INVALID_STROKE" };
+  }
+  if (bytes > MAX_STROKES_BYTES) return { ok: false, error: "TOO_LARGE" };
+
   return { ok: true, value };
 }
