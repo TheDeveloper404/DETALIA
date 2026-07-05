@@ -2,7 +2,7 @@
 //  - STRICT privat: fiecare read/mutație verifică owner_id === userul din sesiune. `ownerId` vine
 //    ÎNTOTDEAUNA de la apelant (sesiune), niciodată din client. O planșă nedeținută → NOT_FOUND
 //    (conținut privat-by-design; nu leak-uim existența prin UUID enumerabil).
-//  - `state` (snapshot tldraw) e opac: validăm doar că e obiect + sub plafon de bytes (anti-abuz), nu-l parcurgem.
+//  - `state` (scenă Excalidraw) e opac: validăm doar că e obiect + sub plafon de bytes (anti-abuz), nu-l parcurgem.
 //  - Detaliile adăugate trebuie să fie vizibile (PUBLISHED) — getDetailById filtrează deja pe status.
 
 import {

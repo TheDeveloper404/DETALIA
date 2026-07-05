@@ -2,6 +2,10 @@
 node_modules/
 .pnpm-store/
 
+# Fonturi Excalidraw self-hostate — regenerate din node_modules la install/dev/build
+# (scripts/copy-excalidraw-assets.mjs), nu comise (~14MB de binare).
+public/excalidraw-assets/
+
 # === Build & output Next.js ===
 .next/
 out/
