@@ -1,6 +1,6 @@
 // Domain Planșă — reguli pure pentru canvasul privat per user (adună detalii + schițează peste ansamblu).
 // STRICT privat la MVP: ownership-ul se enforce în canvasService (nu aici). Aici trăiesc doar validările
-// de input independente de DB: numele planșei și plafonul de dimensiune al snapshot-ului tldraw (anti-abuz,
+// de input independente de DB: numele planșei și plafonul de dimensiune al scenei Excalidraw (anti-abuz,
 // analog cu MAX_STROKES la schițe — `state` e opac, îl mărginim, nu-l parcurgem).
 
 // Numele planșei (dat de user). Trimmed, nevid, mărginit.
@@ -26,8 +26,8 @@ export function validateCanvasName(input: unknown): Validated<string, NameError>
   return { ok: true, value: name };
 }
 
-// Validează snapshot-ul tldraw primit de la client: trebuie să fie un obiect JSON (nu array/primitiv/null)
-// și sub plafonul de dimensiune. Nu inspectăm structura internă (o gestionează tldraw la loadSnapshot) —
+// Validează scena Excalidraw primită de la client: trebuie să fie un obiect JSON (nu array/primitiv/null)
+// și sub plafonul de dimensiune. Nu inspectăm structura internă (o gestionează Excalidraw la restore) —
 // o stocăm opac. Întoarce chiar obiectul primit (deja parsat) pentru persistare.
 export function validateCanvasState(input: unknown): Validated<Record<string, unknown>, StateError> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {

@@ -4,6 +4,36 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-05 — migrare engine Planșă: tldraw → **Excalidraw**
+
+- **De ce:** tldraw încarcă asset-uri (fonturi/iconițe/traduceri/watermark) de pe `cdn.tldraw.com` → cerea
+  relaxare de CSP (CDN terț + watermark phone-home) și, în producție, editorul apărea rupt când fetch-ul spre
+  CDN era blocat. Decizie cu Liviu: trecem la **Excalidraw** (MIT, fără watermark, fără licență comercială),
+  cu **fonturi self-hostate** din același origin → zero CDN terț, zero relaxare de CSP pentru editor.
+- **Ce s-a schimbat:**
+  - `package.json`: scos `tldraw`, adăugat `@excalidraw/excalidraw` (^0.18.1).
+  - `canvas-editor.tsx` rescris pe Excalidraw: `initialData` construit sincron din scena persistată +
+    reconciliere cu items (imagini-detaliu ca `image` elements cu `customData.detailId`, `fileId` determinist,
+    placeholder pt detalii dispărute), autosave debounced via `serializeAsJSON` (semnătură de scenă → ignoră
+    onChange-uri de selecție/viewport), thumbnail throttled + Export PNG via `exportToBlob`, overlay selecție
+    („Deschide detaliul"/„Elimină de pe planșă") prin `onChange` + `updateScene`.
+  - **Fonturi self-hostate:** `scripts/copy-excalidraw-assets.mjs` copiază `dist/prod/fonts` →
+    `public/excalidraw-assets/fonts` la `predev`/`prebuild`/`postinstall`; `window.EXCALIDRAW_ASSET_PATH =
+    "/excalidraw-assets/"`. Folderul e **gitignored** (~14MB, regenerat la install/build).
+  - `lib/csp.ts`: scos `https://cdn.tldraw.com` din `img-src`/`font-src`/`connect-src` (nu mai e necesar niciun host terț pt editor).
+- **Neatins:** stratul server (`canvasService`/`canvas-actions`/`domain`/`schema`) — `state` rămâne JSON opac,
+  mărginit; doar comentariile doc actualizate (tldraw→Excalidraw). Fără migrație DB.
+- **Bonus (fix separat, aceeași sesiune):** popover „Trimite în Planșă" (feed) și meniul kebab (`/canvases`)
+  erau clipate de `overflow-hidden` de pe card → mutat `overflow-hidden` strict pe thumbnail. Vezi
+  `detail-card.tsx` / `canvases-list.tsx`.
+- `tsc --noEmit` + `eslint` + `next build` verzi; verificat **live** (Excalidraw montează, RO, fără watermark;
+  reconciliere detaliu→imagine, autosave în format `excalidraw`, reload, overlay selecție, „Elimină de pe planșă").
+- **Securitate — CI:** Excalidraw aduce tranzitiv un HIGH fără fix upstream (`lodash-es` via mermaid/chevrotain,
+  cod path neinvocat — vezi SEC-A6 în `docs/SECURITATE.md`). Poarta de audit a trecut de la `npm audit --audit-level=high`
+  la `scripts/audit-check.mjs`: allowlist **țintit** pe cele 3 GHSA lodash-es, **orice alt high/critical nou tot blochează PR-ul**.
+
+---
+
 ## 2026-07-05 — feature nou: PLANȘA (canvas privat per user)
 
 - **Ce e:** spațiu de lucru privat, canvas infinit, în care userul **adună** detalii („Trimite în Planșă"),

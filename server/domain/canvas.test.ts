@@ -27,7 +27,7 @@ describe("validateCanvasName — server e sursa de adevăr pentru numele planșe
   });
 });
 
-describe("validateCanvasState — snapshot tldraw opac, mărginit", () => {
+describe("validateCanvasState — scenă Excalidraw opac, mărginit", () => {
   it("respinge ce nu e obiect (array/primitiv/null)", () => {
     expect(validateCanvasState(null).ok).toBe(false);
     expect(validateCanvasState([]).ok).toBe(false);
