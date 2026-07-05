@@ -322,12 +322,29 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 - Co-desenare în timp real. Layere multiple per foaie. Pen pressure avansat. Editare colaborativă pe aceeași
   foaie. Toate astea vin după ce validăm că dezbaterea se aprinde.
 
-### 7.7 Planșa (canvas privat per user) — SCOASĂ din MVP (2026-07-05)
-Implementată 2026-07-05 (tldraw, apoi migrată pe Excalidraw), scoasă complet aceeași zi: risc de identitate
-de produs — un wrapper subțire peste un whiteboard generic (Excalidraw/Figma/Miro) nu servește întrebarea
-pe care MVP-ul o testează (dezbaterea pe roluri). Cod + tabele DB (`canvases`, `canvas_items`) șterse.
-Reluare posibilă doar cu un engine propriu, diferențiat — decizie separată, pe HOLD. Spec veche (istoric,
-neactuală): `Detalia_Canvas.md`.
+### 7.7 Planșa (canvas privat per user) — v2, engine PROPRIU (reconstruită 2026-07-05)
+**Istoric:** implementată prima dată 2026-07-05 cu tldraw (apoi migrată pe Excalidraw), scoasă complet
+aceeași zi — un wrapper subțire peste un whiteboard generic nu servește întrebarea pe care MVP-ul o
+testează (dezbaterea pe roluri). Reconstruită aceeași zi cu **engine propriu**, pe modelul Schiței.
+
+**Model actual:** spațiu de lucru **strict privat**, zonă FIXĂ (rație 16:10, nu canvas infinit) cu pan/zoom
+liber: userul adună detalii („Trimite în Planșă"), le aranjează (mută/scalează din colțuri cu aspect
+blocat/z-order — **fără rotație, fără multi-select în v1**) și desenează freehand peste ansamblu (motorul
+de la Schiță — `perfect-freehand` prin `renderStrokes`, reutilizat 1:1, fără nicio adaptare).
+
+- **Engine: propriu** (`components/plansa/plansa-canvas.tsx`) — NU tldraw/Excalidraw/Figma. Document
+  serializat `{ version, items, strokes }`: `items` = imagini poziționate (x/y/width/height normalizate
+  0..1, `z` explicit); `strokes` = tipul din `server/domain/sketch.ts`.
+- **Model:** `canvases` (owner_id, name, `state` jsonb = CanvasDocument, thumbnail_url) + `canvas_items`
+  (index relațional planșă↔detalii, PK compus). Ownership enforce în `plansaService` (`WHERE id=? AND
+  owner_id=?` condiționat direct în SQL, anti-IDOR/anti-TOCTOU); planșă nedeținută → `NOT_FOUND`. Cap 30
+  items/planșă, plafon 5MB pe documentul serializat.
+- **Linia roșie (NU în v1):** share/public, colaborare real-time, rotație, multi-select, canvas infinit,
+  planșă→detaliu publicabil, versionare, snapping, creație completă pe mobil.
+
+Straturi + convenții: `docs/CHANGELOG.md` (intrarea „Planșă v2 — RECONSTRUITĂ"). Plan de implementare
+(istoric, referință): `C:\dev\persist\claude\plans\te-trec-n-plan-happy-volcano.md`. Spec de produs veche
+(parțial neactuală — engine-ul descris acolo nu mai e valabil): `Detalia_Canvas.md`.
 
 ---
 

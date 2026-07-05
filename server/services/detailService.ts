@@ -193,7 +193,8 @@ export type DeleteDetailResult =
 //  - id malformat / inexistent → NOT_FOUND (nu dezvăluim existența).
 //  - alt user decât autorul → FORBIDDEN (niciodată 404 ca să ascundem; vezi convențiile de authz).
 // Curățarea în cascadă (resurse, schițe, validări, comentarii polimorfice) o face repo-ul, atomic.
-// Blob-urile (imaginea detaliului + thumbnail-urile schițelor) le ștergem best-effort după.
+// Blob-urile (imaginea detaliului + thumbnail-urile schițelor + resursele IMAGE/PDF/CAD) le ștergem
+// best-effort după.
 export async function deleteDetail(input: {
   detailId: string;
   userId: string;
@@ -204,8 +205,8 @@ export async function deleteDetail(input: {
   if (!detail) return { ok: false, error: "NOT_FOUND" };
   if (detail.authorId !== input.userId) return { ok: false, error: "FORBIDDEN" };
 
-  const sketchThumbnails = await deleteDetailCascade(input.detailId);
-  await deleteBlobs([detail.imageUrl, ...sketchThumbnails]);
+  const blobUrls = await deleteDetailCascade(input.detailId);
+  await deleteBlobs([detail.imageUrl, ...blobUrls]);
   return { ok: true };
 }
 
