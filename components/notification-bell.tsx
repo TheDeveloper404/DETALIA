@@ -155,9 +155,6 @@ export function NotificationBell({
           <div className="flex items-center justify-between gap-3 border-b border-[#eee6da] px-4 py-3">
             <div>
               <h2 className="font-heading text-[15px] font-bold">Notificări</h2>
-              <p className="mt-0.5 font-mono text-[11px] text-[#a59a88]">
-                Primești aceleași anunțuri și pe email.
-              </p>
             </div>
             <button
               type="button"

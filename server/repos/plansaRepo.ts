@@ -15,6 +15,19 @@ export async function insertCanvas(input: { ownerId: string; name: string }) {
   return row;
 }
 
+// Creează o planșă cu document inițial dat (folosit la duplicare — `insertCanvas` normal pornește goală).
+export async function insertCanvasWithState(input: {
+  ownerId: string;
+  name: string;
+  state: CanvasDocument | null;
+}) {
+  const [row] = await db
+    .insert(canvases)
+    .values({ ownerId: input.ownerId, name: input.name, state: input.state })
+    .returning();
+  return row;
+}
+
 export async function getCanvasById(id: string) {
   const [row] = await db.select().from(canvases).where(eq(canvases.id, id)).limit(1);
   return row ?? null;
@@ -96,6 +109,15 @@ export type CanvasListItem = Awaited<ReturnType<typeof listByOwner>>[number];
 // Adaugă un detaliu în planșă. Idempotent pe PK compus (un detaliu o singură dată/planșă — decizie v1).
 export async function insertItem(canvasId: string, detailId: string) {
   await db.insert(canvasItems).values({ canvasId, detailId }).onConflictDoNothing();
+}
+
+// Copiază indexul de detalii al unei planșe pe alta (folosit la duplicare). Idempotent (onConflictDoNothing).
+export async function insertItems(canvasId: string, detailIds: string[]) {
+  if (detailIds.length === 0) return;
+  await db
+    .insert(canvasItems)
+    .values(detailIds.map((detailId) => ({ canvasId, detailId })))
+    .onConflictDoNothing();
 }
 
 export async function deleteItem(canvasId: string, detailId: string) {

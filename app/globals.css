@@ -69,6 +69,9 @@
   --border: #e3ddd2;
   --input: #e3ddd2;
   --ring: #a9573a;
+  --blueprint-grid: #eae0cf; /* linia grilei de fundal (landing + auth-shell), inline style → var() */
+  --primary-button-border: #95492e; /* bordură puțin mai închisă ca --primary, pe butoane bg-primary */
+  --header-bg-translucent: rgba(250, 248, 244, 0.86); /* header sticky landing, backdrop-blur */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -84,40 +87,6 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
@@ -411,7 +380,7 @@ html[data-intro="seen"] .dt-intro {
   font-family: var(--font-archivo), sans-serif;
   font-size: clamp(3rem, 10vw, 7.5rem);
   font-weight: 800;
-  color: #0d0c0a;
+  color: var(--foreground);
   line-height: 0.76;
   letter-spacing: -0.01em;
   margin-right: 0.1em;
@@ -436,12 +405,12 @@ html[data-intro="seen"] .dt-intro {
 .dt-intro .tri-mid,
 .dt-intro .tri-light {
   transform-origin: 0% 100%;
-  stroke: #0d0c0a;
+  stroke: var(--foreground);
   stroke-linejoin: round;
   opacity: 0;
 }
 .dt-intro .tri-black {
-  fill: #0d0c0a;
+  fill: var(--foreground);
   stroke-width: 3;
   animation: dt-pop-black 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.6s forwards;
 }
