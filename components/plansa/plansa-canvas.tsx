@@ -745,9 +745,14 @@ export const PlansaCanvas = forwardRef<
       const p = normPoint(e);
       const dx = Math.abs(p[0] - r.anchorX);
       const dy = Math.abs(p[1] - r.anchorY);
-      const scale = Math.max(dx / r.origW, dy / r.origH, 0.01);
-      const newW = clampItemSize(r.origW * scale);
-      const newH = r.origH * (newW / r.origW);
+      let scale = Math.max(dx / r.origW, dy / r.origH, 0.01);
+      // Clamp pe scale (nu doar pe newW) — la aspect blocat, o singură axă clampată post-hoc
+      // ar lăsa cealaltă axă să depășească MAX_ITEM_SIZE (ex. imagini portrait).
+      const maxScale = Math.min(MAX_ITEM_SIZE / r.origW, MAX_ITEM_SIZE / r.origH);
+      const minScale = Math.max(MIN_ITEM_SIZE / r.origW, MIN_ITEM_SIZE / r.origH);
+      scale = Math.min(maxScale, Math.max(minScale, scale));
+      const newW = r.origW * scale;
+      const newH = r.origH * scale;
       const next: Snapshot = {
         ...present,
         items: present.items.map((it) =>

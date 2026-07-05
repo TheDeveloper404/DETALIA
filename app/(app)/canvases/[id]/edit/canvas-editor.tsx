@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PlansaCanvas, type PlansaCanvasHandle, type PlansaItemSource } from "@/components/plansa/plansa-canvas";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { CanvasDocument } from "@/server/domain/plansa";
 
 import {
@@ -40,6 +41,7 @@ function normalizeDocument(raw: unknown): CanvasDocument | null {
 export default function CanvasEditor({ canvasId, name, initialDocument, sources }: Props) {
   const canvasRef = useRef<PlansaCanvasHandle>(null);
   const [saved, setSaved] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastThumb = useRef(0);
@@ -49,7 +51,12 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
     if (!handle) return;
     const doc = handle.getDocument();
     const res = await saveCanvasDocumentAction(canvasId, JSON.stringify(doc));
-    if (res.ok) setSaved(true);
+    if (res.ok) {
+      setSaved(true);
+      setSaveError(null);
+    } else {
+      setSaveError(res.error ?? "Planșa nu a putut fi salvată.");
+    }
 
     // Thumbnail throttled (compunere + upload sunt scumpe) — o dată la ~20s, best-effort.
     if (Date.now() - lastThumb.current > THUMB_THROTTLE_MS) {
@@ -71,6 +78,7 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
   // onChange (fiecare modificare comisă în engine) → autosave debounced.
   const handleChange = useCallback(() => {
     setSaved(false);
+    setSaveError(null);
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => void persist(), AUTOSAVE_MS);
   }, [persist]);
@@ -119,8 +127,13 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
           Planșele mele
         </Link>
         <span className="truncate font-medium">{name}</span>
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {saved ? "salvat ✓" : "se salvează…"}
+        <span
+          className={cn(
+            "font-mono text-[11px]",
+            saveError ? "text-destructive" : "text-muted-foreground",
+          )}
+        >
+          {saveError ?? (saved ? "salvat ✓" : "se salvează…")}
         </span>
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={exportPng} disabled={exporting}>
