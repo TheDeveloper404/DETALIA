@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
+import { SendToCanvasButton } from "@/components/send-to-canvas-button";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
@@ -135,9 +136,16 @@ export function DetailWorkspace({
       <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
         {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
         <div className="border-b border-[#eee6da] px-5 py-5 sm:px-6">
-          <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
-            {header.title}
-          </h1>
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
+              {header.title}
+            </h1>
+            {currentUserId && (
+              <div className="shrink-0 pt-1">
+                <SendToCanvasButton detailId={detailId} />
+              </div>
+            )}
+          </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
             <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />

@@ -218,13 +218,24 @@ export async function getDetailById(id: string) {
 // (FK onDelete: cascade). DAR validările și comentariile sunt POLIMORFICE (target_type/target_id, fără
 // FK către details/sketches) → trebuie șterse manual: cele de pe detaliu ȘI cele de pe schițele lui.
 // Neon HTTP n-are tranzacții interactive → folosim `db.batch` (un singur batch atomic).
-// Întoarce URL-urile de thumbnail ale schițelor (pt curățarea blob best-effort din service).
+// Întoarce URL-urile de blob de curățat best-effort din service (thumbnail-uri schițe + resurse IMAGE/PDF/CAD;
+// LINK/TEXT nu au fișier în Blob-ul nostru — LINK e URL extern).
 export async function deleteDetailCascade(detailId: string): Promise<string[]> {
   const sketchRows = await db
     .select({ id: sketches.id, thumbnailUrl: sketches.thumbnailUrl })
     .from(sketches)
     .where(eq(sketches.detailId, detailId));
   const sketchIds = sketchRows.map((s) => s.id);
+
+  const resourceRows = await db
+    .select({ url: detailResources.url })
+    .from(detailResources)
+    .where(
+      and(
+        eq(detailResources.detailId, detailId),
+        inArray(detailResources.type, ["IMAGE", "PDF", "CAD"]),
+      ),
+    );
 
   const valWhere = sketchIds.length
     ? or(
@@ -246,7 +257,9 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
     db.delete(details).where(eq(details.id, detailId)), // cascade → detail_resources + sketches
   ]);
 
-  return sketchRows.map((s) => s.thumbnailUrl).filter((u): u is string => !!u);
+  return [...sketchRows.map((s) => s.thumbnailUrl), ...resourceRows.map((r) => r.url)].filter(
+    (u): u is string => !!u,
+  );
 }
 
 // Counts de interacțiune per detaliu (polimorfice, pe DETAIL) — subquery-uri corelate (nu join-uri)

@@ -29,6 +29,17 @@ export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResu
   return { ok: true, url: processed.url };
 }
 
+// Thumbnail al unei planșe (compus client-side la salvare — imagini + strokes pe canvas offscreen).
+// Aceleași garanții ca la schițe (SEC-02: re-encodare sharp + plafon), dar folder separat „canvases"
+// — la curățare/audit se pot distinge blob-urile planșelor de cele ale schițelor după prefix.
+export async function uploadCanvasThumbnail(blob: Blob): Promise<UploadImageResult> {
+  if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
+  if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
+  const processed = await processAndUploadImage(blob, "canvases");
+  if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
+  return { ok: true, url: processed.url };
+}
+
 // Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile
 // schițelor). NU aruncă: o eroare de storage nu trebuie să rateze ștergerea logică din DB (un blob
 // orfan = doar risipă de storage, nu o eroare de utilizator). Acceptăm doar URL-uri Blob (https) —
