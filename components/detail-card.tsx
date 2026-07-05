@@ -12,7 +12,6 @@ import type { FeedItem } from "@/server/repos/detailsRepo";
 
 import { FeedValidationActions } from "./feed-validation-actions";
 import { RolePill } from "./role-pill";
-import { SendToCanvasButton } from "./send-to-canvas-button";
 
 function initials(name: string | null): string {
   if (!name) return "?";
@@ -75,9 +74,7 @@ export function DetailCard({
   return (
     <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
       {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. Pe desktop umple toată
-          înălțimea cardului (self-stretch), mai mare și mai vizibilă; pe mobil rămâne aspect 4/3 sus.
-          `overflow-hidden` STRICT local (nu pe <article>) — altfel clipează popover-ul „Trimite în
-          Planșă" din zona de acțiuni, care se deschide sub linia cardului (vezi send-to-canvas-button.tsx). */}
+          înălțimea cardului (self-stretch), mai mare și mai vizibilă; pe mobil rămâne aspect 4/3 sus. */}
       <Link
         href={href}
         className="relative block aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r"
@@ -141,8 +138,8 @@ export function DetailCard({
         </div>
 
         {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob) pe rândul ei (ascunsă pe propriul
-            detaliu), iar scurtăturile secundare („Schițează peste" + „Trimite în Planșă") MEREU împreună pe
-            un rând sub ea → layout consistent indiferent dacă validarea e prezentă sau nu.
+            detaliu), iar scurtătura secundară („Schițează peste") pe rândul de sub ea → layout consistent
+            indiferent dacă validarea e prezentă sau nu.
             Link secundar (NU buton): duce în pagina detaliului la teanc (context), fără să creeze draft. */}
         <div className="mt-auto flex flex-col gap-2">
           {canValidate && (
@@ -158,7 +155,6 @@ export function DetailCard({
               <PencilRuler className="size-3.5" strokeWidth={2} />
               Schițează peste
             </Link>
-            {currentUserId && <SendToCanvasButton detailId={detail.id} />}
           </div>
         </div>
       </div>
