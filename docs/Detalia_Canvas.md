@@ -190,15 +190,20 @@ create table canvases (
   updated_at    timestamptz not null default now()
 );
 
--- Relația planșă ↔ detalii (pentru interogare și integritate)
+-- Relația planșă ↔ detalii/schițe (pentru interogare și integritate)
+-- 2026-07-06: `sketch_id` opțional — un item poate fi „detaliu-mamă" (null) SAU „schiță" (imaginea
+-- COMPUSĂ, deja randată la publicare — sketches.thumbnailUrl, nu se randează a doua oară). Același
+-- detaliu poate apărea de mai multe ori pe o planșă (o dată ca detaliu-mamă + câte o dată per schiță
+-- trimisă) → unicitatea NU mai e pe (canvas_id, detail_id) simplu, ci pe doi indecși parțiali.
 create table canvas_items (
-  id          uuid primary key default gen_random_uuid(),
-  canvas_id   uuid not null references canvases(id) on delete cascade,
-  detail_id   uuid not null references details(id) on delete cascade,
-  -- version_id uuid  → se adaugă în Val 2, când există versionare
-  added_at    timestamptz not null default now(),
-  unique (canvas_id, detail_id)  -- de discutat: permitem același detaliu de 2 ori?
+  id                uuid primary key default gen_random_uuid(),
+  canvas_id         uuid not null references canvases(id) on delete cascade,
+  detail_id         uuid not null references details(id) on delete cascade,
+  sketch_id         uuid references sketches(id) on delete cascade,
+  added_at          timestamptz not null default now()
 );
+create unique index canvas_items_detail_only_uidx on canvas_items (canvas_id, detail_id) where sketch_id is null;
+create unique index canvas_items_sketch_uidx on canvas_items (canvas_id, sketch_id) where sketch_id is not null;
 
 -- RLS: STRICT privat la MVP
 alter table canvases enable row level security;
