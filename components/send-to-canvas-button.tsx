@@ -38,16 +38,19 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
   };
 
   return (
-    <div className="relative inline-flex">
+    <div className="group/canvas relative inline-flex">
       <button
         type="button"
         aria-haspopup="dialog"
         aria-expanded={open}
+        title="Trimite în Planșă"
         onClick={() => (open ? close() : void openPopover())}
-        className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+        className="inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
-        <LayoutDashboard className="size-3.5" strokeWidth={2} />
-        Trimite în Planșă
+        <LayoutDashboard className="size-3.5 shrink-0" strokeWidth={2} />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/canvas:ml-1.5 group-hover/canvas:max-w-[110px] group-hover/canvas:opacity-100">
+          Trimite în Planșă
+        </span>
       </button>
 
       {open && (
