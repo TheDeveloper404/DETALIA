@@ -83,10 +83,11 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
     saveTimer.current = setTimeout(() => void persist(), AUTOSAVE_MS);
   }, [persist]);
 
-  // Eliminarea unui detaliu de pe planșă → șterge și din index (server); engine-ul l-a scos deja din document.
+  // Eliminarea unui item de pe planșă → șterge și din index (server); engine-ul l-a scos deja din document.
+  // sketchId prezent = item de schiță (server șterge doar rândul acelei schițe, nu detaliul-mamă).
   const handleRemoveItem = useCallback(
-    (detailId: string) => {
-      void removeDetailFromCanvasAction(canvasId, detailId);
+    (detailId: string, sketchId: string | null) => {
+      void removeDetailFromCanvasAction(canvasId, detailId, sketchId);
     },
     [canvasId],
   );

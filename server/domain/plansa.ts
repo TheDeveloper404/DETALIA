@@ -36,6 +36,9 @@ export type Validated<T, E> = { ok: true; value: T } | { ok: false; error: E };
 export type CanvasItem = {
   id: string;
   detailId: string;
+  // Prezent = item „schiță" (imaginea e a schiței, nu a detaliului-mamă). Opțional pentru compatibilitate
+  // cu documentele existente (fără schiță) — 2026-07-06.
+  sketchId?: string | null;
   x: number;
   y: number;
   width: number;
@@ -76,6 +79,7 @@ function validateItem(raw: unknown): CanvasItem | null {
 
   if (typeof it.id !== "string" || it.id.length === 0) return null;
   if (!isUuid(it.detailId)) return null;
+  if (it.sketchId != null && !isUuid(it.sketchId)) return null;
   if (!isFiniteNumber(it.x) || !isFiniteNumber(it.y)) return null;
   if (!isFiniteNumber(it.width) || it.width < MIN_ITEM_SIZE || it.width > MAX_ITEM_SIZE) return null;
   if (!isFiniteNumber(it.height) || it.height < MIN_ITEM_SIZE || it.height > MAX_ITEM_SIZE) return null;
@@ -84,6 +88,7 @@ function validateItem(raw: unknown): CanvasItem | null {
   return {
     id: it.id,
     detailId: it.detailId,
+    sketchId: (it.sketchId as string | null | undefined) ?? null,
     x: it.x,
     y: it.y,
     width: it.width,

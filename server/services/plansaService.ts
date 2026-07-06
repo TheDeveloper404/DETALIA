@@ -22,17 +22,19 @@ import {
   type CanvasListItem,
   deleteCanvasOwned,
   deleteItem,
+  deleteSketchItem,
   getCanvasById,
   insertCanvas,
   insertCanvasWithState,
   insertItem,
   insertItems,
   listByOwner,
-  listItemDetailIds,
+  listItems,
   renameCanvasOwned,
   updateDocumentOwned,
   updateThumbnailOwned,
 } from "@/server/repos/plansaRepo";
+import { getSketchById } from "@/server/repos/sketchesRepo";
 
 export type CanvasError =
   | "NOT_FOUND"
@@ -68,14 +70,14 @@ export async function duplicateCanvas(input: {
   const source = await getCanvasById(input.canvasId);
   if (!source || source.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
 
-  const itemIds = await listItemDetailIds(input.canvasId);
+  const items = await listItems(input.canvasId);
   const name = `${source.name} (copie)`.slice(0, MAX_NAME_LENGTH);
   const created = await insertCanvasWithState({
     ownerId: input.ownerId,
     name,
     state: source.state as CanvasDocument | null,
   });
-  await insertItems(created.id, itemIds);
+  await insertItems(created.id, items);
   return { ok: true, value: { canvasId: created.id } };
 }
 
@@ -139,15 +141,20 @@ export async function saveCanvasThumbnail(input: {
 
 // ───────────────────────────── items (planșă ↔ detalii) ─────────────────────────────
 
-// Adaugă un detaliu în planșă. Verifică: ownership, uuid, detaliul e vizibil (PUBLISHED), plafon items.
-// Întoarce datele necesare editorului pentru a materializa item-ul (imageUrl + titlu).
+// Adaugă un detaliu SAU o schiță (peste el) în planșă. Verifică: ownership, uuid, ținta e vizibilă
+// (detaliu PUBLISHED / schiță PUBLISHED și aparținând detailId-ului dat), plafon items. Când `sketchId`
+// e dat, imaginea folosită e thumbnailUrl-ul COMPUS al schiței (randat o singură dată la publicare —
+// vezi sketchService), nu imaginea detaliului-mamă. Întoarce datele necesare editorului să materializeze
+// item-ul (imageUrl + titlu).
 export async function addDetailToCanvas(input: {
   canvasId: string;
   ownerId: string;
   detailId: string;
-}): Promise<CanvasResult<{ detailId: string; imageUrl: string; title: string }>> {
+  sketchId?: string | null;
+}): Promise<CanvasResult<{ detailId: string; sketchId: string | null; imageUrl: string; title: string }>> {
   if (!isUuid(input.canvasId)) return { ok: false, error: "NOT_FOUND" };
   if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" };
+  if (input.sketchId != null && !isUuid(input.sketchId)) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
   const canvas = await getCanvasById(input.canvasId);
   if (!canvas || canvas.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
@@ -155,17 +162,33 @@ export async function addDetailToCanvas(input: {
   const detail = await getDetailById(input.detailId); // null dacă șters/nepublicat
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
-  // Plafon — doar dacă detaliul nu e deja pe planșă (insert idempotent pe PK). Dacă e deja prezent,
-  // insertItem nu adaugă nimic (onConflictDoNothing) → plafonul nu se aplică.
-  const existingIds = await listItemDetailIds(input.canvasId);
-  if (!existingIds.includes(input.detailId) && existingIds.length >= MAX_ITEMS_PER_CANVAS) {
+  let imageUrl = detail.imageUrl;
+  if (input.sketchId) {
+    const sketch = await getSketchById(input.sketchId);
+    if (
+      !sketch ||
+      sketch.status !== "PUBLISHED" ||
+      sketch.detailId !== input.detailId ||
+      !sketch.thumbnailUrl
+    ) {
+      return { ok: false, error: "DETAIL_NOT_FOUND" };
+    }
+    imageUrl = sketch.thumbnailUrl;
+  }
+
+  // Plafon — doar dacă item-ul (același detaliu SAU aceeași schiță) nu e deja pe planșă (insert idempotent).
+  const existing = await listItems(input.canvasId);
+  const already = input.sketchId
+    ? existing.some((it) => it.sketchId === input.sketchId)
+    : existing.some((it) => it.detailId === input.detailId && it.sketchId === null);
+  if (!already && existing.length >= MAX_ITEMS_PER_CANVAS) {
     return { ok: false, error: "LIMIT_REACHED" };
   }
 
-  await insertItem(input.canvasId, input.detailId);
+  await insertItem(input.canvasId, input.detailId, input.sketchId ?? null);
   return {
     ok: true,
-    value: { detailId: input.detailId, imageUrl: detail.imageUrl, title: detail.title },
+    value: { detailId: input.detailId, sketchId: input.sketchId ?? null, imageUrl, title: detail.title },
   };
 }
 
@@ -173,20 +196,27 @@ export async function removeDetailFromCanvas(input: {
   canvasId: string;
   ownerId: string;
   detailId: string;
+  sketchId?: string | null;
 }): Promise<CanvasResult> {
   if (!isUuid(input.canvasId) || !isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+  if (input.sketchId != null && !isUuid(input.sketchId)) return { ok: false, error: "NOT_FOUND" };
   const canvas = await getCanvasById(input.canvasId);
   if (!canvas || canvas.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
-  await deleteItem(input.canvasId, input.detailId);
+  if (input.sketchId) {
+    await deleteSketchItem(input.canvasId, input.sketchId);
+  } else {
+    await deleteItem(input.canvasId, input.detailId);
+  }
   return { ok: true };
 }
 
-export type CanvasEditItem = { detailId: string; imageUrl: string; title: string };
+export type CanvasEditItem = { detailId: string; sketchId: string | null; imageUrl: string; title: string };
 
-// Încarcă planșa pentru editor — DOAR owner-ul (altfel NOT_FOUND). Întoarce documentul + lista detaliilor
+// Încarcă planșa pentru editor — DOAR owner-ul (altfel NOT_FOUND). Întoarce documentul + lista items-elor
 // încă accesibile (index ∩ PUBLISHED), cu datele de randare. Editorul reconciliază la load:
-//  - materializează items pentru detalii adăugate din popover-ul feed (în index, dar nu în document);
-//  - randează placeholder „Detaliu indisponibil" pentru items al căror detaliu a dispărut (șters/nepublicat).
+//  - materializează items pentru detalii/schițe adăugate din popover (în index, dar nu în document);
+//  - randează placeholder „Detaliu indisponibil" pentru items a căror țintă a dispărut/nu mai e vizibilă
+//    (detaliu șters/nepublicat, sau schiță ștearsă/retrasă din teanc).
 export async function getCanvasForEdit(input: {
   canvasId: string;
   ownerId: string;
@@ -202,11 +232,23 @@ export async function getCanvasForEdit(input: {
   const canvas = await getCanvasById(input.canvasId);
   if (!canvas || canvas.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
 
-  const itemIds = await listItemDetailIds(input.canvasId);
+  const rows = await listItems(input.canvasId);
   const items: CanvasEditItem[] = [];
-  for (const id of itemIds) {
-    const detail = await getDetailById(id); // null dacă șters/nepublicat → rămâne placeholder
-    if (detail) items.push({ detailId: id, imageUrl: detail.imageUrl, title: detail.title });
+  for (const row of rows) {
+    if (row.sketchId) {
+      const sketch = await getSketchById(row.sketchId);
+      if (!sketch || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl) continue; // șters/retras → placeholder
+      const detail = await getDetailById(row.detailId);
+      items.push({
+        detailId: row.detailId,
+        sketchId: row.sketchId,
+        imageUrl: sketch.thumbnailUrl,
+        title: detail?.title ?? "Schiță",
+      });
+    } else {
+      const detail = await getDetailById(row.detailId); // null dacă șters/nepublicat → rămâne placeholder
+      if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: detail.imageUrl, title: detail.title });
+    }
   }
 
   return {

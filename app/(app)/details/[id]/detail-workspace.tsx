@@ -193,7 +193,7 @@ export function DetailWorkspace({
                 authorId={detailAuthor.id ?? ""}
                 isAuthor={isDetailAuthor}
                 isSaved={header.isSaved}
-                canSendToCanvas={!!currentUserId && isBase}
+                canSendToCanvas={!!currentUserId}
                 activeSketchPublicId={isBase ? null : activeSketch!.id}
                 canDeleteActiveSketch={canDeleteActive}
                 deleteSketchLabel={

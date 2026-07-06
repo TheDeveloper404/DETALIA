@@ -14,7 +14,9 @@ type Added = { canvasId: string; name: string };
 // Logica „Trimite în Planșă" extrasă din send-to-canvas-button.tsx ca să poată fi refolosită de un al
 // doilea trigger (meniul kebab al detaliului) fără duplicare — starea și apelurile server rămân identice,
 // doar prezentarea (popover ancorat vs. modal) diferă între cei doi consumatori.
-export function useSendToCanvas(detailId: string) {
+// `sketchId` opțional (2026-07-06): dacă e dat, se trimite imaginea COMPUSĂ a acelei schițe, nu a
+// detaliului-mamă — vezi addDetailToCanvas în plansaService.
+export function useSendToCanvas(detailId: string, sketchId?: string | null) {
   const [loading, setLoading] = useState(false);
   const [canvases, setCanvases] = useState<Picker[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,7 +48,7 @@ export function useSendToCanvas(detailId: string) {
   const addToExisting = async (c: Picker) => {
     setBusy(true);
     setError(null);
-    const res = await addDetailToCanvasAction(c.id, detailId);
+    const res = await addDetailToCanvasAction(c.id, detailId, sketchId);
     setBusy(false);
     if (!res.ok) {
       setError(res.error ?? "Nu am putut adăuga.");
@@ -60,7 +62,7 @@ export function useSendToCanvas(detailId: string) {
     if (!trimmed) return;
     setBusy(true);
     setError(null);
-    const res = await createCanvasAndAddDetailAction(trimmed, detailId);
+    const res = await createCanvasAndAddDetailAction(trimmed, detailId, sketchId);
     setBusy(false);
     if (!res.ok || !res.canvasId) {
       setError(res.error ?? "Nu am putut crea planșa.");

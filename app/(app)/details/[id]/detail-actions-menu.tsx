@@ -18,6 +18,9 @@ import { toggleSaveDetailAction } from "./save-actions";
 // 2026-07-06: unificat AICI toate acțiunile care înainte erau împrăștiate lângă panoul din dreapta al
 // tabului de schiță (copiază link public schiță, șterge schița mea) + „Trimite în Planșă" (înainte doar
 // pe tabul de bază) — un singur loc pentru toate acțiunile, indiferent de tab.
+// 2026-07-06: „Trimite în Planșă" acum funcționează și pe tab de schiță — trimite imaginea COMPUSĂ a
+// schiței (thumbnailUrl randat la publicare), nu detaliul-mamă (vezi addDetailToCanvas în plansaService,
+// canvas_items.sketch_id). `activeSketchPublicId` (deja calculat pt link) e reutilizat ca sketchId aici.
 // 2026-07-06: scos linkul PRIVAT (pagina curentă) — decizie Liviu: între useri cu cont, link-ul se
 // trimite din bara de adresă a browser-ului, nu are nevoie de buton dedicat. Rămâne DOAR linkul PUBLIC
 // al schiței (`/s/[id]`, fără cont) — pentru asta există, ca să poți trimite unui prieten fără cont.
@@ -36,8 +39,7 @@ export function DetailActionsMenu({
   authorId: string;
   isAuthor: boolean;
   isSaved: boolean;
-  // „Trimite în Planșă" — vizibil doar când userul e logat ȘI modelul CanvasItem poate reprezenta corect
-  // ce vede userul acum (doar tab de bază; pe schiță ar trimite silențios detaliul-mamă, nu schița).
+  // „Trimite în Planșă" — vizibil doar când userul e logat (orice tab: detaliu SAU schiță).
   canSendToCanvas?: boolean;
   // Link public al schiței active (`/s/[id]`, fără cont) — singurul link din meniu; vizibil doar pe tab
   // de schiță (id-ul schiței active, null pe tab de bază).
@@ -111,6 +113,19 @@ export function DetailActionsMenu({
               </button>
             </form>
 
+            {/* Vezi profilul autorului — poziție FIXĂ (a doua, mereu), indiferent ce iteme condiționale
+                apar sub ea (Trimite în Planșă / Copiază linkul) — altfel „sare" de pe poziția 2 pe 3 în
+                funcție de context, cum a semnalat Liviu (1.png vs 2.png, 2026-07-06). */}
+            <Link
+              href={`/profile/${authorId}`}
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className={itemClass}
+            >
+              <User className="size-4 text-muted-foreground" strokeWidth={2} />
+              Vezi profilul autorului
+            </Link>
+
             {/* Trimite în Planșă — doar dacă modelul poate reprezenta corect ce vede userul (tab de bază). */}
             {canSendToCanvas && (
               <button
@@ -126,17 +141,6 @@ export function DetailActionsMenu({
                 Trimite în Planșă
               </button>
             )}
-
-            {/* Vezi profilul autorului. */}
-            <Link
-              href={`/profile/${authorId}`}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className={itemClass}
-            >
-              <User className="size-4 text-muted-foreground" strokeWidth={2} />
-              Vezi profilul autorului
-            </Link>
 
             {/* Copiază linkul PUBLIC al schiței (`/s/[id]`, fără cont) — doar pe tab de schiță. Singurul
                 link din meniu (vezi nota din antetul fișierului). */}
@@ -234,7 +238,11 @@ export function DetailActionsMenu({
       )}
 
       {sendToCanvasOpen && (
-        <SendToCanvasModal detailId={detailId} onClose={() => setSendToCanvasOpen(false)} />
+        <SendToCanvasModal
+          detailId={detailId}
+          sketchId={activeSketchPublicId}
+          onClose={() => setSendToCanvasOpen(false)}
+        />
       )}
     </div>
   );
