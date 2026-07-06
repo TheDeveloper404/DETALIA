@@ -16,6 +16,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   BODY_TOO_LONG: "Comentariul e prea lung (max 5000 de caractere).",
   NOT_FOUND: "Comentariul nu mai există sau nu îți aparține.",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
+  INVALID_PARENT: "Comentariul la care răspunzi nu mai există.",
 };
 
 export async function addCommentAction(
@@ -34,8 +35,10 @@ export async function addCommentAction(
   const targetId = String(formData.get("targetId") ?? "");
   const detailId = String(formData.get("detailId") ?? ""); // pagina de revalidat
   const body = String(formData.get("body") ?? "");
+  const parentCommentIdRaw = formData.get("parentCommentId");
+  const parentCommentId = parentCommentIdRaw ? String(parentCommentIdRaw) : null;
 
-  const res = await addComment({ userId, targetType, targetId, body });
+  const res = await addComment({ userId, targetType, targetId, body, parentCommentId });
 
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");

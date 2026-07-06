@@ -10,6 +10,7 @@ import { type TargetType, validateCommentBody } from "@/server/domain/validation
 import {
   deleteFreeCommentByAuthor,
   getCommentTarget,
+  getRootCommentForTarget,
   insertComment,
   listCommentsForTarget,
   updateCommentByAuthor,
@@ -32,7 +33,8 @@ export type AddCommentError =
   | "NO_ROLE"
   | "TARGET_NOT_FOUND"
   | "BODY_REQUIRED"
-  | "BODY_TOO_LONG";
+  | "BODY_TOO_LONG"
+  | "INVALID_PARENT";
 
 export type AddCommentResult = { ok: true } | { ok: false; error: AddCommentError };
 
@@ -41,6 +43,7 @@ export async function addComment(input: {
   targetType: TargetType;
   targetId: string;
   body: string;
+  parentCommentId?: string | null;
 }): Promise<AddCommentResult> {
   const role = await getRoleByUserId(input.userId);
   if (!role) return { ok: false, error: "NO_ROLE" };
@@ -52,6 +55,16 @@ export async function addComment(input: {
 
   if (!(await targetExists(input.targetType, input.targetId))) {
     return { ok: false, error: "TARGET_NOT_FOUND" };
+  }
+
+  // Reply — UN SINGUR nivel: părintele trebuie să existe, să fie pe ACEEAȘI țintă, ȘI să fie el însuși
+  // rădăcină (nu poți da reply la un reply). isUuid întâi (SEC-11, id malformat → fără query).
+  let parentCommentId: string | null = null;
+  if (input.parentCommentId) {
+    if (!isUuid(input.parentCommentId)) return { ok: false, error: "INVALID_PARENT" };
+    const root = await getRootCommentForTarget(input.parentCommentId, input.targetType, input.targetId);
+    if (!root) return { ok: false, error: "INVALID_PARENT" };
+    parentCommentId = root.id;
   }
 
   // Mențiuni @schiță doar pe comentariile de DETALIU (targetId = detailId); tokenii străini se degradează.
@@ -66,6 +79,7 @@ export async function addComment(input: {
     authorId: input.userId,
     body,
     originValidationId: null, // comentariu liber (nu provine dintr-o dezaprobare)
+    parentCommentId,
   });
   return { ok: true };
 }
