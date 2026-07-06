@@ -1,0 +1,25 @@
+# SEC-A4 — Dependabot: PR-uri automate pentru dependențe vulnerabile/învechite (npm).
+# Security updates le deschide imediat ce apare un advisory (nu respectă cooldown-ul).
+# Version updates — lunar, grupate + cooldown 30 zile (o versiune nouă trebuie să fie "coaptă"
+# minim 30 de zile pe npm înainte ca Dependabot s-o propună — evită versiuni proaspete/nestabile).
+# Merge-ul rămâne manual (CI: type-check + lint + build).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    target-branch: "dev"
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 30
+    groups:
+      minor-and-patch:
+        update-types: ["minor", "patch"]
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    target-branch: "dev"
+    cooldown:
+      default-days: 30
