@@ -385,12 +385,13 @@ export const SketchCanvas = forwardRef<
     }
   }, []);
 
-  // Zoom cu Ctrl/Cmd + rotița mouse-ului (listener non-passive ca să putem preveni scroll-ul paginii).
+  // Zoom cu rotița mouse-ului, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există
+  // pagină dedesubt de scrollat, deci nu se pierde nimic (2026-07-06, decizie Liviu). Listener non-passive
+  // ca să putem preveni scroll-ul (irelevant aici, dar consistent cu restul paginii dacă ea totuși scrollează).
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       setZoom((z) => clampZoom(z * (e.deltaY < 0 ? 1.1 : 0.9)));
     };
