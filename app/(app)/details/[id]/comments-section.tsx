@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { EmojiPickerButton } from "@/components/emoji-picker-button";
 import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -269,9 +270,27 @@ function MentionComposer({
     });
   }
 
+  // Inserează emoji la poziția cursorului (fără să atingă mențiunile @) — sincronizat prin syncHidden,
+  // exact ca la `pick()`, doar fără maparea etichetă→sid.
+  function insertEmoji(emoji: string) {
+    const el = ref.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? el.value.length;
+    el.value = el.value.slice(0, caret) + emoji + el.value.slice(caret);
+    syncHidden(el.value);
+    const pos = caret + emoji.length;
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
   return (
     <div className="relative">
       <input ref={hiddenRef} type="hidden" name="body" />
+      <div className="absolute right-1.5 top-1.5 z-[1]">
+        <EmojiPickerButton onPick={insertEmoji} disabled={disabled} />
+      </div>
       <Textarea
         ref={ref}
         required
@@ -439,6 +458,7 @@ function CommentItem({
   // maparea etichetă→sid se ține aici și corpul cu tokeni se reconstruiește la salvare (server-ul
   // re-validează oricum sid-urile). Mențiuni NOI nu se pot adăuga din editare (fără autocomplete aici).
   const editLabelsRef = useRef(new Map<string, string>());
+  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   function startEdit() {
     const { display, labels } = mentionsToDisplay(c.body);
@@ -538,13 +558,32 @@ function CommentItem({
 
         {editing ? (
           <div>
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              rows={3}
-              maxLength={COMMENT_MAX_LENGTH}
-              autoFocus
-            />
+            <div className="relative">
+              <div className="absolute right-1.5 top-1.5 z-[1]">
+                <EmojiPickerButton
+                  onPick={(emoji) => {
+                    const el = editTextareaRef.current;
+                    const caret = el?.selectionStart ?? draft.length;
+                    const next = draft.slice(0, caret) + emoji + draft.slice(caret);
+                    setDraft(next);
+                    const pos = caret + emoji.length;
+                    requestAnimationFrame(() => {
+                      el?.focus();
+                      el?.setSelectionRange(pos, pos);
+                    });
+                  }}
+                  disabled={pending}
+                />
+              </div>
+              <Textarea
+                ref={editTextareaRef}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                rows={3}
+                maxLength={COMMENT_MAX_LENGTH}
+                autoFocus
+              />
+            </div>
             <div className="mt-2 flex items-center gap-2">
               <Button type="button" size="sm" onClick={saveEdit} disabled={pending}>
                 {pending ? "Se salvează…" : "Salvează"}
@@ -610,6 +649,7 @@ function ReplyComposer({
 }) {
   const [state, formAction, pending] = useActionState(addCommentAction, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const doneRef = useRef(onDone);
   useEffect(() => {
     doneRef.current = onDone;
@@ -619,15 +659,30 @@ function ReplyComposer({
     if (state.ok) doneRef.current();
   }, [state]);
 
+  // Textarea necontrolat (name="body" citit direct din FormData la submit) — inserăm emoji direct în DOM.
+  function insertEmoji(emoji: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? el.value.length;
+    el.value = el.value.slice(0, caret) + emoji + el.value.slice(caret);
+    const pos = caret + emoji.length;
+    el.focus();
+    el.setSelectionRange(pos, pos);
+  }
+
   return (
     <form ref={formRef} action={formAction} className="mt-3 flex gap-2.5">
       <AvatarInitials name={currentUserName ?? null} imageUrl={currentUserImage} size={30} />
-      <div className="flex-1">
+      <div className="relative flex-1">
         <input type="hidden" name="targetType" value={targetType} />
         <input type="hidden" name="targetId" value={targetId} />
         <input type="hidden" name="detailId" value={detailId} />
         <input type="hidden" name="parentCommentId" value={parentCommentId} />
+        <div className="absolute right-1.5 top-1.5 z-[1]">
+          <EmojiPickerButton onPick={insertEmoji} disabled={pending} />
+        </div>
         <Textarea
+          ref={textareaRef}
           name="body"
           required
           autoFocus
