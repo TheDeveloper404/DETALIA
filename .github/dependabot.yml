@@ -1,5 +1,0 @@
-# Dependabot OPRIT complet (decizie 2026-07-06, după incidentul cu preview branch-ul de DB) —
-# nu se mai deschide NICIUN PR automat (nici security, nici version updates) fără știrea lui Liviu.
-# Pentru reactivare: pune înapoi blocul "updates:" din istoricul git.
-version: 2
-updates: []
