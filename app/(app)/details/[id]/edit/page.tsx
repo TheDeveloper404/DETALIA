@@ -69,7 +69,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
       </p>
 
       <DetailForm
-        categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId }))}
+        categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId, isGroup: c.isGroup }))}
         action={updateDetailAction}
         initial={initial}
         submitLabel="Salvează modificările"
