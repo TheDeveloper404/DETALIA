@@ -41,7 +41,8 @@ export function FeedRail({
   sketches: RailSketch[];
 }) {
   return (
-    <aside className="hidden flex-col gap-[18px] xl:sticky xl:top-[90px] xl:flex">
+    // mt-2: aliniază cu containerul „Detalii în dezbatere" din main și cu sidebar-ul din stânga.
+    <aside className="mt-2 hidden flex-col gap-[18px] xl:sticky xl:top-[90px] xl:flex">
       {/* Autori activi. */}
       {authors.length > 0 && (
         <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
