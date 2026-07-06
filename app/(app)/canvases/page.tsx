@@ -16,7 +16,7 @@ export default async function CanvasesPage() {
   const canvases = await listMyCanvases(session.user.id);
 
   return (
-    <main className="mx-auto w-full max-w-[860px] flex-1 px-6 pb-20 pt-8">
+    <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
       <div className="mb-6 flex items-center gap-2.5">
         <LayoutDashboard className="size-5 text-primary" strokeWidth={2} />
         <h1 className="font-heading text-[26px] font-extrabold tracking-tight">Planșele mele</h1>

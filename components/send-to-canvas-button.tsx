@@ -45,10 +45,11 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
         aria-expanded={open}
         title="Trimite în Planșă"
         onClick={() => (open ? close() : void openPopover())}
-        className="inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <LayoutDashboard className="size-3.5 shrink-0" strokeWidth={2} />
-        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/canvas:ml-1.5 group-hover/canvas:max-w-[140px] group-hover/canvas:opacity-100">
+        {/* Tooltip absolut (nu expandare inline) — nu împinge vecinii, consecvent cu „Schițează peste". */}
+        <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 font-mono text-[11px] text-background opacity-0 transition-opacity duration-150 group-hover/canvas:opacity-100">
           Trimite în Planșă
         </span>
       </button>

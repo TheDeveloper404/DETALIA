@@ -20,25 +20,12 @@ export type RailDebated = {
   commentCount: number;
   sketchCount: number;
 };
-export type RailSketch = {
-  id: string;
-  detailId: string;
-  thumbnailUrl: string | null;
-  detailTitle: string;
-  authorName: string | null;
-  authorImage: string | null;
-  authorRoleMain: string | null;
-  authorVerified: boolean;
-};
-
 export function FeedRail({
   authors,
   debated,
-  sketches,
 }: {
   authors: RailAuthor[];
   debated: RailDebated[];
-  sketches: RailSketch[];
 }) {
   return (
     // mt-2: aliniază cu containerul „Detalii în dezbatere" din main și cu sidebar-ul din stânga.
@@ -94,46 +81,6 @@ export function FeedRail({
                 <span className="font-mono text-[11px] text-muted-foreground">
                   {d.commentCount} comentarii · {d.sketchCount} schițe
                 </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {/* Schițe noi în teanc — propunerile desenate recent publicate (diferențiatorul fork+PR). */}
-      {sketches.length > 0 && (
-        <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
-          <div className="mb-3.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-            Schițe noi în teanc
-          </div>
-          <ul className="flex list-none flex-col gap-3.5 p-0">
-            {sketches.map((s, i) => (
-              <li key={s.id} className={i > 0 ? "border-t border-[#eee6da] pt-3.5" : undefined}>
-                <Link
-                  href={`/details/${s.detailId}`}
-                  className="flex items-center gap-3 no-underline"
-                >
-                  <span className="size-12 flex-none overflow-hidden rounded-md border border-[#eee6da] bg-[#faf7f1]">
-                    {s.thumbnailUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s.thumbnailUrl} alt="" className="size-full object-cover" />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-foreground">
-                      {s.detailTitle}
-                    </span>
-                    <span className="flex items-center gap-1 truncate font-mono text-[11px] text-muted-foreground">
-                      {s.authorName ?? "Anonim"}
-                      {s.authorVerified && (
-                        <span className="text-[#d99a2b]" title="Rol verificat">★</span>
-                      )}
-                      {s.authorRoleMain && (
-                        <> · {ROLE_MAIN_LABELS[s.authorRoleMain as RoleMain] ?? s.authorRoleMain}</>
-                      )}
-                    </span>
-                  </span>
-                </Link>
               </li>
             ))}
           </ul>
