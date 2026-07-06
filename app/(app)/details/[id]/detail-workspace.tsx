@@ -3,7 +3,7 @@
 import { Activity, Pencil, Snowflake } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -91,9 +91,10 @@ export function DetailWorkspace({
   currentUserImage?: string | null;
 }) {
   // 0 = detaliul de bază; 1..N = schițele (index i → sketches[i-1]). După o ștergere lista se scurtează
-  // → clamp pe un tab valid. `?sketch=<id>` din URL (dacă e prezent) deschide direct pe tab-ul acela —
-  // e ținta linkului din „Copiază linkul" cât timp o schiță e activă (vezi DetailActionsMenu).
+  // → clamp pe un tab valid. `?sketch=<id>` din URL (dacă e prezent) deschide direct pe tab-ul acela.
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const [tab, setTab] = useState(() => {
     const wanted = searchParams.get("sketch");
     if (!wanted) return 0;
@@ -104,10 +105,19 @@ export function DetailWorkspace({
   const isBase = safeTab === 0;
   const activeSketch = isBase ? null : sketches[safeTab - 1];
 
+  // Sincronizează URL-ul cu tab-ul activ (shallow, fără reload) — altfel bara de adresă a browserului nu
+  // reflectă schița deschisă, iar „copiază link-ul din browser" (regula 2026-07-06: fără buton dedicat de
+  // link privat) ar trimite mereu pe tab de bază, nu pe schița pe care o vezi.
+  function setTabAndUrl(next: number) {
+    setTab(next);
+    const sketchId = next === 0 ? null : sketches[next - 1]?.id;
+    router.replace(sketchId ? `${pathname}?sketch=${sketchId}` : pathname, { scroll: false });
+  }
+
   // Mențiunile din comentarii selectează un tab de schiță după id.
   function selectSketch(sketchId: string) {
     const idx = sketches.findIndex((s) => s.id === sketchId);
-    if (idx >= 0) setTab(idx + 1);
+    if (idx >= 0) setTabAndUrl(idx + 1);
   }
 
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
@@ -183,7 +193,6 @@ export function DetailWorkspace({
                 authorId={detailAuthor.id ?? ""}
                 isAuthor={isDetailAuthor}
                 isSaved={header.isSaved}
-                activeSketchId={isBase ? null : activeSketch!.id}
                 canSendToCanvas={!!currentUserId && isBase}
                 activeSketchPublicId={isBase ? null : activeSketch!.id}
                 canDeleteActiveSketch={canDeleteActive}
@@ -245,7 +254,7 @@ export function DetailWorkspace({
         <div className="flex min-h-11 flex-nowrap items-center gap-1.5 overflow-x-auto px-4 pb-1.5 pt-3 sm:px-5">
           <button
             type="button"
-            onClick={() => setTab(0)}
+            onClick={() => setTabAndUrl(0)}
             title={detailAuthor.name ?? "Autor detaliu"}
             aria-label={detailAuthor.name ?? "Autor detaliu"}
             aria-current={isBase ? "true" : undefined}
@@ -287,7 +296,7 @@ export function DetailWorkspace({
               <button
                 key={s.id}
                 type="button"
-                onClick={() => setTab(i + 1)}
+                onClick={() => setTabAndUrl(i + 1)}
                 title={label}
                 aria-label={label}
                 aria-current={isActive ? "true" : undefined}
@@ -324,6 +333,8 @@ export function DetailWorkspace({
             singura info netă din panou era rolul, mutat acolo. Imaginea folosește acum toată lățimea. */}
         <div className="mt-3 border-t border-[#eee6da]">
           <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6">
+            {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
+            <div className="absolute bottom-3 right-3 z-[3]">{startSketchBtn}</div>
             {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
             <div
               aria-hidden
@@ -361,9 +372,6 @@ export function DetailWorkspace({
                 </div>
               )}
             </div>
-          </div>
-          <div className="flex justify-end border-t border-[#eee6da] bg-[#faf7f1] px-4 py-2.5">
-            {startSketchBtn}
           </div>
         </div>
 

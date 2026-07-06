@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import {
@@ -76,20 +77,24 @@ export function FeedValidationActions({
           pastilă colorată cu „retrage" integrat (fără link separat). */}
       {!myPos ? (
         <>
+          {/* Iconițe curate, aliniate ca stil cu „Schițează peste"/„Trimite în Planșă" de sub ele —
+              nu mai sunt pastile colorate cu fundal, doar text+iconiță muted, colorat la hover. */}
           <button
             type="button"
             onClick={onApprove}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#cfe3d2] bg-[#e9f2ea] px-3.5 py-1.5 text-[13.5px] font-semibold text-[#2f6b3f] transition-colors hover:bg-[#dbe9dd]"
+            className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground transition-colors hover:text-[#2f6b3f]"
           >
-            ✓ Aprob
+            <Check className="size-3.5" strokeWidth={2.4} />
+            Aprob
           </button>
 
           <button
             type="button"
             onClick={() => setShowJustify(true)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-1.5 text-[13.5px] font-semibold text-destructive transition-colors hover:bg-destructive/20"
+            className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground transition-colors hover:text-destructive"
           >
-            ✕ Dezaprob
+            <X className="size-3.5" strokeWidth={2.4} />
+            Dezaprob
           </button>
         </>
       ) : (
