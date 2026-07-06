@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Pencil, PenLine, ThumbsUp, X } from "lucide-react";
-import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
+import { Check, Pencil, PenLine, X } from "lucide-react";
+import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
@@ -42,8 +42,6 @@ export function ValidationPanel({
   // Fluxul de dezaprobare: "none" (ascuns) → "choose" (alegere binară text/schiță) → "text" (justificare).
   // Pe ținte fără ramura schiță (SKETCH) sărim direct la "text" — o singură cale, fără alegere inutilă.
   const [mode, setMode] = useState<"none" | "choose" | "text">("none");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, formAction, pending] = useActionState(disapproveAction, initialState);
 
   // Optimistic UI: click-ul de Aprob/Retract se reflectă INSTANT în UI, apoi se reconciliază cu serverul
@@ -75,7 +73,6 @@ export function ValidationPanel({
   }
   function onApprove() {
     setMode("none");
-    setMenuOpen(false);
     startTransition(async () => {
       applyOpt("APPROVE");
       await approveAction(targetFormData());
@@ -89,16 +86,7 @@ export function ValidationPanel({
     });
   }
   function onPickDisapprove() {
-    setMenuOpen(false);
     setMode(allowSketch ? "choose" : "text");
-  }
-  // Mic delay la închidere (mouse leave) — mutarea cursorului spre meniu nu-l închide instant.
-  function openMenu() {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setMenuOpen(true);
-  }
-  function scheduleClose() {
-    closeTimer.current = setTimeout(() => setMenuOpen(false), 150);
   }
   // Polimorfic: aceeași validare pe detaliu SAU pe schiță — textul confirmării urmează ținta.
   const targetNoun = targetType === "SKETCH" ? "această schiță" : "acest detaliu";
@@ -130,47 +118,38 @@ export function ValidationPanel({
               „retrage" integrat (fără banner separat) — mai puțin zgomot + înălțime constantă a zonei. */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {!myPos ? (
-              // UN SINGUR buton (pattern „reacții"): hover → mini-meniu Aprob/Dezaprob, ca în feed
-              // (FeedValidationActions) — consecvent pe toată platforma, 2026-07-06.
-              <div className="relative inline-flex" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+              // DOUĂ butoane separate (2026-07-06: meniul unic „reacție" testat pe pagina de detaliu era
+              // confuz — un singur icon fără etichetă arăta ca un „Ok" generic, nu ca validare pe roluri).
+              // Icon-only + text la HOVER (nu la click) — același pattern ca taburile de mai sus / butonul
+              // „Schițează peste detaliu". Feed-ul (FeedValidationActions) rămâne cu meniul unic, e ok acolo.
+              <>
                 <Button
                   type="button"
                   size="icon"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                  title="Validează"
-                  className="border border-border bg-card text-muted-foreground shadow-none hover:bg-muted hover:text-foreground"
+                  onClick={onApprove}
+                  title="Aprob"
+                  className="group/approve !w-auto gap-0 overflow-hidden !px-2.5 border border-[#cfe3d2] bg-[#e9f2ea] text-[#2f6b3f] shadow-none hover:bg-[#dbe9dd]"
                 >
-                  <ThumbsUp className="size-[17px]" strokeWidth={2.2} />
+                  <Check className="size-[17px] shrink-0" strokeWidth={2.6} />
+                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 font-bold transition-all duration-200 group-hover/approve:ml-2 group-hover/approve:max-w-[80px] group-hover/approve:opacity-100">
+                    Aprob
+                  </span>
                 </Button>
 
-                {menuOpen && (
-                  <div
-                    role="menu"
-                    className="absolute bottom-full left-0 z-20 mb-1.5 flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card p-1 shadow-lg"
-                  >
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={onApprove}
-                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-[12.5px] font-semibold text-[#2f6b3f] transition-colors hover:bg-[#e9f2ea]"
-                    >
-                      <Check className="size-4" strokeWidth={2.4} />
-                      Aprob
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={onPickDisapprove}
-                      className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 font-mono text-[12.5px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
-                    >
-                      <X className="size-4" strokeWidth={2.4} />
-                      Dezaprob
-                    </button>
-                  </div>
-                )}
-              </div>
+                <Button
+                  type="button"
+                  size="icon"
+                  onClick={onPickDisapprove}
+                  aria-expanded={mode !== "none"}
+                  title="Dezaprob"
+                  className="group/disapprove !w-auto gap-0 overflow-hidden !px-2.5 border border-destructive/30 bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
+                >
+                  <X className="size-4 shrink-0" strokeWidth={2.6} />
+                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 font-bold transition-all duration-200 group-hover/disapprove:ml-2 group-hover/disapprove:max-w-[100px] group-hover/disapprove:opacity-100">
+                    Dezaprob
+                  </span>
+                </Button>
+              </>
             ) : (
               <div
                 className={cn(
