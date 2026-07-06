@@ -1,10 +1,9 @@
-import Link from "next/link";
+import { Search } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { DetailCard } from "@/components/detail-card";
 import { FeedRail } from "@/components/feed-rail";
 import { FeedSidebar } from "@/components/feed-sidebar";
-import { cn } from "@/lib/utils";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
@@ -90,15 +89,6 @@ export default async function FeedPage({
     authorVerified: s.authorVerification === "VERIFIED",
   }));
 
-  // Linkuri de sortare care păstrează filtrul de categorie + căutarea.
-  const sortHref = (value: FeedSort) => {
-    const params = new URLSearchParams();
-    if (activeId) params.set("cat", activeId);
-    if (q) params.set("q", q);
-    if (value === "recent") params.set("sort", "recent");
-    const qs = params.toString();
-    return qs ? `/feed?${qs}` : "/feed";
-  };
 
   return (
     <FeedEntrance welcome={welcome === "1"}>
@@ -132,30 +122,23 @@ export default async function FeedPage({
           <h1 className="text-xl font-bold tracking-tight">
             {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}
           </h1>
-          <div className="inline-flex shrink-0 rounded-lg border border-border bg-card p-0.5 font-mono text-[11.5px]">
-            <Link
-              href={sortHref("debated")}
-              className={cn(
-                "rounded-md px-2.5 py-1 transition-colors",
-                sort === "debated"
-                  ? "bg-secondary font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              În dezbatere
-            </Link>
-            <Link
-              href={sortHref("recent")}
-              className={cn(
-                "rounded-md px-2.5 py-1 transition-colors",
-                sort === "recent"
-                  ? "bg-secondary font-semibold text-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Recente
-            </Link>
-          </div>
+          {/* Căutare — mutată aici din header-ul global (2026-07-06), lângă titlu. */}
+          <form action="/feed" className="w-full max-w-[280px]" role="search">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                strokeWidth={2}
+              />
+              <input
+                type="search"
+                name="q"
+                defaultValue={q ?? ""}
+                placeholder="Caută detalii…"
+                aria-label="Caută detalii"
+                className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
+              />
+            </div>
+          </form>
         </div>
 
         {details.length === 0 ? (
