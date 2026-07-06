@@ -1,6 +1,7 @@
 "use client";
 
-// Bookmark „Salvează" pe cardul din feed — colț dreapta-sus al thumbnail-ului (task Edi, 2026-07-06).
+// Bookmark „Salvează" pe cardul din feed — colț dreapta-sus al containerului de conținut, NU peste
+// imagine (task Edi, 2026-07-06).
 // La click devine galben (salvat) — optimist, apoi reconciliat cu serverul (pattern identic cu
 // FeedValidationActions: startTransition + useOptimistic, fără să aștepți round-trip-ul).
 import { Bookmark } from "lucide-react";
