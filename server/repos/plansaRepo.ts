@@ -106,24 +106,43 @@ export type CanvasListItem = Awaited<ReturnType<typeof listByOwner>>[number];
 
 // ───────────────────────────── canvas_items ─────────────────────────────
 
-// Adaugă un detaliu în planșă. Idempotent pe PK compus (un detaliu o singură dată/planșă — decizie v1).
-export async function insertItem(canvasId: string, detailId: string) {
-  await db.insert(canvasItems).values({ canvasId, detailId }).onConflictDoNothing();
+export type CanvasItemRow = { detailId: string; sketchId: string | null };
+
+// Adaugă un detaliu SAU o schiță în planșă (sketchId null = detaliu-mamă). Idempotent — indecșii parțiali
+// unici din schema (canvas_items_detail_only_uidx / canvas_items_sketch_uidx) resping duplicatul exact;
+// `onConflictDoNothing()` FĂRĂ target prinde conflictul indiferent care index parțial se aplică.
+export async function insertItem(canvasId: string, detailId: string, sketchId: string | null = null) {
+  await db.insert(canvasItems).values({ canvasId, detailId, sketchId }).onConflictDoNothing();
 }
 
-// Copiază indexul de detalii al unei planșe pe alta (folosit la duplicare). Idempotent (onConflictDoNothing).
-export async function insertItems(canvasId: string, detailIds: string[]) {
-  if (detailIds.length === 0) return;
+// Copiază indexul (detalii + schițe) al unei planșe pe alta (folosit la duplicare). Idempotent.
+export async function insertItems(canvasId: string, items: CanvasItemRow[]) {
+  if (items.length === 0) return;
   await db
     .insert(canvasItems)
-    .values(detailIds.map((detailId) => ({ canvasId, detailId })))
+    .values(items.map((it) => ({ canvasId, detailId: it.detailId, sketchId: it.sketchId })))
     .onConflictDoNothing();
 }
 
+// Elimină item-ul „detaliu-mamă" (sketchId null) al unui detaliu de pe planșă — NU atinge item-urile de
+// schiță ale aceluiași detaliu (rânduri distincte, `sketchId` diferă).
 export async function deleteItem(canvasId: string, detailId: string) {
   await db
     .delete(canvasItems)
-    .where(and(eq(canvasItems.canvasId, canvasId), eq(canvasItems.detailId, detailId)));
+    .where(
+      and(
+        eq(canvasItems.canvasId, canvasId),
+        eq(canvasItems.detailId, detailId),
+        sql`${canvasItems.sketchId} is null`,
+      ),
+    );
+}
+
+// Elimină item-ul unei schițe anume de pe planșă.
+export async function deleteSketchItem(canvasId: string, sketchId: string) {
+  await db
+    .delete(canvasItems)
+    .where(and(eq(canvasItems.canvasId, canvasId), eq(canvasItems.sketchId, sketchId)));
 }
 
 export async function countItems(canvasId: string): Promise<number> {
@@ -134,11 +153,10 @@ export async function countItems(canvasId: string): Promise<number> {
   return row?.n ?? 0;
 }
 
-// Id-urile detaliilor din index (pentru reconcilierea la load: care items există + care mai sunt accesibile).
-export async function listItemDetailIds(canvasId: string): Promise<string[]> {
-  const rows = await db
-    .select({ detailId: canvasItems.detailId })
+// Index-ul planșei (detalii + schițe) — pentru reconcilierea la load (ce items există + ce mai e accesibil).
+export async function listItems(canvasId: string): Promise<CanvasItemRow[]> {
+  return db
+    .select({ detailId: canvasItems.detailId, sketchId: canvasItems.sketchId })
     .from(canvasItems)
     .where(eq(canvasItems.canvasId, canvasId));
-  return rows.map((r) => r.detailId);
 }

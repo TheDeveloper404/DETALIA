@@ -5,6 +5,7 @@
 // Conține: (A) tabelele cerute de adapterul Auth.js Drizzle (users/accounts/sessions/verification_tokens)
 // — cu cheile TS exacte pe care le cere adapterul — și (B) tabelele de domeniu DETALIA.
 
+import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -17,6 +18,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -424,23 +426,36 @@ export const canvases = pgTable(
   (t) => [index("canvases_owner_id_idx").on(t.ownerId)],
 );
 
-// Relația planșă ↔ detalii (index de apartenență + integritate). PK compus = un detaliu apare o singură
-// dată pe o planșă. Ambele FK cad în cascadă (planșa ștearsă / detaliul șters → item-ul dispare din index;
-// geometria din `state.items` se reconciliază la load → placeholder „Detaliu indisponibil").
+// Relația planșă ↔ detalii/schițe (index de apartenență + integritate). `sketchId` opțional (2026-07-06):
+// null = item „detaliu-mamă" (comportamentul original); prezent = item „schiță" (imaginea COMPUSĂ deja
+// randată la publicarea schiței, sketches.thumbnailUrl — nu se randează a doua oară). PK surogat (nu mai
+// compus pe canvasId+detailId) pentru că același detaliu poate apărea de mai multe ori pe o planșă — o dată
+// ca detaliu-mamă, plus câte o dată pentru fiecare schiță trimisă separat. Unicitate reală enforce prin cei
+// doi indecși parțiali de mai jos (un detaliu-mamă o singură dată; o schiță o singură dată — per planșă).
+// Ambele FK (detail/sketch) cad în cascadă (detaliul/schița șters(ă) → item-ul dispare din index; geometria
+// din `state.items` se reconciliază la load → placeholder „Detaliu indisponibil").
 export const canvasItems = pgTable(
   "canvas_items",
   {
+    id: uuid().defaultRandom().primaryKey(),
     canvasId: uuid()
       .notNull()
       .references(() => canvases.id, { onDelete: "cascade" }),
     detailId: uuid()
       .notNull()
       .references(() => details.id, { onDelete: "cascade" }),
+    sketchId: uuid().references(() => sketches.id, { onDelete: "cascade" }),
     addedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.canvasId, t.detailId] }),
     index("canvas_items_detail_id_idx").on(t.detailId),
+    index("canvas_items_sketch_id_idx").on(t.sketchId),
+    uniqueIndex("canvas_items_detail_only_uidx")
+      .on(t.canvasId, t.detailId)
+      .where(sql`sketch_id is null`),
+    uniqueIndex("canvas_items_sketch_uidx")
+      .on(t.canvasId, t.sketchId)
+      .where(sql`sketch_id is not null`),
   ],
 );
 

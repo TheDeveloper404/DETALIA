@@ -10,7 +10,16 @@ import { useEffect } from "react";
 
 import { useSendToCanvas } from "@/components/use-send-to-canvas";
 
-export function SendToCanvasModal({ detailId, onClose }: { detailId: string; onClose: () => void }) {
+export function SendToCanvasModal({
+  detailId,
+  sketchId,
+  onClose,
+}: {
+  detailId: string;
+  // Dat = trimite imaginea COMPUSĂ a acestei schițe (nu a detaliului-mamă).
+  sketchId?: string | null;
+  onClose: () => void;
+}) {
   const {
     loading,
     canvases,
@@ -24,7 +33,7 @@ export function SendToCanvasModal({ detailId, onClose }: { detailId: string; onC
     addToExisting,
     createAndAdd,
     load,
-  } = useSendToCanvas(detailId);
+  } = useSendToCanvas(detailId, sketchId);
 
   // Modalul se montează DOAR când e deschis (rendat condiționat din kebab) → mount = momentul potrivit
   // să declanșeze încărcarea lazy a planșelor (echivalentul openPopover() din varianta ancorată).

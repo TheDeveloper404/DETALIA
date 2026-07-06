@@ -48,7 +48,7 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
         className="inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <LayoutDashboard className="size-3.5 shrink-0" strokeWidth={2} />
-        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/canvas:ml-1.5 group-hover/canvas:max-w-[110px] group-hover/canvas:opacity-100">
+        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/canvas:ml-1.5 group-hover/canvas:max-w-[140px] group-hover/canvas:opacity-100">
           Trimite în Planșă
         </span>
       </button>
