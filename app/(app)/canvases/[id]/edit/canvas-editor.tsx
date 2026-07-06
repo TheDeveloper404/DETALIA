@@ -119,7 +119,7 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
       {/* Antet */}
-      <header className="flex items-center gap-3 border-b bg-card px-3 py-2">
+      <header className="flex items-center gap-3 border-b bg-secondary px-3 py-2">
         <Link
           href="/canvases"
           className="inline-flex items-center gap-1.5 font-mono text-[12px] text-muted-foreground hover:text-foreground"

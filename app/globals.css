@@ -71,7 +71,7 @@
   --ring: #a9573a;
   --blueprint-grid: #eae0cf; /* linia grilei de fundal (landing + auth-shell), inline style → var() */
   --primary-button-border: #95492e; /* bordură puțin mai închisă ca --primary, pe butoane bg-primary */
-  --header-bg-translucent: rgba(250, 248, 244, 0.86); /* header sticky landing, backdrop-blur */
+  --header-bg-translucent: rgba(243, 239, 232, 0.9); /* header sticky landing, backdrop-blur — aliniat 2026-07-06 la --secondary (același ton pe toate paginile) */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

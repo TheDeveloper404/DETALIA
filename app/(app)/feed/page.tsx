@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
-import { type FeedSort, getActiveAuthors, getFeed } from "@/server/services/detailService";
+import { type FeedSort, getActiveAuthors, getFeed, getMySavedDetailIds } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
 import { getRecentSketches } from "@/server/services/sketchService";
@@ -57,6 +57,10 @@ export default async function FeedPage({
   const myPositions = await getMyPositions(
     session.user.id,
     "DETAIL",
+    details.map((d) => d.id),
+  );
+  const mySavedIds = await getMySavedDetailIds(
+    session.user.id,
     details.map((d) => d.id),
   );
 
@@ -164,6 +168,7 @@ export default async function FeedPage({
                 detail={d}
                 myPosition={myPositions.get(d.id) ?? null}
                 currentUserId={session.user.id}
+                isSaved={mySavedIds.has(d.id)}
               />
             ))}
           </div>
