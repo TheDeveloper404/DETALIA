@@ -389,6 +389,17 @@ export async function isDetailSavedByUser(userId: string, detailId: string): Pro
   return !!row;
 }
 
+// Care dintre detaliile date sunt deja salvate de user — batch (feed), evită N+1 (pattern identic cu
+// getMyPositions din validationService).
+export async function listSavedDetailIds(userId: string, detailIds: string[]): Promise<string[]> {
+  if (detailIds.length === 0) return [];
+  const rows = await db
+    .select({ detailId: savedDetails.detailId })
+    .from(savedDetails)
+    .where(and(eq(savedDetails.userId, userId), inArray(savedDetails.detailId, detailIds)));
+  return rows.map((r) => r.detailId);
+}
+
 // Detaliile salvate de un user, în forma de card (FeedItem) — refolosește DetailCard din feed.
 // Doar PUBLISHED (un detaliu șters cade oricum din saved_details prin FK cascade). Ordine: cele mai
 // recent salvate primele (după saved_details.created_at, nu după data detaliului).

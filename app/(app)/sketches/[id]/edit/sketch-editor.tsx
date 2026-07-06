@@ -74,7 +74,7 @@ export function SketchEditor({
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-[#efece6]">
       {/* BARĂ DE CONTEXT */}
-      <header className="z-20 flex h-[60px] flex-none items-center gap-4 border-b border-border bg-background px-[18px]">
+      <header className="z-20 flex h-[60px] flex-none items-center gap-4 border-b border-border bg-secondary px-[18px]">
         <Link
           href={`/details/${detailId}`}
           className="inline-flex flex-none items-center gap-2 rounded-[9px] border border-[#d8cfc0] bg-card px-3.5 py-2 font-heading text-sm font-semibold transition-colors hover:border-primary"
