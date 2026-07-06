@@ -25,6 +25,7 @@ import {
   isDetailSavedByUser,
   listFeed,
   listRelatedDetails,
+  listSavedDetailIds,
   listSavedDetails,
   replaceDetailCategories,
   replaceDetailResources,
@@ -235,6 +236,14 @@ export async function getFeed(options?: {
 export async function isDetailSaved(userId: string, detailId: string): Promise<boolean> {
   if (!isUuid(detailId)) return false;
   return isDetailSavedByUser(userId, detailId);
+}
+
+// Care dintre detaliile date sunt salvate de userul curent — batch (feed), un singur query pt tot feed-ul
+// (pattern identic cu getMyPositions din validationService).
+export async function getMySavedDetailIds(userId: string, detailIds: string[]): Promise<Set<string>> {
+  const ids = detailIds.filter(isUuid);
+  if (ids.length === 0) return new Set();
+  return new Set(await listSavedDetailIds(userId, ids));
 }
 
 // Comută salvarea unui detaliu (salvat ⇄ nesalvat). Verifică întâi existența (PUBLISHED) ca să nu

@@ -53,6 +53,7 @@ export default async function SavedPage() {
               detail={d}
               myPosition={myPositions.get(d.id) ?? null}
               currentUserId={session.user.id}
+              isSaved
             />
           ))}
         </div>

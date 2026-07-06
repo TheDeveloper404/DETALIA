@@ -10,6 +10,7 @@ import Link from "next/link";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { FeedItem } from "@/server/repos/detailsRepo";
 
+import { FeedSaveButton } from "./feed-save-button";
 import { FeedValidationActions } from "./feed-validation-actions";
 import { RolePill } from "./role-pill";
 import { SendToCanvasButton } from "./send-to-canvas-button";
@@ -63,10 +64,12 @@ export function DetailCard({
   detail,
   myPosition,
   currentUserId,
+  isSaved = false,
 }: {
   detail: FeedItem;
   myPosition: ValidationPosition | null;
   currentUserId?: string | null;
+  isSaved?: boolean;
 }) {
   const href = `/details/${detail.id}`;
   // Autorul propriului detaliu nu se validează pe sine → ascundem butoanele (enforce și pe server).
@@ -74,26 +77,26 @@ export function DetailCard({
 
   return (
     <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
-      {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. Pe desktop umple toată
-          înălțimea cardului (self-stretch), mai mare și mai vizibilă; pe mobil rămâne aspect 4/3 sus. */}
-      <Link
-        href={href}
-        className="relative block aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r"
-      >
-        <Image
-          src={detail.imageUrl}
-          alt={detail.title}
-          fill
-          sizes="(max-width: 640px) 100vw, 260px"
-          className="object-cover"
-        />
-        {detail.categories.length > 0 && (
-          <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary">
-            {detail.categories[0].name}
-            {detail.categories.length > 1 && ` +${detail.categories.length - 1}`}
-          </span>
-        )}
-      </Link>
+      {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie + bookmark „Salvează" peste.
+          Bookmark-ul e SIBLING cu Link-ul (nu în interiorul lui) — un <button> nu poate sta valid în <a>. */}
+      <div className="relative aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r">
+        <Link href={href} className="block size-full">
+          <Image
+            src={detail.imageUrl}
+            alt={detail.title}
+            fill
+            sizes="(max-width: 640px) 100vw, 260px"
+            className="object-cover"
+          />
+          {detail.categories.length > 0 && (
+            <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary">
+              {detail.categories[0].name}
+              {detail.categories.length > 1 && ` +${detail.categories.length - 1}`}
+            </span>
+          )}
+        </Link>
+        {currentUserId && <FeedSaveButton detailId={detail.id} isSaved={isSaved} />}
+      </div>
 
       {/* Conținut. */}
       <div className="flex min-w-0 flex-1 flex-col p-5">
