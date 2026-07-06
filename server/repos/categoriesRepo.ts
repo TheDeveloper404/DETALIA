@@ -10,17 +10,20 @@ export async function getCategoryById(id: string) {
   return row ?? null;
 }
 
-// Numărul de ID-uri valide dintr-o listă (verificare de integritate pentru multi-categorie la creare).
+// Numărul de ID-uri valide (existente ȘI bifabile — nu grupuri, ex. „Instalații") dintr-o listă —
+// verificare de integritate pentru multi-categorie la creare/editare. Un grup trimis direct (ocolind
+// UI-ul, care nu-l oferă ca bifabil) pică aici, nu doar la existență.
 export async function countExistingCategoryIds(ids: string[]): Promise<number> {
   if (ids.length === 0) return 0;
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(categories)
-    .where(inArray(categories.id, ids));
+    .where(and(inArray(categories.id, ids), eq(categories.isGroup, false)));
   return row?.count ?? 0;
 }
 
-// Toate categoriile (UI compune arborele din parentId). Sortate alfabetic pentru afișare stabilă.
+// Toate categoriile (UI compune arborele din parentId, până la 3 niveluri). Ordinea vine din document
+// (`position`, vezi db/seed.ts) — NU alfabetic.
 export async function listCategories() {
   return db
     .select({
@@ -28,16 +31,17 @@ export async function listCategories() {
       parentId: categories.parentId,
       name: categories.name,
       slug: categories.slug,
+      isGroup: categories.isGroup,
     })
     .from(categories)
-    .orderBy(asc(categories.name));
+    .orderBy(asc(categories.position));
 }
 
-// Categoriile FRUNZĂ (bifabile) cu numărul de detalii PUBLISHED — pentru sidebar/rail în feed.
-// Secțiunile (parentId null — headere de grupare, ex. „Clasificare după zonă") NU sunt filtre reale,
-// excluse aici (rămân doar în `listCategories()`, pentru arborele din formularul de creare detaliu).
-// LEFT JOIN prin `detail_categories` (many-to-many, „bifezi oricâte") + GROUP BY (forma canonică)
-// → categoriile fără detalii rămân cu 0; `count(...)` distinct pe detailId, non-null. Sortat alfabetic.
+// Categoriile FRUNZĂ (bifabile, `isGroup = false`) cu numărul de detalii PUBLISHED — pentru sidebar/rail
+// în feed. Grupurile neselectabile (secțiunile de nivel 1 ȘI „capitolele" cu sub-categorii, ex.
+// „Instalații") NU sunt filtre reale, excluse aici (rămân doar în `listCategories()`, pentru arborele
+// din formularul de creare detaliu). LEFT JOIN prin `detail_categories` (many-to-many, „bifezi oricâte")
+// + GROUP BY (forma canonică) → categoriile fără detalii rămân cu 0. Ordinea vine din document.
 export async function listCategoriesWithCounts() {
   const detailCount = sql<number>`count(distinct ${details.id})::int`;
   return db
@@ -48,7 +52,7 @@ export async function listCategoriesWithCounts() {
       details,
       and(eq(details.id, detailCategories.detailId), eq(details.status, "PUBLISHED")),
     )
-    .where(isNotNull(categories.parentId))
-    .groupBy(categories.id, categories.name)
-    .orderBy(asc(categories.name));
+    .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
+    .groupBy(categories.id, categories.name, categories.position)
+    .orderBy(asc(categories.position));
 }

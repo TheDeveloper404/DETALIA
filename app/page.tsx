@@ -284,7 +284,7 @@ export default function Home() {
       </section>
 
       {/* ===== 01 · PROBLEMA & SOLUȚIA ===== */}
-      <section style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
+      <section style={{ background: "var(--card)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Eyebrow>01 — Problema &amp; soluția</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 8px", maxWidth: "20ch" }}>
@@ -342,7 +342,7 @@ export default function Home() {
       </section>
 
       {/* ===== 02 · CUM FUNCȚIONEAZĂ ===== */}
-      <section style={{ background: "var(--secondary)", borderTop: "1px solid var(--border)" }}>
+      <section style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Eyebrow>02 — Cum funcționează</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "20ch" }}>Trei pași, de la desen la validare.</h2>
@@ -370,7 +370,7 @@ export default function Home() {
       </section>
 
       {/* ===== 03 · CE CÂȘTIGI ===== */}
-      <section style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
+      <section style={{ background: "var(--card)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Reveal>
           <div className="dt-gains">
@@ -404,7 +404,7 @@ export default function Home() {
       </section>
 
       {/* ===== 04 · PENTRU CINE ===== */}
-      <section style={{ background: "var(--secondary)", borderTop: "1px solid var(--border)" }}>
+      <section style={{ background: "var(--background)", borderTop: "1px solid var(--border)" }}>
         <div style={{ maxWidth: MAXW, margin: "0 auto", padding: SECTION_PAD }}>
           <Eyebrow>04 — Pentru cine</Eyebrow>
           <h2 style={{ ...h2, margin: "0 0 48px", maxWidth: "20ch" }}>Patru roluri, în jurul aceluiași detaliu.</h2>
@@ -437,7 +437,9 @@ export default function Home() {
       </section>
 
       {/* ===== CTA FINAL (dark) ===== */}
-      <section style={{ position: "relative", overflow: "hidden", background: "#201c16" }}>
+      {/* Ton închis din familia teracotei (--primary #a9573a întunecat), nu maro-negru neutru — ca să
+          se simtă aceeași identitate, nu o paletă separată (feedback Liviu, 2026-07-06). */}
+      <section style={{ position: "relative", overflow: "hidden", background: "#33201a" }}>
         <div
           aria-hidden
           style={{
@@ -479,7 +481,7 @@ export default function Home() {
       </section>
 
       {/* ===== FOOTER ===== */}
-      <footer style={{ background: "#1b1813", color: "#c4bcae" }}>
+      <footer style={{ background: "#241611", color: "#c4bcae" }}>
         <div
           style={{
             maxWidth: MAXW,
