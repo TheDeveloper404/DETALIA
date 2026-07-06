@@ -1,21 +1,5 @@
-# SEC-A4 — Dependabot: PR-uri automate pentru dependențe vulnerabile/învechite (npm).
-# Security updates le deschide imediat ce apare un advisory; version updates — săptămânal, grupate,
-# ca să nu inunde repo-ul cu PR-uri mărunte. Merge-ul rămâne manual (CI: type-check + lint + build).
+# Dependabot OPRIT complet (decizie 2026-07-06, după incidentul cu preview branch-ul de DB) —
+# nu se mai deschide NICIUN PR automat (nici security, nici version updates) fără știrea lui Liviu.
+# Pentru reactivare: pune înapoi blocul "updates:" din istoricul git.
 version: 2
-updates:
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    target-branch: "dev"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types: ["minor", "patch"]
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    target-branch: "dev"
+updates: []

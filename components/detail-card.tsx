@@ -77,8 +77,7 @@ export function DetailCard({
 
   return (
     <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
-      {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie + bookmark „Salvează" peste.
-          Bookmark-ul e SIBLING cu Link-ul (nu în interiorul lui) — un <button> nu poate sta valid în <a>. */}
+      {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. */}
       <div className="relative aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r">
         <Link href={href} className="block size-full">
           <Image
@@ -95,13 +94,13 @@ export function DetailCard({
             </span>
           )}
         </Link>
-        {currentUserId && <FeedSaveButton detailId={detail.id} isSaved={isSaved} />}
       </div>
 
-      {/* Conținut. */}
-      <div className="flex min-w-0 flex-1 flex-col p-5">
+      {/* Conținut — bookmark „Salvează" în colțul dreapta-sus al acestui container (nu peste desen). */}
+      <div className="relative flex min-w-0 flex-1 flex-col p-5">
+        {currentUserId && <FeedSaveButton detailId={detail.id} isSaved={isSaved} />}
         <Link href={href} className="no-underline">
-          <h3 className="mb-1 font-bold leading-snug text-foreground hover:underline">
+          <h3 className="mb-1 pr-8 font-bold leading-snug text-foreground hover:underline">
             {detail.title}
           </h3>
         </Link>

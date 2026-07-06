@@ -4,6 +4,20 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-06 — fix(BUG): a doua schiță din același detaliu trimisă în aceeași planșă era ignorată silențios
+- Cauză: migrația de azi (Planșă↔schițe) presupunea că vechiul PK compus se numește `canvas_items_pkey` și îl
+  dropa cu `DROP CONSTRAINT IF EXISTS` — dar numele real era `canvas_items_canvas_id_detail_id_pk`, deci
+  `IF EXISTS` a fost no-op și PK-ul compus `(canvas_id, detail_id)` a rămas activ. `insertItem` (`onConflictDoNothing`
+  fără target) lovea acest PK vechi la a doua schiță a aceluiași detaliu → insert ignorat silențios (fără eroare
+  vizibilă). Detalii diferite mergeau OK (detail_id diferit → fără conflict pe vechiul PK).
+- Fix (SQL rulat manual în Neon, dev + production):
+  ```sql
+  ALTER TABLE canvas_items DROP CONSTRAINT canvas_items_canvas_id_detail_id_pk;
+  ALTER TABLE canvas_items ADD PRIMARY KEY (id);
+  ```
+- Cod neschimbat — bug-ul era strict de schemă DB; indecșii parțiali din `db/schema.ts`
+  (`canvas_items_detail_only_uidx` / `canvas_items_sketch_uidx`) erau deja corecți de la migrația inițială.
+
 ## 2026-07-06 (continuare) — Categorii pe 3 niveluri, reply la comentarii, Planșă↔schițe, curățenie feed/header
 
 - **Taxonomia de categorii restructurată** (task Edi, document `lista_categorii.md`): ordinea dropdown-ului
