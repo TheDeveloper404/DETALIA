@@ -88,12 +88,7 @@ export function ValidationPanel({
   function onPickDisapprove() {
     setMode(allowSketch ? "choose" : "text");
   }
-  // Polimorfic: aceeași validare pe detaliu SAU pe schiță — textul confirmării urmează ținta.
-  const targetNoun = targetType === "SKETCH" ? "această schiță" : "acest detaliu";
 
-  // În workspace (embedded) butoanele sunt mai compacte (fără container propriu, cerință Edi);
-  // standalone rămân la dimensiunea mare de dinainte.
-  const validateBtnClass = embedded ? "px-4 py-2.5 text-sm" : "px-5 py-3 text-[15px]";
 
   // Câmpurile ascunse comune (țintă + pagina de revalidat).
   const hidden = (
@@ -151,29 +146,30 @@ export function ValidationPanel({
                 </Button>
               </>
             ) : (
-              <div
+              // Aceeași dimensiune ca butoanele de mai sus (icon-only, !w-auto+!px-2.5) — altfel containerul
+              // „sare" vizibil la click (2026-07-06, raportat de Liviu din bug.mp4: pastila cu propoziția
+              // completă era mult mai lată decât cele două butoane inițiale). Text la hover: „Retrage".
+              <Button
+                type="button"
+                size="icon"
+                onClick={onRetract}
+                title={approved ? "Ai aprobat — click pentru a retrage" : "Ai dezaprobat — click pentru a retrage"}
                 className={cn(
-                  "inline-flex items-center justify-between gap-3 rounded-[10px] border font-bold text-white shadow-sm",
-                  validateBtnClass,
-                  approved ? "border-emerald-700 bg-emerald-600" : "border-destructive bg-destructive",
+                  "group/positioned !w-auto gap-0 overflow-hidden !px-2.5 border font-bold text-white shadow-sm",
+                  approved
+                    ? "border-emerald-700 bg-emerald-600 hover:bg-emerald-700"
+                    : "border-destructive bg-destructive hover:bg-destructive/90",
                 )}
               >
-                <span className="inline-flex items-center gap-2">
-                  {approved ? (
-                    <Check className="size-[17px]" strokeWidth={2.6} />
-                  ) : (
-                    <X className="size-4" strokeWidth={2.6} />
-                  )}
-                  {approved ? `Ai aprobat ${targetNoun}` : `Ai dezaprobat ${targetNoun}`}
+                {approved ? (
+                  <Check className="size-[17px] shrink-0" strokeWidth={2.6} />
+                ) : (
+                  <X className="size-4 shrink-0" strokeWidth={2.6} />
+                )}
+                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/positioned:ml-2 group-hover/positioned:max-w-[80px] group-hover/positioned:opacity-100">
+                  Retrage
                 </span>
-                <button
-                  type="button"
-                  onClick={onRetract}
-                  className="inline-flex items-center rounded-md border border-white/40 px-2 py-0.5 font-mono text-[11px] font-normal text-white/90 transition-colors hover:bg-white/15 hover:text-white"
-                >
-                  × retrage
-                </button>
-              </div>
+              </Button>
             )}
 
             <span className="font-mono text-[11px] leading-tight text-[#a59a88] sm:ml-auto sm:text-right">
