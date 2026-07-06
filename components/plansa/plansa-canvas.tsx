@@ -493,12 +493,12 @@ export const PlansaCanvas = forwardRef<
     [],
   );
 
-  // Zoom cu Ctrl/Cmd + rotița (non-passive, previne scroll-ul paginii).
+  // Zoom cu rotița, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există pagină
+  // dedesubt de scrollat (2026-07-06, decizie Liviu). Non-passive, previne scroll-ul.
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;
     const onWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey && !e.metaKey) return;
       e.preventDefault();
       setZoom((z) => clampZoom(z * (e.deltaY < 0 ? 1.1 : 0.9)));
     };
