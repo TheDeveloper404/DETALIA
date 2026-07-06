@@ -197,7 +197,9 @@ export const details = pgTable(
     seismicTc: text().notNull().default("General"),
     snowLoad: text().notNull().default("General"),
     windLoad: text().notNull().default("General"),
-    imageUrl: text().notNull(),
+    // Nullable din 2026-07-06: o ciornă (status DRAFT) poate fi salvată înainte ca userul să ajungă
+    // la upload. La PUBLISHED, imaginea e mereu obligatorie (enforce în validateDetailInput strict).
+    imageUrl: text(),
     status: text().notNull().default("PUBLISHED"),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })

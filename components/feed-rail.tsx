@@ -11,6 +11,7 @@ export type RailAuthor = {
   name: string | null;
   image: string | null;
   roleMain: string | null;
+  subRole: string | null;
   verification: string | null;
   detailCount: number;
 };
@@ -52,7 +53,7 @@ export function FeedRail({
                       )}
                     </span>
                     <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                      {a.roleMain ? ROLE_MAIN_LABELS[a.roleMain as RoleMain] ?? a.roleMain : "—"} ·{" "}
+                      {a.subRole ?? (a.roleMain ? ROLE_MAIN_LABELS[a.roleMain as RoleMain] ?? a.roleMain : "—")} ·{" "}
                       {a.detailCount} detalii
                     </span>
                   </span>

@@ -6,6 +6,7 @@ import { listCategories } from "@/server/services/categoryService";
 import { userHasRole } from "@/server/services/roleService";
 
 import { DetailForm } from "./detail-form";
+import { saveNewDetailDraftAction } from "./actions";
 
 // „Adaugă detaliu" — orice user autentificat cu ROL DECLARAT poate publica (moderare post-publicare).
 export default async function NewDetailPage() {
@@ -47,6 +48,7 @@ export default async function NewDetailPage() {
       ) : (
         <DetailForm
           categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId, isGroup: c.isGroup }))}
+          saveDraftAction={saveNewDetailDraftAction}
         />
       )}
     </main>

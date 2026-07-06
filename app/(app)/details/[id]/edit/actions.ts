@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { reprocessBlobImage } from "@/lib/image-processing";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs } from "@/lib/storage";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
-import { updateDetail } from "@/server/services/detailService";
+import { publishDetailDraft, saveDetailDraft, updateDetail } from "@/server/services/detailService";
 
 export type EditDetailState = { error: string | null };
 
@@ -118,4 +119,83 @@ export async function updateDetailAction(
   revalidatePath(`/details/${detailId}`);
   revalidatePath("/feed");
   redirect(`/details/${detailId}`);
+}
+
+// Câmpurile comune citite din formular pt cele două acțiuni de ciornă de mai jos.
+function readDraftFields(formData: FormData) {
+  return {
+    detailId: String(formData.get("detailId") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    categoryIds: formData.getAll("categoryIds").map(String).filter(Boolean),
+    climateZone: String(formData.get("climateZone") ?? ""),
+    seismicAg: String(formData.get("seismicAg") ?? ""),
+    seismicTc: String(formData.get("seismicTc") ?? ""),
+    snowLoad: String(formData.get("snowLoad") ?? ""),
+    windLoad: String(formData.get("windLoad") ?? ""),
+    resources: readResources(formData),
+  };
+}
+
+// Imaginea e OPȚIONALĂ la ciornă — validăm/reprocesăm (SEC-02) doar dacă e prezentă/schimbată.
+async function resolveDraftImageUrl(formData: FormData): Promise<
+  { ok: true; imageUrl: string | null } | { ok: false; error: string }
+> {
+  const rawImageUrl = String(formData.get("imageUrl") ?? "");
+  if (rawImageUrl.length === 0) return { ok: true, imageUrl: null };
+  if (!isOwnBlobUrl(rawImageUrl)) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
+
+  const imageChanged = String(formData.get("imageChanged") ?? "") === "1";
+  if (!imageChanged) return { ok: true, imageUrl: rawImageUrl };
+
+  const processed = await reprocessBlobImage(rawImageUrl, "details");
+  if (!processed.ok) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
+  return { ok: true, imageUrl: processed.url };
+}
+
+// Re-salvează o ciornă existentă (autorul, doar cât e DRAFT) — validare LENIENTĂ. Nu redirecționează
+// (rămâne pe editor, ca la autosave-ul schiței) — doar arată eroarea, dacă există.
+export async function saveDraftDetailAction(
+  _prev: EditDetailState,
+  formData: FormData,
+): Promise<EditDetailState> {
+  const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) return { error: "Prea multe salvări într-un timp scurt." };
+
+  const fields = readDraftFields(formData);
+  if (fields.detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
+  if (fields.title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
+
+  const image = await resolveDraftImageUrl(formData);
+  if (!image.ok) return { error: image.error };
+
+  const result = await saveDetailDraft({ ...fields, authorId: userId, imageUrl: image.imageUrl });
+  if (!result.ok) return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+
+  revalidatePath(`/details/${fields.detailId}/edit`);
+  return { error: null };
+}
+
+// Publică o ciornă (DRAFT → PUBLISHED) — validare STRICTĂ (imagine + categorie obligatorii).
+export async function publishDraftDetailAction(
+  _prev: EditDetailState,
+  formData: FormData,
+): Promise<EditDetailState> {
+  const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.createDetail, userId)).ok) {
+    return { error: "Prea multe detalii publicate într-un timp scurt. Încearcă mai târziu." };
+  }
+
+  const fields = readDraftFields(formData);
+  if (fields.detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
+
+  const image = await resolveDraftImageUrl(formData);
+  if (!image.ok) return { error: image.error };
+  if (!image.imageUrl) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+
+  const result = await publishDetailDraft({ ...fields, authorId: userId, imageUrl: image.imageUrl });
+  if (!result.ok) return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+
+  revalidatePath("/feed");
+  redirect(`/details/${fields.detailId}`);
 }
