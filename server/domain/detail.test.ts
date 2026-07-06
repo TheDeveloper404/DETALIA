@@ -169,3 +169,37 @@ describe("validateDetailInput — server-side, sursa de adevăr", () => {
     if (r.ok) expect(r.value.categoryIds).toEqual(["cat-1", "cat-2"]);
   });
 });
+
+// „Salvează ciornă" (2026-07-06) — strict:false relaxează imagine/categorie, titlul rămâne obligatoriu
+// (altfel ciorna n-ar avea cum să apară listată în „Ciornele mele").
+describe("validateDetailInput — strict:false (CIORNĂ)", () => {
+  const draftBase = { title: "Ciornă în lucru", categoryIds: [], imageUrl: null };
+
+  it("titlul rămâne obligatoriu chiar și la ciornă", () => {
+    expect(validateDetailInput({ ...draftBase, title: "  " }, { strict: false })).toEqual({
+      ok: false,
+      error: "TITLE_REQUIRED",
+    });
+  });
+
+  it("acceptă fără categorie și fără imagine", () => {
+    const r = validateDetailInput(draftBase, { strict: false });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.value.categoryIds).toEqual([]);
+      expect(r.value.imageUrl).toBeNull();
+    }
+  });
+
+  it("dacă imaginea/categoria SUNT date, tot se validează formatul/plafoanele", () => {
+    const categoryIds = Array.from({ length: MAX_DETAIL_CATEGORIES + 1 }, (_, i) => `cat-${i}`);
+    expect(validateDetailInput({ ...draftBase, categoryIds }, { strict: false })).toEqual({
+      ok: false,
+      error: "TOO_MANY_CATEGORIES",
+    });
+  });
+
+  it("strict (implicit) tot cere imagine + categorie — comportamentul vechi neschimbat", () => {
+    expect(validateDetailInput(draftBase)).toEqual({ ok: false, error: "CATEGORY_REQUIRED" });
+  });
+});

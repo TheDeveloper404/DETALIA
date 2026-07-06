@@ -139,7 +139,8 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
           {/* ===== WORKSPACE UNIFICAT (taburi: detaliu de bază + schițe) + dezbatere unificată ===== */}
           <DetailWorkspace
             detailId={detail.id}
-            imageUrl={detail.imageUrl}
+            // Pagina publică arată DOAR detalii PUBLISHED (getDetail) → imageUrl mereu setat.
+            imageUrl={detail.imageUrl!}
             header={{
               title: detail.title,
               description: detail.description,

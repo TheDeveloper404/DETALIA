@@ -150,6 +150,64 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 
 ---
 
+## Fluxul de lucru per task (SDLC minimal — obligatoriu, nu opțional)
+> Motivul: fără asta, se acumulează „de testat mai târziu" până devine varză (lecție 2026-07-06 — s-au
+> recuperat într-o sesiune teste e2e pentru feature-uri vechi de săptămâni). Testul e parte din task,
+> NU o fază separată făcută în bloc altă dată.
+
+Orice feature/fix trece prin pașii de mai jos, ÎN ACEEAȘI sesiune/task — nu se declară „gata" cu pași săriți:
+
+1. **Definește** — ce, cu ce scop, ce e explicit OUT of scope (deja: „un fix pe rând").
+2. **Clasifică** — SMALL / NORMAL / CRITICAL (`/classify` sau spontan, vezi CLAUDE.md global §Step 0).
+3. **Implementează.**
+4. **Testează, proporțional cu clasificarea** — NU amânat:
+   - SMALL → sanity check; poate fără test nou (decizie explicită, nu omisiune tăcută).
+   - NORMAL → unit pt logică nouă + minim un test de integrare/e2e pe fluxul principal (happy path).
+   - CRITICAL → unit + integrare + e2e + trecere adversarială (deja: regula de gândire adversarială proactivă).
+5. **Review scurt** (verificare proprie; code-reviewer/security-engineer pe NORMAL/CRITICAL).
+6. **Documentează** — CHANGELOG (+ doc afectat dacă schimbă contracte/schema).
+7. **Task închis** — dacă un pas s-a sărit conștient (ex. SMALL fără test), se spune explicit, nu se ascunde.
+
+**Declanșator simplu pentru Liviu:** la finalul oricărui task, întrebi „unde e testul?" — ca la build/typecheck.
+Nu trebuie să știi să scrii teste; trebuie doar să ceri dovada. Clasificarea (deci proporția testului) o fac eu.
+
+**Recurent, NU continuu — checkpoint la ~1 lună (sau la fiecare N feature-uri mari):** o trecere scurtă
+„ce s-a construit fără test în perioada asta?" — nu un audit complet. Listă goală = disciplina ține.
+Listă nu-goală = se recuperează, dar ca excepție rară, nu ca normalitate.
+
+**Auditul de securitate STRICT (13 categorii, `security-audit`) rămâne obligatoriu la momente-cheie, NU
+înlocuit de disciplina de mai sus:** înainte de lansarea publică (deja pe listă, vezi `.remember/remember.md`),
+la orice schimbare pe auth/permisiuni/plăți/date sensibile (CRITICAL, oricând), și după incidente reale.
+Disciplina per-task elimină nevoia de „audit de recuperare" pe cod deja livrat — nu elimină nevoia de audit
+complet înainte de expunere publică reală sau pe zone cu risc mare.
+
+### Definition of Done — bifă rapidă (nu doar proză)
+Înainte să declar un task „gata" (NORMAL/CRITICAL — pe SMALL e opțional dacă decizia de a sări e explicită):
+- [ ] Clasificat (SMALL/NORMAL/CRITICAL) — spus explicit, nu implicit
+- [ ] Implementat conform scope-ului definit (fără scope creep)
+- [ ] Testat proporțional (unit/integrare/e2e — sau motiv explicit dacă nu)
+- [ ] `tsc --noEmit` / lint / build rulate dacă s-au atins tipuri/schema
+- [ ] CHANGELOG actualizat (+ doc afectat dacă schimbă un contract/schema)
+- [ ] Dacă a fost o migrație de schemă → SQL dat pe AMBELE ramuri Neon (dev + prod)
+- [ ] Mesaj de commit sugerat lăsat pentru Liviu
+
+### Rollback — dacă `main`/producția se strică după merge
+Procedură completă (Vercel „Promote to Production" + schema Neon + reparare pe `dev`) în
+`docs/DEPLOY.md` §2c punctul 4. Rezumat: rollback de cod e INSTANT (Vercel), rollback de schemă NU e automat
+(SQL manual dacă e nevoie) — verifici compatibilitatea înainte să presupui că un simplu „promote" repară tot.
+
+### Alertare activă pe erori de producție — DE VERIFICAT, nu asumat
+`docs/DEPLOY.md` menționează Sentry „+ Alerts pe `audit_event`" ca ✅ configurat (2026-07-02/03), dar nu am
+verificare directă (dashboard Sentry) că regula de alertă chiar notifică pe Liviu (email/altceva), sau doar
+că evenimentele AJUNG în Sentry pasiv. **Nu presupune niciuna din variante — cere lui Liviu confirmarea din
+Sentry → Alerts înainte să tratezi asta ca rezolvată sau ca gol.**
+
+### Jurnal de incidente
+Orice incident REAL de producție (nu confuzii clarificate) → rând scurt în `docs/INCIDENTS.md` (ce, cauza
+verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de incidente rămâne istoric peste luni.
+
+---
+
 ## Convenții de lucru (specifice acestui proiect)
 - Răspuns **în română**. Nu încep cod fără „da" explicit. Un fix pe rând.
 - **Teste:** marker `HUMAN_RUNS_TESTS` activ → **userul rulează testele**. Eu le scriu + spun ce/unde.
@@ -163,6 +221,28 @@ non-enumerare, logging fără valori sensibile, env pentru config.
   detaliu complet. Handoff-ul ține doar **context viu + următorii pași**; detaliul istoric trăiește în `CHANGELOG.md`.
 - **Docs librării:** folosește **context7 MCP** înainte de a scrie cod cu Next.js / Auth.js / Drizzle /
   perfect-freehand (API-uri se schimbă des).
+- **Nu iau decizii de design/UI singur.** La un fix de consistență/vizual aliniez DOAR ce diferă explicit;
+  nu adaug elemente noi (butoane/CTA "ca să arate complet") — propun și întreb înainte.
+- **Nu verific din inițiativă** (Playwright/browser/screenshot). Verificarea o cere Liviu explicit.
+- **La bug/incident: verific ÎNTÂI cu dovadă directă** (query SQL, `git log`, cod) — nu teoretizez cu voce
+  tare o cauză înainte s-o confirm. Dacă nu am dovadă, spun "nu știu cauza, iată ce pot verifica", nu
+  prezint o ipoteză ca fiind aproape sigură (lecție din incidentul DB 2026-07-06).
+- **Pe lucrări CRITICAL** (auth, sesiune, permisiuni, bani): rulez singur, din proprie inițiativă, o trecere
+  adversarială (sesiune expirată/stale, acțiuni concurente, input de la client rău-intenționat, dispozitive/
+  tab-uri multiple, back-button după logout) — nu aștept ca Liviu să numească fiecare scenariu.
+- **NU folosesc formularea „de confirmat de Edi" / „decizie cu Edi"** — nici în răspunsuri, nici în cod/docs.
+  Liviu e singura interfață de decizie; când lipsește o informație de produs pun default neutru ("draft"/"de
+  reconfirmat", fără nume) și, dacă chiar trebuie, întreb pe Liviu.
+
+### Capcane tehnice cunoscute
+- **Cookie sesiune persistent** — `authjs.session-token` persistă în browser; test ca anonim = incognito/clear cookies.
+- **Drift schema Neon** — `production` și `preview/dev` sunt baze SEPARATE; orice `ALTER TABLE` se aplică manual
+  pe AMBELE ramuri, altfel apare drift (verificat cu `SELECT count(*)`/`\d tabel`, nu presupus).
+- **Migrație distructivă fără verificare = pierdere de date reală** (s-a întâmplat 2026-07-02 pe `category_id`).
+  Înainte de orice `DROP COLUMN`/migrație distructivă pe branch real: verific efectiv că tabelul e gol pe
+  branch-ul țintă, nu presupun din handoff.
+- **Turbopack CSS HMR stale pe Windows** — `globals.css` nu se recompilează mereu la salvare; clase Tailwind
+  noi nu se aplică deși codul e corect → re-salvez fișierul / restart `.next`.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul

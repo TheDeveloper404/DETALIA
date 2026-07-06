@@ -150,6 +150,7 @@ export function listAuthorSketches(userId: string) {
       status: sketches.status,
       detailId: sketches.detailId,
       parentTitle: details.title,
+      thumbnailUrl: sketches.thumbnailUrl,
     })
     .from(sketches)
     .innerJoin(details, eq(details.id, sketches.detailId))

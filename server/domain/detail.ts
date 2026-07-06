@@ -3,7 +3,10 @@
 // Aceste reguli se aplică pe SERVER (în DetailService), niciodată doar pe frontend.
 
 // Status detaliu. Moderare POST-publicare (publici direct, ascundem abuzurile ulterior) — fără cozi de aprobare.
+// DRAFT — „Salvează ciornă" pe formular (2026-07-06): editabil doar de autor, invizibil restului
+// platformei (toate query-urile publice filtrează PUBLISHED explicit), publicabil mai târziu.
 export const DETAIL_STATUS = {
+  DRAFT: "DRAFT",
   PUBLISHED: "PUBLISHED",
   REMOVED: "REMOVED",
 } as const;
@@ -66,12 +69,13 @@ export function isHttpUrl(value: string): boolean {
   return parsed.protocol === "http:" || parsed.protocol === "https:";
 }
 
-// Input normalizat după validare (gata de inserare).
+// Input normalizat după validare (gata de inserare). imageUrl e null doar pt ciorne (DRAFT) — o
+// ciornă poate fi salvată înainte ca userul să ajungă la upload.
 export type NormalizedDetailInput = {
   title: string;
   description: string | null;
   categoryIds: string[];
-  imageUrl: string;
+  imageUrl: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -95,19 +99,27 @@ export type DetailValidationResult =
   | { ok: true; value: NormalizedDetailInput }
   | { ok: false; error: DetailValidationError };
 
-// Validează + normalizează inputul de creare a unui detaliu (server-side, sursa de adevăr).
-export function validateDetailInput(input: {
-  title: string;
-  description?: string | null;
-  categoryIds: string[];
-  imageUrl: string;
-  climateZone?: string | null;
-  seismicAg?: string | null;
-  seismicTc?: string | null;
-  snowLoad?: string | null;
-  windLoad?: string | null;
-  resources?: DetailResourceInput[];
-}): DetailValidationResult {
+// Validează + normalizează inputul unui detaliu (server-side, sursa de adevăr).
+// `strict` (implicit true) = regulile complete de PUBLICARE (imagine + cel puțin o categorie obligatorii).
+// strict:false = salvare de CIORNĂ — doar titlul e obligatoriu (altfel nu are cum să apară în lista de
+// ciorne); imaginea/categoriile pot lipsi, dar dacă sunt prezente tot se validează formatul/plafoanele.
+export function validateDetailInput(
+  input: {
+    title: string;
+    description?: string | null;
+    categoryIds: string[];
+    imageUrl: string | null;
+    climateZone?: string | null;
+    seismicAg?: string | null;
+    seismicTc?: string | null;
+    snowLoad?: string | null;
+    windLoad?: string | null;
+    resources?: DetailResourceInput[];
+  },
+  opts: { strict?: boolean } = {},
+): DetailValidationResult {
+  const strict = opts.strict ?? true;
+
   const title = input.title?.trim() ?? "";
   if (title.length === 0) return { ok: false, error: "TITLE_REQUIRED" };
   if (title.length > TITLE_MAX_LENGTH) return { ok: false, error: "TITLE_TOO_LONG" };
@@ -117,13 +129,14 @@ export function validateDetailInput(input: {
     return { ok: false, error: "DESCRIPTION_TOO_LONG" };
   }
 
-  // Categorii: „bifezi oricâte" (Edi) — cel puțin una, capul MAX_DETAIL_CATEGORIES e doar anti-abuz.
+  // Categorii: „bifezi oricâte" (Edi) — cel puțin una la PUBLICARE; la ciornă, oricâte (inclusiv zero).
   const categoryIds = [...new Set((input.categoryIds ?? []).map((c) => c.trim()).filter(Boolean))];
-  if (categoryIds.length === 0) return { ok: false, error: "CATEGORY_REQUIRED" };
+  if (strict && categoryIds.length === 0) return { ok: false, error: "CATEGORY_REQUIRED" };
   if (categoryIds.length > MAX_DETAIL_CATEGORIES) return { ok: false, error: "TOO_MANY_CATEGORIES" };
 
-  const imageUrl = input.imageUrl?.trim() ?? "";
-  if (imageUrl.length === 0) return { ok: false, error: "IMAGE_REQUIRED" };
+  const imageUrlTrimmed = input.imageUrl?.trim() || "";
+  if (strict && imageUrlTrimmed.length === 0) return { ok: false, error: "IMAGE_REQUIRED" };
+  const imageUrl = imageUrlTrimmed.length > 0 ? imageUrlTrimmed : null;
 
   const rawResources = input.resources ?? [];
   if (rawResources.length > MAX_DETAIL_RESOURCES) {

@@ -119,6 +119,7 @@ export async function listTopAuthors(limit: number) {
       name: users.name,
       image: users.image,
       roleMain: roles.roleMain,
+      subRole: roles.subRole,
       verification: roles.verificationStatus,
       detailCount,
     })

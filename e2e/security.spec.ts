@@ -2,8 +2,10 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { comments, sketches } from "../db/schema";
+import { canvases, comments, details, sketches } from "../db/schema";
 import { deleteComment, editComment } from "../server/services/commentService";
+import { updateDetail } from "../server/services/detailService";
+import { createCanvas, getCanvasForEdit } from "../server/services/plansaService";
 import { deleteSketch } from "../server/services/sketchService";
 import { getSeed } from "./seed";
 
@@ -102,5 +104,49 @@ test.describe("IDOR — schiță (C.1/C.3)", () => {
     } finally {
       await db.delete(sketches).where(eq(sketches.id, victimSketch.id));
     }
+  });
+});
+
+test.describe("IDOR — planșă (strict privată)", () => {
+  test("un user NU poate deschide planșa altui user", async () => {
+    const { testerUserId, authorUserId } = getSeed();
+
+    const created = await createCanvas({ ownerId: authorUserId, name: "Planșa privată a victimei" });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    try {
+      const res = await getCanvasForEdit({ canvasId: created.value.canvasId, ownerId: testerUserId });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe("NOT_FOUND");
+
+      // Owner-ul real tot o vede — nu e o gaură generală, doar authz pe non-owner.
+      const ownerRes = await getCanvasForEdit({ canvasId: created.value.canvasId, ownerId: authorUserId });
+      expect(ownerRes.ok).toBe(true);
+    } finally {
+      await db.delete(canvases).where(eq(canvases.id, created.value.canvasId));
+    }
+  });
+});
+
+test.describe("IDOR — editare detaliu (updateDetail)", () => {
+  test("un user care NU e autorul detaliului nu-l poate edita", async () => {
+    // Detaliul seedat (auth.setup.ts) e autorat de authorUserId — testerUserId încearcă să-l editeze.
+    const { detailId, testerUserId, categoryId } = getSeed();
+    const [before] = await db.select({ title: details.title }).from(details).where(eq(details.id, detailId));
+
+    const res = await updateDetail({
+      detailId,
+      userId: testerUserId,
+      title: "Titlu injectat de atacator",
+      categoryIds: [categoryId],
+      imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+    });
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toBe("FORBIDDEN");
+
+    const [after] = await db.select({ title: details.title }).from(details).where(eq(details.id, detailId));
+    expect(after.title).toBe(before.title); // neatins
   });
 });
