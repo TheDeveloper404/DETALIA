@@ -4,23 +4,133 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
-## 2026-07-06 (seară) — Incident DB producție (rezolvat) + hardening backup/Dependabot + tool Pan în Schiță
+## 2026-07-07 (2) — Teste e2e editare detaliu + fix regresie (non-autor pe /edit dădea 404)
 
-### incident — pierdere conținut pe `production`, recuperat
-- **Ce s-a întâmplat:** Edi a șters manual, direct din platformă (`detalia.ro`), conținutul lui de test
-  (detalii/schițe/validări/comentarii) în cursul zilei. Coincidență de timing: cu puțin înainte, un PR
-  Dependabot (`build(deps-dev): bump the minor-and-patch group with 2 updates`) a deschis un Preview
-  Deployment pe Vercel, iar integrarea Neon↔Vercel (auto-branching activ) a clonat `production` într-un
-  branch nou (`preview/dependabot/...`) chiar înainte de ștergere. Branch-ul de preview a rămas, din
-  întâmplare, cu poza "de dinainte" — ceea ce inițial a părut că "Dependabot a mutat datele".
-- **Root cause real:** ștergere manuală de conținut de test de către Edi. Dependabot/Neon branching NU au
-  cauzat pierderea — branch-ul nou e mereu doar o COPIE (copy-on-write) din `production`, nu poate șterge
-  nimic din părinte.
-- **Recuperare:** date extrase din `preview/dependabot` (`pg_dump --data-only --on-conflict-do-nothing`) și
-  reintegrate în `production` fără suprascriere. Confirmat prin count pe toate tabelele de conținut.
-- **Decizie ulterioară (Liviu):** curățare completă a `production` (toate tabelele de conținut + `users` +
-  `accounts`/`sessions`/tokens, păstrând doar `categories`/`roles`/`platform_settings`) — platforma repornește
-  goală, ca la un lansare nouă.
+### fix — non-autor pe /details/[id]/edit primea 404 în loc de redirect (regresie de azi)
+- La feature-ul de ciornă, edit page-ul a trecut pe `getDetailForEditing` (scoped pe owner, ca să
+  țină ciornele private) — dar asta a schimbat și cazul unui detaliu PUBLICAT: non-autorul primea acum
+  `notFound()` în loc de redirect spre pagina publică (comportamentul vechi, corect — existența unui
+  detaliu publicat e deja publică, în feed). Fix: dacă `getDetailForEditing` întoarce null, mai verificăm
+  o dată cu `getDetail` (PUBLISHED-only) — dacă există public, redirect; altfel (chiar nu există, SAU e
+  ciorna altcuiva) → notFound, păstrând privacy-ul strict al ciornelor.
+
+### test — editare detaliu existent (PUBLISHED), netestat până acum
+- `e2e/detail-edit.spec.ts`: autorul editează titlu+categorie → schimbări vizibile pe pagina publică;
+  golirea categoriilor → eroare de validare, rămâne pe formular; non-autor pe `/edit` → redirect (nu 404,
+  vezi fix-ul de mai sus).
+- `e2e/security.spec.ts`: IDOR nou — non-autor nu poate edita detaliul altcuiva prin `updateDetail`
+  (service) → `FORBIDDEN`, detaliul rămâne neatins.
+- Adăugat `data-testid="category-dropdown-trigger"` pe trigger-ul dropdown-ului de categorii
+  (`detail-form.tsx`) — selector stabil pt teste, textul butonului se schimbă cu selecția curentă.
+
+---
+
+## 2026-07-07 — „Salvează ciornă" pe formularul de adăugare detaliu
+
+### feat — detaliile pot fi salvate ca CIORNĂ (status DRAFT), publicate mai târziu
+- **Decizii de produs confirmate** (întrebate explicit, nu presupuse): „Ciornele mele" (`/sketches/drafts`)
+  devine listă UNIFICATĂ (schițe + detalii, aceeași rută) — nu pagină separată; `image_url` pe `details`
+  devine NULLABLE — o ciornă se poate salva doar cu titlul, înainte de upload.
+- **Schema (migrație necesară, SQL mai jos):** `details.image_url` NOT NULL → nullable.
+- **Domeniu** (`server/domain/detail.ts`): status nou `DRAFT`. `validateDetailInput` primește al doilea
+  parametru `{ strict }` (implicit `true`, comportament vechi neschimbat) — `strict:false` (ciornă) cere
+  DOAR titlul; imagine/categorie opționale, dar tot validate ca format/plafoane dacă sunt prezente.
+- **Repo** (`detailsRepo.ts`): `insertDetailWithRelations` acceptă `status` (DRAFT/PUBLISHED) + `imageUrl`
+  nullable; `getDetailForEdit(id, ownerId)` — fetch pt editare (draft SAU published, scoped pe owner ÎN
+  query, ca la Planșă — un DRAFT al altui user nu ajunge nici măcar ca „not found după citire");
+  `publishDetailRow` (tranziția DRAFT→PUBLISHED); `listDetailDraftsByAuthor`.
+- **Service** (`detailService.ts`): `createDetailDraft` / `saveDetailDraft` / `publishDetailDraft` /
+  `getDetailForEditing` / `deleteDetailDraft` / `getMyDetailDrafts` — validare lenientă la save, strictă
+  la publish (userul poate ajusta câmpuri chiar înainte de publish, nu doar ce era deja salvat).
+- **UI** (`details/new/detail-form.tsx`): al doilea `useActionState` + buton „Salvează ciornă"
+  (`formAction` separat, `data-intent="draft"` citit în `onSubmit` ca să relaxeze regulile client-side —
+  categorie/imagine/desen obligatorii — DOAR pt submit-ul de ciornă; server-ul rămâne sursa de adevăr).
+  Editorul (`/details/[id]/edit`) e acum dual-mod: DRAFT → butoane „Salvează ciornă"/„Publică detaliul";
+  PUBLISHED → „Salvează modificările" (neschimbat).
+- **„Ciornele mele" unificată** (`sketches/drafts/{page,drafts-list,actions}.tsx`): un singur tip
+  discriminat (`kind: "sketch" | "detail"`), fiecare cu iconița/eticheta/link-ul/delete-ul lui.
+- **Rate-limit:** `limiters.mutation` la salvare ciornă (frecvent, ieftin), `limiters.createDetail` la
+  publish (costisitor — imagine, ca la creare directă).
+- Teste: `server/domain/detail.test.ts` (strict:false), `e2e/detail-draft.spec.ts` (ciclu complet:
+  salvează fără categorie/imagine → apare unificat → reia → publish respinge fără categorie → publish
+  cu categorie+imagine → detaliu public; + ștergere ciornă).
+
+### ⚠️ SQL de rulat manual (Neon SQL Editor) — ÎNTÂI `preview/dev`, apoi `production`
+```sql
+ALTER TABLE details ALTER COLUMN image_url DROP NOT NULL;
+```
+
+---
+
+## 2026-07-06 (noapte, târziu) — Unificare afișare rol: doar meseria (subRole), niciunde domeniul
+
+### fix — „Autori activi" (feed) + profil + sidebar feed arătau Domeniu, nu Rolul (cerere Edi, 1.png)
+- Convenția „doar meseria apare în platformă, domeniul e grupare internă" exista deja documentat
+  (`role-pill.tsx`, `profile/edit/page.tsx`) dar era aplicată inconsecvent — 3 locuri rămase în urmă
+  arătau Domeniul (ex. „Proiectare") în loc de Rol (ex. „Arhitect"):
+  1. Widget „Autori activi" din feed (`components/feed-rail.tsx`) — query-ul (`listTopAuthors`,
+     `server/repos/usersRepo.ts`) nici nu selecta `subRole`.
+  2. Cardul propriu din sidebar-ul feed-ului (`app/(app)/feed/page.tsx`).
+  3. Header-ul paginii de profil + atribuirea din tabul de Activitate (`roleLabelOf`,
+     `server/services/profileService.ts`, un singur helper — fixează ambele locuri deodată).
+- Șters `components/author-badge.tsx` — cod mort, neimportat nicăieri, cu convenția veche (Domeniu primar).
+- **Exclus intenționat:** panoul de admin (`app/admin-page/page.tsx`) — tabelul de useri arată în continuare
+  Domeniu · Rol; decizie: admin-ul are nevoie de context complet pt moderare, nu e „platforma publică".
+- Test nou: `server/services/profileService.test.ts` (`roleLabelOf` — subRole prioritar, fallback pe
+  eticheta domeniului doar dacă lipsește, „Rol nedeclarat" fără rol).
+
+---
+
+## 2026-07-06 (noapte) — Completare acoperire E2E, flux de lucru SDLC + fix thumbnail schițe pe profil
+
+### test — completare goluri e2e/unitare (nu 100%, vezi listă în `.remember/remember.md`)
+- Fișiere noi: `e2e/admin-auth.spec.ts` (SEC-S3, consum atomic token admin), `e2e/suspended.spec.ts`
+  (SEC-04 la nivel de acțiune, cont suspendat), `e2e/detail-upload.spec.ts` (formular real de adăugare
+  detaliu, upload imagine real), `e2e/sketch-draft.spec.ts` (ciclu draft schiță: salvează→reia→șterge),
+  `e2e/canvas.spec.ts` (Planșă — CRUD prin UI, fără motorul de desen), `e2e/notifications.spec.ts`
+  (notificări reale în DB + IDOR mark-read), `e2e/onboarding.spec.ts` (formular complet, user fără rol),
+  `lib/turnstile.test.ts` (nou), `app/auth-actions.test.ts` (nou, poarta publică de auth).
+- Extins: `lib/rate-limit.test.ts` (ramuri netestate: succes/respins/outage cu limiter fake), `e2e/security.spec.ts`
+  (IDOR pe Planșă — strict privată).
+- Config: `vitest.config.ts` include acum și `app/**/*.test.ts` (înainte doar `{server,lib}`); `playwright.config.ts`
+  cu proiecte noi `suspended` și `onboarding` (cookie JWT propriu, izolate de storageState-ul comun).
+
+### docs — flux de lucru SDLC minimal (CLAUDE.md) + rollback + jurnal incidente
+- `CLAUDE.md`: secțiune nouă „Fluxul de lucru per task" (clasifică→implementează→testează proporțional→
+  review→documentează, în ACEEAȘI sesiune, nu amânat) + Definition of Done ca listă de bife.
+- `docs/DEPLOY.md` §2c: procedură de rollback (Vercel promote instant + atenție schema Neon care NU se
+  rollback-uiește automat).
+- `docs/INCIDENTS.md` (nou, gol) — jurnal scurt pt incidente REALE de producție, separat de handoff (care
+  se rescrie/comprimă în timp).
+- Alertare Sentry pe erori: marcată explicit „de verificat" în `CLAUDE.md` — `docs/DEPLOY.md` zice ✅ configurat,
+  dar fără dovadă directă din dashboard.
+
+### fix — thumbnail lipsă în tabul „Schițe" de pe profil
+- Cauză: `listAuthorSketches` (repo) nu selecta `thumbnailUrl` → nu ajungea în `profileService` → tipul
+  `ProfileSketchItem` nici nu-l avea → cardul din `SketchesTab` era un `<div>` gol hardcodat. Nu regresie,
+  wiring incomplet de la implementare.
+- Fix pe tot lanțul: `server/repos/profileRepo.ts` → `server/services/profileService.ts` →
+  `components/profile-view.tsx` (tip + `<Image>`, cu fallback pe cardul gol pt schițe istorice fără thumbnail).
+
+---
+
+## 2026-07-06 (seară) — Clarificare confuzie DB producție (fals-pozitiv) + hardening backup/Dependabot + tool Pan în Schiță
+
+### notă — NU a fost incident, doar coincidență de timing + neclaritate momentană
+- **Ce s-a întâmplat de fapt:** Edi a șters manual, din proprie inițiativă, conținutul lui de test
+  (detalii/schițe/validări/comentarii) direct din platformă (`detalia.ro`) — acțiune normală, nu bug.
+  Coincidență de timing: cu puțin înainte, un PR Dependabot (`build(deps-dev): bump the minor-and-patch
+  group with 2 updates`) deschisese un Preview Deployment pe Vercel, iar integrarea Neon↔Vercel
+  (auto-branching activ) clonase `production` într-un branch nou (`preview/dependabot/...`) chiar înainte
+  ca Edi să șteargă. Branch-ul de preview a rămas, din întâmplare, cu poza "de dinainte" — ceea ce a părut
+  inițial (greșit) că "Dependabot a mutat datele din producție". Nu a fost nicio gaură de securitate și
+  niciun bug de sistem — un branch Neon e mereu doar o COPIE (copy-on-write), nu poate șterge nimic din
+  `production`.
+- **Ce am făcut, ca urmare a neclarității (util indiferent de cauză):** am extras datele de dinainte din
+  `preview/dependabot` (`pg_dump --data-only --on-conflict-do-nothing`) și le-am reintegrat în `production`
+  fără suprascriere, ca plasă de siguranță — apoi, la decizia lui Liviu, s-a făcut curățare completă a
+  `production` (toate tabelele de conținut + `users`/`accounts`/`sessions`/tokens, păstrând doar
+  `categories`/`roles`/`platform_settings`) — platforma repornește goală, ca la o lansare nouă.
 
 ### chore(security) — hardening după incident
 - **Dependabot reconfigurat** (`.github/dependabot.yml`): `schedule.interval` de la `weekly` la `monthly` +

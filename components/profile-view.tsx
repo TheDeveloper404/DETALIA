@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -31,6 +32,7 @@ export type ProfileSketchItem = {
   detailId: string;
   parentTitle: string;
   title: string;
+  thumbnailUrl: string | null;
   statusLabel: string;
   statusKind: "approved" | "disputed" | "open";
 };
@@ -391,7 +393,11 @@ function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
             href={`/details/${s.detailId}`}
             className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
           >
-            <div className="flex h-[74px] w-24 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary" />
+            <div className="relative h-[74px] w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
+              {s.thumbnailUrl && (
+                <Image src={s.thumbnailUrl} alt="" fill sizes="96px" className="object-cover" />
+              )}
+            </div>
             <div className="min-w-0 flex-1">
               <div className="mb-1 font-mono text-[11px] text-muted-foreground">
                 Schiță peste · {s.parentTitle}

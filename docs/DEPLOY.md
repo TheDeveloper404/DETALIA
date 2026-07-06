@@ -179,6 +179,15 @@ Trei lucruri pot trimite cod prost în prod — astea le închidem:
    crapă pe celălalt. Aplici pe `preview/dev` când testezi PR-ul, pe `production` înainte/la merge-ul în `main`.
 3. **Probează preview-ul înainte de merge** — deschizi URL-ul de preview al PR-ului și **apeși efectiv pe ce ai schimbat**.
    Nu da merge bazându-te doar pe CI verde.
+4. **Rollback — dacă `main` se strică după merge**, în ordinea asta:
+   1. **Vercel → Deployments → ultimul deployment BUN de pe `main` → „Promote to Production"** (instant, câteva
+      secunde, fără nevoie de commit/PR nou). E prima acțiune, ÎNAINTE de orice investigație — oprești sângerarea,
+      apoi diagnostichezi calm.
+   2. Dacă problema vine dintr-o **migrație de schemă** aplicată deja pe `production` (Neon) — schema NU se
+      rollback-uiește automat odată cu codul. Verifici manual dacă vechiul cod (promovat înapoi) mai e compatibil
+      cu schema nouă; dacă nu, scrii SQL de revenire (regula obișnuită: SQL brut, rulat manual, verificat înainte).
+   3. Repari cauza pe `dev`, testezi pe preview, abia apoi refaci PR-ul `dev → main` normal.
+   4. Scrii un rând scurt în `docs/INCIDENTS.md` (ce, de ce, ce s-a schimbat) — vezi mai jos.
 
 ---
 

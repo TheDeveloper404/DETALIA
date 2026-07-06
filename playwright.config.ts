@@ -48,7 +48,15 @@ export default defineConfig({
     // Fluxuri AUTHED — pornesc cu sesiunea seedată (storageState din setup).
     {
       name: "authed",
-      testMatch: [/authed\.spec\.ts/, /sketch\.spec\.ts/],
+      testMatch: [
+        /authed\.spec\.ts/,
+        /sketch\.spec\.ts/,
+        /detail-upload\.spec\.ts/,
+        /sketch-draft\.spec\.ts/,
+        /canvas\.spec\.ts/,
+        /detail-draft\.spec\.ts/,
+        /detail-edit\.spec\.ts/,
+      ],
       dependencies: ["setup"],
       use: {
         ...devices["Desktop Chrome"],
@@ -59,8 +67,28 @@ export default defineConfig({
     // service+DB (fără browser), dependință DOAR de seed.json (id-uri de user), nu de storageState/sesiune.
     {
       name: "security",
-      testMatch: [/security\.spec\.ts/, /integration\.spec\.ts/],
+      testMatch: [
+        /security\.spec\.ts/,
+        /integration\.spec\.ts/,
+        /admin-auth\.spec\.ts/,
+        /notifications\.spec\.ts/,
+      ],
       dependencies: ["setup"],
+    },
+    // SEC-04 la nivel de acțiune — user SUSPENDAT dedicat, cookie JWT propriu (NU storageState-ul comun
+    // din "authed", ca să nu-l invalideze pentru authed.spec.ts/sketch.spec.ts care rulează în paralel).
+    {
+      name: "suspended",
+      testMatch: /suspended\.spec\.ts/,
+      dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // Onboarding — user dedicat FĂRĂ rol, cookie JWT propriu (storageState-ul comun din "authed" e al unui
+    // user CU rol deja declarat, nu poate testa fluxul de onboarding).
+    {
+      name: "onboarding",
+      testMatch: /onboarding\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
 });

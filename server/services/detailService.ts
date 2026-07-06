@@ -9,6 +9,7 @@
 
 import {
   DEFAULT_FEED_SIZE,
+  DETAIL_STATUS,
   type DetailResourceInput,
   type DetailValidationError,
   validateDetailInput,
@@ -19,14 +20,17 @@ import {
   deleteDetailCascade,
   deleteSavedDetail,
   getDetailById,
+  getDetailForEdit,
   getDetailResources,
   insertDetailWithRelations,
   insertSavedDetail,
   isDetailSavedByUser,
+  listDetailDraftsByAuthor,
   listFeed,
   listRelatedDetails,
   listSavedDetailIds,
   listSavedDetails,
+  publishDetailRow,
   replaceDetailCategories,
   replaceDetailResources,
   updateDetailRow,
@@ -175,6 +179,194 @@ export async function updateDetail(input: {
 
   const imageChanged = existing.imageUrl !== value.imageUrl;
   return { ok: true, oldImageUrl: imageChanged ? existing.imageUrl : null };
+}
+
+export type DraftDetailInput = {
+  title: string;
+  description?: string | null;
+  categoryIds?: string[];
+  imageUrl?: string | null;
+  climateZone?: string | null;
+  seismicAg?: string | null;
+  seismicTc?: string | null;
+  snowLoad?: string | null;
+  windLoad?: string | null;
+  resources?: DetailResourceInput[];
+};
+
+export type DraftDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_FOUND";
+
+export type SaveDraftDetailResult =
+  | { ok: true; detailId: string; oldImageUrl: string | null }
+  | { ok: false; error: DraftDetailError };
+
+// „Salvează ciornă" — validare LENIENTĂ (strict:false, doar titlul obligatoriu). Publicarea completă
+// (imagine + categorie obligatorii) se verifică abia la `publishDetailDraft`, nu aici.
+async function validateDraft(input: DraftDetailInput) {
+  return validateDetailInput(
+    {
+      title: input.title,
+      description: input.description,
+      categoryIds: input.categoryIds ?? [],
+      imageUrl: input.imageUrl ?? null,
+      climateZone: input.climateZone,
+      seismicAg: input.seismicAg,
+      seismicTc: input.seismicTc,
+      snowLoad: input.snowLoad,
+      windLoad: input.windLoad,
+      resources: input.resources,
+    },
+    { strict: false },
+  );
+}
+
+// Creează o CIORNĂ de detaliu (status DRAFT) — pornit de pe /details/new, prima dată când userul
+// apasă „Salvează ciornă" (nu mai există un id încă). Aceleași porți de business ca `createDetail`
+// (rol declarat), dar fără regulile stricte de publicare.
+export async function createDetailDraft(
+  input: DraftDetailInput & { authorId: string },
+): Promise<SaveDraftDetailResult> {
+  if (!(await userHasRole(input.authorId))) return { ok: false, error: "NO_ROLE" };
+
+  const validation = await validateDraft(input);
+  if (!validation.ok) return { ok: false, error: validation.error };
+  const value = validation.value;
+
+  if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
+  const existingCount = await countExistingCategoryIds(value.categoryIds);
+  if (existingCount !== value.categoryIds.length) return { ok: false, error: "INVALID_CATEGORY" };
+
+  const detail = await insertDetailWithRelations({
+    title: value.title,
+    description: value.description,
+    authorId: input.authorId,
+    imageUrl: value.imageUrl,
+    climateZone: value.climateZone,
+    seismicAg: value.seismicAg,
+    seismicTc: value.seismicTc,
+    snowLoad: value.snowLoad,
+    windLoad: value.windLoad,
+    categoryIds: value.categoryIds,
+    resources: value.resources,
+    status: DETAIL_STATUS.DRAFT,
+  });
+
+  return { ok: true, detailId: detail.id, oldImageUrl: null };
+}
+
+// Re-salvează o ciornă EXISTENTĂ (autorul, doar cât e DRAFT — `/details/[id]/edit`). Ownership +
+// starea DRAFT se verifică prin `getDetailForEdit` (scoped pe owner în query, ca la Planșă — un DRAFT
+// al altui user nu trebuie să scape nici măcar ca „not found după citire").
+export async function saveDetailDraft(
+  input: DraftDetailInput & { detailId: string; authorId: string },
+): Promise<SaveDraftDetailResult> {
+  if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+
+  const existing = await getDetailForEdit(input.detailId, input.authorId);
+  if (!existing || existing.status !== DETAIL_STATUS.DRAFT) return { ok: false, error: "NOT_FOUND" };
+
+  const validation = await validateDraft(input);
+  if (!validation.ok) return { ok: false, error: validation.error };
+  const value = validation.value;
+
+  if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
+  const existingCount = await countExistingCategoryIds(value.categoryIds);
+  if (existingCount !== value.categoryIds.length) return { ok: false, error: "INVALID_CATEGORY" };
+
+  await updateDetailRow(input.detailId, {
+    title: value.title,
+    description: value.description,
+    imageUrl: value.imageUrl,
+    climateZone: value.climateZone,
+    seismicAg: value.seismicAg,
+    seismicTc: value.seismicTc,
+    snowLoad: value.snowLoad,
+    windLoad: value.windLoad,
+  });
+  await replaceDetailCategories(input.detailId, value.categoryIds);
+  await replaceDetailResources(input.detailId, value.resources);
+
+  const imageChanged = existing.imageUrl !== value.imageUrl;
+  return { ok: true, detailId: input.detailId, oldImageUrl: imageChanged ? existing.imageUrl : null };
+}
+
+// Publică o ciornă (DRAFT → PUBLISHED) — validare STRICTĂ (imagine + categorie obligatorii), la fel
+// ca `createDetail`/`updateDetail`. Datele finale vin din formular (userul poate ajusta chiar înainte
+// de publish), nu doar din ce era deja salvat.
+export async function publishDetailDraft(
+  input: DraftDetailInput & { detailId: string; authorId: string },
+): Promise<SaveDraftDetailResult> {
+  if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+
+  const existing = await getDetailForEdit(input.detailId, input.authorId);
+  if (!existing || existing.status !== DETAIL_STATUS.DRAFT) return { ok: false, error: "NOT_FOUND" };
+
+  const validation = validateDetailInput({
+    title: input.title,
+    description: input.description,
+    categoryIds: input.categoryIds ?? [],
+    imageUrl: input.imageUrl ?? null,
+    climateZone: input.climateZone,
+    seismicAg: input.seismicAg,
+    seismicTc: input.seismicTc,
+    snowLoad: input.snowLoad,
+    windLoad: input.windLoad,
+    resources: input.resources,
+  });
+  if (!validation.ok) return { ok: false, error: validation.error };
+  const value = validation.value;
+
+  if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
+  const existingCount = await countExistingCategoryIds(value.categoryIds);
+  if (existingCount !== value.categoryIds.length) return { ok: false, error: "INVALID_CATEGORY" };
+
+  await updateDetailRow(input.detailId, {
+    title: value.title,
+    description: value.description,
+    imageUrl: value.imageUrl,
+    climateZone: value.climateZone,
+    seismicAg: value.seismicAg,
+    seismicTc: value.seismicTc,
+    snowLoad: value.snowLoad,
+    windLoad: value.windLoad,
+  });
+  await replaceDetailCategories(input.detailId, value.categoryIds);
+  await replaceDetailResources(input.detailId, value.resources);
+  await publishDetailRow(input.detailId);
+
+  const imageChanged = existing.imageUrl !== value.imageUrl;
+  return { ok: true, detailId: input.detailId, oldImageUrl: imageChanged ? existing.imageUrl : null };
+}
+
+// Fetch pt pagina de editare (draft SAU published, doar owner) — vezi nota din repo.
+export async function getDetailForEditing(detailId: string, authorId: string) {
+  if (!isUuid(detailId)) return null;
+  const detail = await getDetailForEdit(detailId, authorId);
+  if (!detail) return null;
+  const resources = await getDetailResources(detailId);
+  return { ...detail, resources };
+}
+
+// Ciornele de detaliu ale userului — pt „Ciornele mele" (unificat cu ciornele de schiță).
+export function getMyDetailDrafts(userId: string) {
+  return listDetailDraftsByAuthor(userId);
+}
+
+export type DeleteDraftDetailResult = { ok: true } | { ok: false; error: "NOT_FOUND" };
+
+// Șterge o ciornă de detaliu (autorul, doar cât e DRAFT) — folosit din „Ciornele mele".
+export async function deleteDetailDraft(input: {
+  detailId: string;
+  authorId: string;
+}): Promise<DeleteDraftDetailResult> {
+  if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+
+  const detail = await getDetailForEdit(input.detailId, input.authorId);
+  if (!detail || detail.status !== DETAIL_STATUS.DRAFT) return { ok: false, error: "NOT_FOUND" };
+
+  const blobUrls = await deleteDetailCascade(input.detailId);
+  await deleteBlobs([detail.imageUrl, ...blobUrls]);
+  return { ok: true };
 }
 
 // Citire pagină de detaliu (doar PUBLISHED) + resursele atașate. null dacă nu există / id invalid.

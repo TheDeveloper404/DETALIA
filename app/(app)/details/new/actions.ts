@@ -8,7 +8,7 @@ import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
-import { createDetail } from "@/server/services/detailService";
+import { createDetail, createDetailDraft } from "@/server/services/detailService";
 
 export type CreateDetailState = { error: string | null };
 
@@ -119,4 +119,61 @@ export async function createDetailAction(
 
   // Publicat → ducem userul direct la pagina noului detaliu.
   redirect(`/details/${result.detailId}`);
+}
+
+// „Salvează ciornă" pe formularul de adăugare — prima dată, deci nu există încă un id. Validare
+// LENIENTĂ (doar titlul obligatoriu) — vezi `createDetailDraft`. Redirect la editorul ciornei
+// (`/details/[id]/edit`), reutilizat pentru resave/publish ulterior.
+export async function saveNewDetailDraftAction(
+  _prev: CreateDetailState,
+  formData: FormData,
+): Promise<CreateDetailState> {
+  const userId = await requireActiveUserId();
+
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+
+  const title = String(formData.get("title") ?? "");
+  const description = String(formData.get("description") ?? "");
+  const categoryIds = formData.getAll("categoryIds").map(String).filter(Boolean);
+  const climateZone = String(formData.get("climateZone") ?? "");
+  const seismicAg = String(formData.get("seismicAg") ?? "");
+  const seismicTc = String(formData.get("seismicTc") ?? "");
+  const snowLoad = String(formData.get("snowLoad") ?? "");
+  const windLoad = String(formData.get("windLoad") ?? "");
+  const resources = readResources(formData);
+
+  if (title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
+
+  // Imaginea e OPȚIONALĂ la ciornă — doar dacă e prezentă o validăm/reprocesăm (SEC-02).
+  const rawImageUrl = String(formData.get("imageUrl") ?? "");
+  let imageUrl: string | null = null;
+  if (rawImageUrl.length > 0) {
+    if (!isOwnBlobUrl(rawImageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+    const processed = await reprocessBlobImage(rawImageUrl, "details");
+    if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
+    imageUrl = processed.url;
+  }
+
+  const result = await createDetailDraft({
+    authorId: userId,
+    title,
+    description,
+    categoryIds,
+    imageUrl,
+    climateZone,
+    seismicAg,
+    seismicTc,
+    snowLoad,
+    windLoad,
+    resources,
+  });
+
+  if (!result.ok) {
+    if (result.error === "NO_ROLE") redirect("/onboarding");
+    return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+  }
+
+  redirect(`/details/${result.detailId}/edit`);
 }

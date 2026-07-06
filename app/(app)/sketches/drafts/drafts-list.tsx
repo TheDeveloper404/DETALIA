@@ -1,37 +1,41 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { LayoutDashboard, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useOptimistic } from "react";
 
-import { deleteDraftAction } from "./actions";
+import { deleteDetailDraftAction, deleteDraftAction } from "./actions";
 
-type Draft = {
-  id: string;
-  detailImageUrl: string;
-  detailTitle: string;
-  createdAt: Date;
-};
+// Ciornă unificată — SCHIȚĂ (peste un detaliu existent, PUBLISHED) sau DETALIU nou (fără părinte).
+// `id` = sketchId sau detailId, după caz; `detailId` există doar pt schițe (link către editorul lor).
+export type UnifiedDraft =
+  | { kind: "sketch"; id: string; detailId: string; title: string; imageUrl: string | null; createdAt: Date }
+  | { kind: "detail"; id: string; title: string; imageUrl: string | null; createdAt: Date };
 
-// Lista de ciorne cu ștergere OPTIMISTĂ: rândul dispare instant la click (nu mai pare „blocat" cât
-// rulează server action-ul). deleteDraftAction face ștergerea reală + revalidatePath; dacă pică,
-// revalidarea readuce rândul (useOptimistic se resincronizează cu prop-ul `drafts`).
-export function DraftsList({ drafts }: { drafts: Draft[] }) {
+function editHref(d: UnifiedDraft): string {
+  return d.kind === "sketch" ? `/sketches/${d.id}/edit` : `/details/${d.id}/edit`;
+}
+
+// Ștergere OPTIMISTĂ: rândul dispare instant la click, indiferent de tip. Fiecare tip își cheamă
+// propriul server action (deleteDraftAction/deleteDetailDraftAction); dacă pică, revalidarea readuce rândul.
+export function DraftsList({ drafts }: { drafts: UnifiedDraft[] }) {
   const [optimisticDrafts, removeDraft] = useOptimistic(drafts, (state, id: string) =>
     state.filter((d) => d.id !== id),
   );
 
-  async function onDelete(formData: FormData) {
-    removeDraft(String(formData.get("sketchId")));
-    await deleteDraftAction(formData);
+  async function onDelete(d: UnifiedDraft, formData: FormData) {
+    removeDraft(d.id);
+    if (d.kind === "sketch") await deleteDraftAction(formData);
+    else await deleteDetailDraftAction(formData);
   }
 
   if (optimisticDrafts.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-card p-10 text-center">
         <p className="text-sm text-muted-foreground">
-          Nu ai nicio ciornă salvată. O schiță pornește dintr-un detaliu, prin „Dezaprob și fac o schiță”.
+          Nu ai nicio ciornă salvată. O schiță pornește dintr-un detaliu, prin „Dezaprob și fac o schiță”,
+          sau salvezi un detaliu nou ca ciornă din formularul de adăugare.
         </p>
         <Link
           href="/feed"
@@ -44,36 +48,37 @@ export function DraftsList({ drafts }: { drafts: Draft[] }) {
   }
 
   return (
-    <ul className="flex flex-col gap-3">
+    <ul className="flex list-none flex-col gap-3 p-0">
       {optimisticDrafts.map((d) => (
         <li
           key={d.id}
           className="flex items-center gap-2 rounded-xl border border-border bg-card p-3.5 transition-colors hover:border-primary"
         >
-          <Link href={`/sketches/${d.id}/edit`} className="flex min-w-0 flex-1 items-center gap-4">
-            <span className="relative block h-16 w-20 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
-              <Image
-                src={d.detailImageUrl}
-                alt=""
-                fill
-                sizes="80px"
-                className="object-cover opacity-90"
-              />
+          <Link href={editHref(d)} className="flex min-w-0 flex-1 items-center gap-4">
+            <span className="relative flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-secondary">
+              {d.imageUrl ? (
+                <Image src={d.imageUrl} alt="" fill sizes="80px" className="object-cover opacity-90" />
+              ) : d.kind === "sketch" ? (
+                <Pencil className="size-5 text-muted-foreground" strokeWidth={1.8} />
+              ) : (
+                <LayoutDashboard className="size-5 text-muted-foreground" strokeWidth={1.8} />
+              )}
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold text-foreground">
-                Schiță peste „{d.detailTitle}”
+                {d.kind === "sketch" ? `Schiță peste „${d.title}”` : d.title || "Detaliu fără titlu"}
               </span>
               <span className="mt-0.5 block font-mono text-[11.5px] text-muted-foreground">
-                ciornă · începută {d.createdAt.toLocaleDateString("ro-RO")}
+                {d.kind === "sketch" ? "ciornă de schiță" : "ciornă de detaliu"} · începută{" "}
+                {d.createdAt.toLocaleDateString("ro-RO")}
               </span>
             </span>
             <span className="hidden shrink-0 font-mono text-[12px] font-medium text-primary sm:block">
               Continuă →
             </span>
           </Link>
-          <form action={onDelete}>
-            <input type="hidden" name="sketchId" value={d.id} />
+          <form action={(fd) => onDelete(d, fd)}>
+            <input type="hidden" name={d.kind === "sketch" ? "sketchId" : "detailId"} value={d.id} />
             <button
               type="submit"
               aria-label="Șterge ciorna"
