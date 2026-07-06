@@ -22,6 +22,15 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
+// `next-auth` REAL (chiar și doar pt tipul AuthError) declanșează în CI un import intern
+// (next-auth/lib/env.js → "next/server") care pică la rezoluție ESM sub vitest — mock minimal,
+// nu ne pasă de comportamentul lui, doar de forma folosită în auth-actions.ts (`instanceof AuthError`).
+vi.mock("next-auth", () => ({
+  AuthError: class AuthError extends Error {
+    type = "AuthError";
+  },
+}));
+
 vi.mock("@/lib/rate-limit", () => ({
   checkLimit,
   clientIp: vi.fn(async () => "1.2.3.4"),
