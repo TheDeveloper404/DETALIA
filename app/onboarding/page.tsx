@@ -38,7 +38,7 @@ export default async function OnboardingPage() {
           display: "flex",
           alignItems: "center",
           borderBottom: "1px solid var(--border)",
-          background: "var(--background)",
+          background: "var(--secondary)",
           position: "relative",
           zIndex: 2,
         }}

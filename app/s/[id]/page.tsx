@@ -39,7 +39,7 @@ export default async function PublicSketchPage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-10 flex h-[76px] flex-none items-center border-b border-border bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-10 flex h-[76px] flex-none items-center border-b border-border bg-secondary/90 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
           <BrandLogo size={32} />
           <div className="flex items-center gap-5">

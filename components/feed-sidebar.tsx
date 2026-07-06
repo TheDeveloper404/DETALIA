@@ -79,14 +79,6 @@ export function FeedSidebar({
         </div>
       </Link>
 
-      {/* Nudge: validează pe rolul tău. */}
-      <div className="rounded-lg border border-border bg-secondary p-[18px]">
-        <div className="mb-1.5 font-bold text-foreground">Validează pe rolul tău</div>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
-          O dezaprobare vine mereu cu o justificare. Părerea ta cântărește prin rolul afișat lângă nume.
-        </p>
-      </div>
-
       {/* Categorii. */}
       <nav
         aria-label="Filtru categorii"
