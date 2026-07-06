@@ -193,7 +193,7 @@ type History = { past: Snapshot[]; present: Snapshot; future: Snapshot[] };
 type HistoryAction =
   | { type: "commit"; present: Snapshot }
   // Corecție tehnică FĂRĂ pas de istorie: fixează raportul real al imaginii pe un item nou-materializat.
-  | { type: "fixAspect"; detailId: string; ratio: number }
+  | { type: "fixAspect"; key: string; ratio: number }
   | { type: "undo" }
   | { type: "redo" };
 
@@ -207,7 +207,7 @@ function historyReducer(state: History, action: HistoryAction): History {
         present: {
           ...state.present,
           items: state.present.items.map((it) =>
-            it.detailId === action.detailId
+            itemKey(it) === action.key
               ? { ...it, height: clampItemSize(it.width * action.ratio * (1 / WORKSPACE_RATIO)) }
               : it,
           ),
@@ -235,17 +235,24 @@ const MAX_PEN_SIZE = 40;
 // după raportul real al imaginii.
 const DEFAULT_ITEM_W = 0.28;
 
-// Detaliu accesibil (din service): datele de randare pentru un item.
-export type PlansaItemSource = { detailId: string; imageUrl: string; title: string };
+// Detaliu SAU schiță accesibil(ă) (din service): datele de randare pentru un item. `sketchId` prezent =
+// imaginea e a schiței (thumbnailUrl compus), nu a detaliului-mamă.
+export type PlansaItemSource = { detailId: string; sketchId?: string | null; imageUrl: string; title: string };
 
 export type PlansaCanvasHandle = {
   getDocument: () => CanvasDocument;
   exportThumbnail: () => Promise<Blob | null>;
 };
 
+// Cheia de identitate a unui item/sursă — un detaliu poate apărea de mai multe ori pe aceeași planșă
+// (o dată ca detaliu-mamă, plus câte un item per schiță trimisă), deci `detailId` singur NU mai e unic.
+function itemKey(x: { detailId: string; sketchId?: string | null }): string {
+  return x.sketchId ?? x.detailId;
+}
+
 // Reconciliere la mount (index canvas_items ↔ geometria din document):
-//  - detalii din index fără item în document → materializate în cascadă (poziții decalate);
-//  - items al căror detaliu nu mai e accesibil → păstrate (randate ca placeholder „Detaliu indisponibil").
+//  - detalii/schițe din index fără item în document → materializate în cascadă (poziții decalate);
+//  - items a căror țintă nu mai e accesibilă → păstrate (randate ca placeholder „Detaliu indisponibil").
 function buildInitialSnapshot(doc: CanvasDocument | null, sources: PlansaItemSource[]): {
   snapshot: Snapshot;
   materialized: Set<string>;
@@ -253,15 +260,17 @@ function buildInitialSnapshot(doc: CanvasDocument | null, sources: PlansaItemSou
   const items = [...(doc?.items ?? [])];
   const strokes = doc?.strokes ?? [];
   const materialized = new Set<string>();
-  const present = new Set(items.map((it) => it.detailId));
+  const present = new Set(items.map((it) => itemKey(it)));
   let z = items.reduce((m, it) => Math.max(m, it.z), 0);
   let cascade = 0;
   for (const src of sources) {
-    if (present.has(src.detailId)) continue;
+    const key = itemKey(src);
+    if (present.has(key)) continue;
     z += 1;
     items.push({
       id: crypto.randomUUID(),
       detailId: src.detailId,
+      sketchId: src.sketchId ?? null,
       x: 0.08 + (cascade % 6) * 0.05,
       y: 0.08 + (cascade % 6) * 0.06,
       width: DEFAULT_ITEM_W,
@@ -269,7 +278,7 @@ function buildInitialSnapshot(doc: CanvasDocument | null, sources: PlansaItemSou
       height: DEFAULT_ITEM_W * 0.75 * (1 / WORKSPACE_RATIO),
       z,
     });
-    materialized.add(src.detailId);
+    materialized.add(key);
     cascade++;
   }
   return { snapshot: { items, strokes }, materialized };
@@ -283,8 +292,9 @@ export const PlansaCanvas = forwardRef<
     sources: PlansaItemSource[];
     // Notifică orice modificare de document (shell-ul face autosave debounced).
     onChange?: (doc: CanvasDocument) => void;
-    // Eliminarea unui detaliu de pe planșă (shell-ul cheamă server action-ul de index).
-    onRemoveItem?: (detailId: string) => void;
+    // Eliminarea unui item de pe planșă (shell-ul cheamă server action-ul de index). sketchId prezent
+    // = item de schiță (server șterge doar rândul acelei schițe, nu detaliul-mamă).
+    onRemoveItem?: (detailId: string, sketchId: string | null) => void;
   }
 >(function PlansaCanvas({ initialDocument, sources, onChange, onRemoveItem }, ref) {
   const [history, dispatch] = useReducer(
@@ -386,23 +396,24 @@ export const PlansaCanvas = forwardRef<
     onChange?.(toDocument(present));
   }, [present, onChange, toDocument]);
 
-  // Încarcă imaginile detaliilor accesibile; la load corectează aspectul items-elor noi-materializate.
+  // Încarcă imaginile items-urilor accesibile; la load corectează aspectul items-elor noi-materializate.
   useEffect(() => {
     for (const src of sources) {
-      if (imagesRef.current.has(src.detailId) || failedRef.current.has(src.detailId)) continue;
+      const key = itemKey(src);
+      if (imagesRef.current.has(key) || failedRef.current.has(key)) continue;
       const img = new Image();
       img.crossOrigin = "anonymous"; // pt export fără taint
       img.onload = () => {
-        imagesRef.current.set(src.detailId, img);
-        if (pendingAspectRef.current.has(src.detailId)) {
-          pendingAspectRef.current.delete(src.detailId);
+        imagesRef.current.set(key, img);
+        if (pendingAspectRef.current.has(key)) {
+          pendingAspectRef.current.delete(key);
           // hNorm = wNorm * (natH/natW) * (W/H al zonei) — păstrează raportul real al imaginii.
-          dispatch({ type: "fixAspect", detailId: src.detailId, ratio: img.naturalHeight / img.naturalWidth });
+          dispatch({ type: "fixAspect", key, ratio: img.naturalHeight / img.naturalWidth });
         }
         setImgVersion((v) => v + 1);
       };
       img.onerror = () => {
-        failedRef.current.add(src.detailId);
+        failedRef.current.add(key);
         setImgVersion((v) => v + 1);
       };
       img.src = src.imageUrl;
@@ -934,18 +945,19 @@ export const PlansaCanvas = forwardRef<
 
   function removeSelectedItem() {
     if (!selectedItem) return;
-    const detailId = selectedItem.detailId;
+    const key = itemKey(selectedItem);
+    const { detailId, sketchId = null } = selectedItem;
     const remaining = present.items.filter((it) => it.id !== selectedItem.id);
     dispatch({ type: "commit", present: { ...present, items: remaining } });
     setSelection(null);
-    // Nu elimină indexul (canvas_items) dacă mai rămâne un alt item (duplicat) care referă același
-    // detaliu — altfel duplicatul rămas și-ar pierde sursa imaginii la următoarea încărcare.
-    const stillUsed = remaining.some((it) => it.detailId === detailId);
-    if (!stillUsed) onRemoveItem?.(detailId);
+    // Nu elimină indexul (canvas_items) dacă mai rămâne un alt item (duplicat) cu ACEEAȘI cheie — altfel
+    // duplicatul rămas și-ar pierde sursa imaginii la următoarea încărcare.
+    const stillUsed = remaining.some((it) => itemKey(it) === key);
+    if (!stillUsed) onRemoveItem?.(detailId, sketchId);
   }
 
   const selectedSource = selectedItem
-    ? sources.find((s) => s.detailId === selectedItem.detailId) ?? null
+    ? sources.find((s) => itemKey(s) === itemKey(selectedItem)) ?? null
     : null;
 
   const drawActive = tool !== "eraser" && tool !== "select";
@@ -1228,10 +1240,14 @@ export const PlansaCanvas = forwardRef<
             >
               {selectedSource && (
                 <a
-                  href={`/details/${selectedSource.detailId}`}
+                  href={
+                    selectedSource.sketchId
+                      ? `/details/${selectedSource.detailId}?sketch=${selectedSource.sketchId}`
+                      : `/details/${selectedSource.detailId}`
+                  }
                   target="_blank"
                   rel="noreferrer"
-                  aria-label="Deschide detaliul"
+                  aria-label={selectedSource.sketchId ? "Deschide schița" : "Deschide detaliul"}
                   title={`Deschide „${selectedSource.title}"`}
                   className="flex size-7 items-center justify-center rounded-md text-foreground/75 transition-colors hover:bg-secondary"
                 >
@@ -1281,7 +1297,7 @@ function drawItems(
     const y = it.y * height;
     const w = it.width * width;
     const h = it.height * height;
-    const img = images.get(it.detailId);
+    const img = images.get(itemKey(it));
     if (img) {
       ctx.drawImage(img, x, y, w, h);
     } else {

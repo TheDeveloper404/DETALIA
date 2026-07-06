@@ -84,16 +84,18 @@ export async function saveCanvasThumbnailAction(
   return { ok: true };
 }
 
-// Scoate un detaliu de pe planșă (din acțiunea contextuală a selecției). Item-ul îl șterge clientul din document.
+// Scoate un detaliu (sau, cu `sketchId`, o schiță) de pe planșă (din acțiunea contextuală a selecției).
+// Item-ul îl șterge clientul din document.
 export async function removeDetailFromCanvasAction(
   canvasId: string,
   detailId: string,
+  sketchId?: string | null,
 ): Promise<CanvasEditActionResult> {
   const userId = await requireActiveUserId();
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
-  const res = await removeDetailFromCanvas({ canvasId, ownerId: userId, detailId });
+  const res = await removeDetailFromCanvas({ canvasId, ownerId: userId, detailId, sketchId });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut elimina detaliul." };
   return { ok: true };
 }

@@ -46,24 +46,27 @@ export async function createCanvasAction(name: string): Promise<CanvasActionResu
   return { ok: true, canvasId: res.value.canvasId };
 }
 
-// Adaugă un detaliu într-o planșă existentă (din popover-ul feed/detaliu). NU navighează.
+// Adaugă un detaliu (sau, cu `sketchId`, schița desenată peste el) într-o planșă existentă (din
+// popover-ul feed/detaliu). NU navighează.
 export async function addDetailToCanvasAction(
   canvasId: string,
   detailId: string,
+  sketchId?: string | null,
 ): Promise<CanvasActionResult> {
   const userId = await requireActiveUserId();
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
-  const res = await addDetailToCanvas({ canvasId, ownerId: userId, detailId });
+  const res = await addDetailToCanvas({ canvasId, ownerId: userId, detailId, sketchId });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut adăuga detaliul." };
   return { ok: true };
 }
 
-// Creează o planșă nouă ȘI adaugă detaliul în ea (varianta inline „+ Creează planșă nouă" din popover).
+// Creează o planșă nouă ȘI adaugă detaliul/schița în ea (varianta inline „+ Creează planșă nouă" din popover).
 export async function createCanvasAndAddDetailAction(
   name: string,
   detailId: string,
+  sketchId?: string | null,
 ): Promise<CanvasActionResult & { canvasId?: string }> {
   const userId = await requireActiveUserId();
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
@@ -77,6 +80,7 @@ export async function createCanvasAndAddDetailAction(
     canvasId: created.value.canvasId,
     ownerId: userId,
     detailId,
+    sketchId,
   });
   if (!added.ok) {
     return { ok: false, error: ERROR_MESSAGES[added.error] ?? "Planșa a fost creată, dar detaliul nu s-a adăugat." };

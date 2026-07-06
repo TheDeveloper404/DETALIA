@@ -141,7 +141,7 @@ export function DetailCard({
         {/* Acțiuni — toate icon-only, text la HOVER (nu la click), un singur rând: validare (dacă e permisă)
             + „Schițează peste" + „Trimite în Planșă". Link secundar (NU buton) pt schițare: duce în pagina
             detaliului la teanc (context), fără să creeze draft. */}
-        <div className="mt-auto flex flex-wrap items-center gap-1">
+        <div className="mt-auto flex flex-wrap items-center gap-3">
           {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
           <Link
             href={`${href}#schiteaza`}
@@ -149,7 +149,7 @@ export function DetailCard({
             className="group/schiteaza inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <PencilRuler className="size-3.5 shrink-0" strokeWidth={2} />
-            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/schiteaza:ml-1.5 group-hover/schiteaza:max-w-[110px] group-hover/schiteaza:opacity-100">
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/schiteaza:ml-1.5 group-hover/schiteaza:max-w-[130px] group-hover/schiteaza:opacity-100">
               Schițează peste
             </span>
           </Link>
