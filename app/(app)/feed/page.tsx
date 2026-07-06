@@ -11,7 +11,6 @@ import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import { type FeedSort, getActiveAuthors, getFeed, getMySavedDetailIds } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
-import { getRecentSketches } from "@/server/services/sketchService";
 import { getMyPositions } from "@/server/services/validationService";
 
 import { FeedEmpty } from "./feed-empty";
@@ -33,11 +32,10 @@ export default async function FeedPage({
   const q = rawQ?.trim() || null;
   const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
-  const [categories, role, authors, recentSketches, media, platform] = await Promise.all([
+  const [categories, role, authors, media, platform] = await Promise.all([
     listCategoriesWithCounts(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
-    getRecentSketches(4),
     getUserMedia(session.user.id),
     getPlatformState(),
   ]);
@@ -77,17 +75,6 @@ export default async function FeedPage({
       commentCount: d.commentCount,
       sketchCount: d.sketchCount,
     }));
-
-  const sketches = recentSketches.map((s) => ({
-    id: s.id,
-    detailId: s.detailId,
-    thumbnailUrl: s.thumbnailUrl,
-    detailTitle: s.detailTitle,
-    authorName: s.authorName,
-    authorImage: s.authorImage,
-    authorRoleMain: s.authorRoleMain,
-    authorVerified: s.authorVerification === "VERIFIED",
-  }));
 
 
   return (
@@ -160,7 +147,7 @@ export default async function FeedPage({
         )}
       </main>
 
-      <FeedRail authors={authors} debated={debated} sketches={sketches} />
+      <FeedRail authors={authors} debated={debated} />
     </div>
     </FeedEntrance>
   );

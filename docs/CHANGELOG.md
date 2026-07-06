@@ -4,6 +4,82 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-06 (continuare) — Categorii pe 3 niveluri, reply la comentarii, Planșă↔schițe, curățenie feed/header
+
+- **Taxonomia de categorii restructurată** (task Edi, document `lista_categorii.md`): ordinea dropdown-ului
+  urmează acum EXACT ordinea din document (nu mai e alfabetică) — coloană nouă `categories.position`.
+  Categorii noi pe 3 niveluri: „capitole" cu sub-categorii (Fundație→Beton/Micropiloți, Acoperiș→Șarpantă/
+  Tip terasă, Instalații→Electrice/Sanitare/Termice/HVAC, Fațadă→3 tipuri) — capitolul însuși NU e bifabil,
+  doar copiii lui (coloană nouă `categories.is_group`), afișat ca antet expandabil cu săgeată. Categorie nouă
+  **„Scări"** adăugată sub „După zonă". Validare server: o categorie-grup nu poate fi trimisă direct ca tag
+  (ocolind UI-ul). SQL rulat manual pe dev + production (coloane + re-populare din `db/seed.ts` rescris).
+- **„Trimite în Planșă" funcționează acum și pe schițe** (nu doar pe detaliul-mamă): `canvas_items.sketch_id`
+  opțional — un item de planșă poate fi acum „detaliu-mamă" SAU „schiță" (imaginea compusă, deja randată la
+  publicare, nu se randează a doua oară). Regula de acces rămâne simetrică cu cea de la detalii: orice user
+  logat, nu doar autorul (planșa e panou personal de referințe, nu legată de proprietate asupra conținutului).
+  Editorul de Planșă (drag/resize/duplicare/ștergere/link „deschide") tratează corect item-urile de schiță.
+- **Reply la comentarii, UN SINGUR nivel** (idee Edi: „mizăm pe dezbatere, fără reply e greu"): coloană nouă
+  `comments.parent_comment_id` (self-FK, cascade). Buton „Răspunde" doar pe comentariile rădăcină (un reply nu
+  poate primi la rândul lui reply); compozitor inline compact, fără @mention. Reply-urile apar indentate sub
+  comentariul original.
+- **Header global simplificat**: „Ciornele mele" și „Planșele mele" mutate din iconițele de header în
+  dropdown-ul de user (lângă „Detalii salvate"); „Editează profil" scos din dropdown (redundant, deja
+  accesibil din `/profile`). Header-ul păstrează doar Acasă + Notificări + avatar.
+- **Bookmark „Salvează" direct pe cardul din feed** (colț dreapta-sus al thumbnail-ului, devine galben la
+  click, optimist) — înainte exista doar în meniul kebab de pe pagina de detaliu.
+- **Căutarea mutată din header în feed**, lângă titlul „Detalii în dezbatere" (nu mai e accesibilă din restul
+  paginilor — decizie asumată). Toggle-ul „În dezbatere / Recente" a fost scos complet. Titlul + căutarea
+  stau acum într-un card propriu (nu se mai încearcă alinierea pixel-perfect cu sidebar-ul); sidebar-ul din
+  stânga și rail-ul din dreapta au primit același offset de sus, ca toate cele 3 coloane să pornească aliniat.
+- **Rail-ul din feed** — containerul „Schițe noi în teanc" scos complet (derutant, fără scop clar); rămân
+  „Autori activi" + „În dezbatere acum". Containerul „Validează pe rolul tău" din sidebar a fost scos (nu s-a
+  decis încă înlocuitorul).
+- **Butonul „Adaugă detaliu"** (FAB flotant) — ascuns DOAR pe pagina de adăugare detaliu (`/details/new`);
+  rămâne vizibil peste tot altundeva.
+- **Fix hover cu „țintă mobilă"**: iconițele de acțiune din feed („Schițează peste"/„Trimite în Planșă"/
+  „Retrage") își expandau eticheta prin flex layout, ceea ce împingea fizic iconița următoare sub cursor în
+  timpul navigării rapide → hover-ul rata ținta. Etichetele sunt acum tooltip-uri poziționate absolut (nu mai
+  împing nimic din jur).
+- **Zoom cu rotița mouse-ului, direct** (fără Ctrl/Cmd) — Schiță + Planșă; ambele editoare sunt full-screen,
+  nu există pagină dedesubt de scrollat, deci nimic nu se pierde.
+- **Pagina `/canvases`** lărgită la `--container-max` (era fixă la 860px) — consistentă cu `/sketches/drafts`.
+- **Landing** — ritm de culoare pe secțiuni (alternanță bej/alb reală, nu bej-pe-bej aproape identic) + tonul
+  întunecat de dinaintea footer-ului mutat din maro-negru neutru în familia teracotei (`--primary` întunecat),
+  ca să se simtă aceeași identitate, nu o paletă separată.
+- **Animație intro (splash) — încercată variantă nouă (SVG din `animatie_noua.html`), apoi REVERTITĂ** la
+  cerere: bug de randare neexplicat (SVG-ul corect în DOM/HTML server, dar browserul afișa vizual varianta
+  veche) — nerezolvat, s-a renunțat. Rămâne varianta originală (litere + triunghiuri CSS).
+- **Discutat, nu implementat**: „Salvează ciornă" pe formularul de adăugare detaliu (simetric cu draft-ul de
+  la Schiță) — confirmat scope-ul cu Edi, dar în așteptare clarificare (pagină comună „Ciornele mele" cu
+  schițele, sau pagină separată). Emoji în comentarii — funcționează deja nativ (text UTF-8, tastatura de
+  sistem); un picker în-app rămâne idee neprioritizată.
+- `tsc --noEmit` + `eslint` + `next build` verzi pe tot parcursul.
+
+**SQL rulat manual în Neon (dev + production) în această sesiune:**
+```sql
+-- Planșă ↔ schițe
+ALTER TABLE canvas_items ADD COLUMN IF NOT EXISTS id uuid DEFAULT gen_random_uuid();
+UPDATE canvas_items SET id = gen_random_uuid() WHERE id IS NULL;
+ALTER TABLE canvas_items ALTER COLUMN id SET NOT NULL;
+ALTER TABLE canvas_items ADD COLUMN IF NOT EXISTS sketch_id uuid REFERENCES sketches(id) ON DELETE CASCADE;
+ALTER TABLE canvas_items DROP CONSTRAINT IF EXISTS canvas_items_pkey;
+ALTER TABLE canvas_items ADD PRIMARY KEY (id);
+CREATE UNIQUE INDEX IF NOT EXISTS canvas_items_detail_only_uidx ON canvas_items (canvas_id, detail_id) WHERE sketch_id IS NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS canvas_items_sketch_uidx ON canvas_items (canvas_id, sketch_id) WHERE sketch_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS canvas_items_sketch_id_idx ON canvas_items (sketch_id);
+
+-- Categorii (position + is_group + retaxonomie completă, vezi db/seed.ts)
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS position integer NOT NULL DEFAULT 0;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS is_group boolean NOT NULL DEFAULT false;
+-- (re-populare categorii — vezi commit-ul cu db/seed.ts pentru scriptul complet folosit)
+
+-- Reply la comentarii
+ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_comment_id uuid REFERENCES comments(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS comments_parent_comment_id_idx ON comments (parent_comment_id);
+```
+
+---
+
 ## 2026-07-06 — Curățenie UX pagină detaliu + redesign validare (Aprob/Dezaprob) + fix istoric dezaprobări
 
 - **Kebab-ul detaliului unifică toate acțiunile** (`DetailActionsMenu`): „Trimite în Planșă", copiază link,

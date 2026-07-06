@@ -70,13 +70,15 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 > **`invitations` — ELIMINAT** (2026-06-28, vezi CHANGELOG): tabelul + tot codul de invitații au fost șterse
 > (acces public prin magic link). Migrația `0004_drop_invitations.sql` face `DROP TABLE`.
 
-### `categories` (arbore, self-FK)
+### `categories` (arbore, self-FK, până la 3 niveluri: secțiune → capitol → sub-capitol)
 | coloană | tip | note |
 |---|---|---|
 | `id` | uuid PK | |
 | `parent_id` | uuid FK→categories.id | nullable (rădăcină); **index** |
 | `name` | text | not null |
 | `slug` | text | **UNIQUE** |
+| `position` | integer | default `0`; ordinea din document (`lista_categorii.md`) — NU alfabetic |
+| `is_group` | boolean | default `false`; `true` = grupare neselectabilă (secțiuni de nivel 1 ȘI „capitole" cu sub-categorii, ex. „Instalații" — capitolul însuși nu e bifabil, doar copiii) |
 
 ### `details` («repository»)
 | coloană | tip | note |
@@ -149,6 +151,8 @@ detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pintere
 | `author_id` | uuid FK→users.id | **index** |
 | `body` | text | not null |
 | `origin_validation_id` | uuid FK→validations.id | nullable — setat când vine dintr-un DISAPPROVE obligatoriu; **index** |
+| `was_disapproval` | boolean | default `false`; persistă DINCOLO de retragere (`origin_validation_id` → null la retract) — UI arată „fostă dezaprobare, retrasă" |
+| `parent_comment_id` | uuid FK→comments.id | nullable — reply, UN SINGUR nivel (un reply nu poate primi reply, enforce în service); cascade; **index** |
 | `created_at` | timestamptz | |
 > Index pe `(target_type, target_id)` pentru coloana de comentarii a unei ținte.
 

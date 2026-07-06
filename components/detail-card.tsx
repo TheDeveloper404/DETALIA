@@ -146,13 +146,16 @@ export function DetailCard({
             detaliului la teanc (context), fără să creeze draft. */}
         <div className="mt-auto flex flex-wrap items-center gap-3">
           {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
+          {/* Tooltip absolut poziționat (NU expandare inline) — o etichetă care „împinge" vecinii la hover
+              le mută poziția reală sub cursor, iar cursorul „ratează" iconița următoare la navigare rapidă
+              (bug raportat de Liviu, 2026-07-06). Absolut = restul rândului nu se mișcă niciodată. */}
           <Link
             href={`${href}#schiteaza`}
             title="Schițează peste"
-            className="group/schiteaza inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="group/schiteaza relative inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <PencilRuler className="size-3.5 shrink-0" strokeWidth={2} />
-            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/schiteaza:ml-1.5 group-hover/schiteaza:max-w-[130px] group-hover/schiteaza:opacity-100">
+            <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 font-mono text-[11px] text-background opacity-0 transition-opacity duration-150 group-hover/schiteaza:opacity-100">
               Schițează peste
             </span>
           </Link>

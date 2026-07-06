@@ -136,7 +136,7 @@ export function FeedValidationActions({
           onClick={onRetract}
           title={approved ? "Ai aprobat — click pentru a retrage" : "Ai dezaprobat — click pentru a retrage"}
           className={cn(
-            "group/valid inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] font-semibold transition-colors",
+            "group/valid relative inline-flex items-center justify-center rounded-full p-1.5 font-semibold transition-colors",
             approved ? "text-[#2f6b3f] hover:bg-[#e9f2ea]" : "text-destructive hover:bg-destructive/10",
           )}
         >
@@ -145,7 +145,8 @@ export function FeedValidationActions({
           ) : (
             <X className="size-4 shrink-0" strokeWidth={2.6} />
           )}
-          <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/valid:ml-1.5 group-hover/valid:max-w-[80px] group-hover/valid:opacity-100">
+          {/* Tooltip absolut — nu împinge iconițele de lângă el (bug hover raportat, 2026-07-06). */}
+          <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 font-mono text-[11px] font-semibold text-background opacity-0 transition-opacity duration-150 group-hover/valid:opacity-100">
             Retrage
           </span>
         </button>
