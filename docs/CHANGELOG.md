@@ -4,6 +4,48 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-06 (seară) — Incident DB producție (rezolvat) + hardening backup/Dependabot + tool Pan în Schiță
+
+### incident — pierdere conținut pe `production`, recuperat
+- **Ce s-a întâmplat:** Edi a șters manual, direct din platformă (`detalia.ro`), conținutul lui de test
+  (detalii/schițe/validări/comentarii) în cursul zilei. Coincidență de timing: cu puțin înainte, un PR
+  Dependabot (`build(deps-dev): bump the minor-and-patch group with 2 updates`) a deschis un Preview
+  Deployment pe Vercel, iar integrarea Neon↔Vercel (auto-branching activ) a clonat `production` într-un
+  branch nou (`preview/dependabot/...`) chiar înainte de ștergere. Branch-ul de preview a rămas, din
+  întâmplare, cu poza "de dinainte" — ceea ce inițial a părut că "Dependabot a mutat datele".
+- **Root cause real:** ștergere manuală de conținut de test de către Edi. Dependabot/Neon branching NU au
+  cauzat pierderea — branch-ul nou e mereu doar o COPIE (copy-on-write) din `production`, nu poate șterge
+  nimic din părinte.
+- **Recuperare:** date extrase din `preview/dependabot` (`pg_dump --data-only --on-conflict-do-nothing`) și
+  reintegrate în `production` fără suprascriere. Confirmat prin count pe toate tabelele de conținut.
+- **Decizie ulterioară (Liviu):** curățare completă a `production` (toate tabelele de conținut + `users` +
+  `accounts`/`sessions`/tokens, păstrând doar `categories`/`roles`/`platform_settings`) — platforma repornește
+  goală, ca la un lansare nouă.
+
+### chore(security) — hardening după incident
+- **Dependabot reconfigurat** (`.github/dependabot.yml`): `schedule.interval` de la `weekly` la `monthly` +
+  `cooldown.default-days: 30` (o versiune nouă trebuie să fie "coaptă" minim 30 zile pe npm înainte să fie
+  propusă). Security updates rămân imediate (nu respectă cooldown-ul). A fost oprit complet temporar în
+  timpul investigației (alerte + fișier șters), apoi repornit odată clarificată cauza reală.
+- **Backup automat nou** (`.github/workflows/db-backup.yml`): `pg_dump --format=custom` pe `production`, la
+  fiecare oră (`cron: "0 * * * *"`, repo public → Actions gratuit), artifact păstrat 30 zile. Elimină
+  dependența de noroc (o copie întâmplătoare într-un branch de preview) pentru recuperare viitoare.
+
+### feat(sketch) — unealta Pan în editorul de Schiță colaborativă
+- Cerere Edi: Pan exista doar în Planșă, lipsea din Schiță — la zoom in, nu se putea muta foaia.
+- `components/sketch/sketch-canvas.tsx`: tool nou `"pan"` (icon `Hand`, primul din rail) — click + drag mută
+  foaia (`pan` state, `translate()` combinat cu `scale(zoom)` pe wrapper). Reset pan odată cu reset zoom
+  (click pe procent). Culorile/grosimea se estompează cât timp Pan e activ (ca la Radieră).
+- `tsc --noEmit` + `eslint` + `next build` verzi.
+
+### notă — acoperire teste E2E
+- Verificat la cerere: 21 teste E2E (5 fișiere) acoperă fluxul central (public/auth, Aprob/Dezaprob, IDOR
+  comentariu+schiță, publicare schiță, cascadă DB). **Neacoperite**: Planșă, categorii 3 niveluri, reply la
+  comentarii, notificări, saved details, verificare rol, upload resurse, rate-limiting, tool-ul Pan nou,
+  admin panel. Backlog, nu blocant azi.
+
+---
+
 ## 2026-07-06 — fix(BUG): a doua schiță din același detaliu trimisă în aceeași planșă era ignorată silențios
 - Cauză: migrația de azi (Planșă↔schițe) presupunea că vechiul PK compus se numește `canvas_items_pkey` și îl
   dropa cu `DROP CONSTRAINT IF EXISTS` — dar numele real era `canvas_items_canvas_id_detail_id_pk`, deci
