@@ -57,7 +57,7 @@ export function EmojiPickerButton({
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full left-0 z-20 mb-1.5 grid grid-cols-9 gap-0.5 rounded-lg border border-border bg-card p-2 shadow-lg"
+          className="absolute bottom-full left-0 z-20 mb-1.5 grid w-max grid-cols-9 gap-0.5 rounded-lg border border-border bg-card p-2 shadow-lg"
         >
           {EMOJI.map((e) => (
             <button

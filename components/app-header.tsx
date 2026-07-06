@@ -11,6 +11,7 @@ import { UserMenu } from "./user-menu";
 
 type NotificationPayload = {
   detailId?: string;
+  sketchId?: string;
   detailTitle?: string;
   sketchAuthorName?: string | null;
   sketchAuthorRole?: string | null;
@@ -39,7 +40,9 @@ export async function AppHeader() {
       actorSubRole: p.sketchAuthorSubRole ?? null,
       actorVerified: p.sketchAuthorVerified ?? false,
       detailTitle: p.detailTitle ?? "un detaliu",
-      href: p.detailId ? `/details/${p.detailId}` : null,
+      href: p.detailId
+        ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}`
+        : null,
       createdAt: n.createdAt.toISOString(),
       unread: n.readAt === null,
     };
