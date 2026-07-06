@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Circle,
   Eraser,
+  Hand,
   Minus,
   Pencil,
   Plus,
@@ -44,8 +45,9 @@ import {
   type Stroke,
 } from "@/server/domain/sketch";
 
-// Uneltele de desen din rail. „pen" freehand · forme cu 2 capete (line/rect/ellipse/arrow) · „text" casetă · „eraser".
-type Tool = "pen" | "line" | "rect" | "ellipse" | "arrow" | "text" | "eraser";
+// Uneltele de desen din rail. „pan" mută foaia (util la zoom) · „pen" freehand · forme cu 2 capete
+// (line/rect/ellipse/arrow) · „text" casetă · „eraser".
+type Tool = "pan" | "pen" | "line" | "rect" | "ellipse" | "arrow" | "text" | "eraser";
 const SHAPE_TOOLS = ["line", "rect", "ellipse", "arrow"] as const;
 function isShapeTool(t: Tool | null): t is (typeof SHAPE_TOOLS)[number] {
   return t !== null && (SHAPE_TOOLS as readonly string[]).includes(t);
@@ -57,6 +59,7 @@ const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 
 // Uneltele de desen din rail (ordine + iconițe). Radiera și undo/redo stau separat.
 const TOOL_ITEMS: { value: Tool; label: string; Icon: typeof Pencil }[] = [
+  { value: "pan", label: "Pan / mută foaia", Icon: Hand },
   { value: "pen", label: "Creion", Icon: Pencil },
   { value: "line", label: "Linie dreaptă", Icon: Slash },
   { value: "rect", label: "Dreptunghi", Icon: Square },
@@ -222,6 +225,7 @@ export const SketchCanvas = forwardRef<
   const [tool, setTool] = useState<Tool | null>("pen");
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   // Caseta de text în curs de tastare (poziție normalizată 0..1 + valoare + unghi la editare). null = niciuna.
   const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string; angle?: number } | null>(null);
   // Indexul textului selectat (în `present`) pentru mutare/rotire/redimensionare. null = nimic selectat.
@@ -240,6 +244,8 @@ export const SketchCanvas = forwardRef<
   // Pinch-to-zoom (mobil/tabletă): pointerele touch active + ancora pinch-ului (distanța + zoom-ul de start).
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+  // Pan (tool "pan"): ancora dragului — poziția de start a pointerului + offset-ul de pan de la acel moment.
+  const panRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   const present = history.present;
 
@@ -503,6 +509,11 @@ export const SketchCanvas = forwardRef<
         return;
       }
     }
+    if (tool === "pan") {
+      panRef.current = { startX: e.clientX, startY: e.clientY, origX: pan.x, origY: pan.y };
+      canvasRef.current?.setPointerCapture(e.pointerId);
+      return;
+    }
     const p = normPoint(e);
     // Mouse neutru (tool null) SAU tool Text = mod de SELECȚIE: poți prinde/muta un text existent
     // și apare bara de editare (poziție/mărime/editare). Diferența: doar tool-ul Text deschide o casetă
@@ -569,6 +580,11 @@ export const SketchCanvas = forwardRef<
       }
       return;
     }
+    if (panRef.current) {
+      const d = panRef.current;
+      setPan({ x: d.origX + (e.clientX - d.startX), y: d.origY + (e.clientY - d.startY) });
+      return;
+    }
     // Mutarea textului selectat (drag) — independentă de desen.
     if (dragRef.current) {
       const d = dragRef.current;
@@ -606,6 +622,10 @@ export const SketchCanvas = forwardRef<
       if (pointersRef.current.size < 2) pinchRef.current = null;
       return;
     }
+    if (panRef.current) {
+      panRef.current = null;
+      return;
+    }
     // Finalizează mutarea textului: comite doar dacă s-a mutat efectiv.
     if (dragRef.current) {
       const d = dragRef.current;
@@ -639,7 +659,7 @@ export const SketchCanvas = forwardRef<
     dispatch({ type: "commit", present: [...present, makeStroke(points, "free")] });
   }
 
-  const drawActive = tool !== "eraser";
+  const drawActive = tool !== "eraser" && tool !== "pan";
   const textFontPx = size * (dims.w / REFERENCE_WIDTH) * TEXT_FONT_SCALE;
   const railBtn =
     "flex items-center justify-center rounded-[10px] border-[1.5px] bg-card transition-colors hover:border-primary disabled:cursor-default disabled:hover:border-border";
@@ -787,7 +807,10 @@ export const SketchCanvas = forwardRef<
           <button
             type="button"
             title="Resetează zoom"
-            onClick={() => setZoom(1)}
+            onClick={() => {
+              setZoom(1);
+              setPan({ x: 0, y: 0 });
+            }}
             className="min-w-[42px] rounded-md px-1 py-0.5 font-mono text-[11px] text-foreground/70 transition-colors hover:bg-secondary"
           >
             {Math.round(zoom * 100)}%
@@ -808,7 +831,7 @@ export const SketchCanvas = forwardRef<
           style={{
             width: dims.w,
             height: dims.h,
-            transform: zoom !== 1 ? `scale(${zoom})` : undefined,
+            transform: `translate(${pan.x}px, ${pan.y}px)${zoom !== 1 ? ` scale(${zoom})` : ""}`,
             transformOrigin: "center center",
           }}
         >
@@ -829,11 +852,13 @@ export const SketchCanvas = forwardRef<
               height: dims.h,
               cursor: !tool
                 ? "default"
-                : tool === "eraser"
-                  ? "cell"
-                  : tool === "text"
-                    ? "text"
-                    : "crosshair",
+                : tool === "pan"
+                  ? "grab"
+                  : tool === "eraser"
+                    ? "cell"
+                    : tool === "text"
+                      ? "text"
+                      : "crosshair",
             }}
           />
 
