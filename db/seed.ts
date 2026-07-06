@@ -6,34 +6,60 @@
 // Rulează cu: `npm run db:seed`. Cere DATABASE_URL (Neon).
 import { config } from "dotenv";
 
-// Taxonomia finală (Edi, `lista_categorii.md`, 2026-07-02) — înlocuiește lista veche DRAFT.
-// Secțiuni = grupare vizuală (părinte, neselectabilă în UI); frunzele sunt categoriile bifabile
+// Taxonomia finală (Edi, `lista_categorii.md`, actualizată 2026-07-06 — ordine document + „Scări" +
+// ierarhie reală pe 3 niveluri). Secțiuni = grupare vizuală (părinte, neselectabilă în UI). Unele
+// „capitole" (Fundație, Acoperiș, Instalații, Fațadă) se împart la rândul lor în sub-categorii — capitolul
+// însuși NU e bifabil, doar copiii lui (Edi: „Instalații este denumirea capitolului. Instalațiile se
+// împart în cele patru [Electrice/Sanitare/Termice/HVAC]"). Restul frunzelor sunt bifabile direct
 // (Edi: „bifezi oricâte", stil tag Pinterest) prin tabelul many-to-many `detail_categories`.
-const SECTIONS: { slug: string; name: string; leaves: { slug: string; name: string }[] }[] = [
+// ORDINEA contează — NU se mai sortează alfabetic, ci după `position` (vezi categoriesRepo.ts).
+type Leaf = { slug: string; name: string; children?: { slug: string; name: string }[] };
+const SECTIONS: { slug: string; name: string; leaves: Leaf[] }[] = [
   {
     slug: "clasificare-dupa-zona",
     name: "Clasificare după zonă",
     leaves: [
-      { slug: "fundatie", name: "Fundație" },
-      { slug: "beton", name: "Beton" },
-      { slug: "micropiloti-insurubati", name: "Micropiloți înșurubați" },
+      {
+        slug: "fundatie",
+        name: "Fundație",
+        children: [
+          { slug: "beton", name: "Beton" },
+          { slug: "micropiloti-insurubati", name: "Micropiloți înșurubați" },
+        ],
+      },
       { slug: "perete", name: "Perete" },
       { slug: "planseu", name: "Planșeu" },
-      { slug: "acoperis", name: "Acoperiș" },
-      { slug: "sarpanta", name: "Șarpantă" },
-      { slug: "tip-terasa", name: "Tip terasă" },
+      {
+        slug: "acoperis",
+        name: "Acoperiș",
+        children: [
+          { slug: "sarpanta", name: "Șarpantă" },
+          { slug: "tip-terasa", name: "Tip terasă" },
+        ],
+      },
       { slug: "tamplarie", name: "Tâmplărie" },
-      { slug: "instalatii", name: "Instalații" },
-      { slug: "electrice", name: "Electrice" },
-      { slug: "sanitare", name: "Sanitare" },
-      { slug: "termice", name: "Termice" },
-      { slug: "hvac", name: "HVAC" },
-      { slug: "fatada", name: "Fațadă" },
-      { slug: "termosistem-clasic", name: "Termosistem clasic (vată/polistiren)" },
-      { slug: "fatada-ventilata", name: "Fațadă ventilată" },
-      { slug: "fatada-cortina", name: "Fațadă cortină" },
+      {
+        slug: "instalatii",
+        name: "Instalații",
+        children: [
+          { slug: "electrice", name: "Electrice" },
+          { slug: "sanitare", name: "Sanitare" },
+          { slug: "termice", name: "Termice" },
+          { slug: "hvac", name: "HVAC" },
+        ],
+      },
+      {
+        slug: "fatada",
+        name: "Fațadă",
+        children: [
+          { slug: "termosistem-clasic", name: "Termosistem clasic (vată/polistiren)" },
+          { slug: "fatada-ventilata", name: "Fațadă ventilată" },
+          { slug: "fatada-cortina", name: "Fațadă cortină" },
+        ],
+      },
       { slug: "amenajari-interioare", name: "Amenajări interioare" },
       { slug: "amenajari-exterioare", name: "Amenajări exterioare" },
+      { slug: "scari", name: "Scări" },
     ],
   },
   {
@@ -76,17 +102,45 @@ async function main() {
   // au rânduri reale, comanda de mai jos eșuează pe FK — rulează abia după curățare.
   await db.delete(categories);
 
+  // `position` = contor global crescător, în ORDINEA din document — nu alfabetic. Grupurile (secțiuni +
+  // „capitole" cu copii, ex. Instalații) sunt isGroup=true (neselectabile); restul sunt bifabile.
+  let position = 0;
   let leafCount = 0;
   for (const section of SECTIONS) {
-    const [row] = await db
+    position += 1;
+    const [sectionRow] = await db
       .insert(categories)
-      .values({ slug: section.slug, name: section.name, parentId: null })
+      .values({ slug: section.slug, name: section.name, parentId: null, position, isGroup: true })
       .returning({ id: categories.id });
-    if (section.leaves.length > 0) {
-      await db.insert(categories).values(
-        section.leaves.map((l) => ({ slug: l.slug, name: l.name, parentId: row.id })),
-      );
-      leafCount += section.leaves.length;
+
+    for (const leaf of section.leaves) {
+      position += 1;
+      const isGroupLeaf = !!leaf.children?.length;
+      const [leafRow] = await db
+        .insert(categories)
+        .values({
+          slug: leaf.slug,
+          name: leaf.name,
+          parentId: sectionRow.id,
+          position,
+          isGroup: isGroupLeaf,
+        })
+        .returning({ id: categories.id });
+      if (!isGroupLeaf) leafCount += 1;
+
+      if (leaf.children && leaf.children.length > 0) {
+        for (const child of leaf.children) {
+          position += 1;
+          await db.insert(categories).values({
+            slug: child.slug,
+            name: child.name,
+            parentId: leafRow.id,
+            position,
+            isGroup: false,
+          });
+          leafCount += 1;
+        }
+      }
     }
   }
   console.log(`Seed categorii: ${SECTIONS.length} secțiuni, ${leafCount} categorii bifabile.`);

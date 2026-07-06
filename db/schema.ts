@@ -160,7 +160,7 @@ export const roles = pgTable(
   (t) => [index("roles_verified_by_admin_id_idx").on(t.verifiedByAdminId)],
 );
 
-// Categorii (arbore, self-FK) pentru filtre.
+// Categorii (arbore, self-FK, până la 3 niveluri: secțiune → capitol → sub-capitol) pentru filtre.
 export const categories = pgTable(
   "categories",
   {
@@ -168,6 +168,12 @@ export const categories = pgTable(
     parentId: uuid(),
     name: text().notNull(),
     slug: text().notNull().unique(),
+    // Ordinea din document (lista_categorii.md) — NU alfabetic. Vezi db/seed.ts.
+    position: integer().notNull().default(0),
+    // true = grupare vizuală, neselectabilă (secțiunile de nivel 1 ȘI „capitolele" care doar
+    // se împart în sub-categorii, ex. „Instalații" → Electrice/Sanitare/Termice/HVAC — capitolul
+    // însuși nu e un tag bifabil, vezi lista_categorii.md). false = categorie reală, bifabilă.
+    isGroup: boolean().notNull().default(false),
   },
   (t) => [index("categories_parent_id_idx").on(t.parentId)],
 );

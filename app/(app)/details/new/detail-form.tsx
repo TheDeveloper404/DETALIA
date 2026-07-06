@@ -32,7 +32,7 @@ import { createDetailAction } from "./actions";
 type FormState = { error: string | null };
 const initialState: FormState = { error: null };
 
-export type CategoryOption = { id: string; name: string; parentId: string | null };
+export type CategoryOption = { id: string; name: string; parentId: string | null; isGroup: boolean };
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
 type ResourceType = "IMAGE" | "LINK" | "PDF" | "CAD";
@@ -114,6 +114,9 @@ function CategoryDropdown({
   toggleCategory: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  // „Capitolele" cu sub-categorii (ex. Instalații) pornesc colapsate — apeși săgeata, se deschid copiii
+  // (Edi: „dacă apăs, mi se deschid cele patru").
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -135,8 +138,17 @@ function CategoryDropdown({
   }, [open]);
 
   const sections = categories.filter((c) => c.parentId === null);
-  const leavesOf = (sectionId: string) => categories.filter((c) => c.parentId === sectionId);
+  const childrenOf = (parentId: string) => categories.filter((c) => c.parentId === parentId);
   const selectedNames = categories.filter((c) => categoryIds.includes(c.id)).map((c) => c.name);
+
+  function toggleGroup(id: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   return (
     <div ref={containerRef} className="relative">
@@ -167,7 +179,58 @@ function CategoryDropdown({
                   {section.name}
                 </div>
                 <div className="flex flex-col">
-                  {leavesOf(section.id).map((leaf) => {
+                  {childrenOf(section.id).map((leaf) => {
+                    // „Capitol" (isGroup) — ex. Instalații: neselectabil el însuși, doar un antet
+                    // expandabil pentru sub-categoriile lui (Electrice/Sanitare/Termice/HVAC).
+                    if (leaf.isGroup) {
+                      const isExpanded = expandedGroups.has(leaf.id);
+                      return (
+                        <div key={leaf.id}>
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(leaf.id)}
+                            aria-expanded={isExpanded}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13.5px] font-medium text-foreground hover:bg-secondary/70"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                "size-3.5 flex-none text-muted-foreground transition-transform",
+                                isExpanded && "rotate-180",
+                              )}
+                              strokeWidth={2}
+                            />
+                            {leaf.name}
+                          </button>
+                          {isExpanded && (
+                            <div className="ml-5 flex flex-col border-l border-border pl-2">
+                              {childrenOf(leaf.id).map((sub) => {
+                                const active = categoryIds.includes(sub.id);
+                                return (
+                                  <button
+                                    key={sub.id}
+                                    type="button"
+                                    onClick={() => toggleCategory(sub.id)}
+                                    aria-pressed={active}
+                                    className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13.5px] text-foreground hover:bg-secondary/70"
+                                  >
+                                    <span
+                                      className={cn(
+                                        "flex size-4 flex-none items-center justify-center rounded border",
+                                        active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                                      )}
+                                    >
+                                      {active && <Check className="size-3" strokeWidth={3} />}
+                                    </span>
+                                    {sub.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
                     const active = categoryIds.includes(leaf.id);
                     return (
                       <button
