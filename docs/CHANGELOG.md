@@ -4,6 +4,48 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-06 — Curățenie UX pagină detaliu + redesign validare (Aprob/Dezaprob) + fix istoric dezaprobări
+
+- **Kebab-ul detaliului unifică toate acțiunile** (`DetailActionsMenu`): „Trimite în Planșă", copiază link,
+  editează, șterge — mutate din zona împrăștiată de sub imagine/panoul din dreapta, într-un singur meniu „⋮",
+  identic pe tab de bază și pe tab de schiță. Panoul separat din dreapta a fost eliminat complet; imaginea
+  folosește acum toată lățimea cardului (mărită de la ~576px la ~768px). Rolul autorului schiței active
+  (singura info netă din panoul scos) s-a mutat lângă nume, în strip-ul de taburi.
+- **Link din kebab — DOAR public, niciodată privat** (decizie Liviu): „Copiază linkul" apare acum doar pe tab
+  de schiță și copiază linkul public `/s/[id]` (fără cont) — linkul privat al paginii curente a fost scos de
+  peste tot (între useri cu cont, link-ul se trimite din bara de adresă a browserului, nu are nevoie de buton
+  dedicat). Pe tab de bază nu există nicio opțiune de link (nu există variantă publică pentru detaliul-mamă).
+  Bonus găsit pe parcurs: URL-ul din browser nu reflecta tab-ul activ la comutare (rămânea mereu pe detaliul
+  de bază) — reparat, `?sketch=id` se sincronizează acum cu tab-ul ales (shallow, fără reload).
+- **Butonul „Schițează peste detaliu"** — mutat din antet (lângă titlu) suprapus peste imagine, colț
+  dreapta-jos; colaps la iconiță, textul apare la HOVER (nu la click), pattern reutilizat apoi și pe restul
+  butoanelor de acțiune.
+- **Header-ul aplicației** (toate paginile) — trecut de pe `bg-background/85` (aceeași culoare ca pagina) pe
+  `bg-secondary/90` (tokenul „surface caldă" deja din paletă) — acum se distinge vizibil de fundal.
+- **Redesign validare Aprob/Dezaprob**, două iterații (feedback direct pe prima variantă):
+  - **Feed** (`FeedValidationActions`): un singur buton (thumbs-up) — hover arată un mini-meniu cu
+    Aprob/Dezaprob (pattern „reacții" gen LinkedIn). După poziționare, colapsează la iconița stării
+    (colorată) + „Retrage" apare la hover. „Schițează peste"/„Trimite în Planșă" din card sunt acum
+    icon-only, text la hover, pe același rând.
+  - **Pagina de detaliu** (`ValidationPanel`, embedded): testat inițial același meniu unic ca în feed —
+    respins de Liviu (un singur icon fără etichetă era confuz, arăta ca un „Ok" generic). Varianta finală:
+    două butoane separate (Aprob/Dezaprob), icon-only, text la hover — același principiu ca la taburi/
+    „Schițează peste detaliu", dar păstrate distincte (nu contopite într-un meniu).
+- **Fix istoric dezaprobări retrase**: la retragere, comentariul-justificare rămânea în dezbatere dar pierdea
+  orice etichetă (arăta ca un comentariu obișnuit, fără context că a fost cândva o poziție publică de
+  dezaprobare). Coloană nouă `comments.was_disapproval` (persistă dincolo de `originValidationId → null` la
+  retract) → UI arată acum „fostă dezaprobare · retrasă" (etichetă discretă gri) în loc să ascundă complet
+  contextul. **SQL de rulat manual în Neon (dev întâi, apoi production):**
+  ```sql
+  ALTER TABLE comments ADD COLUMN IF NOT EXISTS was_disapproval boolean NOT NULL DEFAULT false;
+  UPDATE comments SET was_disapproval = true WHERE origin_validation_id IS NOT NULL;
+  ```
+- **Discutat, PE HOLD (nu implementat):** „Trimite în Planșă" pentru schițe (nu doar detaliul-mamă) — ar
+  cere `sketch_id` opțional pe `canvas_items`. De discutat cu Edi (vezi `.remember/remember.md`).
+- `tsc --noEmit` + `eslint` verzi pe toate fișierele atinse.
+
+---
+
 ## 2026-07-05/06 — Feature-uri Planșă/Schiță + dark mode încercat și scos
 
 - **Link public schiță** (`/s/[id]`) — teaser read-only, fără cont: imagine deja compusă (detaliu-mamă +
