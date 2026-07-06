@@ -116,31 +116,34 @@ export function ValidationPanel({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             {!myPos ? (
               <>
-                {/* Culorile pal verde/roșu = aceleași ca în feed (feed-validation-actions) — consecvență. */}
-                <button
+                {/* Icon-only + text la HOVER (nu la click) — același pattern ca butonul „Schițează peste
+                    detaliu" din workspace. Culorile pal verde/roșu = aceleași ca în feed, consecvență. */}
+                <Button
                   type="button"
+                  size="icon"
                   onClick={onApprove}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#cfe3d2] bg-[#e9f2ea] font-bold text-[#2f6b3f] transition-colors hover:bg-[#dbe9dd]",
-                    validateBtnClass,
-                  )}
+                  title="Aprob"
+                  className="group/approve !w-auto gap-0 overflow-hidden !px-2.5 border border-[#cfe3d2] bg-[#e9f2ea] text-[#2f6b3f] shadow-none hover:bg-[#dbe9dd]"
                 >
-                  <Check className="size-[17px]" strokeWidth={2.6} />
-                  Aprob
-                </button>
+                  <Check className="size-[17px] shrink-0" strokeWidth={2.6} />
+                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 font-bold transition-all duration-200 group-hover/approve:ml-2 group-hover/approve:max-w-[80px] group-hover/approve:opacity-100">
+                    Aprob
+                  </span>
+                </Button>
 
-                <button
+                <Button
                   type="button"
+                  size="icon"
                   onClick={() => setMode((m) => (m === "none" ? (allowSketch ? "choose" : "text") : "none"))}
                   aria-expanded={mode !== "none"}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-[10px] border border-destructive/30 bg-destructive/10 font-bold text-destructive transition-colors hover:bg-destructive/20",
-                    validateBtnClass,
-                  )}
+                  title="Dezaprob"
+                  className="group/disapprove !w-auto gap-0 overflow-hidden !px-2.5 border border-destructive/30 bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
                 >
-                  <X className="size-4" strokeWidth={2.6} />
-                  Dezaprob
-                </button>
+                  <X className="size-4 shrink-0" strokeWidth={2.6} />
+                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 font-bold transition-all duration-200 group-hover/disapprove:ml-2 group-hover/disapprove:max-w-[100px] group-hover/disapprove:opacity-100">
+                    Dezaprob
+                  </span>
+                </Button>
               </>
             ) : (
               <div

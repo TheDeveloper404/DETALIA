@@ -18,12 +18,15 @@ import { toggleSaveDetailAction } from "./save-actions";
 // 2026-07-06: unificat AICI toate acțiunile care înainte erau împrăștiate lângă panoul din dreapta al
 // tabului de schiță (copiază link public schiță, șterge schița mea) + „Trimite în Planșă" (înainte doar
 // pe tabul de bază) — un singur loc pentru toate acțiunile, indiferent de tab.
+// 2026-07-06: scos linkul PRIVAT (pagina curentă) — decizie Liviu: între useri cu cont, link-ul se
+// trimite din bara de adresă a browser-ului, nu are nevoie de buton dedicat. Rămâne DOAR linkul PUBLIC
+// al schiței (`/s/[id]`, fără cont) — pentru asta există, ca să poți trimite unui prieten fără cont.
+// Detaliul de bază nu are variantă publică → nu are niciun item de „copiază link" în meniu.
 export function DetailActionsMenu({
   detailId,
   authorId,
   isAuthor,
   isSaved,
-  activeSketchId,
   canSendToCanvas,
   activeSketchPublicId,
   canDeleteActiveSketch,
@@ -33,20 +36,16 @@ export function DetailActionsMenu({
   authorId: string;
   isAuthor: boolean;
   isSaved: boolean;
-  // Tab-ul de schiță activ (null pe tab-ul de bază) — „Copiază linkul" păstrează contextul: dacă userul
-  // se uită la o schiță anume, link-ul copiat deschide direct pe acel tab (?sketch=id), nu pe bază.
-  activeSketchId?: string | null;
   // „Trimite în Planșă" — vizibil doar când userul e logat ȘI modelul CanvasItem poate reprezenta corect
   // ce vede userul acum (doar tab de bază; pe schiță ar trimite silențios detaliul-mamă, nu schița).
   canSendToCanvas?: boolean;
-  // Link public al schiței active (`/s/[id]`) — separat de „Copiază linkul" (care copiază URL-ul PRIVAT
-  // al paginii curente, cu ?sketch=). Vizibil doar pe tab de schiță.
+  // Link public al schiței active (`/s/[id]`, fără cont) — singurul link din meniu; vizibil doar pe tab
+  // de schiță (id-ul schiței active, null pe tab de bază).
   activeSketchPublicId?: string | null;
   canDeleteActiveSketch?: boolean;
   deleteSketchLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [sketchLinkCopied, setSketchLinkCopied] = useState(false);
   const [sendToCanvasOpen, setSendToCanvasOpen] = useState(false);
   const pathname = usePathname();
@@ -58,21 +57,6 @@ export function DetailActionsMenu({
     setOpen(false);
   }
 
-  async function copyLink() {
-    try {
-      const url = activeSketchId
-        ? `${window.location.origin}${pathname}?sketch=${activeSketchId}`
-        : `${window.location.origin}${pathname}`;
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // clipboard indisponibil (permisiuni/context non-secure) — ignorăm silențios.
-    }
-  }
-
-  // Link PUBLIC al schiței (`/s/[id]`, vizibil și fără cont) — diferit de copyLink() de mai sus, care
-  // copiază pagina PRIVATĂ curentă (`/details/[id]?sketch=`).
   async function copySketchLink() {
     if (!activeSketchPublicId) return;
     try {
@@ -154,33 +138,25 @@ export function DetailActionsMenu({
               Vezi profilul autorului
             </Link>
 
-            {/* Copiază linkul detaliului (pagina curentă — privată, cere cont). */}
-            <button type="button" role="menuitem" onClick={copyLink} className={itemClass}>
-              {copied ? (
-                <>
-                  <Check className="size-4 text-primary" strokeWidth={2} />
-                  Link copiat
-                </>
-              ) : (
-                <>
-                  <Link2 className="size-4 text-muted-foreground" strokeWidth={2} />
-                  Copiază linkul
-                </>
-              )}
-            </button>
-
-            {/* Copiază linkul PUBLIC al schiței (`/s/[id]`, fără cont) — doar pe tab de schiță. */}
+            {/* Copiază linkul PUBLIC al schiței (`/s/[id]`, fără cont) — doar pe tab de schiță. Singurul
+                link din meniu (vezi nota din antetul fișierului). */}
             {activeSketchPublicId && (
-              <button type="button" role="menuitem" onClick={copySketchLink} className={itemClass}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={copySketchLink}
+                title="Link public, vizibil și fără cont"
+                className={itemClass}
+              >
                 {sketchLinkCopied ? (
                   <>
                     <Check className="size-4 text-primary" strokeWidth={2} />
-                    Link public copiat
+                    Link copiat
                   </>
                 ) : (
                   <>
                     <Link2 className="size-4 text-muted-foreground" strokeWidth={2} />
-                    Copiază linkul public al schiței
+                    Copiază linkul
                   </>
                 )}
               </button>
@@ -216,7 +192,7 @@ export function DetailActionsMenu({
                   }
                 }}
               >
-                <input type="hidden" name="sketchId" value={activeSketchId ?? ""} />
+                <input type="hidden" name="sketchId" value={activeSketchPublicId ?? ""} />
                 <input type="hidden" name="detailId" value={detailId} />
                 <button
                   type="submit"
