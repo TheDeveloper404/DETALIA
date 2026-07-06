@@ -11,6 +11,7 @@ export async function insertComment(input: {
   authorId: string;
   body: string;
   originValidationId?: string | null;
+  parentCommentId?: string | null;
 }) {
   const [row] = await db
     .insert(comments)
@@ -21,9 +22,32 @@ export async function insertComment(input: {
       body: input.body,
       originValidationId: input.originValidationId ?? null,
       wasDisapproval: input.originValidationId != null,
+      parentCommentId: input.parentCommentId ?? null,
     })
     .returning();
   return row;
+}
+
+// Comentariul-părinte la care se dă reply — validează că e RĂDĂCINĂ (parentCommentId null, „un singur
+// nivel") ȘI că aparține aceleiași ținte (nu poți da reply peste un comentariu de pe altă pagină).
+export async function getRootCommentForTarget(
+  id: string,
+  targetType: TargetType,
+  targetId: string,
+): Promise<{ id: string } | null> {
+  const [row] = await db
+    .select({ id: comments.id })
+    .from(comments)
+    .where(
+      and(
+        eq(comments.id, id),
+        eq(comments.targetType, targetType),
+        eq(comments.targetId, targetId),
+        isNull(comments.parentCommentId),
+      ),
+    )
+    .limit(1);
+  return row ?? null;
 }
 
 // Comentariile unei ținte, cu autor (nume + rol curent). Cronologic (cele vechi sus).
@@ -35,6 +59,7 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       createdAt: comments.createdAt,
       originValidationId: comments.originValidationId,
       wasDisapproval: comments.wasDisapproval,
+      parentCommentId: comments.parentCommentId,
       authorId: comments.authorId,
       authorName: users.name,
       authorImage: users.image,
