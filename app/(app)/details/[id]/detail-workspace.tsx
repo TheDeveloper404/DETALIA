@@ -357,13 +357,16 @@ export function DetailWorkspace({
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
                   altfel reîncărca async și „pocnea"); schița e doar un overlay cu stroke-uri peste ea.
                   Efect lin la comutare: overlay-ul re-face fade-in (opacity, FĂRĂ animație de layout —
-                  nu redeschide problema tremurului) cheiat pe tab. */}
+                  nu redeschide problema tremurului) cheiat pe tab. Pe tab de schiță, imaginea-mamă se
+                  estompează (aceeași convenție ca fill slab-ul din modul de desenare) ca stroke-urile
+                  schiței să iasă în evidență. */}
               <Image
                 src={imageUrl}
                 alt={header.title}
                 fill
                 sizes="(max-width: 1024px) 100vw, 768px"
-                className="object-contain"
+                className="object-contain transition-opacity duration-200"
+                style={{ opacity: isBase ? 1 : 0.3 }}
                 priority
               />
               {!isBase && (

@@ -293,6 +293,7 @@ export function DetailForm({
   const formRef = useRef<HTMLFormElement>(null);
   const imageUrlRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<SketchCanvasHandle>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
 
   // La editare fără schimbare de imagine, trimitem URL-ul existent (deja procesat) → onSubmit trece
   // direct, fără re-upload. Îl punem în câmpul ascuns la montare.
@@ -302,6 +303,14 @@ export function DetailForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Eroarea poate apărea la submit când userul e derulat jos în formular (ex. secțiunea de categorii) —
+  // fără scroll aici mesajul rămâne invizibil deasupra, în afara viewport-ului.
+  useEffect(() => {
+    if (clientError ?? state.error) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [clientError, state.error]);
 
   // Comutarea sursei resetează starea celeilalte + URL-ul deja urcat (evită trimiterea unei imagini vechi).
   function switchMode(next: "upload" | "draw") {
@@ -456,8 +465,9 @@ export function DetailForm({
 
       {(clientError ?? state.error) && (
         <p
+          ref={errorRef}
           role="alert"
-          className="mb-5 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
+          className="mb-5 scroll-mt-24 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
         >
           {clientError ?? state.error}
         </p>
