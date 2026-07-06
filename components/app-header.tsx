@@ -47,7 +47,7 @@ export async function AppHeader() {
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-50 flex h-[76px] items-center border-b border-border bg-background/85 backdrop-blur">
+    <header className="sticky top-0 z-50 flex h-[76px] items-center border-b border-border bg-secondary/90 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
         <BrandLogo href="/feed" size={32} />
 

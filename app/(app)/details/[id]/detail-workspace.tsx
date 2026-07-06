@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Pencil, Snowflake, Trash2 } from "lucide-react";
+import { Activity, Pencil, Snowflake } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -8,8 +8,6 @@ import { useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
-import { SendToCanvasButton } from "@/components/send-to-canvas-button";
-import { CopySketchLinkButton } from "@/components/sketch/copy-sketch-link-button";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
@@ -22,7 +20,7 @@ import type { TargetPosition } from "@/server/repos/validationsRepo";
 
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
-import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
+import { startSketchAction } from "./sketch-review-actions";
 import { ValidationPanel } from "./validation-panel";
 
 // Antetul detaliului (titlu/autor/params/descriere) — mutat în capul cardului workspace (model 3.jpeg).
@@ -118,7 +116,6 @@ export function DetailWorkspace({
     authorImage: s.author.image,
   }));
 
-  const activeAuthor = isBase ? detailAuthor : activeSketch!.author;
   const activeValidation = isBase ? detailValidation : activeSketch!.validation;
   // Nu-ți poți valida propriul conținut: pe detaliu = ești autorul-mamă; pe schiță = ești autorul schiței.
   const canValidate = isBase
@@ -129,12 +126,21 @@ export function DetailWorkspace({
     !!activeSketch &&
     (isDetailAuthor || (!!currentUserId && activeSketch.author.id === currentUserId));
 
+  // Mutat sub imagine (nu mai suprapus peste ea) + colaps la iconiță — textul apare doar la HOVER
+  // (mouse peste buton), nu la click (spre deosebire de taburile de mai sus, care se extind la click).
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
-      <Button type="submit" className="gap-2 shadow-md">
-        <Pencil className="size-4" strokeWidth={2} />
-        Schițează peste detaliu
+      <Button
+        type="submit"
+        size="icon"
+        title="Schițează peste detaliu"
+        className="group/button !w-auto gap-0 overflow-hidden !px-2.5 shadow-md"
+      >
+        <Pencil className="size-4 shrink-0" strokeWidth={2} />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/button:ml-2 group-hover/button:max-w-[220px] group-hover/button:opacity-100">
+          Schițează peste detaliu
+        </span>
       </Button>
     </form>
   );
@@ -149,14 +155,6 @@ export function DetailWorkspace({
             <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
               {header.title}
             </h1>
-            {/* DOAR pe tab-ul de bază: modelul CanvasItem trimite mereu imaginea DETALIULUI-mamă, nu a
-                schiței active (canvas_items nu are noțiune de sketch_id) — pe tab de schiță, butonul
-                ar trimite silențios altceva decât ce vede userul. Ascuns, nu îl lăsăm să mintă. */}
-            {currentUserId && isBase && (
-              <div className="shrink-0 pt-1">
-                <SendToCanvasButton detailId={detailId} />
-              </div>
-            )}
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -186,6 +184,14 @@ export function DetailWorkspace({
                 isAuthor={isDetailAuthor}
                 isSaved={header.isSaved}
                 activeSketchId={isBase ? null : activeSketch!.id}
+                canSendToCanvas={!!currentUserId && isBase}
+                activeSketchPublicId={isBase ? null : activeSketch!.id}
+                canDeleteActiveSketch={canDeleteActive}
+                deleteSketchLabel={
+                  !isBase && isDetailAuthor && activeSketch!.author.id !== currentUserId
+                    ? "Șterge schița"
+                    : "Șterge schița mea"
+                }
               />
             </span>
           </div>
@@ -299,18 +305,25 @@ export function DetailWorkspace({
                   className={cn("ring-2 transition-colors", isActive ? "ring-primary" : "ring-transparent")}
                 />
                 {isActive && (
-                  <span className="font-heading text-[13px] font-semibold text-foreground">{label}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-heading text-[13px] font-semibold text-foreground">{label}</span>
+                    <RolePill
+                      roleMain={s.author.roleMain}
+                      subRole={s.author.subRole}
+                      verified={s.author.verification === "VERIFIED"}
+                    />
+                  </span>
                 )}
               </button>
             );
           })}
         </div>
 
-        {/* viewport (tabul activ) + panou dreapta (autorul tabului activ) */}
-        <div className="mt-3 grid grid-cols-1 border-t border-[#eee6da] md:grid-cols-[1fr_248px]">
-          <div className="relative flex min-h-[300px] items-center justify-center border-b border-[#eee6da] bg-[#faf7f1] p-6 md:border-b-0 md:border-r">
-            {/* CTA principal — cât mai la vedere, chiar în fereastra cu imaginea (nu lângă ea) */}
-            <div className="absolute right-3 top-3 z-[3]">{startSketchBtn}</div>
+        {/* viewport (tabul activ) — panoul separat din dreapta a fost scos 2026-07-06: autorul + rolul
+            erau deja afișate în antet (tab bază) / lângă tab-ul activ (tab schiță, RolePill de mai sus);
+            singura info netă din panou era rolul, mutat acolo. Imaginea folosește acum toată lățimea. */}
+        <div className="mt-3 border-t border-[#eee6da]">
+          <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6">
             {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
             <div
               aria-hidden
@@ -329,7 +342,7 @@ export function DetailWorkspace({
                 schiță peste detaliu
               </span>
             )}
-            <div className="relative z-[1] aspect-[4/3] w-full max-w-xl">
+            <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
                   altfel reîncărca async și „pocnea"); schița e doar un overlay cu stroke-uri peste ea.
                   Efect lin la comutare: overlay-ul re-face fade-in (opacity, FĂRĂ animație de layout —
@@ -338,7 +351,7 @@ export function DetailWorkspace({
                 src={imageUrl}
                 alt={header.title}
                 fill
-                sizes="(max-width: 1024px) 100vw, 55vw"
+                sizes="(max-width: 1024px) 100vw, 768px"
                 className="object-contain"
                 priority
               />
@@ -349,62 +362,8 @@ export function DetailWorkspace({
               )}
             </div>
           </div>
-
-          {/* panou dreapta: autorul tabului activ + (schiță) badge + ștergere — fade-in la comutare */}
-          <div key={`panel-${safeTab}`} className="flex flex-col gap-4 p-5 animate-in fade-in duration-200">
-            <div>
-              <div className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#a59a88]">
-                {isBase ? "Autor detaliu" : "Autor schiță"}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <AvatarInitials name={activeAuthor.name} imageUrl={activeAuthor.image} size={30} />
-                <span className="text-sm font-semibold">{activeAuthor.name ?? "Anonim"}</span>
-              </div>
-              <div className="mt-2">
-                <RolePill
-                  roleMain={activeAuthor.roleMain}
-                  subRole={activeAuthor.subRole}
-                  verified={activeAuthor.verification === "VERIFIED"}
-                />
-              </div>
-            </div>
-
-            {!isBase && (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-emerald-600/30 bg-emerald-50 px-2.5 py-1 font-mono text-[11px] text-emerald-700">
-                  în teanc · publicată
-                </span>
-                <CopySketchLinkButton sketchId={activeSketch!.id} />
-              </div>
-            )}
-
-            {canDeleteActive && activeSketch && (
-              <form
-                action={deleteSketchAction}
-                onSubmit={(e) => {
-                  if (
-                    !window.confirm(
-                      "Sigur ștergi această schiță? Validările și comentariile ei se șterg definitiv.",
-                    )
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                className="border-t border-[#eee6da] pt-3"
-              >
-                <input type="hidden" name="sketchId" value={activeSketch.id} />
-                <input type="hidden" name="detailId" value={detailId} />
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[#e6c9c4] bg-white px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-[#b0463c] transition-colors hover:bg-[#fbf1ef]"
-                >
-                  <Trash2 className="size-3.5" strokeWidth={2} />
-                  {isDetailAuthor && activeSketch.author.id !== currentUserId
-                    ? "Șterge schița"
-                    : "Șterge schița mea"}
-                </button>
-              </form>
-            )}
+          <div className="flex justify-end border-t border-[#eee6da] bg-[#faf7f1] px-4 py-2.5">
+            {startSketchBtn}
           </div>
         </div>
 
