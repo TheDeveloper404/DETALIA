@@ -118,7 +118,9 @@ export default async function FeedPage({
             {maintenanceText}
           </div>
         )}
-        <div className="mb-4 flex items-center justify-between gap-3">
+        {/* Titlu + căutare, într-un container propriu (nu mai încercăm să-l aliniem pixel-perfect cu
+            cardul de profil din sidebar — decizie Liviu, 2026-07-06) — coboară puțin feed-ul sub header. */}
+        <div className="mb-5 mt-2 flex items-center justify-between gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
           <h1 className="text-xl font-bold tracking-tight">
             {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}
           </h1>
@@ -135,7 +137,7 @@ export default async function FeedPage({
                 defaultValue={q ?? ""}
                 placeholder="Caută detalii…"
                 aria-label="Caută detalii"
-                className="h-9 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
+                className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
               />
             </div>
           </form>

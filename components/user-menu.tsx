@@ -86,12 +86,20 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
               Detalii salvate
             </Link>
             <Link
-              href="/profile/edit"
+              href="/sketches/drafts"
               role="menuitem"
               onClick={() => setOpen(false)}
               className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
             >
-              Editează profil
+              Ciornele mele
+            </Link>
+            <Link
+              href="/canvases"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
+            >
+              Planșele mele
             </Link>
             <form action={signOutAction}>
               <button
