@@ -63,10 +63,10 @@ function safeWebsite(raw: string | null): { href: string; label: string } | null
   }
 }
 
-function roleLabelOf(roleMain: string | null, subRole: string | null): string {
+// Doar meseria (subRole) apare în platformă — rolul principal e doar grupare internă (lista_meserii.md).
+export function roleLabelOf(roleMain: string | null, subRole: string | null): string {
   if (!roleMain) return "Rol nedeclarat";
-  const main = ROLE_MAIN_LABELS[roleMain as RoleMain] ?? roleMain;
-  return subRole ? `${main} · ${subRole}` : main;
+  return subRole ?? (ROLE_MAIN_LABELS[roleMain as RoleMain] ?? roleMain);
 }
 
 // Timp relativ scurt în română (profilul nu cere precizie la secundă).
@@ -183,12 +183,14 @@ export async function getProfileView(
     specializations: [],
     verified: profile.verificationStatus === "VERIFIED",
     stats,
-    details: detailRows,
+    // Repo-ul filtrează PUBLISHED (profileRepo) → imageUrl mereu setat.
+    details: detailRows.map((d) => ({ ...d, imageUrl: d.imageUrl! })),
     sketches: sketchRows.map((s) => ({
       id: s.id,
       detailId: s.detailId,
       parentTitle: s.parentTitle,
       title: "Propunere de schiță",
+      thumbnailUrl: s.thumbnailUrl,
       ...(SKETCH_STATUS_VIEW[s.status] ?? SKETCH_STATUS_VIEW.PENDING_ACCEPTANCE),
     })),
     activity: activityItems,

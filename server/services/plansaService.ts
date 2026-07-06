@@ -162,7 +162,8 @@ export async function addDetailToCanvas(input: {
   const detail = await getDetailById(input.detailId); // null dacă șters/nepublicat
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
-  let imageUrl = detail.imageUrl;
+  // getDetailById e PUBLISHED-only (comentariul de mai sus) → imageUrl mereu setat.
+  let imageUrl = detail.imageUrl!;
   if (input.sketchId) {
     const sketch = await getSketchById(input.sketchId);
     if (
@@ -247,7 +248,7 @@ export async function getCanvasForEdit(input: {
       });
     } else {
       const detail = await getDetailById(row.detailId); // null dacă șters/nepublicat → rămâne placeholder
-      if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: detail.imageUrl, title: detail.title });
+      if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: detail.imageUrl!, title: detail.title });
     }
   }
 

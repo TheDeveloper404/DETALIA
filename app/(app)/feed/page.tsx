@@ -62,8 +62,9 @@ export default async function FeedPage({
   );
 
   const total = categories.reduce((sum, c) => sum + c.count, 0);
+  // Doar meseria (subRole) apare în platformă — rolul principal e doar grupare internă (lista_meserii.md).
   const roleLabel = role
-    ? `${ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain}${role.subRole ? ` · ${role.subRole}` : ""}`
+    ? (role.subRole ?? ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain)
     : null;
 
   const debated = [...details]

@@ -27,7 +27,7 @@ export async function insertDetailWithRelations(input: {
   title: string;
   description: string | null;
   authorId: string;
-  imageUrl: string;
+  imageUrl: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -35,6 +35,8 @@ export async function insertDetailWithRelations(input: {
   windLoad: string;
   categoryIds: string[];
   resources: DetailResourceInput[];
+  // Implicit PUBLISHED (moderare post-publicare) — DRAFT doar la „Salvează ciornă".
+  status?: typeof DETAIL_STATUS.DRAFT | typeof DETAIL_STATUS.PUBLISHED;
 }): Promise<{ id: string }> {
   const id = crypto.randomUUID();
 
@@ -51,7 +53,7 @@ export async function insertDetailWithRelations(input: {
       seismicTc: input.seismicTc,
       snowLoad: input.snowLoad,
       windLoad: input.windLoad,
-      // status rămâne pe default „PUBLISHED" (moderare post-publicare).
+      status: input.status ?? DETAIL_STATUS.PUBLISHED,
     })
     .returning({ id: details.id });
 
@@ -102,7 +104,7 @@ export async function updateDetailRow(
   input: {
     title: string;
     description: string | null;
-    imageUrl: string;
+    imageUrl: string | null;
     climateZone: string | null;
     seismicAg: string;
     seismicTc: string;
@@ -156,6 +158,15 @@ export async function replaceDetailResources(detailId: string, resources: Detail
       })),
     ),
   ]);
+}
+
+// Ciornele de DETALIU ale unui user (pt „Ciornele mele", unificat cu ciornele de schiță).
+export function listDetailDraftsByAuthor(authorId: string) {
+  return db
+    .select({ id: details.id, title: details.title, imageUrl: details.imageUrl, createdAt: details.createdAt })
+    .from(details)
+    .where(and(eq(details.authorId, authorId), eq(details.status, DETAIL_STATUS.DRAFT)))
+    .orderBy(desc(details.createdAt));
 }
 
 // Categoriile bifate pe un detaliu, ca array JSON — subquery corelat (nu join), ca să nu dublăm
@@ -212,6 +223,29 @@ export async function getDetailById(id: string) {
     .where(and(eq(details.id, id), eq(details.status, DETAIL_STATUS.PUBLISHED)))
     .limit(1);
   return row ?? null;
+}
+
+// Fetch pt pagina de EDITARE — spre deosebire de `getDetailById`, NU filtrează pe status (owner-ul
+// trebuie să-și poată edita atât un detaliu publicat, cât și o ciornă DRAFT). Scoping-ul pe owner e
+// AICI, în query (nu doar verificat după) — un DRAFT al altui user nu trebuie niciodată să ajungă la
+// client, nici măcar ca răspuns „not found după citire".
+export async function getDetailForEdit(id: string, ownerId: string) {
+  const [row] = await db
+    .select(detailWithAuthorColumns)
+    .from(details)
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(and(eq(details.id, id), eq(details.authorId, ownerId)))
+    .limit(1);
+  return row ?? null;
+}
+
+// Tranziția DRAFT → PUBLISHED (materializează publicarea unei ciorne de detaliu).
+export async function publishDetailRow(detailId: string) {
+  await db
+    .update(details)
+    .set({ status: DETAIL_STATUS.PUBLISHED, updatedAt: new Date() })
+    .where(and(eq(details.id, detailId), eq(details.status, DETAIL_STATUS.DRAFT)));
 }
 
 // Șterge un detaliu + tot ce atârnă de el, ATOMIC. `detail_resources` și `sketches` cad în cascadă

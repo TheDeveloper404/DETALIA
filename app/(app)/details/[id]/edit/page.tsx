@@ -2,11 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { DETAIL_STATUS } from "@/server/domain/detail";
 import { listCategories } from "@/server/services/categoryService";
-import { getDetail } from "@/server/services/detailService";
+import { getDetail, getDetailForEditing } from "@/server/services/detailService";
 
 import { DetailForm, type DetailFormInitial } from "../../new/detail-form";
-import { updateDetailAction } from "./actions";
+import { publishDraftDetailAction, saveDraftDetailAction, updateDetailAction } from "./actions";
 
 // Tipurile de resursă editabile din formular (TEXT nu are câmp în formular → nu se editează aici).
 const EDITABLE_RESOURCE_TYPES = new Set(["IMAGE", "LINK", "PDF", "CAD"]);
@@ -19,14 +20,18 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const detail = await getDetail(id);
+  // Ownership scoped ÎN query (draft SAU published, doar owner) — un DRAFT al altui user nu ajunge
+  // nici măcar ca „not found după citire" (la fel ca la Planșă, strict privată cât e ciornă).
+  const detail = await getDetailForEditing(id, session.user.id);
   if (!detail) {
+    // Non-autor pe un detaliu PUBLICAT (existența e deja publică, în feed) → redirect spre pagina
+    // de vizualizare, nu 404 (comportamentul de dinainte). Un DRAFT al altui user tot dă notFound —
+    // getDetail e PUBLISHED-only, deci nu-l „vede" aici, păstrând privacy-ul strict al ciornelor.
+    const publicDetail = await getDetail(id);
+    if (publicDetail) redirect(`/details/${id}`);
     notFound();
   }
-  // Ownership pe server (sursa de adevăr; UI-ul nu decide). Non-autor → înapoi la detaliu.
-  if (detail.authorId !== session.user.id) {
-    redirect(`/details/${detail.id}`);
-  }
+  const isDraft = detail.status === DETAIL_STATUS.DRAFT;
 
   const categories = await listCategories();
 
@@ -48,31 +53,40 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
-      {/* breadcrumb */}
+      {/* breadcrumb — pt ciornă, titlul nu e link (pagina publică /details/[id] nu există încă). */}
       <nav className="mb-[18px] flex items-center gap-2 font-mono text-xs text-muted-foreground">
         <Link href="/feed" className="hover:text-foreground">
           Detalii
         </Link>
         <span className="text-[#cabfac]">/</span>
-        <Link href={`/details/${detail.id}`} className="max-w-[32ch] truncate hover:text-foreground">
-          {detail.title}
-        </Link>
+        {isDraft ? (
+          <Link href="/sketches/drafts" className="hover:text-foreground">
+            Ciornele mele
+          </Link>
+        ) : (
+          <Link href={`/details/${detail.id}`} className="max-w-[32ch] truncate hover:text-foreground">
+            {detail.title}
+          </Link>
+        )}
         <span className="text-[#cabfac]">/</span>
-        <span className="text-foreground/70">Editează</span>
+        <span className="text-foreground/70">{isDraft ? "Continuă ciorna" : "Editează"}</span>
       </nav>
 
       <h1 className="mb-2 text-center font-heading text-[30px] font-extrabold tracking-tight">
-        Editează detaliul
+        {isDraft ? "Continuă ciorna" : "Editează detaliul"}
       </h1>
       <p className="mb-7 mx-auto max-w-[58ch] text-center text-[15px] leading-relaxed text-muted-foreground">
-        Actualizează textul, contextul tehnic, categoriile sau imaginea. Modificările apar imediat.
+        {isDraft
+          ? "Completează ce lipsește și publică, sau salvează ciorna din nou pentru mai târziu."
+          : "Actualizează textul, contextul tehnic, categoriile sau imaginea. Modificările apar imediat."}
       </p>
 
       <DetailForm
         categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId, isGroup: c.isGroup }))}
-        action={updateDetailAction}
+        action={isDraft ? publishDraftDetailAction : updateDetailAction}
+        saveDraftAction={isDraft ? saveDraftDetailAction : undefined}
         initial={initial}
-        submitLabel="Salvează modificările"
+        submitLabel={isDraft ? "Publică detaliul" : "Salvează modificările"}
       />
     </main>
   );

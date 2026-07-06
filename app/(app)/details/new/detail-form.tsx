@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Info, Pencil, Plus, RotateCcw, Send, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Info, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
@@ -45,7 +45,8 @@ export type DetailFormInitial = {
   title: string;
   description: string | null;
   categoryIds: string[];
-  imageUrl: string;
+  // null = ciornă fără imagine încă (înainte de upload).
+  imageUrl: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -154,6 +155,7 @@ function CategoryDropdown({
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        data-testid="category-dropdown-trigger"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className={cn(selectClass, "flex items-center justify-between text-left")}
@@ -262,24 +264,37 @@ function CategoryDropdown({
   );
 }
 
+// No-op — folosit când `saveDraftAction` nu e dat (ex. editare detaliu PUBLISHED, fără ciornă posibilă),
+// ca al doilea `useActionState` să aibă mereu ceva de apelat (hook-urile nu pot fi condiționale).
+async function noopDraftAction(prev: FormState): Promise<FormState> {
+  return prev;
+}
+
 export function DetailForm({
   categories,
   action = createDetailAction,
+  saveDraftAction,
   initial,
   submitLabel = "Publică detaliul",
 }: {
   categories: CategoryOption[];
   action?: (prev: FormState, formData: FormData) => Promise<FormState>;
+  // Dat = arată și butonul „Salvează ciornă" (pe /new, sau pe /edit cât timp detaliul e DRAFT).
+  saveDraftAction?: (prev: FormState, formData: FormData) => Promise<FormState>;
   initial?: DetailFormInitial;
   submitLabel?: string;
 }) {
   const isEdit = !!initial;
   const [state, formAction, pending] = useActionState(action, initialState);
+  const [draftState, draftFormAction, draftPending] = useActionState(
+    saveDraftAction ?? noopDraftAction,
+    initialState,
+  );
   // Sursa imaginii detaliului: „upload" (fișier existent) sau „draw" (desenat pe loc, pe foaie goală).
   const [mode, setMode] = useState<"upload" | "draw">("upload");
-  // La editare, pornim cu imaginea existentă ca previzualizare (fără fișier local — rămâne cea din Blob).
+  // La editare, pornim cu imaginea existentă ca previzualizare (null = ciornă fără imagine încă).
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(
-    initial ? { url: initial.imageUrl, name: "imaginea curentă" } : null,
+    initial?.imageUrl ? { url: initial.imageUrl, name: "imaginea curentă" } : null,
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -298,7 +313,7 @@ export function DetailForm({
   // La editare fără schimbare de imagine, trimitem URL-ul existent (deja procesat) → onSubmit trece
   // direct, fără re-upload. Îl punem în câmpul ascuns la montare.
   useEffect(() => {
-    if (initial && imageUrlRef.current && !imageUrlRef.current.value) {
+    if (initial?.imageUrl && imageUrlRef.current && !imageUrlRef.current.value) {
       imageUrlRef.current.value = initial.imageUrl;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -307,10 +322,10 @@ export function DetailForm({
   // Eroarea poate apărea la submit când userul e derulat jos în formular (ex. secțiunea de categorii) —
   // fără scroll aici mesajul rămâne invizibil deasupra, în afara viewport-ului.
   useEffect(() => {
-    if (clientError ?? state.error) {
+    if (clientError ?? state.error ?? draftState.error) {
       errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }
-  }, [clientError, state.error]);
+  }, [clientError, state.error, draftState.error]);
 
   // Comutarea sursei resetează starea celeilalte + URL-ul deja urcat (evită trimiterea unei imagini vechi).
   function switchMode(next: "upload" | "draw") {
@@ -354,13 +369,19 @@ export function DetailForm({
   }
 
   // Imaginea se urcă DIRECT în Blob înainte de a trimite formularul (ocolește limita de body a
-  // server action-ului). Flux: 1) submit → urc imaginea → pun URL-ul în câmpul ascuns → re-submit;
-  // 2) la al doilea submit URL-ul există → lăsăm server action-ul să creeze detaliul.
+  // server action-ului). Flux: 1) submit → urc imaginea → pun URL-ul în câmpul ascuns → re-submit
+  // (cu ACELAȘI submitter, ca intenția — publică/ciornă — să nu se piardă); 2) la al doilea submit
+  // URL-ul există → lăsăm server action-ul să proceseze.
+  // „Salvează ciornă" (data-intent="draft" pe buton) relaxează regulile stricte (categorie/imagine/
+  // desen obligatorii) — validarea lenientă rămâne pe server (`validateDetailInput({strict:false})`).
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    // URL deja urcat (al doilea submit) → lăsăm submit-ul să ajungă la server action.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const isDraftSubmit = submitter?.dataset.intent === "draft";
+
+    // URL deja urcat (al doilea submit, sau editare fără schimbare de imagine) → lăsăm să treacă.
     if (imageUrlRef.current?.value) return;
 
-    if (categoryIds.length === 0) {
+    if (!isDraftSubmit && categoryIds.length === 0) {
       e.preventDefault();
       setClientError("Alege cel puțin o categorie.");
       return;
@@ -368,12 +389,14 @@ export function DetailForm({
 
     // MOD DESEN: randăm foaia în PNG (client) → urcăm în Blob → re-submit cu URL-ul.
     if (mode === "draw") {
-      e.preventDefault();
-      if (uploading) return;
       if (drawCount === 0) {
+        if (isDraftSubmit) return; // ciornă fără desen încă — trece direct, fără imagine
+        e.preventDefault();
         setClientError("Desenează detaliul înainte de a-l publica.");
         return;
       }
+      e.preventDefault();
+      if (uploading) return;
       setUploading(true);
       setClientError(null);
       try {
@@ -382,7 +405,7 @@ export function DetailForm({
         const file = new File([blob], "detaliu.png", { type: "image/png" });
         const url = await uploadImageToBlob("details", file);
         if (imageUrlRef.current) imageUrlRef.current.value = url;
-        formRef.current?.requestSubmit();
+        formRef.current?.requestSubmit(submitter ?? undefined);
       } catch {
         setClientError("Salvarea desenului a eșuat. Încearcă din nou.");
       } finally {
@@ -393,6 +416,7 @@ export function DetailForm({
 
     // MOD UPLOAD: imaginea se urcă DIRECT în Blob înainte de submit (ocolește limita de body).
     if (!imageFile) {
+      if (isDraftSubmit) return; // ciornă fără imagine încă — trece direct
       e.preventDefault();
       setClientError("Alege o imagine pentru detaliu.");
       return;
@@ -404,7 +428,7 @@ export function DetailForm({
     try {
       const url = await uploadImageToBlob("details", imageFile);
       if (imageUrlRef.current) imageUrlRef.current.value = url;
-      formRef.current?.requestSubmit();
+      formRef.current?.requestSubmit(submitter ?? undefined);
     } catch {
       setClientError("Încărcarea imaginii a eșuat. Încearcă din nou.");
     } finally {
@@ -463,13 +487,13 @@ export function DetailForm({
       {isEdit && <input type="hidden" name="detailId" value={initial.detailId} />}
       {isEdit && <input type="hidden" name="imageChanged" value={imageChanged ? "1" : "0"} />}
 
-      {(clientError ?? state.error) && (
+      {(clientError ?? state.error ?? draftState.error) && (
         <p
           ref={errorRef}
           role="alert"
           className="mb-5 scroll-mt-24 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
         >
-          {clientError ?? state.error}
+          {clientError ?? state.error ?? draftState.error}
         </p>
       )}
 
@@ -803,22 +827,42 @@ export function DetailForm({
       <div className="mt-4 flex items-center gap-2.5 rounded-[11px] border border-[#e6ddcf] bg-secondary px-4 py-3">
         <Info className="size-4 flex-none text-primary" strokeWidth={1.9} />
         <span className="text-[13.5px] leading-snug text-muted-foreground text-pretty">
-          {isEdit
-            ? "Modificările apar imediat pe pagina detaliului."
-            : "Detaliul devine public imediat — fără coadă de aprobare. Comunitatea îl validează pe roluri."}
+          {saveDraftAction
+            ? "Nu ești gata de publicat? Salvează ciornă și continui mai târziu, din „Ciornele mele”."
+            : isEdit
+              ? "Modificările apar imediat pe pagina detaliului."
+              : "Detaliul devine public imediat — fără coadă de aprobare. Comunitatea îl validează pe roluri."}
         </span>
       </div>
 
       <div className="mt-4 flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center">
         <Link
-          href={isEdit ? `/details/${initial.detailId}` : "/feed"}
+          href={
+            isEdit
+              ? saveDraftAction
+                ? "/sketches/drafts" // editare CIORNĂ — /details/[id] public nu există încă
+                : `/details/${initial.detailId}`
+              : "/feed"
+          }
           className="inline-flex items-center justify-center rounded-[10px] border border-[#d8cfc0] bg-card px-5 py-3 font-heading text-[15px] font-semibold transition-colors hover:border-primary"
         >
           Renunță
         </Link>
+        {saveDraftAction && (
+          <button
+            type="submit"
+            formAction={draftFormAction}
+            data-intent="draft"
+            disabled={pending || draftPending || uploading}
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#d8cfc0] bg-card px-5 py-3 font-heading text-[15px] font-semibold text-foreground transition-colors hover:border-primary disabled:opacity-60"
+          >
+            <Save className="size-4" strokeWidth={1.9} />
+            {draftPending ? "Se salvează…" : "Salvează ciornă"}
+          </button>
+        )}
         <button
           type="submit"
-          disabled={pending || uploading}
+          disabled={pending || draftPending || uploading}
           className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#95492e] bg-primary px-6 py-3 font-heading text-[15px] font-bold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-60"
         >
           <Send className="size-4" strokeWidth={2} />

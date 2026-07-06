@@ -81,7 +81,8 @@ export function DetailCard({
       <div className="relative aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r">
         <Link href={href} className="block size-full">
           <Image
-            src={detail.imageUrl}
+            // Feed-ul arată DOAR detalii PUBLISHED (listFeed) → imageUrl mereu setat (DRAFT nu ajunge aici).
+            src={detail.imageUrl!}
             alt={detail.title}
             fill
             sizes="(max-width: 640px) 100vw, 260px"
