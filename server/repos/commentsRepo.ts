@@ -20,6 +20,7 @@ export async function insertComment(input: {
       authorId: input.authorId,
       body: input.body,
       originValidationId: input.originValidationId ?? null,
+      wasDisapproval: input.originValidationId != null,
     })
     .returning();
   return row;
@@ -33,6 +34,7 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       body: comments.body,
       createdAt: comments.createdAt,
       originValidationId: comments.originValidationId,
+      wasDisapproval: comments.wasDisapproval,
       authorId: comments.authorId,
       authorName: users.name,
       authorImage: users.image,

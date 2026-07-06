@@ -372,6 +372,10 @@ function CommentItem({
   onSelectSketch?: (sketchId: string) => void;
 }) {
   const isDisapproval = Boolean(c.originValidationId);
+  // Dezaprobare RETRASĂ: era justificare (wasDisapproval), dar poziția a fost retrasă (originValidationId
+  // → null, onDelete: set null) — istoricul nu se șterge, dar fără etichetă ar arăta ca un comentariu
+  // obișnuit, deși userul a luat public o poziție de dezaprobare la un moment dat (2026-07-06).
+  const isRetractedDisapproval = c.wasDisapproval && !c.originValidationId;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -427,6 +431,15 @@ function CommentItem({
             <span className="inline-flex items-center gap-1 rounded-md border border-destructive/25 bg-destructive/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wide text-destructive">
               <X className="size-3" strokeWidth={2.6} />
               dezaprobare
+            </span>
+          )}
+          {isRetractedDisapproval && (
+            <span
+              title="Poziția de dezaprobare a fost retrasă ulterior — comentariul rămâne, ca istoric"
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground"
+            >
+              <X className="size-3" strokeWidth={2.6} />
+              fostă dezaprobare · retrasă
             </span>
           )}
           <span className="font-mono text-[11px] text-[#a59a88]">{formatRelative(c.createdAt)}</span>
