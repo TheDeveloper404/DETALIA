@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, Pencil, Trash2, X } from "lucide-react";
+import { AtSign, Pencil, Reply, Trash2, X } from "lucide-react";
 import {
   useActionState,
   useEffect,
@@ -67,6 +67,25 @@ export function CommentsSection({
   // Set-ul id-urilor de schiță care există ACUM (pt randare: mențiunile către schițe șterse → text simplu).
   const validSketchIds = useMemo(() => new Set(mentionSketches.map((s) => s.id)), [mentionSketches]);
 
+  // Reply pe UN SINGUR nivel: rădăcinile în ordine cronologică, cu reply-urile lor grupate dedesubt
+  // (tot cronologic). Un reply nu poate avea reply — dacă apare cu parentCommentId inexistent printre
+  // rădăcini (caz imposibil azi, dar defensiv), cade la rădăcină ca să nu dispară din UI.
+  const { roots, repliesByParent } = useMemo(() => {
+    const rootIds = new Set(comments.filter((c) => !c.parentCommentId).map((c) => c.id));
+    const roots: TargetComment[] = [];
+    const repliesByParent = new Map<string, TargetComment[]>();
+    for (const c of comments) {
+      if (!c.parentCommentId || !rootIds.has(c.parentCommentId)) {
+        roots.push(c);
+        continue;
+      }
+      const list = repliesByParent.get(c.parentCommentId) ?? [];
+      list.push(c);
+      repliesByParent.set(c.parentCommentId, list);
+    }
+    return { roots, repliesByParent };
+  }, [comments]);
+
   return (
     <section>
       <h2 className="mb-4 font-heading text-lg font-bold">
@@ -110,15 +129,37 @@ export function CommentsSection({
         </p>
       ) : (
         <ul className="flex flex-col gap-5">
-          {comments.map((c) => (
-            <CommentItem
-              key={c.id}
-              comment={c}
-              detailId={detailId}
-              isOwner={Boolean(currentUserId && c.authorId === currentUserId)}
-              validSketchIds={validSketchIds}
-              onSelectSketch={onSelectSketch}
-            />
+          {roots.map((c) => (
+            <li key={c.id} className="flex flex-col gap-3">
+              <CommentItem
+                comment={c}
+                detailId={detailId}
+                isOwner={Boolean(currentUserId && c.authorId === currentUserId)}
+                validSketchIds={validSketchIds}
+                onSelectSketch={onSelectSketch}
+                targetType={targetType}
+                targetId={targetId}
+                currentUserName={currentUserName}
+                currentUserImage={currentUserImage}
+                canReply={!!currentUserId}
+              />
+              {(repliesByParent.get(c.id) ?? []).length > 0 && (
+                <ul className="ml-[52px] flex flex-col gap-3 border-l border-border pl-4">
+                  {(repliesByParent.get(c.id) ?? []).map((r) => (
+                    <li key={r.id}>
+                      <CommentItem
+                        comment={r}
+                        detailId={detailId}
+                        isOwner={Boolean(currentUserId && r.authorId === currentUserId)}
+                        validSketchIds={validSketchIds}
+                        onSelectSketch={onSelectSketch}
+                        isReply
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </li>
           ))}
         </ul>
       )}
@@ -364,13 +405,27 @@ function CommentItem({
   isOwner,
   validSketchIds,
   onSelectSketch,
+  targetType,
+  targetId,
+  currentUserName,
+  currentUserImage,
+  canReply = false,
+  isReply = false,
 }: {
   comment: TargetComment;
   detailId: string;
   isOwner: boolean;
   validSketchIds: Set<string>;
   onSelectSketch?: (sketchId: string) => void;
+  // Reply — UN SINGUR nivel: doar comentariile RĂDĂCINĂ primesc buton „Răspunde" (isReply=false).
+  targetType?: TargetType;
+  targetId?: string;
+  currentUserName?: string | null;
+  currentUserImage?: string | null;
+  canReply?: boolean;
+  isReply?: boolean;
 }) {
+  const [replying, setReplying] = useState(false);
   const isDisapproval = Boolean(c.originValidationId);
   // Dezaprobare RETRASĂ: era justificare (wasDisapproval), dar poziția a fost retrasă (originValidationId
   // → null, onDelete: set null) — istoricul nu se șterge, dar fără etichetă ar arăta ca un comentariu
@@ -446,7 +501,7 @@ function CommentItem({
 
           {/* Acțiuni proprii: editare oricând; ștergere doar pe comentariu liber (nu justificare de dezaprobare). */}
           {isOwner && !editing && (
-            <span className="ml-auto flex items-center gap-1">
+            <span className={cn("flex items-center gap-1", !canReply || isReply ? "ml-auto" : undefined)}>
               <button
                 type="button"
                 onClick={startEdit}
@@ -465,6 +520,19 @@ function CommentItem({
                 </button>
               )}
             </span>
+          )}
+          {/* „Răspunde" — DOAR pe rădăcină (reply-urile nu mai au propriul buton — un singur nivel). */}
+          {!isReply && canReply && !editing && (
+            <button
+              type="button"
+              onClick={() => setReplying((v) => !v)}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+                !isOwner && "ml-auto",
+              )}
+            >
+              <Reply className="size-3" strokeWidth={2} /> Răspunde
+            </button>
           )}
         </div>
 
@@ -504,7 +572,81 @@ function CommentItem({
             {error}
           </p>
         )}
+
+        {replying && targetType && targetId && (
+          <ReplyComposer
+            targetType={targetType}
+            targetId={targetId}
+            detailId={detailId}
+            parentCommentId={c.id}
+            currentUserName={currentUserName}
+            currentUserImage={currentUserImage}
+            onDone={() => setReplying(false)}
+          />
+        )}
       </div>
     </li>
+  );
+}
+
+// Compozitor de reply — form separat (propriul useActionState), fără autocomplete @schiță (scop redus,
+// suficient pt un răspuns scurt). Se închide singur după trimitere reușită.
+function ReplyComposer({
+  targetType,
+  targetId,
+  detailId,
+  parentCommentId,
+  currentUserName,
+  currentUserImage,
+  onDone,
+}: {
+  targetType: TargetType;
+  targetId: string;
+  detailId: string;
+  parentCommentId: string;
+  currentUserName?: string | null;
+  currentUserImage?: string | null;
+  onDone: () => void;
+}) {
+  const [state, formAction, pending] = useActionState(addCommentAction, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+  const doneRef = useRef(onDone);
+  useEffect(() => {
+    doneRef.current = onDone;
+  });
+
+  useEffect(() => {
+    if (state.ok) doneRef.current();
+  }, [state]);
+
+  return (
+    <form ref={formRef} action={formAction} className="mt-3 flex gap-2.5">
+      <AvatarInitials name={currentUserName ?? null} imageUrl={currentUserImage} size={30} />
+      <div className="flex-1">
+        <input type="hidden" name="targetType" value={targetType} />
+        <input type="hidden" name="targetId" value={targetId} />
+        <input type="hidden" name="detailId" value={detailId} />
+        <input type="hidden" name="parentCommentId" value={parentCommentId} />
+        <Textarea
+          name="body"
+          required
+          autoFocus
+          rows={2}
+          maxLength={COMMENT_MAX_LENGTH}
+          disabled={pending}
+          placeholder="Scrie un răspuns…"
+        />
+        {state.error && (
+          <p role="alert" className="mt-1.5 text-xs text-destructive">
+            {state.error}
+          </p>
+        )}
+        <div className="mt-2 flex justify-end">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Se trimite…" : "Răspunde"}
+          </Button>
+        </div>
+      </div>
+    </form>
   );
 }

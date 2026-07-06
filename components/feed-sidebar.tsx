@@ -35,9 +35,7 @@ export function FeedSidebar({
   total: number;
 }) {
   return (
-    // mt-1: compensează optic leading-ul textului din h1-ul feed-ului ("Detalii în dezbatere") — altfel
-    // cardul de profil (imagine, fără leading) pare mai sus decât titlul (feedback Liviu, 2026-07-06).
-    <aside className="hidden flex-col gap-[18px] lg:sticky lg:top-[94px] lg:mt-1 lg:flex">
+    <aside className="hidden flex-col gap-[18px] lg:sticky lg:top-[90px] lg:flex">
       {/* Card mini de profil. */}
       <Link
         href="/profile"
