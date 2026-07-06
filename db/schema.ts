@@ -300,6 +300,10 @@ export const comments = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     body: text().notNull(),
     originValidationId: uuid().references(() => validations.id, { onDelete: "set null" }),
+    // Persistă DINCOLO de retragere (originValidationId devine null la retract, onDelete: set null) —
+    // ca UI-ul să poată eticheta un comentariu drept „fostă dezaprobare, retrasă" în loc să dispară orice
+    // urmă și să pară un comentariu obișnuit (2026-07-06, clarificare cerută de Liviu).
+    wasDisapproval: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

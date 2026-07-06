@@ -138,26 +138,22 @@ export function DetailCard({
           <span>{detail.sketchCount} schițe în teanc</span>
         </div>
 
-        {/* Acțiuni — validare inline pe roluri (Aprob 1-click / Dezaprob) pe rândul ei (ascunsă pe propriul
-            detaliu), iar scurtătura secundară („Schițează peste") pe rândul de sub ea → layout consistent
-            indiferent dacă validarea e prezentă sau nu.
-            Link secundar (NU buton): duce în pagina detaliului la teanc (context), fără să creeze draft. */}
-        <div className="mt-auto flex flex-col gap-2">
-          {canValidate && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              <FeedValidationActions detailId={detail.id} myPosition={myPosition} />
-            </div>
-          )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Link
-              href={`${href}#schiteaza`}
-              className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
-            >
-              <PencilRuler className="size-3.5" strokeWidth={2} />
+        {/* Acțiuni — toate icon-only, text la HOVER (nu la click), un singur rând: validare (dacă e permisă)
+            + „Schițează peste" + „Trimite în Planșă". Link secundar (NU buton) pt schițare: duce în pagina
+            detaliului la teanc (context), fără să creeze draft. */}
+        <div className="mt-auto flex flex-wrap items-center gap-1">
+          {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
+          <Link
+            href={`${href}#schiteaza`}
+            title="Schițează peste"
+            className="group/schiteaza inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <PencilRuler className="size-3.5 shrink-0" strokeWidth={2} />
+            <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/schiteaza:ml-1.5 group-hover/schiteaza:max-w-[110px] group-hover/schiteaza:opacity-100">
               Schițează peste
-            </Link>
-            {currentUserId && <SendToCanvasButton detailId={detail.id} />}
-          </div>
+            </span>
+          </Link>
+          {currentUserId && <SendToCanvasButton detailId={detail.id} />}
         </div>
       </div>
     </article>

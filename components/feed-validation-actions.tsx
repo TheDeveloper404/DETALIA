@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, X } from "lucide-react";
-import { startTransition, useActionState, useOptimistic, useState } from "react";
+import { Check, ThumbsUp, X } from "lucide-react";
+import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
 
 import {
   approveAction,
@@ -17,9 +17,11 @@ import type { ValidationPosition } from "@/server/domain/validation";
 
 const initialState: DisapproveState = { error: null };
 
-// Validare inline din feed — buton IDENTIC pentru toți. Aprob = 1 click; Dezaprob = justificare
-// OBLIGATORIE (devine comentariu pe server, regulă non-negociabilă). Poziție unică, reversibilă.
-// Justificarea se dă într-un MODAL (overlay), ca să nu mărească/împingă cardul din feed.
+// Validare inline din feed — UN SINGUR buton (2026-07-06, redesign cerut de Liviu, pattern „reacții
+// LinkedIn"): hover peste iconiță → mini-meniu cu Aprob/Dezaprob. Aprob = 1 click; Dezaprob = justificare
+// OBLIGATORIE (devine comentariu pe server, regulă non-negociabilă). După poziționare, butonul colapsează
+// la iconița stării (colorată) + „Retrage" apare la hover — același principiu icon-hover-text ca la
+// „Schițează peste"/„Trimite în Planșă" de sub el și ca „Schițează peste detaliu" din workspace.
 export function FeedValidationActions({
   detailId,
   myPosition,
@@ -27,7 +29,9 @@ export function FeedValidationActions({
   detailId: string;
   myPosition: ValidationPosition | null;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [showJustify, setShowJustify] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, formAction, pending] = useActionState(disapproveAction, initialState);
 
   // Optimistic UI: Aprob/Retrage reacționează INSTANT, apoi se reconciliază cu serverul (props revin după
@@ -47,6 +51,7 @@ export function FeedValidationActions({
     return fd;
   }
   function onApprove() {
+    setMenuOpen(false);
     startTransition(async () => {
       applyOpt("APPROVE");
       await approveAction(targetFormData());
@@ -57,6 +62,16 @@ export function FeedValidationActions({
       applyOpt("RETRACT");
       await retractAction(targetFormData());
     });
+  }
+
+  // Mic delay la închidere (mouse leave) ca mutarea cursorului spre meniu (dedesubt) să nu-l închidă
+  // instant — pattern standard pentru popover-e „reacții" pe hover.
+  function openMenu() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setMenuOpen(true);
+  }
+  function scheduleClose() {
+    closeTimer.current = setTimeout(() => setMenuOpen(false), 150);
   }
 
   // Modalul e deschis doar cât NU ești dezaprobat: după o dezaprobare reușită (revalidare →
@@ -72,47 +87,68 @@ export function FeedValidationActions({
   );
 
   return (
-    <div className="mt-auto flex flex-wrap items-center gap-2.5">
-      {/* Aliniat cu ValidationPanel: fără poziție → două butoane; cu poziție → colaps într-o singură
-          pastilă colorată cu „retrage" integrat (fără link separat). */}
+    <div className="mt-auto flex items-center">
       {!myPos ? (
-        <>
-          {/* Iconițe curate, aliniate ca stil cu „Schițează peste"/„Trimite în Planșă" de sub ele —
-              nu mai sunt pastile colorate cu fundal, doar text+iconiță muted, colorat la hover. */}
+        <div className="relative inline-flex" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
           <button
             type="button"
-            onClick={onApprove}
-            className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground transition-colors hover:text-[#2f6b3f]"
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            title="Validează"
+            className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Check className="size-3.5" strokeWidth={2.4} />
-            Aprob
+            <ThumbsUp className="size-4" strokeWidth={2} />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowJustify(true)}
-            className="inline-flex items-center gap-1.5 font-mono text-[11.5px] text-muted-foreground transition-colors hover:text-destructive"
-          >
-            <X className="size-3.5" strokeWidth={2.4} />
-            Dezaprob
-          </button>
-        </>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-full left-0 z-20 mb-1.5 flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card p-1 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={onApprove}
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11.5px] font-semibold text-[#2f6b3f] transition-colors hover:bg-[#e9f2ea]"
+              >
+                <Check className="size-3.5" strokeWidth={2.4} />
+                Aprob
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setShowJustify(true);
+                  setMenuOpen(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11.5px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <X className="size-3.5" strokeWidth={2.4} />
+                Dezaprob
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
-        <div
+        <button
+          type="button"
+          onClick={onRetract}
+          title={approved ? "Ai aprobat — click pentru a retrage" : "Ai dezaprobat — click pentru a retrage"}
           className={cn(
-            "inline-flex items-center gap-2.5 rounded-lg border px-3.5 py-1.5 text-[13.5px] font-semibold text-white shadow-sm",
-            approved ? "border-emerald-700 bg-emerald-600" : "border-destructive bg-destructive",
+            "group/valid inline-flex items-center overflow-hidden rounded-full px-1.5 py-1 font-mono text-[11.5px] font-semibold transition-colors",
+            approved ? "text-[#2f6b3f] hover:bg-[#e9f2ea]" : "text-destructive hover:bg-destructive/10",
           )}
         >
-          <span>{approved ? "✓ Ai aprobat" : "✕ Ai dezaprobat"}</span>
-          <button
-            type="button"
-            onClick={onRetract}
-            className="inline-flex items-center rounded-md border border-white/40 px-1.5 py-0.5 font-mono text-[10.5px] font-normal text-white/90 transition-colors hover:bg-white/15 hover:text-white"
-          >
-            × retrage
-          </button>
-        </div>
+          {approved ? (
+            <ThumbsUp className="size-4 shrink-0 fill-current" strokeWidth={2} />
+          ) : (
+            <X className="size-4 shrink-0" strokeWidth={2.6} />
+          )}
+          <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/valid:ml-1.5 group-hover/valid:max-w-[80px] group-hover/valid:opacity-100">
+            Retrage
+          </span>
+        </button>
       )}
 
       {/* Modal de justificare — overlay fix, nu împinge layout-ul cardului. */}
