@@ -1,0 +1,25 @@
+name: DB backup (production)
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install postgresql-client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Dump production
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL_BACKUP }}
+        run: pg_dump "$DATABASE_URL" --format=custom --file=production-backup.dump
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-backup-${{ github.run_id }}
+          path: production-backup.dump
+          retention-days: 30
