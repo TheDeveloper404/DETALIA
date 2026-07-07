@@ -1,6 +1,7 @@
 // Repo platform_settings — singura zonă cu acces Drizzle pe tabelul SINGLE-ROW de config global.
 // Modelul: există cel mult un rând. Citirea întoarce rândul sau null (defaults în service).
 // Scrierea face upsert pe rândul existent (sau inserează primul).
+import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
@@ -16,10 +17,16 @@ export async function getSettingsRow(): Promise<PlatformSettingsRow | null> {
     const [row] = await db.select().from(platformSettings).limit(1);
     return row ?? null;
   } catch (err) {
+    // `err.message` la erorile Drizzle e doar wrapper-ul ("Failed query: ...") — cauza reală
+    // (ex. connection refused, too many clients) stă pe `.cause`, altfel nu se poate diagnostica
+    // recurența intermitentă din producție (apărută în zile diferite, fără pattern clar din log).
+    const cause = err instanceof Error && err.cause instanceof Error ? err.cause.message : undefined;
     console.error(
       "platform_settings: citire eșuată (drift de schemă / outage?) — cad pe default:",
       err instanceof Error ? err.message : String(err),
+      cause ? `cause: ${cause}` : "",
     );
+    Sentry.captureException(err, { tags: { area: "platform_settings" } });
     return null;
   }
 }
