@@ -4,6 +4,23 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (5) — Numerotare schițe stabilă (nu se mai renumerotează la fiecare schiță nouă)
+
+### fix — „schița N" per autor era recalculată după ordinea taburilor, nu după data creării
+Raportat de Liviu (`1.png`): dacă un autor are schița 1 azi și face alta mâine, platforma denumea
+schița de mâine „1" și cea de azi devenea „2" — ordinalul se calcula din poziția în array-ul `sketches`
+(cea mai nouă primă, pt afișarea taburilor), nu din ordinea reală de creare. Prima schiță creată trebuie
+să rămână „1" pentru totdeauna.
+- `app/(app)/details/[id]/detail-workspace.tsx` — eticheta tabului sortează `sameAuthor` ascendent după
+  `createdAt` înainte de a calcula ordinalul (nu mai folosește ordinea de afișare a taburilor).
+- `app/(app)/details/[id]/comments-section.tsx` — aceeași corecție pe `ordinalById` (etichetele de
+  mențiune @schiță din dezbatere, care trebuie identice cu eticheta tabului).
+- `app/(app)/details/[id]/page.tsx` — `createdAt` propagat prin `WorkspaceSketch`/`MentionSketch` (lipsea).
+
+### test — `e2e/sketch-numbering.spec.ts` (nou)
+Creează 2 schițe secvențial (același autor), verifică că prima rămâne „schița 1" și a doua „schița 2",
+indiferent de ordinea de afișare a taburilor (cea mai nouă primă).
+
 ## 2026-07-07 (4) — Sidebar Feed: categorii ierarhice (secțiuni + capitole + frunze), nu listă flată
 
 ### feat(ui) — sidebar-ul de filtrare din Feed arată acum toată ierarhia de categorii
