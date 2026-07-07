@@ -80,6 +80,8 @@ test("Adaugă detaliu: fără categorie selectată → eroare de validare, făr�
   await page.locator("#title").fill(`E2E fără categorie ${Date.now()}`);
   await page.getByRole("button", { name: "Publică detaliul" }).click();
 
-  await expect(page.getByRole("alert")).toBeVisible();
+  // NU page.getByRole("alert") — Next.js are mereu în DOM un route-announcer (role="alert") care ar
+  // face locatorul strict-mode ambiguu.
+  await expect(page.locator('p[role="alert"]')).toBeVisible();
   await expect(page).toHaveURL(/\/details\/new/);
 });

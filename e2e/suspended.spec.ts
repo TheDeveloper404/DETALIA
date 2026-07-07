@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { users } from "../db/schema";
+import { roles, users } from "../db/schema";
 import { getSeed } from "./seed";
 
 // SEC-04 / SEC-S1 (docs/SECURITATE.md): un cont SUSPENDAT cu sesiune JWT vie (status stale în token)
@@ -35,6 +35,15 @@ async function ensureSuspendedUser(): Promise<string> {
   } else {
     await db.update(users).set({ status: "SUSPENDED" }).where(eq(users.id, user.id));
   }
+
+  // Fără rol declarat, orice pagină protejată redirectează la /onboarding ÎNAINTE să apuce să
+  // verifice suspendarea — testul ar pica mereu pe asta, nu pe ce testează de fapt (bug real, prima
+  // rulare reală a testului l-a prins: redirect la /onboarding în loc de pagina detaliului).
+  const existingRole = (await db.select({ id: roles.id }).from(roles).where(eq(roles.userId, user.id)).limit(1))[0];
+  if (!existingRole) {
+    await db.insert(roles).values({ userId: user.id, roleMain: "PROIECTANT", subRole: "Arhitect" });
+  }
+
   return user.id;
 }
 
