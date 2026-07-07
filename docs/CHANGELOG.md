@@ -4,6 +4,36 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (10) — Fix date: categorii cu `parent_id` greșit DOAR pe producție + consistență header pagini „ale mele"
+
+### fix — săgețile expand/collapse din sidebar feed și din formularul de adăugare detaliu păreau moarte
+Raportat de Liviu (bug1.mp4/bug2.mp4): click pe săgeata unui capitol (Fundație/Acoperiș/Instalații/Fațadă)
+rotea chevron-ul (`aria-expanded` chiar comuta corect, confirmat din DevTools) dar lista de sub-categorii
+nu apărea niciodată — nu era bug de UI/React. Cauză confirmată direct din DB (SELECT, nu presupus): pe
+branch-ul de **producție**, 11 frunze (Beton, Micropiloți înșurubați, Șarpantă, Tip terasă, Electrice,
+Sanitare, Termice, HVAC, Termosistem clasic, Fațadă ventilată, Fațadă cortină) aveau `parent_id` legat
+direct de secțiune („Clasificare după zonă") în loc de capitolul lor — capitolele rămâneau orfane (0 copii).
+Pe `dev`/preview datele erau deja corecte; doar producția avea drift-ul. Fix: `UPDATE categories SET
+parent_id = ...` (re-parentare la capitolul corect, după slug), rulat manual doar pe branch-ul de producție
+din Neon. Nu a fost nevoie de niciun fix de cod.
+
+### fix — lățime inconsistentă + header fără iconiță pe paginile „ale mele"
+`/saved` („Detalii salvate") folosea `max-w-[860px]` fix în loc de `max-w-[var(--container-max)]` ca restul
+paginilor (`/canvases`, `/sketches/drafts`) → arăta mai îngustă. Aliniat la aceeași lățime. `/sketches/drafts`
+(„Ciornele mele") avea titlu fără iconiță și cu alt stil de font față de „Planșele mele"/„Detalii salvate” —
+adăugat `PencilLine` + același stil de `h1` (`font-heading text-[26px] font-extrabold`) pentru consistență vizuală.
+
+## 2026-07-07 (9) — Fix db-backup.yml (sintaxă apt greșită la prima încercare)
+
+### fix — workflow-ul de backup producție tot pica după merge, cauză diferită de cea originală
+Fix-ul din (vezi CHANGELOG mai jos, „instalare postgresql-client-18") ajunsese pe `main`, dar cu o greșeală
+de sintaxă: `deb signed-by=... URL...` fără paranteze pătrate (`[signed-by=...]`) → apt respinge intrarea
+ca „Malformed entry" (confirmat direct din log-ul GitHub Actions, nu presupus). Rescris pe formatul `deb822`
+(`.sources`), cel documentat ACUM oficial de postgresql.org (verificat cu WebFetch pe pagina oficială,
+nu din memorie) — mai robust decât formatul vechi pe o linie. Sintaxă YAML+bash verificată local
+(`python -c "yaml.safe_load(...)"` + `bash -n`), dar nu am putut rula `apt` real (Windows) — verificarea
+finală se face la următoarea rulare reală pe GitHub Actions, după merge.
+
 ## 2026-07-07 (8) — REZOLVAT: hydration mismatch (React #418) — `<li>` imbricat în `<li>`
 
 ### fix — cauza reală a bug-ului de hidratare de azi, confirmată cu dovadă directă din browser
