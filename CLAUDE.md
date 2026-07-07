@@ -243,6 +243,14 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   branch-ul țintă, nu presupun din handoff.
 - **Turbopack CSS HMR stale pe Windows** — `globals.css` nu se recompilează mereu la salvare; clase Tailwind
   noi nu se aplică deși codul e corect → re-salvez fișierul / restart `.next`.
+- **Comandă Playwright `-g` filtrată pe un test din `describe.serial`** — dacă testul țintă depinde de unul
+  anterior din același bloc (variabile module-level: `sketchId`, `canvasId` etc.) și acela nu rulează, testul
+  filtrat pică cu o eroare falsă (ex. `getByTestId('sketch-tab-null')`). Verific dependența serial înainte de
+  a da o comandă `-g` — dacă există, dau fișierul întreg (`npx playwright test e2e/<fisier>.spec.ts`).
+- **Asertările de test (accessible name, ordine logică) nu se presupun din citit codul componentei** — se
+  verifică efectiv (accessible name poate concatena text+counter, ex. „Șarpantă 1" nu „Șarpantă"; un ordinal
+  citit ÎNAINTE ca a doua entitate să existe poate să nu fie încă setat). `tsc`/`lint` prind erori de tip, NU
+  erori de logică de test — nu sunt suficiente pt „gata" pe cod de test.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul

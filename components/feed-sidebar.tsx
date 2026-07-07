@@ -89,12 +89,16 @@ export function FeedSidebar({
         <div className="px-3 pb-2 pt-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
           Categorii
         </div>
-        <CategoryFilterList
-          categories={categories}
-          activeId={activeId}
-          basePath={basePath}
-          total={total}
-        />
+        {/* Scroll intern — ierarhia completă (secțiuni + capitole + frunze) e mult mai lungă decât vechea
+            listă flată trunchiată la 6; scroll-ul propriu ține sidebar-ul compact fără să ascundă nimic. */}
+        <div className="max-h-[420px] overflow-y-auto">
+          <CategoryFilterList
+            categories={categories}
+            activeId={activeId}
+            basePath={basePath}
+            total={total}
+          />
+        </div>
       </nav>
     </aside>
   );
