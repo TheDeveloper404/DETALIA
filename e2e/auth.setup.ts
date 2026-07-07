@@ -3,7 +3,7 @@ import path from "node:path";
 
 import { encode } from "@auth/core/jwt";
 import { test as setup, expect } from "@playwright/test";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
 import { categories, detailCategories, details, roles, users } from "../db/schema";
@@ -38,8 +38,17 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
     "AUTH_SECRET lipsește din .env.e2e — necesar pt semnarea cookie-ului JWT (aceeași valoare ca pe preview/dev, din Vercel → Environment Variables)",
   ).toBeTruthy();
 
-  // 1) Categorie țintă (preview-ul are categorii din db:seed; fallback dacă lipsesc).
-  let category = (await db.select({ id: categories.id }).from(categories).limit(1))[0];
+  // 1) Categorie țintă — DOAR un leaf selectabil (parentId setat + isGroup=false), altfel
+  // `createDetail`/`countExistingCategoryIds` respinge cu INVALID_CATEGORY (o secțiune/grup nu e
+  // categorie validă de bifat). `LIMIT 1` fără filtru a ales odată un grup de nivel 1 (bug real,
+  // 2026-07-07) — taxonomia reală are 26 leaf-uri + 7 grupuri/secțiuni, ordinea SELECT nefiind garantată.
+  let category = (
+    await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
+      .limit(1)
+  )[0];
   if (!category) {
     category = (
       await db

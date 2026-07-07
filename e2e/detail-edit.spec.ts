@@ -78,7 +78,9 @@ test.describe.serial("Editare detaliu existent", () => {
 
     await page.getByRole("button", { name: "Salvează modificările" }).click();
 
-    await expect(page.getByRole("alert")).toBeVisible();
+    // NU page.getByRole("alert") — Next.js are mereu în DOM un route-announcer (role="alert") care
+    // ar face locatorul strict-mode ambiguu.
+    await expect(page.locator('p[role="alert"]')).toBeVisible();
     await expect(page).toHaveURL(`/details/${detailId}/edit`);
   });
 

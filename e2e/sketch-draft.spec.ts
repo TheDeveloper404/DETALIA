@@ -84,8 +84,13 @@ test.describe.serial("Schiță — draft: salvează, reia, șterge", () => {
 
     await expect(page.locator(`a[href="/sketches/${sketchId}/edit"]`)).toHaveCount(0);
 
-    const remaining = await db.select().from(sketches).where(eq(sketches.id, sketchId!));
-    expect(remaining).toHaveLength(0);
+    // UI-ul e OPTIMIST (dispare instant) — server action-ul (deleteDraftAction) poate încă rula în
+    // fundal când ajungem aici. Poll pe DB, nu o singură citire imediată (rasă reală, nu ipotetică —
+    // a picat exact așa la prima rulare reală).
+    await expect(async () => {
+      const remaining = await db.select().from(sketches).where(eq(sketches.id, sketchId!));
+      expect(remaining).toHaveLength(0);
+    }).toPass({ timeout: 10_000 });
     sketchId = null; // deja șters, afterAll nu mai trebuie să facă nimic
   });
 });
