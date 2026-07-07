@@ -41,13 +41,14 @@ test("sidebar feed: capitolul pornește colapsat, se deschide la click, frunza f
   await expect(groupButton).toBeVisible();
   await expect(groupButton).toHaveAttribute("aria-expanded", "false");
 
+  // NU exact:true — link-ul concatenează numele cu counter-ul de detalii ("Șarpantă 1"), nu e text exact.
   // Frunza NU e vizibilă cât timp capitolul e colapsat.
-  await expect(sidebar.getByRole("link", { name: childName, exact: true })).toHaveCount(0);
+  await expect(sidebar.getByRole("link", { name: childName })).toHaveCount(0);
 
   await groupButton.click();
   await expect(groupButton).toHaveAttribute("aria-expanded", "true");
 
-  const childLink = sidebar.getByRole("link", { name: childName, exact: true });
+  const childLink = sidebar.getByRole("link", { name: childName });
   await expect(childLink).toBeVisible();
   await childLink.click();
 

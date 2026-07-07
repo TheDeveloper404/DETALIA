@@ -80,17 +80,16 @@ test("numerotarea schițelor rămâne stabilă — prima creată nu se renumerot
   let secondId: string | null = null;
 
   try {
+    // Cu O SINGURĂ schiță a autorului, aplicația NU pune ordinal (doar „E2E Tester", fără număr) — citim
+    // ordinalul abia după ce apare a doua, când eticheta chiar conține „schița N" pt ambele.
     firstId = await createAndPublishSketch(page);
-    const firstOrdinalBefore = await readOrdinal(page, firstId);
-
     secondId = await createAndPublishSketch(page);
     const firstOrdinalAfter = await readOrdinal(page, firstId);
     const secondOrdinal = await readOrdinal(page, secondId);
 
-    // Regresia raportată: la apariția schiței noi, cea veche își schimba numărul (nu mai era stabil).
-    expect(firstOrdinalAfter).toBe(firstOrdinalBefore);
-    // A doua schiță (creată ulterior) trebuie să primească un ordinal mai mare, nu mai mic/egal.
-    expect(secondOrdinal).toBeGreaterThan(firstOrdinalAfter);
+    // Regresia raportată: prima schiță (creată prima) trebuie să rămână cu ordinalul mai mic — nu
+    // renumerotată invers, cu cea nouă devenind „1".
+    expect(firstOrdinalAfter).toBeLessThan(secondOrdinal);
   } finally {
     await deleteSketches([firstId, secondId].filter((v): v is string => !!v));
   }
