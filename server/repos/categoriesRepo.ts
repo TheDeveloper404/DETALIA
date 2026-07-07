@@ -1,6 +1,6 @@
 // Repo categorii — singurul loc cu acces Drizzle pentru tabelul `categories` (arbore self-FK).
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { categories, detailCategories, details } from "@/db/schema";
@@ -37,22 +37,28 @@ export async function listCategories() {
     .orderBy(asc(categories.position));
 }
 
-// Categoriile FRUNZĂ (bifabile, `isGroup = false`) cu numărul de detalii PUBLISHED — pentru sidebar/rail
-// în feed. Grupurile neselectabile (secțiunile de nivel 1 ȘI „capitolele" cu sub-categorii, ex.
-// „Instalații") NU sunt filtre reale, excluse aici (rămân doar în `listCategories()`, pentru arborele
-// din formularul de creare detaliu). LEFT JOIN prin `detail_categories` (many-to-many, „bifezi oricâte")
-// + GROUP BY (forma canonică) → categoriile fără detalii rămân cu 0. Ordinea vine din document.
+// TOATĂ ierarhia (secțiuni + capitole + frunze), cu numărul de detalii PUBLISHED pe fiecare — pentru
+// sidebar-ul de filtru din feed. Sidebar-ul are nevoie de `parentId`/`isGroup` ca să randeze aceeași
+// structură titlu/subtitlu (cu dropdown la capitole) ca formularul de creare detaliu — nu doar frunzele,
+// ca înainte. Grupurile (secțiuni + capitole) NU au `detail_categories` proprii → count rămâne 0, corect
+// (nu sunt filtre reale, doar antete; frunzele lor sunt filtrele). LEFT JOIN + GROUP BY (forma canonică)
+// → categoriile fără detalii rămân cu 0. Ordinea vine din document (`position`, vezi db/seed.ts).
 export async function listCategoriesWithCounts() {
   const detailCount = sql<number>`count(distinct ${details.id})::int`;
   return db
-    .select({ id: categories.id, name: categories.name, count: detailCount })
+    .select({
+      id: categories.id,
+      parentId: categories.parentId,
+      name: categories.name,
+      isGroup: categories.isGroup,
+      count: detailCount,
+    })
     .from(categories)
     .leftJoin(detailCategories, eq(detailCategories.categoryId, categories.id))
     .leftJoin(
       details,
       and(eq(details.id, detailCategories.detailId), eq(details.status, "PUBLISHED")),
     )
-    .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
-    .groupBy(categories.id, categories.name, categories.position)
+    .groupBy(categories.id, categories.parentId, categories.name, categories.isGroup, categories.position)
     .orderBy(asc(categories.position));
 }

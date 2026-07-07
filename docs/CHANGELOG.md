@@ -4,6 +4,47 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (3) — Sesiune lungă de reparat e2e (47/48 verde) + fix Sentry + timezone
+
+### fix(securitate) — cookie de sesiune al unui cont SUSPENDAT nu se ștergea garantat
+`lib/require-active-user.ts`: `signOut()` apelat dintr-un server action nested nu garanta ștergerea
+cookie-ului la un cont suspendat cu JWT stale — acum șters explicit prin `cookies()` înainte de `signOut()`.
+Găsit de `e2e/suspended.spec.ts` (cookie-ul supraviețuia mutației blocante).
+
+### fix(ui) — Enter la redenumire planșă nu închidea modul de editare
+`canvases-list.tsx`: `onKeyDown` pe Enter trimitea formularul dar nu apela `setRenaming(false)` (doar
+`onBlur`/Escape o făceau) — inputul rămânea deschis la nesfârșit după salvare.
+
+### fix(observabilitate) — Sentry nu prindea nimic din client, environment lipsă
+Client-side Sentry (`instrumentation-client.ts`) nu seta `environment` deloc — `VERCEL_ENV` nu ajunge în
+bundle-ul de browser fără mapping explicit, deci toate evenimentele de acolo cădeau sub environment implicit,
+invizibile la filtrarea „vercel-preview" din dashboard (asta explica „nu văd nimic în Sentry", nu o problemă
+de cont). Fix: `next.config.ts` mapează `NEXT_PUBLIC_VERCEL_ENV`; toate 3 config-urile Sentry
+(client/server/edge) setează `environment` explicit. Adăugat și un interceptor ÎNGUST de `console.error`
+în `instrumentation-client.ts` care trimite la Sentry STRICT tiparul de mesaj de hidratare al Next.js
+(regex, NU console-forwarding general — păstrează decizia „fără PII").
+
+### fix — formatare dată fără timezone explicit (mismatch server UTC vs client România)
+`lib/format.ts` (`formatDate`) + duplicate locale în `canvases-list.tsx`/`drafts-list.tsx`: `Intl.DateTimeFormat`/
+`toLocaleDateString` fără `timeZone` explicit → server (UTC) și client (ora României) pot arăta zile diferite
+pentru timestamp-uri aproape de miezul nopții UTC. Confirmat cu date reale din DB (un comentariu: „6 iul." vs
+„7 iul."). Fix: `timeZone: "Europe/Bucharest"` explicit peste tot.
+
+### test — reparat 47/48 din suita e2e (rulată cu `--workers=1`; 6 workeri paraleli pe același cont/detaliu
+de test dădeau coliziuni de stare, fals-pozitive)
+Cauze reale găsite (nu doar cârpeli): teste stale după refactor-urile UI din 2026-07-06 (text de badge/buton
+schimbat), locatori Playwright strict-mode (breadcrumb+heading cu același text), fixture cu URL fals de Blob
+respins corect de `isOwnBlobUrl` (SEC-02/A2 funcționează), cleanup de test care intra în coliziune cu alt
+spec rulat în paralel (race condition, nu poluare), și CORS pe upload real de imagine cauzat de header-ul
+`x-vercel-protection-bypass` (necesar ca Playwright să treacă de Deployment Protection) injectat din greșeală
+pe TOATE cererile inclusiv PUT-ul direct către Vercel Blob storage — fix: `e2e/strip-bypass-headers.ts`
+scoate headerul doar pe cererile către domeniile Blob.
+
+**Rămas neînchis, documentat, NEBLOCANT:** `authed.spec.ts` „Dezaprob" — React error #418 (hydration
+mismatch) chiar înainte de click pe „Retrage", butonul rămâne fără handler o vreme. 3 ipoteze respinse cu
+dovadă (suppressHydrationWarning, timezone, repro local cu nonce mismatch generic — niciuna nu a fost cauza
+reală). Impact: glitch UI tranzitoriu, nu securitate/date, nu blochează fluxul — nu se reia fără dovadă nouă.
+
 ## 2026-07-07 (2) — Teste e2e editare detaliu + fix regresie (non-autor pe /edit dădea 404)
 
 ### fix — non-autor pe /details/[id]/edit primea 404 în loc de redirect (regresie de azi)
