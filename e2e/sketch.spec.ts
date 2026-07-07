@@ -2,12 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
-import { getSeed } from "./seed";
 
 // E2E — ciclul complet de schiță: pornire → desen → publicare (intră direct în teanc) → apare ca tab nou
 // pe detaliu → autorul schiței o șterge. Serial: fiecare pas depinde de starea lăsată de precedentul.
@@ -25,26 +24,27 @@ function detailUrl(): string {
   return cachedDetailUrl;
 }
 
-// Șterge orice schiță a testerului pe detaliul seedat — dacă testul 2 (ștergere prin UI) nu apucă să
-// ruleze (eșec la asertul din test 1, sau rulare precedentă întreruptă), rămâne o schiță orfană care
-// strică asertul „un singur tab E2E Tester" la rularea următoare (strict-mode violation pe 2 butoane).
-async function deleteTesterSketches(): Promise<void> {
-  const { testerUserId, detailId } = getSeed();
-  const where = and(eq(sketches.authorId, testerUserId), eq(sketches.detailId, detailId));
-  const orphaned = await db.select({ thumbnailUrl: sketches.thumbnailUrl }).from(sketches).where(where);
-  await db.delete(sketches).where(where);
-  const thumbnailUrls = orphaned.map((s) => s.thumbnailUrl).filter((u): u is string => !!u);
-  if (thumbnailUrls.length > 0) await deleteBlobs(thumbnailUrls);
+// NU un blanket delete pe (tester, detaliu) — `sketch-draft.spec.ts` rulează în paralel (worker diferit)
+// și creează propria schiță pe ACELAȘI detaliu seedat; o ștergere largă i-ar lovi schița din mers
+// (race condition, nu poluare). Curățăm STRICT schița creată de acest fișier, după ID.
+let sketchId: string | null = null;
+
+async function deleteSketchById(): Promise<void> {
+  if (!sketchId) return;
+  const [row] = await db.select({ thumbnailUrl: sketches.thumbnailUrl }).from(sketches).where(eq(sketches.id, sketchId));
+  await db.delete(sketches).where(eq(sketches.id, sketchId));
+  if (row?.thumbnailUrl) await deleteBlobs([row.thumbnailUrl]);
+  sketchId = null;
 }
 
 test.describe.serial("Schiță — publish & delete", () => {
-  test.beforeAll(deleteTesterSketches);
-  test.afterAll(deleteTesterSketches);
+  test.afterAll(deleteSketchById);
 
   test("Schițează peste detaliu → editor + desen → Publică → intră în teanc", async ({ page }) => {
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
+    sketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
 
     // Desen: tool-ul „pen" e selectat implicit → un drag simplu pe canvas produce un stroke.
     const canvas = page.locator("canvas");
@@ -76,6 +76,8 @@ test.describe.serial("Schiță — publish & delete", () => {
     // vezi detail-workspace.tsx) — textul curent e „schiță peste detaliu", nu „în teanc · publicată".
     await expect(page.getByText("schiță peste detaliu")).toBeVisible();
 
+    // „Șterge schița mea" e într-un dropdown (role="menu"), deschis de „Acțiuni detaliu" — nu e vizibil direct.
+    await page.getByRole("button", { name: "Acțiuni detaliu" }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Șterge schița mea" }).click();
 

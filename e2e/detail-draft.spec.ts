@@ -95,7 +95,8 @@ test.describe.serial("Ciornă de detaliu — salvează fără categorie/imagine,
     await page.getByRole("button", { name: "Publică detaliul" }).click();
 
     await expect(page).toHaveURL(`/details/${detailId}`, { timeout: 15_000 });
-    await expect(page.getByText(title)).toBeVisible();
+    // NU page.getByText(title) — titlul apare de 2 ori (breadcrumb + heading) → strict-mode violation.
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
     const [row] = await db.select({ status: details.status }).from(details).where(eq(details.id, detailId!));
     expect(row?.status).toBe("PUBLISHED");

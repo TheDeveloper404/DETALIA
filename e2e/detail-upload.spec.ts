@@ -62,7 +62,8 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
     await page.getByRole("button", { name: "Publică detaliul" }).click();
 
     await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 15_000 });
-    await expect(page.getByText(title)).toBeVisible();
+    // NU page.getByText(title) — titlul apare de 2 ori (breadcrumb + heading) → strict-mode violation.
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
     detailId = page.url().split("/details/")[1] ?? null;
     expect(detailId).toBeTruthy();
