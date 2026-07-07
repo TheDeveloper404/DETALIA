@@ -36,7 +36,7 @@ export default defineConfig({
     // Fluxuri PUBLICE — anonim (fără storageState), nicio dependență de DB.
     {
       name: "public",
-      testMatch: [/public\.spec\.ts/, /verify-and-maintenance\.spec\.ts/],
+      testMatch: [/(^|[\\/])public\.spec\.ts$/, /verify-and-maintenance\.spec\.ts/],
       use: { ...devices["Desktop Chrome"] },
     },
     // Teaser public de schiță (/s/[id]) — anonim, fără storageState, dar are nevoie de seed.json

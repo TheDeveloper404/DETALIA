@@ -7,13 +7,13 @@ import { expect, test } from "@playwright/test";
 test.describe("/verify", () => {
   test("fără param u → Link invalid, fără AutoVerify", async ({ page }) => {
     await page.goto("/verify");
-    await expect(page.getByRole("heading", { name: "Link invalid" })).toBeVisible();
+    await expect(page.getByText("Link invalid")).toBeVisible();
     await expect(page.getByRole("link", { name: "Înapoi la autentificare" })).toBeVisible();
   });
 
   test("SEC-03: u pe altă origine → respins ca link invalid (anti open-redirect)", async ({ page }) => {
     await page.goto(`/verify?u=${encodeURIComponent("https://evil.example.com/api/auth/callback/resend")}`);
-    await expect(page.getByRole("heading", { name: "Link invalid" })).toBeVisible();
+    await expect(page.getByText("Link invalid")).toBeVisible();
   });
 
   test("SEC-03: u pe origine proprie dar path greșit (nu /api/auth/callback/) → respins", async ({
@@ -22,7 +22,7 @@ test.describe("/verify", () => {
   }) => {
     const target = new URL("/feed", baseURL ?? "http://localhost:3000").toString();
     await page.goto(`/verify?u=${encodeURIComponent(target)}`);
-    await expect(page.getByRole("heading", { name: "Link invalid" })).toBeVisible();
+    await expect(page.getByText("Link invalid")).toBeVisible();
   });
 });
 

@@ -8,9 +8,14 @@ import { getSeed } from "./seed";
 test.describe.serial("Salvare detaliu (bookmark)", () => {
   test("salvează din feed → apare pe /saved", async ({ page }) => {
     const { detailId, detailTitle } = getSeed();
-    await page.goto("/feed");
+    const term = detailTitle.split(" ")[0];
+    // ?q= (nu /feed simplu) — feed-ul e finit (~20, top interacțiuni); pe DB shared cu multe alte
+    // detalii create de restul suitei, detaliul seedat (puține interacțiuni) poate ieși din top 20.
+    await page.goto(`/feed?q=${encodeURIComponent(term)}`);
 
-    const card = page.locator(`a[href="/details/${detailId}"]`).first();
+    // Butonul de bookmark NU e în interiorul <a href> (e sibling, în div-ul de conținut) — scopez pe
+    // <article> (containerul DetailCard), nu pe ancoră.
+    const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
     await expect(card).toBeVisible();
     const saveButton = card.getByTitle(/Salvează detaliul|Salvat/);
     // Pornim de la nesalvat — dacă rularea anterioară a lăsat starea "salvat", resetăm.
@@ -22,14 +27,14 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
 
     await page.goto("/saved");
     await expect(page.getByRole("heading", { name: "Detalii salvate" })).toBeVisible();
-    await expect(page.getByText(detailTitle)).toBeVisible();
+    await expect(page.getByRole("heading", { name: detailTitle })).toBeVisible();
   });
 
   test("scoate din salvate → dispare din listă, apare empty state", async ({ page }) => {
     const { detailId } = getSeed();
     await page.goto("/saved");
 
-    const card = page.locator(`a[href="/details/${detailId}"]`).first();
+    const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
     await expect(card).toBeVisible();
     await card.getByTitle("Salvat — scoate din salvate").click();
 
