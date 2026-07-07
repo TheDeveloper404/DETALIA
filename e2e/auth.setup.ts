@@ -3,10 +3,11 @@ import path from "node:path";
 
 import { encode } from "@auth/core/jwt";
 import { test as setup, expect } from "@playwright/test";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { categories, detailCategories, details, roles, users } from "../db/schema";
+import { pickLeafCategories } from "./category-helpers";
 
 // Setup AUTHED — seedează direct în DB un user ACTIVE cu rol declarat, apoi emite un cookie de sesiune
 // JWT valid (strategie `session.strategy = "jwt"`, vezi lib/auth.ts) prin `encode()` din `@auth/core/jwt`
@@ -38,17 +39,17 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
     "AUTH_SECRET lipsește din .env.e2e — necesar pt semnarea cookie-ului JWT (aceeași valoare ca pe preview/dev, din Vercel → Environment Variables)",
   ).toBeTruthy();
 
-  // 1) Categorie țintă — DOAR un leaf selectabil (parentId setat + isGroup=false), altfel
-  // `createDetail`/`countExistingCategoryIds` respinge cu INVALID_CATEGORY (o secțiune/grup nu e
-  // categorie validă de bifat). `LIMIT 1` fără filtru a ales odată un grup de nivel 1 (bug real,
-  // 2026-07-07) — taxonomia reală are 26 leaf-uri + 7 grupuri/secțiuni, ordinea SELECT nefiind garantată.
-  let category = (
-    await db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
-      .limit(1)
-  )[0];
+  // 1) Categorie țintă — frunză DIRECT vizibilă (copil de secțiune, NU ascunsă sub un capitol
+  // colapsat, ex. „Șarpantă" sub Acoperiș) — altfel testele care deschid dropdown-ul de categorii
+  // și interacționează cu bifa detaliului seedat pică silențios (nu găsesc/nu pot debifa o frunză
+  // nerandată în DOM cât timp capitolul ei e colapsat). Bug real găsit 2026-07-07 în
+  // `detail-edit.spec.ts` „golirea tuturor categoriilor" — vezi CHANGELOG.
+  let category: { id: string } | undefined;
+  try {
+    [category] = await pickLeafCategories(1);
+  } catch {
+    category = undefined;
+  }
   if (!category) {
     category = (
       await db

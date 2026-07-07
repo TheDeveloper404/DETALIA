@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { categories, details } from "../db/schema";
+import { details } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { pickLeafCategories } from "./category-helpers";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // „Salvează ciornă" pe formularul de adăugare detaliu (2026-07-06) — ciclu complet: salvează cu DOAR
@@ -18,15 +19,6 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-async function pickSimpleLeafCategory(): Promise<{ id: string; name: string }> {
-  const [row] = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
-    .limit(1);
-  if (!row) throw new Error("Niciun leaf de categorie găsit — rulează `npm run db:seed` pe ramura de test.");
-  return row;
-}
 
 test.describe.serial("Ciornă de detaliu — salvează fără categorie/imagine, reia, publică", () => {
   const title = `E2E ciornă detaliu ${Date.now()}`;
@@ -70,7 +62,7 @@ test.describe.serial("Ciornă de detaliu — salvează fără categorie/imagine,
   });
 
   test("publică ciorna (categorie + imagine acum obligatorii) → detaliu public", async ({ page }) => {
-    const category = await pickSimpleLeafCategory();
+    const [category] = await pickLeafCategories(1);
     const tmpDir = mkdtempSync(path.join(tmpdir(), "detalia-e2e-draft-"));
     const imagePath = path.join(tmpDir, "tiny.png");
     writeFileSync(imagePath, Buffer.from(TINY_PNG_BASE64, "base64"));

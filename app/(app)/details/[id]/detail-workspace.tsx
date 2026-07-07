@@ -59,6 +59,9 @@ export type WorkspaceSketch = {
   author: Author;
   strokes: Stroke[];
   validation: ValidationView;
+  // Ordinalul „schița N" trebuie să fie STABIL în timp (prima creată = 1, mereu) — vezi comentariul de
+  // la calculul `label` mai jos. Nu confunda cu ordinea de afișare a taburilor (cea mai nouă primă).
+  createdAt: Date;
 };
 
 // Workspace unificat cu taburi (model „GitHub PR"): tab 0 = detaliul de bază, tab i = schiță peste mamă.
@@ -124,6 +127,7 @@ export function DetailWorkspace({
     id: s.id,
     authorName: s.author.name,
     authorImage: s.author.image,
+    createdAt: s.createdAt,
   }));
 
   const activeValidation = isBase ? detailValidation : activeSketch!.validation;
@@ -285,8 +289,14 @@ export function DetailWorkspace({
           {sketches.map((s, i) => {
             // Autor cu mai multe schițe → eticheta primește ordinalul („Nume — schița 2"), IDENTIC cu
             // eticheta mențiunilor din dezbatere (comments-section) — cititorul le poate corela.
+            // Ordinalul e după data creării (prima schiță = 1, FIX, nu se renumerotează niciodată) — NU
+            // după ordinea din `sketches` (cea mai nouă primă, doar pt afișarea taburilor). Altfel, la
+            // fiecare schiță nouă a aceluiași autor, toate etichetele mai vechi s-ar renumerota (bug
+            // raportat de Liviu 2026-07-07: schița de azi devenea „1", cea de ieri „2").
             const baseName = s.author.name ?? "Anonim";
-            const sameAuthor = sketches.filter((x) => (x.author.name ?? "") === (s.author.name ?? ""));
+            const sameAuthor = sketches
+              .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
+              .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
             const label =
               sameAuthor.length > 1
                 ? `${baseName} — schița ${sameAuthor.findIndex((x) => x.id === s.id) + 1}`
@@ -296,6 +306,7 @@ export function DetailWorkspace({
               <button
                 key={s.id}
                 type="button"
+                data-testid={`sketch-tab-${s.id}`}
                 onClick={() => setTabAndUrl(i + 1)}
                 title={label}
                 aria-label={label}

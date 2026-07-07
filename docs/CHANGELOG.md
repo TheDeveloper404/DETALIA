@@ -4,6 +4,127 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (7) — Fix teste stricate DE fix-ul de date de la (6) + concurență documentată
+
+### test — 3 spec-uri alegeau categorii-frunză ascunse sub un capitol, fără să-l deschidă întâi
+Consecință directă a fix-ului de date de mai sus: ÎNAINTE (date stricate, 2 niveluri), orice frunză era
+direct vizibilă. ACUM (3 niveluri corecte), unele frunze (Șarpantă, Tip terasă etc.) sunt sub un capitol
+(Acoperiș) care trebuie expandat întâi. `pickSimpleLeafCategory`/`pickTwoLeafCategories` (duplicate în 3
+fișiere) alegeau orice frunză la întâmplare. Fix: `e2e/category-helpers.ts` (nou) — `pickLeafCategories(n)`
+alege STRICT frunze copii direcți ai unei secțiuni (nu ascunse sub un capitol), folosit în
+`detail-upload.spec.ts`, `detail-draft.spec.ts`, `detail-edit.spec.ts`.
+
+### test — `feed.spec.ts` scopat strict la sidebar (nu toată pagina)
+Un query global (`page.getByRole(...)`) se putea potrivi și cu un tag de categorie dintr-un detaliu
+publicat concurent de alt spec, în paralel, pe același nume de categorie. Scopat la
+`nav[aria-label="Filtru categorii"]`.
+
+### test — `sketch-numbering.spec.ts` verifică ordine RELATIVĂ, nu numere absolute
+`sketch.spec.ts` rulează în paralel pe același cont+detaliu și poate crea o a treia schiță exact în
+fereastra de test, deplasând numerele absolute (2 devine 3). Testul verifică acum ce contează de fapt:
+prima schiță NU-și schimbă numărul după ce apare a doua, iar a doua primește un număr mai mare.
+
+### Cunoscut, neinvestigat mai departe — flakiness sub 6 workeri paraleli
+`sketch.spec.ts` („Șterge schița mea") și `suspended.spec.ts` trec curat izolat/`--workers=1`, dar ocazional
+pică sub 6 workeri paraleli (toate pe ACELAȘI cont+detaliu seedat, revalidări concurente). Pare limită
+structurală a fixture-ului comun, nu bug de aplicație — `--workers=1` rămâne semnalul de adevăr; 6 workeri
+= verificare rapidă, nu autoritativă.
+
+## 2026-07-07 (6) — Fix date: ierarhia de categorii (3 niveluri prăbușită la 2) + coliziune taburi schiță în teste
+
+### fix(date) — capitolele (Fundație/Acoperiș/Instalații/Fațadă) nu aveau copii pe preview/dev
+Descoperit de `e2e/feed.spec.ts` (nou, sesiunea trecută): TOATE cele 4 capitole aveau 0 sub-categorii —
+„Beton"/„Micropiloți" etc. erau copii direcți ai SECȚIUNII, nu ai capitolului. `db/seed.ts` are deja codul
+corect (`parentId: leafRow.id` la nivelul 3) — datele din DB erau dintr-o rulare VECHE a seed-ului, dinaintea
+acestui fix de cod, niciodată re-rulată. Fix: re-rulat `npm run db:seed` pe `preview/dev` (după ștergerea
+singurului `details` existent, care bloca `DELETE FROM categories` pe FK RESTRICT). **De verificat separat
+pe `production`** — query dat lui Liviu, posibil are aceeași problemă.
+
+### test — coliziune între `sketch.spec.ts` și `sketch-numbering.spec.ts` la rulare paralelă
+Ambele creează schițe pentru ACELAȘI tester pe ACELAȘI detaliu seedat, în workeri diferiți simultan.
+`getByRole("button", { name: "E2E Tester" })` (substring) se potrivea și cu tab-urile celuilalt spec
+(„— schița 1"/„— schița 2"), dând strict-mode violation. Fix: `data-testid={`sketch-tab-${id}`}` stabil pe
+fiecare tab (`detail-workspace.tsx`), ambele spec-uri țintesc acum STRICT propriul id, nu nume generic.
+
+## 2026-07-07 (5) — Numerotare schițe stabilă (nu se mai renumerotează la fiecare schiță nouă)
+
+### fix — „schița N" per autor era recalculată după ordinea taburilor, nu după data creării
+Raportat de Liviu (`1.png`): dacă un autor are schița 1 azi și face alta mâine, platforma denumea
+schița de mâine „1" și cea de azi devenea „2" — ordinalul se calcula din poziția în array-ul `sketches`
+(cea mai nouă primă, pt afișarea taburilor), nu din ordinea reală de creare. Prima schiță creată trebuie
+să rămână „1" pentru totdeauna.
+- `app/(app)/details/[id]/detail-workspace.tsx` — eticheta tabului sortează `sameAuthor` ascendent după
+  `createdAt` înainte de a calcula ordinalul (nu mai folosește ordinea de afișare a taburilor).
+- `app/(app)/details/[id]/comments-section.tsx` — aceeași corecție pe `ordinalById` (etichetele de
+  mențiune @schiță din dezbatere, care trebuie identice cu eticheta tabului).
+- `app/(app)/details/[id]/page.tsx` — `createdAt` propagat prin `WorkspaceSketch`/`MentionSketch` (lipsea).
+
+### test — `e2e/sketch-numbering.spec.ts` (nou)
+Creează 2 schițe secvențial (același autor), verifică că prima rămâne „schița 1" și a doua „schița 2",
+indiferent de ordinea de afișare a taburilor (cea mai nouă primă).
+
+## 2026-07-07 (4) — Sidebar Feed: categorii ierarhice (secțiuni + capitole + frunze), nu listă flată
+
+### feat(ui) — sidebar-ul de filtrare din Feed arată acum toată ierarhia de categorii
+Cerință Liviu (`1.png` + `lista_categorii.pdf`): categoriile trebuie puse în ordinea din document, cu
+titluri/subtitluri, și dropdown la titlurile cu subtitluri. Formularul „Adaugă Detaliu" avea deja exact
+această structură; sidebar-ul de Feed (`CategoryFilterList`) era o listă flată de frunze, trunchiată la
+6 cu „Vezi mai multe".
+- `server/repos/categoriesRepo.ts` — `listCategoriesWithCounts()` întoarce acum tot arborele
+  (secțiuni + capitole + frunze), nu doar frunzele; `parentId`/`isGroup` incluse în select.
+- `components/category-filter-list.tsx` — rescris: secțiuni ca antete, capitole (ex. „Instalații") ca
+  dropdown expandabil (colapsat implicit), frunze ca link-uri de filtru cu counter — pattern identic cu
+  `CategoryDropdown` din formular, adaptat la link-uri în loc de checkbox-uri.
+- `components/feed-sidebar.tsx` — scroll intern (`max-h-[420px] overflow-y-auto`) pe zona de categorii,
+  ca ierarhia completă (mult mai lungă decât vechea listă cap-6) să nu umfle tot sidebar-ul.
+- `feed/page.tsx` — nicio schimbare necesară (calculul `total`/`activeId` rămâne corect cu noile date).
+
+### test — `e2e/feed.spec.ts` (nou)
+Verifică pattern-ul de bază: un capitol pornește colapsat (`aria-expanded=false`), frunzele lui nu sunt
+în DOM cât timp e colapsat, click îl deschide, click pe o frunză filtrează (`?cat=<id>` în URL).
+
+
+## 2026-07-07 (3) — Sesiune lungă de reparat e2e (47/48 verde) + fix Sentry + timezone
+
+### fix(securitate) — cookie de sesiune al unui cont SUSPENDAT nu se ștergea garantat
+`lib/require-active-user.ts`: `signOut()` apelat dintr-un server action nested nu garanta ștergerea
+cookie-ului la un cont suspendat cu JWT stale — acum șters explicit prin `cookies()` înainte de `signOut()`.
+Găsit de `e2e/suspended.spec.ts` (cookie-ul supraviețuia mutației blocante).
+
+### fix(ui) — Enter la redenumire planșă nu închidea modul de editare
+`canvases-list.tsx`: `onKeyDown` pe Enter trimitea formularul dar nu apela `setRenaming(false)` (doar
+`onBlur`/Escape o făceau) — inputul rămânea deschis la nesfârșit după salvare.
+
+### fix(observabilitate) — Sentry nu prindea nimic din client, environment lipsă
+Client-side Sentry (`instrumentation-client.ts`) nu seta `environment` deloc — `VERCEL_ENV` nu ajunge în
+bundle-ul de browser fără mapping explicit, deci toate evenimentele de acolo cădeau sub environment implicit,
+invizibile la filtrarea „vercel-preview" din dashboard (asta explica „nu văd nimic în Sentry", nu o problemă
+de cont). Fix: `next.config.ts` mapează `NEXT_PUBLIC_VERCEL_ENV`; toate 3 config-urile Sentry
+(client/server/edge) setează `environment` explicit. Adăugat și un interceptor ÎNGUST de `console.error`
+în `instrumentation-client.ts` care trimite la Sentry STRICT tiparul de mesaj de hidratare al Next.js
+(regex, NU console-forwarding general — păstrează decizia „fără PII").
+
+### fix — formatare dată fără timezone explicit (mismatch server UTC vs client România)
+`lib/format.ts` (`formatDate`) + duplicate locale în `canvases-list.tsx`/`drafts-list.tsx`: `Intl.DateTimeFormat`/
+`toLocaleDateString` fără `timeZone` explicit → server (UTC) și client (ora României) pot arăta zile diferite
+pentru timestamp-uri aproape de miezul nopții UTC. Confirmat cu date reale din DB (un comentariu: „6 iul." vs
+„7 iul."). Fix: `timeZone: "Europe/Bucharest"` explicit peste tot.
+
+### test — reparat 47/48 din suita e2e (rulată cu `--workers=1`; 6 workeri paraleli pe același cont/detaliu
+de test dădeau coliziuni de stare, fals-pozitive)
+Cauze reale găsite (nu doar cârpeli): teste stale după refactor-urile UI din 2026-07-06 (text de badge/buton
+schimbat), locatori Playwright strict-mode (breadcrumb+heading cu același text), fixture cu URL fals de Blob
+respins corect de `isOwnBlobUrl` (SEC-02/A2 funcționează), cleanup de test care intra în coliziune cu alt
+spec rulat în paralel (race condition, nu poluare), și CORS pe upload real de imagine cauzat de header-ul
+`x-vercel-protection-bypass` (necesar ca Playwright să treacă de Deployment Protection) injectat din greșeală
+pe TOATE cererile inclusiv PUT-ul direct către Vercel Blob storage — fix: `e2e/strip-bypass-headers.ts`
+scoate headerul doar pe cererile către domeniile Blob.
+
+**Rămas neînchis, documentat, NEBLOCANT:** `authed.spec.ts` „Dezaprob" — React error #418 (hydration
+mismatch) chiar înainte de click pe „Retrage", butonul rămâne fără handler o vreme. 3 ipoteze respinse cu
+dovadă (suppressHydrationWarning, timezone, repro local cu nonce mismatch generic — niciuna nu a fost cauza
+reală). Impact: glitch UI tranzitoriu, nu securitate/date, nu blochează fluxul — nu se reia fără dovadă nouă.
+
 ## 2026-07-07 (2) — Teste e2e editare detaliu + fix regresie (non-autor pe /edit dădea 404)
 
 ### fix — non-autor pe /details/[id]/edit primea 404 în loc de redirect (regresie de azi)

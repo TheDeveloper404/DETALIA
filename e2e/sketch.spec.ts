@@ -64,13 +64,16 @@ test.describe.serial("Schiță — publish & delete", () => {
     await publishBtn.click();
 
     // Publicarea redirecționează la detaliu; noul tab (avatar autor sesiune) apare în strip.
+    // NU getByRole cu name „E2E Tester" (substring — se potrivește și cu tab-urile altor schițe ale
+    // aceluiași autor create de alte spec-uri în paralel, ex. sketch-numbering.spec.ts) — țintim STRICT
+    // tab-ul acestei schițe, după ID (data-testid stabil, vezi detail-workspace.tsx).
     await expect(page).toHaveURL(new RegExp(`${detailUrl()}$`));
-    await expect(page.getByRole("button", { name: "E2E Tester" })).toBeVisible();
+    await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toBeVisible();
   });
 
   test("Tab-ul schiței → badge de teanc + ștergere de către autor", async ({ page }) => {
     await page.goto(detailUrl());
-    await page.getByRole("button", { name: "E2E Tester" }).click();
+    await page.getByTestId(`sketch-tab-${sketchId}`).click();
 
     // Badge-ul a fost redenumit în refactorul din 2026-07-06 (panoul separat din dreapta a fost scos,
     // vezi detail-workspace.tsx) — textul curent e „schiță peste detaliu", nu „în teanc · publicată".
@@ -82,6 +85,6 @@ test.describe.serial("Schiță — publish & delete", () => {
     await page.getByRole("button", { name: "Șterge schița mea" }).click();
 
     // După ștergere: tab-ul dispare din strip, revenim efectiv pe „Detaliul de bază".
-    await expect(page.getByRole("button", { name: "E2E Tester" })).toHaveCount(0);
+    await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toHaveCount(0);
   });
 });
