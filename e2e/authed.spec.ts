@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
+import { and, eq } from "drizzle-orm";
+
+import { db } from "../db";
+import { validations } from "../db/schema";
+import { getSeed } from "./seed";
 
 // E2E — fluxuri AUTHED (pornesc cu sesiunea seedată de `auth.setup.ts`, via storageState). Acoperă inima
 // produsului: feed authed, validarea pe roluri (Aprob 1 click + Dezaprob cu justificare obligatorie), comentariu.
@@ -37,6 +42,15 @@ test.describe("Acces authed", () => {
 // Serial: aprobă întâi, apoi comută pe dezaprobare. „Aprob" e upsert idempotent, „Dezaprob+justificare" e
 // switch determinist → ordinea garantează stări previzibile pe aceeași țintă.
 test.describe.serial("Validare pe rol", () => {
+  // Suita lasă poziția pe DISAPPROVE la final (testul de mai jos comută pe dezaprobare) — fără curățare,
+  // rularea următoare găsește „retrage" în loc de „Aprob" (poziție veche încă activă) și pică la timeout.
+  test.beforeAll(async () => {
+    const { testerUserId, detailId } = getSeed();
+    await db
+      .delete(validations)
+      .where(and(eq(validations.userId, testerUserId), eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId)));
+  });
+
   test("Aprob = 1 click → poziția devine activă", async ({ page }) => {
     await page.goto(detailUrl());
     // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.

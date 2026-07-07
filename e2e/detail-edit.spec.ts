@@ -69,7 +69,9 @@ test.describe.serial("Editare detaliu existent", () => {
     await page.getByRole("button", { name: "Salvează modificările" }).click();
 
     await expect(page).toHaveURL(`/details/${detailId}`, { timeout: 15_000 });
-    await expect(page.getByText(newTitle)).toBeVisible();
+    // NU page.getByText(newTitle) — titlul apare de 2 ori (breadcrumb-ul din navigation + heading-ul
+    // paginii) → strict-mode violation. Heading-ul e ținta reală a testului.
+    await expect(page.getByRole("heading", { name: newTitle })).toBeVisible();
   });
 
   test("golirea tuturor categoriilor → eroare de validare, rămâne pe formular", async ({ page }) => {
