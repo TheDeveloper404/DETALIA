@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (11) — DB backup: fix pg_dump v18 + Sentry pe `platform_settings` + tweak sidebar categorii
+
+### fix — `db-backup.yml` picase din nou, cauză diferită de `deb822`
+Instalarea `postgresql-client-18` a mers de data asta, dar `pg_dump` apelat era tot v16 (implicit în PATH pe
+Ubuntu runner) — mismatch cu serverul (Postgres 18.4), `pg_dump: aborting because of server version mismatch`.
+Fix: apelat binarul explicit (`/usr/lib/postgresql/18/bin/pg_dump`). Confirmat cu `workflow_dispatch` manual.
+
+### fix — `platform_settings` citire eșuată intermitent, fără vizibilitate în Sentry
+Raportat de Liviu: eroare recurentă (mai multe zile), dar „nu văd nimic în Sentry". Cauză: catch-ul din
+`settingsRepo.ts` doar loga `err.message` (wrapper Drizzle generic) cu `console.error`, fără
+`Sentry.captureException` — ajungea în Vercel Logs, nu în Sentry Issues. Verificat SQL pe producție: coloanele
+DB sunt corecte, NU e drift de schemă (ipoteza din comentariul vechi era greșită). Fix: log și `err.cause`
+(eroarea Postgres reală) + `Sentry.captureException` (tag `platform_settings`). Cauza reală rămâne de văzut
+la următoarea apariție, acum cu vizibilitate în Sentry.
+
+### tweak — UI sidebar categorii feed (cerut explicit de Liviu)
+`category-filter-list.tsx`: rândul activ nu mai are fundal bej — doar bară verticală `border-primary` + text
+bold. Cifra „0" de lângă frunze ascunsă complet când `count === 0` (afișată doar dacă sunt detalii reale).
+
 ## 2026-07-07 (10) — Fix date: categorii cu `parent_id` greșit DOAR pe producție + consistență header pagini „ale mele"
 
 ### fix — săgețile expand/collapse din sidebar feed și din formularul de adăugare detaliu păreau moarte
