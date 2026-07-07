@@ -8,6 +8,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import { categories, details } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // Flux „upload de detaliu" prin formularul REAL (/details/new) — netestat până acum (integration.spec.ts
 // acoperă doar createDetail() la nivel de service, ocolind formularul/upload-ul de imagine/categoria din UI).
@@ -43,6 +44,7 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
   let imageUrl: string | null = null;
 
   try {
+    await stripBypassHeadersForBlobUploads(page);
     await page.goto("/details/new");
     await expect(page).toHaveURL(/\/details\/new/);
 
