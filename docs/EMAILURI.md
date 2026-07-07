@@ -3,6 +3,11 @@
 > Textele emailurilor efectiv trimise (magic link + notificări schiță), sincronizate cu implementarea din
 > `lib/email.ts` (template-uri) + `server/services/notificationService.ts` (trimitere). Parte de **brand**
 > (awareness/recall), nu doar funcțional. Trimitere via **Resend**, de pe domeniul deținut (`send.detalia.ro`).
+>
+> **Emailurile de notificare (§2, §3) sunt OPRITE** (flag `NOTIFICATION_EMAILS_ENABLED`, default off) — cota
+> Resend free rămâne rezervată magic link-ului (§1), care rămâne activ necondiționat. Notificarea in-app e
+> singura cale curentă pentru schiță propusă/ștearsă. Template-urile există în cod și rămân documentate mai
+> jos pentru repornire rapidă (`NOTIFICATION_EMAILS_ENABLED=true`), fără să fie trimise efectiv acum.
 
 ---
 
@@ -29,7 +34,7 @@
 
 ---
 
-## 2. Notificare: schiță propusă (către autorul detaliului-mamă) — `sketchProposedEmailHtml` / `Text`
+## 2. Notificare: schiță propusă (către autorul detaliului-mamă) — `sketchProposedEmailHtml` / `Text` — OPRITĂ
 
 > Trimisă la **publicare** (`sketchService.publish`) — schița intră **direct** în teanc, fără flux de
 > acceptare/respingere (eliminat 2026-06-30, vezi CHANGELOG). Emailul e informativ, nu o cerere de decizie.
@@ -41,7 +46,7 @@
 
 ---
 
-## 3. Notificare: schiță ștearsă (către autorul schiței) — `sketchDeletedEmailHtml` / `Text`
+## 3. Notificare: schiță ștearsă (către autorul schiței) — `sketchDeletedEmailHtml` / `Text` — OPRITĂ
 
 > Trimisă când autorul detaliului-mamă șterge o schiță (moderare post-publicare, `deleteSketch`).
 
@@ -57,7 +62,9 @@
 - Template-urile (HTML + text) trăiesc în **`lib/email.ts`** — un singur fișier, shell brand comun
   `emailLayout()` (wordmark, card, footer), fără librărie externă (React Email etc.).
 - Trimiterea trece prin `server/services/notificationService.ts` → `notify()`, care scrie **întotdeauna**
-  notificarea in-app și trimite emailul **doar** dacă userul are contact + credențialele Resend sunt setate.
+  notificarea in-app; emailul de notificare (§2, §3) e trimis **doar** dacă `NOTIFICATION_EMAILS_ENABLED=true`
+  (default: false — oprit din 2026-07-03) ȘI userul are contact ȘI credențialele Resend sunt setate. Magic
+  link-ul (§1) e neafectat de acest flag.
 - Escaping HTML (titlu/nume de user, anti-XSS) se face în `lib/email.ts`, în interiorul fiecărui template —
   apelantul (`notificationService`) pasează valori brute.
 - Tonul: profesional, scurt, fără marketing agresiv — respectul pentru timpul unui specialist.

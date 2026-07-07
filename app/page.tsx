@@ -501,7 +501,13 @@ export default function Home() {
             </div>
             <span style={{ fontSize: 16, color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
+            <Link href="/termeni" style={{ fontSize: 13.5, color: "#8c8475", textDecoration: "none" }}>
+              Termeni și condiții
+            </Link>
+            <Link href="/confidentialitate" style={{ fontSize: 13.5, color: "#8c8475", textDecoration: "none" }}>
+              Confidențialitate
+            </Link>
             <span style={{ fontFamily: MONO, fontSize: 13.5, color: "#6f685e" }}>© {new Date().getFullYear()} DETALIA — Toate drepturile rezervate.</span>
           </div>
         </div>
