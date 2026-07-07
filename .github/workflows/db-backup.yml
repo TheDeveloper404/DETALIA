@@ -31,7 +31,9 @@ jobs:
       - name: Dump production
         env:
           DATABASE_URL: ${{ secrets.PROD_DATABASE_URL_BACKUP }}
-        run: pg_dump "$DATABASE_URL" --format=custom --file=production-backup.dump
+        # Ubuntu are implicit pg_dump v16 în PATH; server-ul e Postgres 18 — folosim binarul v18 explicit
+        # (postgresql-client-18 nu se pune primul în PATH la instalare).
+        run: /usr/lib/postgresql/18/bin/pg_dump "$DATABASE_URL" --format=custom --file=production-backup.dump
 
       - name: Upload backup artifact
         uses: actions/upload-artifact@v4
