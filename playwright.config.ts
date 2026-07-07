@@ -56,6 +56,7 @@ export default defineConfig({
         /canvas\.spec\.ts/,
         /detail-draft\.spec\.ts/,
         /detail-edit\.spec\.ts/,
+        /feed\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {
