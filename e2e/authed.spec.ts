@@ -56,9 +56,11 @@ test.describe.serial("Validare pe rol", () => {
     // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.
     const aprob = page.getByRole("button", { name: "Aprob", exact: true });
     await aprob.click();
-    // După click butoanele colapsează într-o pastilă icon-only (vezi validation-panel.tsx, 2026-07-06) —
-    // „Ai aprobat" nu mai e text vizibil, doar `title` (tooltip) pe buton → accessible name, nu getByText.
-    await expect(page.getByRole("button", { name: /Ai aprobat/ })).toBeVisible();
+    // După click butoanele colapsează într-o pastilă icon-only (vezi validation-panel.tsx, 2026-07-06):
+    // „Ai aprobat" nu mai e text vizibil (doar `title`), iar span-ul „Retrage" e tot în DOM (doar comprimat
+    // vizual via CSS) → RĂMÂNE accessible name-ul butonului (title are prioritate mai mică). Semnalul
+    // real de „aprobat" e rândul din lista de poziții, nu butonul (identic pt approve/disapprove).
+    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible();
     await expect(page.getByText(/aprobă/)).toBeVisible();
   });
 
