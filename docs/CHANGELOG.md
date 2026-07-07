@@ -4,6 +4,22 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (8) — REZOLVAT: hydration mismatch (React #418) — `<li>` imbricat în `<li>`
+
+### fix — cauza reală a bug-ului de hidratare de azi, confirmată cu dovadă directă din browser
+Toate încercările de azi (`suppressHydrationWarning`, timezone) au fost ipoteze greșite. Cauza reală,
+găsită cu `npm run dev` local + Playwright (browser real, consolă necodificată): `comments-section.tsx`
+randa `<li>` în jurul fiecărui `<CommentItem>`, dar `CommentItem` randa ȘI EL propriul `<li>` — HTML invalid
+(`<li>` nu poate conține alt `<li>` direct), browserul corectează structura DOM, React se aștepta la alta →
+„Hydration failed", butoanele rămân fără handler o vreme (exact simptomul de la „Dezaprob"/„Șterge schița mea").
+Fix: `CommentItem` randează acum `<div>` — părintele (`comments-section.tsx`) rămâne singurul care pune
+`<li>`-urile corecte în `<ul>` (atât pentru comentarii-rădăcină, cât și pentru replici).
+
+**Verificat înainte/după, în browser real** (nu doar cod): 7 erori de consolă → 1 (doar mismatch-ul de
+`nonce`, generic și inofensiv, prezent pe orice pagină Next.js). Ciclu Retrage→Aprob→Retrage testat repetat,
+instant, fără blocaje. `authed.spec.ts` „Dezaprob" și `sketch.spec.ts` „Șterge schița mea" ar trebui să treacă
+stabil de-acum (de reconfirmat cu `npm run e2e`).
+
 ## 2026-07-07 (7) — Fix teste stricate DE fix-ul de date de la (6) + concurență documentată
 
 ### test — 3 spec-uri alegeau categorii-frunză ascunse sub un capitol, fără să-l deschidă întâi
