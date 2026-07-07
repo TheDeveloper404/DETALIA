@@ -18,7 +18,14 @@ import {
 type CanvasItem = { id: string; name: string; thumbnailUrl: string | null; updatedAt: string };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("ro-RO", { day: "numeric", month: "short", year: "numeric" });
+  // timeZone fix explicit (nu implicit) — altfel diferă server (UTC) vs client (ora locală) → hydration
+  // mismatch pt timestamp-uri aproape de miezul nopții UTC (vezi lib/format.ts pt detaliul complet).
+  return new Date(iso).toLocaleDateString("ro-RO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/Bucharest",
+  });
 }
 
 export function CanvasesList({ canvases }: { canvases: CanvasItem[] }) {
