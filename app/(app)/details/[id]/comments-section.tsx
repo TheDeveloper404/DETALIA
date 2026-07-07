@@ -32,7 +32,12 @@ import {
 const initialState: AddCommentState = { error: null, ok: false };
 
 // Schițele detaliului, pt dropdown-ul @mention și pt randarea mențiunilor clicabile.
-export type MentionSketch = { id: string; authorName: string | null; authorImage: string | null };
+export type MentionSketch = {
+  id: string;
+  authorName: string | null;
+  authorImage: string | null;
+  createdAt: Date;
+};
 
 export function CommentsSection({
   targetType,
@@ -234,10 +239,14 @@ function MentionComposer({
     }
     return counts;
   }, [sketches]);
+  // Ordinal STABIL după data creării (prima schiță a autorului = 1, fix) — NU după `sketches` (ordinea
+  // taburilor, cea mai nouă primă). Altfel, la fiecare schiță nouă, etichetele mai vechi s-ar renumerota
+  // (bug raportat de Liviu 2026-07-07: schița de azi devenea „1", cea de ieri „2" — vezi detail-workspace.tsx).
   const ordinalById = useMemo(() => {
+    const byAuthorAsc = [...sketches].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const seen = new Map<string, number>();
     const map = new Map<string, number>();
-    for (const s of sketches) {
+    for (const s of byAuthorAsc) {
       const key = s.authorName ?? "";
       const n = (seen.get(key) ?? 0) + 1;
       seen.set(key, n);
