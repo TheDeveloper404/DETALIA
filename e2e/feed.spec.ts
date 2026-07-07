@@ -31,19 +31,23 @@ test("sidebar feed: capitolul pornește colapsat, se deschide la click, frunza f
   const { groupName, childId, childName } = await pickGroupWithChild();
 
   await page.goto("/feed");
-  await expect(page.getByRole("navigation", { name: "Filtru categorii" })).toBeVisible();
+  // Scopat STRICT la sidebar-ul de categorii — pe toată pagina, alte teste rulate în paralel pot
+  // publica concurent detalii cu aceeași categorie (card + tag în feed-ul principal), dând fals-pozitiv
+  // pe un query global (`page.getByRole(...)` fără scop).
+  const sidebar = page.getByRole("navigation", { name: "Filtru categorii" });
+  await expect(sidebar).toBeVisible();
 
-  const groupButton = page.getByRole("button", { name: groupName, exact: true });
+  const groupButton = sidebar.getByRole("button", { name: groupName, exact: true });
   await expect(groupButton).toBeVisible();
   await expect(groupButton).toHaveAttribute("aria-expanded", "false");
 
   // Frunza NU e vizibilă cât timp capitolul e colapsat.
-  await expect(page.getByRole("link", { name: new RegExp(childName) })).toHaveCount(0);
+  await expect(sidebar.getByRole("link", { name: childName, exact: true })).toHaveCount(0);
 
   await groupButton.click();
   await expect(groupButton).toHaveAttribute("aria-expanded", "true");
 
-  const childLink = page.getByRole("link", { name: new RegExp(childName) });
+  const childLink = sidebar.getByRole("link", { name: childName, exact: true });
   await expect(childLink).toBeVisible();
   await childLink.click();
 

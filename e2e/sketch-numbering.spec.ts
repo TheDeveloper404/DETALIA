@@ -64,21 +64,33 @@ async function deleteSketches(ids: string[]): Promise<void> {
   if (urls.length > 0) await deleteBlobs(urls);
 }
 
-test("numerotarea schițelor rămâne stabilă — prima creată e mereu schița 1", async ({ page }) => {
+// Extrage ordinalul din eticheta tab-ului ("E2E Tester — schița 3" → 3). NU comparăm cu numere absolute
+// fixe ("2"/"1") — alte spec-uri rulate în paralel pe ACELAȘI cont+detaliu (ex. sketch.spec.ts) pot crea
+// propriile schițe chiar în fereastra asta, deplasând numerele absolute. Ce testăm de fapt (regresia
+// raportată) e RELATIV: prima schiță NU-și schimbă numărul după ce apare a doua, iar a doua e mai mare.
+async function readOrdinal(page: Page, sketchId: string): Promise<number> {
+  const name = (await page.getByTestId(`sketch-tab-${sketchId}`).getAttribute("aria-label")) ?? "";
+  const match = name.match(/schița (\d+)/);
+  if (!match) throw new Error(`Nu am putut extrage ordinalul din eticheta „${name}".`);
+  return Number(match[1]);
+}
+
+test("numerotarea schițelor rămâne stabilă — prima creată nu se renumerotează la a doua", async ({ page }) => {
   let firstId: string | null = null;
   let secondId: string | null = null;
 
   try {
     firstId = await createAndPublishSketch(page);
-    // Al doilea tab e cea mai nouă schiță → primul din strip (taburile arată cea mai nouă primă),
-    // dar ordinalul ei trebuie să fie 2, nu 1 (fix-ul de azi).
-    secondId = await createAndPublishSketch(page);
+    const firstOrdinalBefore = await readOrdinal(page, firstId);
 
-    // NU un query generic pe rol/nume (regex „schița" se poate potrivi și cu tab-uri ale altor spec-uri
-    // rulate în paralel pe același cont+detaliu, ex. sketch.spec.ts) — țintim STRICT cele 2 schițe proprii,
-    // după ID (data-testid stabil, vezi detail-workspace.tsx).
-    await expect(page.getByTestId(`sketch-tab-${secondId}`)).toHaveAccessibleName("E2E Tester — schița 2");
-    await expect(page.getByTestId(`sketch-tab-${firstId}`)).toHaveAccessibleName("E2E Tester — schița 1");
+    secondId = await createAndPublishSketch(page);
+    const firstOrdinalAfter = await readOrdinal(page, firstId);
+    const secondOrdinal = await readOrdinal(page, secondId);
+
+    // Regresia raportată: la apariția schiței noi, cea veche își schimba numărul (nu mai era stabil).
+    expect(firstOrdinalAfter).toBe(firstOrdinalBefore);
+    // A doua schiță (creată ulterior) trebuie să primească un ordinal mai mare, nu mai mic/egal.
+    expect(secondOrdinal).toBeGreaterThan(firstOrdinalAfter);
   } finally {
     await deleteSketches([firstId, secondId].filter((v): v is string => !!v));
   }
