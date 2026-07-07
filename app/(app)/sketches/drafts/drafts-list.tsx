@@ -70,7 +70,8 @@ export function DraftsList({ drafts }: { drafts: UnifiedDraft[] }) {
               </span>
               <span className="mt-0.5 block font-mono text-[11.5px] text-muted-foreground">
                 {d.kind === "sketch" ? "ciornă de schiță" : "ciornă de detaliu"} · începută{" "}
-                {d.createdAt.toLocaleDateString("ro-RO")}
+                {/* timeZone fix explicit — vezi lib/format.ts pt detaliul mismatch-ului server/client. */}
+                {d.createdAt.toLocaleDateString("ro-RO", { timeZone: "Europe/Bucharest" })}
               </span>
             </span>
             <span className="hidden shrink-0 font-mono text-[12px] font-medium text-primary sm:block">

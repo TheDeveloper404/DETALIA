@@ -517,7 +517,12 @@ function CommentItem({
               fostă dezaprobare · retrasă
             </span>
           )}
-          <span className="font-mono text-[11px] text-[#a59a88]">{formatRelative(c.createdAt)}</span>
+          {/* suppressHydrationWarning: formatRelative() e f(Date.now()) — server randează la un moment,
+              clientul hidratează la altul → text diferit garantat, e un mismatch așteptat, nu un bug real
+              (vezi React docs, „Suppressing unavoidable hydration mismatch errors"). */}
+          <span className="font-mono text-[11px] text-[#a59a88]" suppressHydrationWarning>
+            {formatRelative(c.createdAt)}
+          </span>
 
           {/* Acțiuni proprii: editare oricând; ștergere doar pe comentariu liber (nu justificare de dezaprobare). */}
           {isOwner && !editing && (
