@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (10) — Fix date: categorii cu `parent_id` greșit DOAR pe producție + consistență header pagini „ale mele"
+
+### fix — săgețile expand/collapse din sidebar feed și din formularul de adăugare detaliu păreau moarte
+Raportat de Liviu (bug1.mp4/bug2.mp4): click pe săgeata unui capitol (Fundație/Acoperiș/Instalații/Fațadă)
+rotea chevron-ul (`aria-expanded` chiar comuta corect, confirmat din DevTools) dar lista de sub-categorii
+nu apărea niciodată — nu era bug de UI/React. Cauză confirmată direct din DB (SELECT, nu presupus): pe
+branch-ul de **producție**, 11 frunze (Beton, Micropiloți înșurubați, Șarpantă, Tip terasă, Electrice,
+Sanitare, Termice, HVAC, Termosistem clasic, Fațadă ventilată, Fațadă cortină) aveau `parent_id` legat
+direct de secțiune („Clasificare după zonă") în loc de capitolul lor — capitolele rămâneau orfane (0 copii).
+Pe `dev`/preview datele erau deja corecte; doar producția avea drift-ul. Fix: `UPDATE categories SET
+parent_id = ...` (re-parentare la capitolul corect, după slug), rulat manual doar pe branch-ul de producție
+din Neon. Nu a fost nevoie de niciun fix de cod.
+
+### fix — lățime inconsistentă + header fără iconiță pe paginile „ale mele"
+`/saved` („Detalii salvate") folosea `max-w-[860px]` fix în loc de `max-w-[var(--container-max)]` ca restul
+paginilor (`/canvases`, `/sketches/drafts`) → arăta mai îngustă. Aliniat la aceeași lățime. `/sketches/drafts`
+(„Ciornele mele") avea titlu fără iconiță și cu alt stil de font față de „Planșele mele"/„Detalii salvate” —
+adăugat `PencilLine` + același stil de `h1` (`font-heading text-[26px] font-extrabold`) pentru consistență vizuală.
+
 ## 2026-07-07 (9) — Fix db-backup.yml (sintaxă apt greșită la prima încercare)
 
 ### fix — workflow-ul de backup producție tot pica după merge, cauză diferită de cea originală
