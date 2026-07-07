@@ -72,7 +72,9 @@ test.describe.serial("Schiță — publish & delete", () => {
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "E2E Tester" }).click();
 
-    await expect(page.getByText("în teanc · publicată")).toBeVisible();
+    // Badge-ul a fost redenumit în refactorul din 2026-07-06 (panoul separat din dreapta a fost scos,
+    // vezi detail-workspace.tsx) — textul curent e „schiță peste detaliu", nu „în teanc · publicată".
+    await expect(page.getByText("schiță peste detaliu")).toBeVisible();
 
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Șterge schița mea" }).click();
