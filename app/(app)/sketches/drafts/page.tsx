@@ -1,3 +1,4 @@
+import { PencilLine } from "lucide-react";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -37,7 +38,10 @@ export default async function DraftsPage() {
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-7">
       <header className="mb-6">
-        <h1 className="text-xl font-bold tracking-tight">Ciornele mele</h1>
+        <div className="flex items-center gap-2.5">
+          <PencilLine className="size-5 text-primary" strokeWidth={2} />
+          <h1 className="font-heading text-[26px] font-extrabold tracking-tight">Ciornele mele</h1>
+        </div>
         <p className="mt-1 text-sm text-muted-foreground">
           Schițe și detalii pe care le-ai început, dar nu le-ai trimis încă. Le reiei oricând.
         </p>

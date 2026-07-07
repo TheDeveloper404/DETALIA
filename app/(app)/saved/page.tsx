@@ -23,7 +23,7 @@ export default async function SavedPage() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-[860px] flex-1 px-6 pb-20 pt-8">
+    <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
       <div className="mb-6 flex items-center gap-2.5">
         <Bookmark className="size-5 text-primary" strokeWidth={2} />
         <h1 className="font-heading text-[26px] font-extrabold tracking-tight">Detalii salvate</h1>
