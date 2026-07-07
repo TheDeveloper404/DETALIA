@@ -30,8 +30,8 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     await expect(page.getByRole("heading", { name: detailTitle })).toBeVisible();
   });
 
-  test("scoate din salvate → dispare din listă, apare empty state", async ({ page }) => {
-    const { detailId } = getSeed();
+  test("scoate din salvate → dispare din listă", async ({ page }) => {
+    const { detailId, detailTitle } = getSeed();
     await page.goto("/saved");
 
     const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
@@ -39,6 +39,8 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     await card.getByTitle("Salvat — scoate din salvate").click();
 
     await page.goto("/saved");
-    await expect(page.getByText("Niciun detaliu salvat")).toBeVisible();
+    // Verific specific detaliul nostru, NU starea globală goală — userul de test poate avea alte
+    // detalii salvate (rulări anterioare/testare manuală pe DB shared), empty state n-ar fi garantat.
+    await expect(page.getByRole("heading", { name: detailTitle })).not.toBeVisible();
   });
 });
