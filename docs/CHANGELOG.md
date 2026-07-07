@@ -4,6 +4,17 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (9) — Fix db-backup.yml (sintaxă apt greșită la prima încercare)
+
+### fix — workflow-ul de backup producție tot pica după merge, cauză diferită de cea originală
+Fix-ul din (vezi CHANGELOG mai jos, „instalare postgresql-client-18") ajunsese pe `main`, dar cu o greșeală
+de sintaxă: `deb signed-by=... URL...` fără paranteze pătrate (`[signed-by=...]`) → apt respinge intrarea
+ca „Malformed entry" (confirmat direct din log-ul GitHub Actions, nu presupus). Rescris pe formatul `deb822`
+(`.sources`), cel documentat ACUM oficial de postgresql.org (verificat cu WebFetch pe pagina oficială,
+nu din memorie) — mai robust decât formatul vechi pe o linie. Sintaxă YAML+bash verificată local
+(`python -c "yaml.safe_load(...)"` + `bash -n`), dar nu am putut rula `apt` real (Windows) — verificarea
+finală se face la următoarea rulare reală pe GitHub Actions, după merge.
+
 ## 2026-07-07 (8) — REZOLVAT: hydration mismatch (React #418) — `<li>` imbricat în `<li>`
 
 ### fix — cauza reală a bug-ului de hidratare de azi, confirmată cu dovadă directă din browser
