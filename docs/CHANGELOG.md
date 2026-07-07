@@ -4,6 +4,22 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (6) — Fix date: ierarhia de categorii (3 niveluri prăbușită la 2) + coliziune taburi schiță în teste
+
+### fix(date) — capitolele (Fundație/Acoperiș/Instalații/Fațadă) nu aveau copii pe preview/dev
+Descoperit de `e2e/feed.spec.ts` (nou, sesiunea trecută): TOATE cele 4 capitole aveau 0 sub-categorii —
+„Beton"/„Micropiloți" etc. erau copii direcți ai SECȚIUNII, nu ai capitolului. `db/seed.ts` are deja codul
+corect (`parentId: leafRow.id` la nivelul 3) — datele din DB erau dintr-o rulare VECHE a seed-ului, dinaintea
+acestui fix de cod, niciodată re-rulată. Fix: re-rulat `npm run db:seed` pe `preview/dev` (după ștergerea
+singurului `details` existent, care bloca `DELETE FROM categories` pe FK RESTRICT). **De verificat separat
+pe `production`** — query dat lui Liviu, posibil are aceeași problemă.
+
+### test — coliziune între `sketch.spec.ts` și `sketch-numbering.spec.ts` la rulare paralelă
+Ambele creează schițe pentru ACELAȘI tester pe ACELAȘI detaliu seedat, în workeri diferiți simultan.
+`getByRole("button", { name: "E2E Tester" })` (substring) se potrivea și cu tab-urile celuilalt spec
+(„— schița 1"/„— schița 2"), dând strict-mode violation. Fix: `data-testid={`sketch-tab-${id}`}` stabil pe
+fiecare tab (`detail-workspace.tsx`), ambele spec-uri țintesc acum STRICT propriul id, nu nume generic.
+
 ## 2026-07-07 (5) — Numerotare schițe stabilă (nu se mai renumerotează la fiecare schiță nouă)
 
 ### fix — „schița N" per autor era recalculată după ordinea taburilor, nu după data creării
