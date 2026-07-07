@@ -8,6 +8,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import { categories, details } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // „Salvează ciornă" pe formularul de adăugare detaliu (2026-07-06) — ciclu complet: salvează cu DOAR
 // titlul (fără categorie/imagine) → apare în „Ciornele mele" (listă unificată cu ciornele de schiță) →
@@ -74,6 +75,7 @@ test.describe.serial("Ciornă de detaliu — salvează fără categorie/imagine,
     const imagePath = path.join(tmpDir, "tiny.png");
     writeFileSync(imagePath, Buffer.from(TINY_PNG_BASE64, "base64"));
 
+    await stripBypassHeadersForBlobUploads(page);
     await page.goto(`/details/${detailId}/edit`);
 
     // Fără categorie încă → publish trebuie să respingă (validare strictă abia la publish).
