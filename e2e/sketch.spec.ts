@@ -2,6 +2,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
+import { and, eq } from "drizzle-orm";
+
+import { db } from "../db";
+import { sketches } from "../db/schema";
+import { deleteBlobs } from "../lib/storage";
+import { getSeed } from "./seed";
 
 // E2E — ciclul complet de schiță: pornire → desen → publicare (intră direct în teanc) → apare ca tab nou
 // pe detaliu → autorul schiței o șterge. Serial: fiecare pas depinde de starea lăsată de precedentul.
@@ -19,7 +25,22 @@ function detailUrl(): string {
   return cachedDetailUrl;
 }
 
+// Șterge orice schiță a testerului pe detaliul seedat — dacă testul 2 (ștergere prin UI) nu apucă să
+// ruleze (eșec la asertul din test 1, sau rulare precedentă întreruptă), rămâne o schiță orfană care
+// strică asertul „un singur tab E2E Tester" la rularea următoare (strict-mode violation pe 2 butoane).
+async function deleteTesterSketches(): Promise<void> {
+  const { testerUserId, detailId } = getSeed();
+  const where = and(eq(sketches.authorId, testerUserId), eq(sketches.detailId, detailId));
+  const orphaned = await db.select({ thumbnailUrl: sketches.thumbnailUrl }).from(sketches).where(where);
+  await db.delete(sketches).where(where);
+  const thumbnailUrls = orphaned.map((s) => s.thumbnailUrl).filter((u): u is string => !!u);
+  if (thumbnailUrls.length > 0) await deleteBlobs(thumbnailUrls);
+}
+
 test.describe.serial("Schiță — publish & delete", () => {
+  test.beforeAll(deleteTesterSketches);
+  test.afterAll(deleteTesterSketches);
+
   test("Schițează peste detaliu → editor + desen → Publică → intră în teanc", async ({ page }) => {
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Schițează peste detaliu" }).click();

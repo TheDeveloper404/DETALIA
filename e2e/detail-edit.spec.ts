@@ -10,6 +10,14 @@ import { getSeed } from "./seed";
 // Fiecare test își creează propriul detaliu (autorat de tester), ca să nu depindă de/nu strice
 // detaliul seedat (autorat de author, folosit de authed.spec.ts pt validare pe rol).
 
+// NU un URL fals ("e2e.public.blob..."): `createDetail()` (service) nu validează store-ul, dar
+// `updateDetailAction` (ruta reală de editare) verifică `isOwnBlobUrl` chiar și când imaginea nu
+// s-a schimbat → un fixture cu URL fals pică editarea cu IMAGE_REQUIRED, deși nu e bug de aplicație.
+// Hostname-ul de mai jos e store-ul REAL de Blob al acestui mediu (derivat dintr-un imageUrl real
+// existent în DB) — obiectul nu trebuie să existe efectiv (isOwnBlobUrl verifică doar formatul/hostname-ul,
+// iar reprocesarea SEC-02 rulează doar când `imageChanged=true`, ceea ce nu e cazul aici).
+const OWN_STORE_IMAGE_URL = "https://oqhrxxllqvcxn05s.public.blob.vercel-storage.com/details/e2e-placeholder.png";
+
 async function pickTwoLeafCategories(): Promise<{ id: string; name: string }[]> {
   const rows = await db
     .select({ id: categories.id, name: categories.name })
@@ -31,7 +39,7 @@ test.describe.serial("Editare detaliu existent", () => {
       authorId: testerUserId,
       title: originalTitle,
       categoryIds: [categoryId],
-      imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+      imageUrl: OWN_STORE_IMAGE_URL,
       resources: [],
     });
     expect(created.ok).toBe(true);
