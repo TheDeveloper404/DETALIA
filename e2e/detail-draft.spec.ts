@@ -78,7 +78,9 @@ test.describe.serial("Ciornă de detaliu — salvează fără categorie/imagine,
 
     // Fără categorie încă → publish trebuie să respingă (validare strictă abia la publish).
     await page.getByRole("button", { name: "Publică detaliul" }).click();
-    await expect(page.getByRole("alert")).toBeVisible();
+    // NU page.getByRole("alert") — Next.js are mereu în DOM un route-announcer (div role="alert",
+    // aria-live) invizibil, care ar face locatorul strict-mode ambiguu (2 rezultate).
+    await expect(page.locator('p[role="alert"]')).toBeVisible();
     await expect(page).toHaveURL(`/details/${detailId}/edit`);
 
     await page.getByRole("button", { name: "Alege categoriile…" }).click();
@@ -116,8 +118,11 @@ test("Ciornă de detaliu se șterge din lista de ciorne", async ({ page }) => {
 
     await expect(page.locator(`a[href="/details/${detailId}/edit"]`)).toHaveCount(0);
 
-    const remaining = await db.select().from(details).where(eq(details.id, detailId!));
-    expect(remaining).toHaveLength(0);
+    // UI-ul e OPTIMIST (dispare instant) — server action-ul poate încă rula când ajungem aici.
+    await expect(async () => {
+      const remaining = await db.select().from(details).where(eq(details.id, detailId!));
+      expect(remaining).toHaveLength(0);
+    }).toPass({ timeout: 10_000 });
     detailId = null;
   } finally {
     if (detailId) await db.delete(details).where(eq(details.id, detailId));
