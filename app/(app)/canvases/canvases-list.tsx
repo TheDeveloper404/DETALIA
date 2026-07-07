@@ -152,7 +152,10 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
                 maxLength={80}
                 onBlur={() => setRenaming(false)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") formRef.current?.requestSubmit();
+                  if (e.key === "Enter") {
+                    formRef.current?.requestSubmit();
+                    setRenaming(false);
+                  }
                   if (e.key === "Escape") setRenaming(false);
                 }}
                 className="h-7"

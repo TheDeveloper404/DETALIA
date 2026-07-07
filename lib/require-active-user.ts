@@ -9,6 +9,7 @@
 // Întoarce userId dacă sesiunea e validă ȘI contul e ACTIVE. Altfel face redirect (nu întoarce).
 
 import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
@@ -28,8 +29,19 @@ export async function requireActiveUserId(): Promise<string> {
   // Cont inexistent (șters) sau non-ACTIVE (suspendat): NU doar redirect — facem signOut REAL, ca să ștergem
   // cookie-ul JWT. Altfel tokenul (cu status stale=ACTIVE) ar rămâne viu și userul ar putea reveni la citire
   // cu „back". Așa, prima încercare de mutație a unui cont suspendat = delogare completă (blocat și pe citire).
-  // signOut({ redirectTo }) șterge cookie-ul ȘI face redirect (aruncă NEXT_REDIRECT) → codul de mai jos e unreachable.
   if (!row || row.status !== "ACTIVE") {
+    // Ștergem explicit cookie-ul de sesiune ÎNAINTE de signOut() — apelul e făcut dintr-un server action
+    // nested (nu direct dintr-un `<form action>`), iar signOut() aruncă redirect imediat ce pornește, ceea
+    // ce lasă o fereastră în care Set-Cookie-ul lui poate să nu ajungă la client. Ștergerea directă prin
+    // `cookies()` (API Next.js garantat pe server actions) e sursa de adevăr aici, nu internals-ul librăriei.
+    const cookieStore = await cookies();
+    for (const c of cookieStore.getAll()) {
+      if (c.name.startsWith("authjs.session-token") || c.name.startsWith("__Secure-authjs.session-token")) {
+        cookieStore.delete(c.name);
+      }
+    }
+    // signOut({ redirectTo }) face și el best-effort cleanup + redirect (aruncă NEXT_REDIRECT) → codul de
+    // mai jos e unreachable.
     await signOut({ redirectTo: "/login?error=AccessDenied" });
   }
 
