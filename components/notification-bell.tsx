@@ -202,7 +202,12 @@ export function NotificationBell({
                         <p className="min-w-0 flex-1 text-[14.5px] leading-snug text-foreground/80 text-pretty">
                           <NotificationText n={n} />
                         </p>
-                        <span className="hidden flex-none pt-0.5 font-mono text-[11.5px] text-[#a59a88] sm:block">
+                        {/* suppressHydrationWarning: formatRelative() e f(Date.now()) — mismatch server/client
+                            așteptat, nu bug (vezi comentariul din comments-section.tsx). */}
+                        <span
+                          className="hidden flex-none pt-0.5 font-mono text-[11.5px] text-[#a59a88] sm:block"
+                          suppressHydrationWarning
+                        >
                           {formatRelative(n.createdAt)}
                         </span>
                       </div>
