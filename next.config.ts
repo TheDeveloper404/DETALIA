@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // VERCEL_ENV nu ajunge niciodată în bundle-ul de CLIENT (nu e prefixat NEXT_PUBLIC_) — fără mapping-ul
+  // ăsta, Sentry de pe browser nu poate ști dacă rulează pe preview sau production (vezi sentry-config
+  // pt detaliul complet: fără el, evenimentele client cădeau invizibile sub orice filtru de environment).
+  env: {
+    NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV,
+  },
 };
 
 // Sentry — no-op complet dacă lipsesc env-urile (build local fără cont Sentry nu se strică).
