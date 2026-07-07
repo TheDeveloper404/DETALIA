@@ -74,12 +74,11 @@ test("numerotarea schițelor rămâne stabilă — prima creată e mereu schița
     // dar ordinalul ei trebuie să fie 2, nu 1 (fix-ul de azi).
     secondId = await createAndPublishSketch(page);
 
-    const tabs = page.getByRole("button", { name: /E2E Tester — schița/ });
-    await expect(tabs).toHaveCount(2);
-    // nth(0) = prima în DOM = cea mai nouă (a doua creată) → trebuie să arate „schița 2".
-    await expect(tabs.nth(0)).toHaveAccessibleName("E2E Tester — schița 2");
-    // nth(1) = a doua în DOM = cea mai veche (prima creată) → rămâne „schița 1".
-    await expect(tabs.nth(1)).toHaveAccessibleName("E2E Tester — schița 1");
+    // NU un query generic pe rol/nume (regex „schița" se poate potrivi și cu tab-uri ale altor spec-uri
+    // rulate în paralel pe același cont+detaliu, ex. sketch.spec.ts) — țintim STRICT cele 2 schițe proprii,
+    // după ID (data-testid stabil, vezi detail-workspace.tsx).
+    await expect(page.getByTestId(`sketch-tab-${secondId}`)).toHaveAccessibleName("E2E Tester — schița 2");
+    await expect(page.getByTestId(`sketch-tab-${firstId}`)).toHaveAccessibleName("E2E Tester — schița 1");
   } finally {
     await deleteSketches([firstId, secondId].filter((v): v is string => !!v));
   }

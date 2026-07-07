@@ -306,6 +306,7 @@ export function DetailWorkspace({
               <button
                 key={s.id}
                 type="button"
+                data-testid={`sketch-tab-${s.id}`}
                 onClick={() => setTabAndUrl(i + 1)}
                 title={label}
                 aria-label={label}
