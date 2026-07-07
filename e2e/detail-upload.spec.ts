@@ -3,11 +3,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { categories, details } from "../db/schema";
+import { details } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { pickLeafCategories } from "./category-helpers";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // Flux „upload de detaliu" prin formularul REAL (/details/new) — netestat până acum (integration.spec.ts
@@ -19,21 +20,11 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-async function pickSimpleLeafCategory(): Promise<{ id: string; name: string }> {
-  // Leaf direct sub o secțiune (parentId setat, isGroup=false) — clickabil fără să expandezi un grup întâi.
-  const [row] = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
-    .limit(1);
-  if (!row) throw new Error("Niciun leaf de categorie găsit — rulează `npm run db:seed` pe ramura de test.");
-  return row;
-}
 
 test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → publicat + apare la /details/[id]", async ({
   page,
 }) => {
-  const category = await pickSimpleLeafCategory();
+  const [category] = await pickLeafCategories(1);
   const title = `E2E upload detaliu ${Date.now()}`;
 
   const tmpDir = mkdtempSync(path.join(tmpdir(), "detalia-e2e-"));

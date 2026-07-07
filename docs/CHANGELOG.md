@@ -4,6 +4,32 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (7) — Fix teste stricate DE fix-ul de date de la (6) + concurență documentată
+
+### test — 3 spec-uri alegeau categorii-frunză ascunse sub un capitol, fără să-l deschidă întâi
+Consecință directă a fix-ului de date de mai sus: ÎNAINTE (date stricate, 2 niveluri), orice frunză era
+direct vizibilă. ACUM (3 niveluri corecte), unele frunze (Șarpantă, Tip terasă etc.) sunt sub un capitol
+(Acoperiș) care trebuie expandat întâi. `pickSimpleLeafCategory`/`pickTwoLeafCategories` (duplicate în 3
+fișiere) alegeau orice frunză la întâmplare. Fix: `e2e/category-helpers.ts` (nou) — `pickLeafCategories(n)`
+alege STRICT frunze copii direcți ai unei secțiuni (nu ascunse sub un capitol), folosit în
+`detail-upload.spec.ts`, `detail-draft.spec.ts`, `detail-edit.spec.ts`.
+
+### test — `feed.spec.ts` scopat strict la sidebar (nu toată pagina)
+Un query global (`page.getByRole(...)`) se putea potrivi și cu un tag de categorie dintr-un detaliu
+publicat concurent de alt spec, în paralel, pe același nume de categorie. Scopat la
+`nav[aria-label="Filtru categorii"]`.
+
+### test — `sketch-numbering.spec.ts` verifică ordine RELATIVĂ, nu numere absolute
+`sketch.spec.ts` rulează în paralel pe același cont+detaliu și poate crea o a treia schiță exact în
+fereastra de test, deplasând numerele absolute (2 devine 3). Testul verifică acum ce contează de fapt:
+prima schiță NU-și schimbă numărul după ce apare a doua, iar a doua primește un număr mai mare.
+
+### Cunoscut, neinvestigat mai departe — flakiness sub 6 workeri paraleli
+`sketch.spec.ts` („Șterge schița mea") și `suspended.spec.ts` trec curat izolat/`--workers=1`, dar ocazional
+pică sub 6 workeri paraleli (toate pe ACELAȘI cont+detaliu seedat, revalidări concurente). Pare limită
+structurală a fixture-ului comun, nu bug de aplicație — `--workers=1` rămâne semnalul de adevăr; 6 workeri
+= verificare rapidă, nu autoritativă.
+
 ## 2026-07-07 (6) — Fix date: ierarhia de categorii (3 niveluri prăbușită la 2) + coliziune taburi schiță în teste
 
 ### fix(date) — capitolele (Fundație/Acoperiș/Instalații/Fațadă) nu aveau copii pe preview/dev

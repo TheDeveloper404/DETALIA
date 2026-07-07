@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { categories, details } from "../db/schema";
+import { details } from "../db/schema";
 import { createDetail } from "../server/services/detailService";
+import { pickLeafCategories } from "./category-helpers";
 import { getSeed } from "./seed";
 
 // Editare detaliu existent (PUBLISHED) — netestat până acum (doar creare+ștergere aveau e2e).
@@ -18,15 +19,6 @@ import { getSeed } from "./seed";
 // iar reprocesarea SEC-02 rulează doar când `imageChanged=true`, ceea ce nu e cazul aici).
 const OWN_STORE_IMAGE_URL = "https://oqhrxxllqvcxn05s.public.blob.vercel-storage.com/details/e2e-placeholder.png";
 
-async function pickTwoLeafCategories(): Promise<{ id: string; name: string }[]> {
-  const rows = await db
-    .select({ id: categories.id, name: categories.name })
-    .from(categories)
-    .where(and(isNotNull(categories.parentId), eq(categories.isGroup, false)))
-    .limit(2);
-  if (rows.length < 2) throw new Error("Nevoie de cel puțin 2 categorii leaf pt acest test.");
-  return rows;
-}
 
 test.describe.serial("Editare detaliu existent", () => {
   const { categoryId } = getSeed();
@@ -51,7 +43,7 @@ test.describe.serial("Editare detaliu existent", () => {
   });
 
   test("autorul editează titlul + categoria → schimbările apar pe pagina detaliului", async ({ page }) => {
-    const categoryPair = await pickTwoLeafCategories();
+    const categoryPair = await pickLeafCategories(2);
     const otherCategory = categoryPair.find((c) => c.id !== categoryId) ?? categoryPair[0];
     const newTitle = `E2E editare — modificat ${Date.now()}`;
 
