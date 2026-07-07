@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
+import { eq } from "drizzle-orm";
+
+import { db } from "../db";
+import { sketches } from "../db/schema";
+import { deleteBlobs } from "../lib/storage";
 
 // E2E — ciclul complet de schiță: pornire → desen → publicare (intră direct în teanc) → apare ca tab nou
 // pe detaliu → autorul schiței o șterge. Serial: fiecare pas depinde de starea lăsată de precedentul.
@@ -19,11 +24,27 @@ function detailUrl(): string {
   return cachedDetailUrl;
 }
 
+// NU un blanket delete pe (tester, detaliu) — `sketch-draft.spec.ts` rulează în paralel (worker diferit)
+// și creează propria schiță pe ACELAȘI detaliu seedat; o ștergere largă i-ar lovi schița din mers
+// (race condition, nu poluare). Curățăm STRICT schița creată de acest fișier, după ID.
+let sketchId: string | null = null;
+
+async function deleteSketchById(): Promise<void> {
+  if (!sketchId) return;
+  const [row] = await db.select({ thumbnailUrl: sketches.thumbnailUrl }).from(sketches).where(eq(sketches.id, sketchId));
+  await db.delete(sketches).where(eq(sketches.id, sketchId));
+  if (row?.thumbnailUrl) await deleteBlobs([row.thumbnailUrl]);
+  sketchId = null;
+}
+
 test.describe.serial("Schiță — publish & delete", () => {
+  test.afterAll(deleteSketchById);
+
   test("Schițează peste detaliu → editor + desen → Publică → intră în teanc", async ({ page }) => {
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
+    sketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
 
     // Desen: tool-ul „pen" e selectat implicit → un drag simplu pe canvas produce un stroke.
     const canvas = page.locator("canvas");
@@ -51,8 +72,12 @@ test.describe.serial("Schiță — publish & delete", () => {
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "E2E Tester" }).click();
 
-    await expect(page.getByText("în teanc · publicată")).toBeVisible();
+    // Badge-ul a fost redenumit în refactorul din 2026-07-06 (panoul separat din dreapta a fost scos,
+    // vezi detail-workspace.tsx) — textul curent e „schiță peste detaliu", nu „în teanc · publicată".
+    await expect(page.getByText("schiță peste detaliu")).toBeVisible();
 
+    // „Șterge schița mea" e într-un dropdown (role="menu"), deschis de „Acțiuni detaliu" — nu e vizibil direct.
+    await page.getByRole("button", { name: "Acțiuni detaliu" }).click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Șterge schița mea" }).click();
 

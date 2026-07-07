@@ -8,6 +8,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { db } from "../db";
 import { categories, details } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // Flux „upload de detaliu" prin formularul REAL (/details/new) — netestat până acum (integration.spec.ts
 // acoperă doar createDetail() la nivel de service, ocolind formularul/upload-ul de imagine/categoria din UI).
@@ -43,6 +44,7 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
   let imageUrl: string | null = null;
 
   try {
+    await stripBypassHeadersForBlobUploads(page);
     await page.goto("/details/new");
     await expect(page).toHaveURL(/\/details\/new/);
 
@@ -60,7 +62,8 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
     await page.getByRole("button", { name: "Publică detaliul" }).click();
 
     await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 15_000 });
-    await expect(page.getByText(title)).toBeVisible();
+    // NU page.getByText(title) — titlul apare de 2 ori (breadcrumb + heading) → strict-mode violation.
+    await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
     detailId = page.url().split("/details/")[1] ?? null;
     expect(detailId).toBeTruthy();

@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
+import { and, eq } from "drizzle-orm";
+
+import { db } from "../db";
+import { validations } from "../db/schema";
+import { getSeed } from "./seed";
 
 // E2E — fluxuri AUTHED (pornesc cu sesiunea seedată de `auth.setup.ts`, via storageState). Acoperă inima
 // produsului: feed authed, validarea pe roluri (Aprob 1 click + Dezaprob cu justificare obligatorie), comentariu.
@@ -37,14 +42,26 @@ test.describe("Acces authed", () => {
 // Serial: aprobă întâi, apoi comută pe dezaprobare. „Aprob" e upsert idempotent, „Dezaprob+justificare" e
 // switch determinist → ordinea garantează stări previzibile pe aceeași țintă.
 test.describe.serial("Validare pe rol", () => {
+  // Suita lasă poziția pe DISAPPROVE la final (testul de mai jos comută pe dezaprobare) — fără curățare,
+  // rularea următoare găsește „retrage" în loc de „Aprob" (poziție veche încă activă) și pică la timeout.
+  test.beforeAll(async () => {
+    const { testerUserId, detailId } = getSeed();
+    await db
+      .delete(validations)
+      .where(and(eq(validations.userId, testerUserId), eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId)));
+  });
+
   test("Aprob = 1 click → poziția devine activă", async ({ page }) => {
     await page.goto(detailUrl());
     // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.
     const aprob = page.getByRole("button", { name: "Aprob", exact: true });
     await aprob.click();
-    // După click butoanele colapsează într-o pastilă cu poziția + „retrage" (vezi validation-panel.tsx).
-    await expect(page.getByText(/Ai aprobat acest detaliu/)).toBeVisible();
-    await expect(page.getByRole("button", { name: /retrage/ })).toBeVisible();
+    // După click butoanele colapsează într-o pastilă icon-only (vezi validation-panel.tsx, 2026-07-06):
+    // „Ai aprobat" nu mai e text vizibil (doar `title`), iar span-ul „Retrage" e tot în DOM (doar comprimat
+    // vizual via CSS) → RĂMÂNE accessible name-ul butonului (title are prioritate mai mică). Semnalul
+    // real de „aprobat" e rândul din lista de poziții, nu butonul (identic pt approve/disapprove).
+    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible();
+    await expect(page.getByText(/aprobă/)).toBeVisible();
   });
 
   test("Dezaprob cere justificare → devine comentariu argumentat", async ({ page }) => {

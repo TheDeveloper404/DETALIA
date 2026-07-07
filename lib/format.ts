@@ -1,6 +1,10 @@
 // Formatare dată pentru UI (română). Centralizat ca să nu repetăm Intl prin pagini.
 
-const dateMedium = new Intl.DateTimeFormat("ro-RO", { dateStyle: "medium" });
+// timeZone FIX (nu implicit): fără el, formatarea depinde de fusul orar al mediului de execuție —
+// serverul (Vercel) rulează în UTC, browserul clientului în ora locală (România) → pentru un timestamp
+// aproape de miezul nopții UTC, server și client pot afișa ZILE diferite → hydration mismatch (React #418)
+// chiar la randarea inițială. Europe/Bucharest fixează rezultatul, identic pe server și pe client.
+const dateMedium = new Intl.DateTimeFormat("ro-RO", { dateStyle: "medium", timeZone: "Europe/Bucharest" });
 
 // „18 iun. 2026" — pentru data de publicare a unui detaliu.
 export function formatDate(value: Date | string | number): string {

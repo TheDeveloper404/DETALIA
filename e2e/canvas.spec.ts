@@ -52,7 +52,10 @@ test.describe.serial("Planșă — creare, redenumire, duplicare, ștergere", ()
     const card = page.locator(".group", { hasText: name });
     await card.getByRole("button").last().click(); // kebab „⋮"
     await page.getByRole("button", { name: "Redenumește" }).click();
-    await card.getByRole("textbox").fill(renamedName);
+    // NU `card.getByRole("textbox")` — la intrarea în renaming, textul cardului (folosit de `hasText`
+    // în definiția lui `card`) e înlocuit de un <input>, al cărui value NU intră în textContent → `card`
+    // nu se mai potrivește. Fix: input-ul de redenumire e singurul textbox vizibil pe pagină în acest pas.
+    await page.getByRole("textbox").fill(renamedName);
     await page.keyboard.press("Enter");
 
     await expect(page.getByText(renamedName, { exact: true })).toBeVisible();
