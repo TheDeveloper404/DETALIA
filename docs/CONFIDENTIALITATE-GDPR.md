@@ -91,6 +91,10 @@ Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în 
 ## 6. Status & următorii pași
 
 - [x] Principii aplicate în arhitectură (minimizare, fără PII în loguri, tokenuri one-time).
-- [ ] **Înainte de Val 2 / public:** publicare Notă confidențialitate + ToS (revizuite de jurist).
+- [x] **Publicate** (2026-07-07): `/termeni` + `/confidentialitate`, linkuite din footer (landing + rail
+  feed). Conținut din scheletul §3/§4 de mai jos. **Rămân NEREVIZUITE de jurist** — bannerul de pe fiecare
+  pagină marchează asta explicit. Operator listat generic („SRL în curs de înregistrare") — de completat cu
+  denumire/CUI/sediu când firma e înființată.
 - [x] Flux automat de ștergere cont + date (anonimizare, 2026-06-28 — vezi §2).
-- [ ] Confirmare regiune UE pentru Neon + entitatea operator (firmă/SRL) → vezi `.remember/remember.md` §„Decizii / HOLD".
+- [ ] Confirmare regiune UE pentru Neon + entitatea operator (firmă/SRL) → vezi `.remember/remember.md`
+  §„Decizii / HOLD" (secțiune de recreat — s-a pierdut într-o comprimare anterioară a handoff-ului).

@@ -6,8 +6,8 @@
 
 ---
 
-> **STATUS (2026-07-03): suita EXISTĂ și rulează** — unit (`vitest`, 11 fișiere în `server/`+`lib/`) +
-> E2E (`Playwright`, 5 fișiere în `e2e/`, 22 teste). Documentul de mai jos reflectă suita reală, nu doar intenția.
+> **STATUS (2026-07-07): suita EXISTĂ și rulează** — unit (`vitest`, 11 fișiere în `server/`+`lib/`) +
+> E2E (`Playwright`, 24 fișiere în `e2e/`, ~86 teste). Documentul de mai jos reflectă suita reală, nu doar intenția.
 
 ## Piramida (ce acoperim cu ce)
 
@@ -55,43 +55,30 @@ test — vezi `docs/SECURITATE.md`), nu doar prin teste automate.
 
 ---
 
-## E2E — suita reală (`e2e/*.spec.ts`, Playwright)
+## E2E — suita reală (`e2e/*.spec.ts`, Playwright, `playwright.config.ts`)
 
-```
-public.spec.ts   (anonim, fără DB — proiectul `public`)
-  - Landing: se încarcă, CTA către signup/login
-  - Landing: click „Creează cont" → /signup
-  - /login randează formularul magic link · /signup randează formularul de creare cont
-  - login ⇄ signup sunt legate reciproc
-  - /verify-request e public și brandat
-  - Deny-by-default: rută protejată (/feed, /profile) ca anonim → redirect /login cu callbackUrl
-  - Rută inexistentă (sub prefix public) → 404
+Organizată pe proiecte Playwright, fiecare cu un tip de context (anonim/authed/service-direct) și o
+dependință de date proprie:
 
-auth.setup.ts   (proiectul `setup`, dependință a `authed`)
-  - Seedează user+rol+detaliu în DB (preview/dev) + emite cookie de sesiune JWT valid (encode() @auth/core/jwt)
+| Proiect | Context | Fișiere |
+|---|---|---|
+| `public` | anonim, fără sesiune, fără DB | `public.spec.ts`, `verify-and-maintenance.spec.ts` |
+| `setup` | seedează user+rol+detaliu+sesiune JWT (dependință a `authed`) | `auth.setup.ts` |
+| `authed` | sesiune seedată (storageState) | `authed.spec.ts`, `sketch.spec.ts`, `detail-upload.spec.ts`, `sketch-draft.spec.ts`, `canvas.spec.ts`, `detail-draft.spec.ts`, `detail-edit.spec.ts`, `feed.spec.ts`, `feed-search.spec.ts`, `sketch-numbering.spec.ts`, `profile-edit.spec.ts`, `profile-public.spec.ts`, `saved.spec.ts`, `notifications-page.spec.ts` |
+| `security` | apel direct service+DB, fără browser | `security.spec.ts` (IDOR), `integration.spec.ts` (atomicitate/cascadă), `admin-auth.spec.ts` (consum atomic token admin), `notifications.spec.ts` |
+| `suspended` | user dedicat, cookie JWT propriu | `suspended.spec.ts` (SEC-04, cont suspendat cu token stale) |
+| `admin-access` | anonim, sesiune admin construită direct în DB (fără email real din allowlist) | `admin-access.spec.ts` (privilege-escalation `/admin-page`) |
+| `onboarding` | user dedicat fără rol | `onboarding.spec.ts` |
+| `sketch-public` | anonim, dependință de `setup` | `sketch-public.spec.ts` (teaser public `/s/[id]`) |
 
-authed.spec.ts   (sesiune seedată — proiectul `authed`)
-  - Feed-ul se încarcă (nu redirect la login) · profilul propriu se încarcă
-  - Aprob = 1 click → poziția devine activă
-  - Dezaprob cere justificare → devine comentariu argumentat (nicio „dezaprobare mută")
-  - Comentariu pe detaliu apare în dezbatere
+**Ce acoperă, pe scurt:** acces public/deny-by-default, onboarding, upload/editare/draft de detalii, schițare
+(draft/publish/delete/numerotare), planșe (canvas), validare Aprob/Dezaprob, comentarii, notificări (service
++ pagină UI), profil (propriu + public), bookmark/saved, feed (căutare + filtrare pe categorie), teaser public
+de schiță, control acces admin, IDOR (comentariu/schiță/planșă/editare detaliu), suspendare cont, consum
+atomic al tokenului de magic link (user + admin).
 
-sketch.spec.ts   (sesiune seedată — proiectul `authed`)
-  - Schițează peste detaliu → editor → desen real (drag pe canvas) → Publică → intră direct în teanc
-  - Tab-ul schiței → badge „în teanc · publicată" → ștergere de către autor → tab-ul dispare
-
-security.spec.ts   (proiectul `security` — apel direct pe service+DB real, fără browser)
-  - IDOR comentariu: attacker nu poate edita comentariul victimei (NOT_FOUND, comentariul supraviețuiește)
-  - IDOR comentariu: attacker nu poate șterge comentariul victimei (NOT_FOUND, comentariul supraviețuiește)
-  - IDOR schiță: user care nu e nici autorul schiței, nici al detaliului → FORBIDDEN, schița supraviețuiește
-
-integration.spec.ts   (proiectul `security` — apel direct pe service+DB real, fără browser)
-  - createDetail: detaliul + categoriile + resursele se inserează atomic (un singur db.batch)
-  - deleteDetail: cascada șterge schița + validarea/comentariul polimorfice de pe ea (polimorfism SKETCH)
-```
-
-**Ce NU e acoperit încă (opțional, backlog):** overlay multi-schiță, verificare rol (feature pe HOLD, nu se
-testează), filtrele de feed pe categorie.
+**Ce NU e acoperit (deliberat, backlog):** lockdown global live-toggle (risc de coliziune pe DB shared,
+`fullyParallel`), overlay multi-schiță, verificarea rolului (feature pe HOLD, nu se testează).
 
 ---
 
@@ -113,7 +100,9 @@ npx playwright install chromium            # o singură dată
 npm run e2e                                # tot: public + setup + authed (cere .env.e2e, vezi e2e/README.md)
 npm run e2e -- --project=public            # doar fluxurile publice, fără DB
 npm run e2e -- --project=authed            # doar authed (rulează și setup-ul, dependință)
-npm run e2e -- --project=security          # doar IDOR (rulează și setup-ul, dependință)
+npm run e2e -- --project=security          # doar IDOR/integrare (rulează și setup-ul, dependință)
+npm run e2e -- --project=admin-access      # doar control acces admin, fără DB de seed
+npm run e2e -- --workers=1                 # toate proiectele, secvențial (semnal final înainte de deploy)
 npm run e2e:ui                             # debug vizual
 ```
 

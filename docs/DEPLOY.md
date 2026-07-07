@@ -167,6 +167,13 @@ curentă (un „set as production" pierde și orice scriere legitimă întâmpla
 **Rezultatul testului din 2026-07-04:** branch creat din `production` la un timestamp cu ~3.5h în urmă →
 counts + rânduri (users, details, sketches cu FK-uri valide) confirmate corecte. Procedura funcționează.
 
+### Backup automat orar (GitHub Actions, independent de Neon)
+
+`.github/workflows/db-backup.yml` — rulează orar (`cron: "0 * * * *"`), `pg_dump` pe `production`
+(`PROD_DATABASE_URL_BACKUP`, binarul v18 explicit — Ubuntu runner are implicit v16 în PATH, mismatch cu
+serverul), format custom, urcat ca artifact GitHub Actions (retenție 30 zile). Complementar ferestrei native
+Neon (§ de mai sus, 6h) — acoperă orizontul de o lună fără să depindă de planul Neon.
+
 ## 2c. Reguli de release (flux dev → PR → main, fără local)
 
 Lucrăm **direct pe preview Vercel**, nu local. Testarea oricărei schimbări se face pe URL-ul de preview al PR-ului.

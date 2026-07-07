@@ -2,9 +2,9 @@
 
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
-> _Ultima verificare față de cod: 2026-07-03 — sincronizat cu `db/schema.ts` (era stale din 2026-06-27:
-> lipseau `detail_categories`, tabelele de admin, `platform_settings`, parametrii tehnici multipli pe
-> `details`, `secondary_role`; `invited_by_id`/`INVITED` erau reziduuri din invitațiile eliminate)._
+> _Ultima verificare față de cod: 2026-07-07 — sincronizat cu `db/schema.ts` (era stale din 2026-07-03:
+> lipseau `canvases`/`canvas_items` (Planșă), valoarea `CAD` din `detail_resource_type`; referința la
+> `lib/admin.ts` era greșită — fișierele reale sunt `lib/admin-allowlist.ts` + `lib/admin-auth.ts`)._
 >
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.
@@ -22,7 +22,7 @@ verification_status    : DECLARED | PENDING | VERIFIED | REJECTED
 target_type            : DETAIL | SKETCH        -- polimorfism validare/comentariu
 validation_position    : APPROVE | DISAPPROVE
 sketch_status          : DRAFT | PUBLISHED  (PENDING_ACCEPTANCE | REJECTED = valori istorice, nemaifolosite)
-detail_resource_type   : IMAGE | LINK | TEXT | PDF
+detail_resource_type   : IMAGE | LINK | TEXT | PDF | CAD
 notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SKETCH_REJECTED = istoric)
 ```
 
@@ -64,8 +64,8 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `created_at` / `updated_at` | timestamptz | |
 
 > **Notă „admin":** nu există coloană `is_admin`. Un user e admin dacă emailul lui e în allowlist-ul `ADMIN_EMAILS`
-> (env, vezi `lib/admin.ts`). FK-urile `verified_by_admin_id` / `created_by_admin_id` arată spre rândul `users` al
-> acelui admin (care e tot un user normal).
+> (env, vezi `lib/admin-allowlist.ts`). FK-ul `verified_by_admin_id` arată spre rândul `users` al adminului
+> care a validat verificarea (adminul e tot un user normal — nu există un tabel separat de conturi de admin).
 
 > **`invitations` — ELIMINAT** (2026-06-28, vezi CHANGELOG): tabelul + tot codul de invitații au fost șterse
 > (acces public prin magic link). Migrația `0004_drop_invitations.sql` face `DROP TABLE`.
@@ -206,6 +206,31 @@ tabel de conturi/parole), sesiune proprie (cookie dedicat), acces izolat la `/ad
 | `lockdown_message` | text | nullable |
 | `updated_by` | text | emailul adminului (allowlist, NU user) |
 | `updated_at` | timestamptz | |
+
+### `canvases` (Planșă — spațiu de lucru privat per user)
+| coloană | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `owner_id` | uuid FK→users.id | cascade; **index** |
+| `name` | text | not null |
+| `state` | jsonb | `CanvasDocument` ({ version, items, strokes }) — opac pentru Drizzle, validat structural pe server la fiecare salvare; `null` = planșă nou-creată, fără conținut |
+| `thumbnail_url` | text | nullable; PNG compus client-side la salvare |
+| `created_at` / `updated_at` | timestamptz | |
+
+Strict privat la MVP — ownership enforce în service (nu RLS).
+
+### `canvas_items` (relația planșă ↔ detalii/schițe)
+| coloană | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `canvas_id` | uuid FK→canvases.id | cascade; |
+| `detail_id` | uuid FK→details.id | cascade; **index** |
+| `sketch_id` | uuid FK→sketches.id | nullable; cascade; **index** — `null` = item „detaliu-mamă", prezent = item „schiță" |
+| `added_at` | timestamptz | |
+
+Index unic parțial: un detaliu-mamă o singură dată per planșă (`sketch_id is null`); o schiță o singură dată
+per planșă (`sketch_id is not null`) — același detaliu poate apărea de mai multe ori (o dată ca detaliu-mamă,
+plus câte o dată per schiță trimisă separat).
 
 ---
 
