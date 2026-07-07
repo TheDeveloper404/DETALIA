@@ -4,6 +4,27 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (4) — Sidebar Feed: categorii ierarhice (secțiuni + capitole + frunze), nu listă flată
+
+### feat(ui) — sidebar-ul de filtrare din Feed arată acum toată ierarhia de categorii
+Cerință Liviu (`1.png` + `lista_categorii.pdf`): categoriile trebuie puse în ordinea din document, cu
+titluri/subtitluri, și dropdown la titlurile cu subtitluri. Formularul „Adaugă Detaliu" avea deja exact
+această structură; sidebar-ul de Feed (`CategoryFilterList`) era o listă flată de frunze, trunchiată la
+6 cu „Vezi mai multe".
+- `server/repos/categoriesRepo.ts` — `listCategoriesWithCounts()` întoarce acum tot arborele
+  (secțiuni + capitole + frunze), nu doar frunzele; `parentId`/`isGroup` incluse în select.
+- `components/category-filter-list.tsx` — rescris: secțiuni ca antete, capitole (ex. „Instalații") ca
+  dropdown expandabil (colapsat implicit), frunze ca link-uri de filtru cu counter — pattern identic cu
+  `CategoryDropdown` din formular, adaptat la link-uri în loc de checkbox-uri.
+- `components/feed-sidebar.tsx` — scroll intern (`max-h-[420px] overflow-y-auto`) pe zona de categorii,
+  ca ierarhia completă (mult mai lungă decât vechea listă cap-6) să nu umfle tot sidebar-ul.
+- `feed/page.tsx` — nicio schimbare necesară (calculul `total`/`activeId` rămâne corect cu noile date).
+
+### test — `e2e/feed.spec.ts` (nou)
+Verifică pattern-ul de bază: un capitol pornește colapsat (`aria-expanded=false`), frunzele lui nu sunt
+în DOM cât timp e colapsat, click îl deschide, click pe o frunză filtrează (`?cat=<id>` în URL).
+
+
 ## 2026-07-07 (3) — Sesiune lungă de reparat e2e (47/48 verde) + fix Sentry + timezone
 
 ### fix(securitate) — cookie de sesiune al unui cont SUSPENDAT nu se ștergea garantat
