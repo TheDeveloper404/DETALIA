@@ -20,6 +20,7 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    screenshot: "only-on-failure",
     // Preview-urile Vercel sunt în spatele Deployment Protection (zid de login SSO). Trecem de el cu
     // „Protection Bypass for Automation": un header cu secretul proiectului (+ cookie pe navigările următoare).
     // Secretul: Vercel → Settings → Deployment Protection → Protection Bypass for Automation → în `.env.e2e`.
