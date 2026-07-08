@@ -72,7 +72,7 @@ test.describe.serial("Validare pe rol", () => {
     // retract-ului și e ștearsă de el (test flaky + poziție pierdută).
     await Promise.all([
       page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
-      page.getByRole("button", { name: /retrage/ }).click(),
+      page.getByRole("button", { name: /retrage/i }).click(),
     ]);
     const dezaprob = page.getByRole("button", { name: "Dezaprob", exact: true });
     await dezaprob.click();

@@ -223,6 +223,8 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   perfect-freehand (API-uri se schimbă des).
 - **Nu iau decizii de design/UI singur.** La un fix de consistență/vizual aliniez DOAR ce diferă explicit;
   nu adaug elemente noi (butoane/CTA "ca să arate complet") — propun și întreb înainte.
+- **Nu dramatizez probleme minore.** Când o eroare (Sentry, test flaky) n-are dovadă de impact real asupra
+  userilor/producției, spun direct din prima frază „nu e grav, are legătură cu X și Y" — nu tonuri alarmante.
 - **Nu verific din inițiativă** (Playwright/browser/screenshot). Verificarea o cere Liviu explicit.
 - **La bug/incident: verific ÎNTÂI cu dovadă directă** (query SQL, `git log`, cod) — nu teoretizez cu voce
   tare o cauză înainte s-o confirm. Dacă nu am dovadă, spun "nu știu cauza, iată ce pot verifica", nu
