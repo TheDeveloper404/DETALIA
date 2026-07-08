@@ -6,9 +6,11 @@
 > verdict BLOCAT — depășit, categoriile lui erau deja rezolvate). Conținutul de mai jos e auditul CRITICAL
 > complet rulat pe codul live, actualizat cu follow-up-urile din aceeași zi (JWT + fix suspendare).
 
-**Ultima verificare:** 2026-07-03 · **Tip:** re-audit static complet (13 categorii, skill `security-audit`)
-pe toată suprafața (auth, authz, mutații, API, business logic, infra) + `npm audit`. Auditul anterior
-(2026-07-02, static + live pe `detalia.ro`) rămâne valabil ca bază; mai jos doar delta.
+**Ultima verificare:** 2026-07-04 (audit pe scenarii, SEC-S1…S5) · **Tip:** re-audit static complet
+(13 categorii, skill `security-audit`) pe toată suprafața (auth, authz, mutații, API, business logic, infra)
++ `npm audit`. Auditul anterior (2026-07-02, static + live pe `detalia.ro`) rămâne valabil ca bază; mai jos
+doar delta. Spot-check 2026-07-07 pe `requireActiveUserId` + sesiunea admin (fără regresii găsite) — nu
+înlocuiește un audit complet nou.
 
 **Verdict: APROBAT pentru MVP/producție.** Zero constatări CRITICAL / HIGH. Constatările MEDIUM/LOW din
 re-auditul 2026-07-03 (SEC-A1…A5) au fost **remediată toate în aceeași zi** — vezi secțiunea dedicată.
@@ -159,9 +161,11 @@ Input-urile care ating coloane `uuid` sunt gardate cu `isUuid` (pattern „SEC-1
 - Thumbnail-ul se urca în Blob ÎNAINTE de verificările din `publish`; la eșec rămânea orfan permanent. Fix:
   `deleteBlobs([thumbnailUrl])` pe ramura de eșec în `sendSketchAction`.
 
-> **Verificare:** toate fixurile validate `tsc`+eslint + citire cap-coadă; SEC-S4 are teste unit noi. **De
-> rulat `npm test`** înainte de următorul deploy. Rămân de materializat în teste: consumul token admin (SEC-S3)
-> și blocarea SEC-04 la nivel de acțiune (greu fără browser/DB real).
+> **Verificare:** toate fixurile validate `tsc`+eslint + citire cap-coadă; SEC-S4 are teste unit noi.
+> **Materializat în teste (2026-07-07):** consumul token admin (SEC-S3) — `admin-auth.spec.ts` (atomicitate,
+> concurență) + `admin-access.spec.ts` (privilege-escalation pe `/admin-page`, token consumat chiar și la
+> eșec de allowlist); blocarea SEC-04 la nivel de acțiune — `suspended.spec.ts` (cookie JWT stale, mutație
+> blocată + delogare reală).
 
 ---
 

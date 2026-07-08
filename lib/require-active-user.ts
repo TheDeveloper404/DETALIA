@@ -30,19 +30,32 @@ export async function requireActiveUserId(): Promise<string> {
   // cookie-ul JWT. Altfel tokenul (cu status stale=ACTIVE) ar rămâne viu și userul ar putea reveni la citire
   // cu „back". Așa, prima încercare de mutație a unui cont suspendat = delogare completă (blocat și pe citire).
   if (!row || row.status !== "ACTIVE") {
-    // Ștergem explicit cookie-ul de sesiune ÎNAINTE de signOut() — apelul e făcut dintr-un server action
-    // nested (nu direct dintr-un `<form action>`), iar signOut() aruncă redirect imediat ce pornește, ceea
-    // ce lasă o fereastră în care Set-Cookie-ul lui poate să nu ajungă la client. Ștergerea directă prin
-    // `cookies()` (API Next.js garantat pe server actions) e sursa de adevăr aici, nu internals-ul librăriei.
-    const cookieStore = await cookies();
-    for (const c of cookieStore.getAll()) {
-      if (c.name.startsWith("authjs.session-token") || c.name.startsWith("__Secure-authjs.session-token")) {
-        cookieStore.delete(c.name);
+    // signOut({ redirectTo }) își scrie PROPRIUL Set-Cookie (re-emite un token) și aruncă NEXT_REDIRECT.
+    // Dacă ștergerea noastră explicită rulează ÎNAINTE de signOut(), Set-Cookie-ul lui vine ULTIMUL pe
+    // wire și anulează ștergerea (bug confirmat prin trace Playwright, 2026-07-08: cookie-ul supraviețuia
+    // la testul de suspendare). Fix: ștergerea rulează în `finally`, deci DUPĂ ce signOut() și-a scris
+    // header-ele lui, dar tot înainte ca redirect-ul (NEXT_REDIRECT re-aruncat) să ajungă la client —
+    // ștergerea noastră e mereu ULTIMUL Set-Cookie pentru acest nume.
+    try {
+      await signOut({ redirectTo: "/login?error=AccessDenied" });
+    } finally {
+      // `cookieStore.delete(name)` NU acceptă opțiuni → Set-Cookie-ul de ștergere iese FĂRĂ `Secure`.
+      // Un cookie cu prefix `__Secure-` e respins de browser dacă Set-Cookie-ul care-l atinge nu are
+      // `Secure` (regulă de spec) → ștergerea era ignorată silențios (bug confirmat prin trace, 2026-07-08).
+      // Fix: `set()` cu `maxAge: 0` + aceleași atribute ca la login (vezi cookie-ul emis de Auth.js).
+      const cookieStore = await cookies();
+      for (const c of cookieStore.getAll()) {
+        if (c.name.startsWith("authjs.session-token") || c.name.startsWith("__Secure-authjs.session-token")) {
+          cookieStore.set(c.name, "", {
+            path: "/",
+            maxAge: 0,
+            httpOnly: true,
+            secure: c.name.startsWith("__Secure-"),
+            sameSite: "lax",
+          });
+        }
       }
     }
-    // signOut({ redirectTo }) face și el best-effort cleanup + redirect (aruncă NEXT_REDIRECT) → codul de
-    // mai jos e unreachable.
-    await signOut({ redirectTo: "/login?error=AccessDenied" });
   }
 
   return session.user.id;

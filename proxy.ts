@@ -28,6 +28,8 @@ const PUBLIC_PATHS = [
   "/verify", // auto-confirmare magic link (JS redirect → callback); inertă la GET automat de scanner (pre-auth)
   "/maintenance", // ecranul „site în lucru" (ținta rewrite-ului de lockdown) — public by design
   "/s", // teaser PUBLIC read-only al unei schițe (decizie 2026-07-05) — vezi app/s/[id]/page.tsx
+  "/termeni", // Termeni și condiții — public, linkuit din footer
+  "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
   "/sentry-tunnel", // proxy Sentry (evită ad-blockere) — trebuie accesibil și pt erori pre-auth (/login etc.)
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.

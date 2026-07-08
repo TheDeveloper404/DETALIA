@@ -425,7 +425,8 @@ confirmi stack-ul.
 
 **MCP:**
 - **context7** (deja) — docs la zi pentru Next.js / Auth.js / Drizzle / perfect-freehand.
-- **Playwright** (deja) — E2E pe fluxurile critice (invitație → login → validare → schiță → accept).
+- **Playwright** (deja) — E2E pe fluxurile critice (signup public → login → validare → schiță → publicare).
+  Extins semnificativ 2026-07-07 (~86 teste/24 fișiere — vezi CHANGELOG).
 - **Vercel** (deja, via plugin) — deploy + env management.
 - Opțional mai târziu: un MCP de Postgres pentru introspecție schemă. Nu acum (minimalism).
 
@@ -436,13 +437,15 @@ confirmi stack-ul.
 - **Faza 0 — Schelet & acces (fundația): ✅ ÎNCHEIATĂ structural (2026-06-20, vezi `CHANGELOG.md`).** proiect Next.js,
   DB+Drizzle (migrația 0000), Auth.js magic link + `proxy.ts` deny-by-default, onboarding rol,
   cont admin seed (allowlist `ADMIN_EMAILS`). Rămâne rularea cu credențiale (Neon `db:push`/`db:seed`, magic link e2e).
-- **Faza 1 — Inima:** Detaliu (seed), Feed (top N), filtre pe categorii, Validare
-  (Aprob/Dezaprob+justificare), Comentarii. → **Aici răspundem la întrebarea de validare.**
-- **Faza 1.5 — Schițarea colaborativă (OBLIGATORIE în MVP):** canvas, stroke-uri vectoriale,
-  fill slab pe detaliul-mamă, state machine PR, notificări (in-app + email), taburi + hover-slideshow.
-  Partea grea, dar non-negociabilă — fără ea „e doar blog cu comentarii".
+- **Faza 1 — Inima:** ✅ **ÎNCHEIATĂ.** Detaliu (upload deschis), Feed (top ~20, căutare+filtre pe categorii),
+  Validare (Aprob/Dezaprob+justificare), Comentarii. Întrebarea de validare are răspuns funcțional live.
+- **Faza 1.5 — Schițarea colaborativă (OBLIGATORIE în MVP):** ✅ **ÎNCHEIATĂ.** Canvas, stroke-uri vectoriale,
+  fill slab pe detaliul-mamă, publicare directă în teanc, notificări (doar in-app — email oprit 2026-07-03,
+  vezi CHANGELOG), taburi + hover-slideshow.
 - **Faza 2 (Val 2, post-v1):** ✅ **ÎNCHEIATĂ (2026-06-28):** upload de detalii DESCHIS oricărui user cu
   rol declarat (nu mai e seed-only), moderare post-publicare.
+- **Faza 2.5 (post-v1, ✅ ÎNCHEIATĂ):** Planșă v2 (spațiu de lucru privat, §7.7), detalii salvate/bookmark,
+  panou admin (mentenanță/lockdown + listă useri), acoperire E2E extinsă. Detaliu → CHANGELOG.
 - **Backlog:** search liber semantic, verificare automată rol (OAR), reputație/ponderare, real-time.
 
 ---
@@ -458,7 +461,8 @@ confirmi stack-ul.
   mai mult în ochii cititorului). Fără scoring numeric — vezi §6.
 - **Schițarea colaborativă = obligatorie în MVP**; model asincron GitHub-style; fill slab pe detaliul-mamă;
   unelte = culori stridente + 3 grosimi + radieră + undo/redo.
-- **Notificări in-app + email** de la început.
+- **Notificări doar in-app** — emailul de notificare a fost oprit 2026-07-03 (cota Resend free rămâne
+  rezervată magic link-urilor); repornibil din env (`NOTIFICATION_EMAILS_ENABLED`).
 - **Zone climatice/seismice + încărcare zăpadă/vânt = liste fixe** (implementat 2026-07-02): zonă
   climatică Zona I–IV, seismic a_g + Tc separate, opțiune „General" pe restul (cu atenționare că
   datele reale dau greutate). Sursă: `lista_categorii.md` (poate fi ștearsă).

@@ -91,7 +91,10 @@ export function FeedRail({
       {/* Copyright stil LinkedIn — ultimul element din rail. În flow normal stă mereu sub carduri,
           deci pe măsură ce apar containere noi deasupra, e împins natural în jos. */}
       <p className="px-1 pb-2 text-[11.5px] leading-relaxed text-muted-foreground">
-        © {new Date().getFullYear()} Detalia.ro — Toate drepturile rezervate.
+        <Link href="/termeni" className="no-underline hover:underline">Termeni</Link>
+        {" · "}
+        <Link href="/confidentialitate" className="no-underline hover:underline">Confidențialitate</Link>
+        <br />© {new Date().getFullYear()} Detalia.ro — Toate drepturile rezervate.
       </p>
     </aside>
   );
