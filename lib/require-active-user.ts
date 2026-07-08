@@ -39,10 +39,20 @@ export async function requireActiveUserId(): Promise<string> {
     try {
       await signOut({ redirectTo: "/login?error=AccessDenied" });
     } finally {
+      // `cookieStore.delete(name)` NU acceptă opțiuni → Set-Cookie-ul de ștergere iese FĂRĂ `Secure`.
+      // Un cookie cu prefix `__Secure-` e respins de browser dacă Set-Cookie-ul care-l atinge nu are
+      // `Secure` (regulă de spec) → ștergerea era ignorată silențios (bug confirmat prin trace, 2026-07-08).
+      // Fix: `set()` cu `maxAge: 0` + aceleași atribute ca la login (vezi cookie-ul emis de Auth.js).
       const cookieStore = await cookies();
       for (const c of cookieStore.getAll()) {
         if (c.name.startsWith("authjs.session-token") || c.name.startsWith("__Secure-authjs.session-token")) {
-          cookieStore.delete(c.name);
+          cookieStore.set(c.name, "", {
+            path: "/",
+            maxAge: 0,
+            httpOnly: true,
+            secure: c.name.startsWith("__Secure-"),
+            sameSite: "lax",
+          });
         }
       }
     }
