@@ -36,7 +36,12 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
 
     const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
     await expect(card).toBeVisible();
-    await card.getByTitle("Salvat — scoate din salvate").click();
+    const saveButton = card.getByTitle(/Salvează detaliul|Salvat/);
+    await saveButton.click();
+    // Butonul e optimist (fire-and-forget) — title/aria-pressed se schimbă imediat în UI; aștept
+    // confirmarea (aria-pressed="false") înainte de a naviga, altfel goto() poate anula request-ul
+    // către server înainte să ajungă la DB.
+    await expect(saveButton).toHaveAttribute("aria-pressed", "false");
 
     await page.goto("/saved");
     // Verific specific detaliul nostru, NU starea globală goală — userul de test poate avea alte
