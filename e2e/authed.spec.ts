@@ -83,7 +83,10 @@ test.describe.serial("Validare pe rol", () => {
     await page.getByPlaceholder(/Explică de ce dezaprobi/).fill(justif);
     await page.getByRole("button", { name: "Trimite dezaprobarea" }).click();
 
-    await expect(page.getByText(/Ai dezaprobat acest detaliu/)).toBeVisible();
+    // Confirmarea nu mai e text vizibil (colaps la pastilă icon-only, 2026-07-06) — doar `title`.
+    // Semnalul real e rândul din lista de poziții (identic cu pattern-ul de la Aprob, linia 64).
+    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible();
+    await expect(page.getByText(/dezaprobă/)).toBeVisible();
     // Justificarea devine comentariu vizibil în dezbatere (fără „dezaprobare mută").
     await expect(page.getByText(justif)).toBeVisible();
   });
