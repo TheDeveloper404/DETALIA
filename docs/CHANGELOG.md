@@ -4,6 +4,83 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-07 (13) — Publicat Termeni și condiții + Notă de confidențialitate (draft)
+
+### feat — `/termeni` + `/confidentialitate`, linkuite din footer
+Pagini publice noi (`app/termeni/page.tsx`, `app/confidentialitate/page.tsx`), adăugate în `PUBLIC_PATHS`
+(`proxy.ts`). Conținut din scheletul deja existent în `docs/CONFIDENTIALITATE-GDPR.md` §3/§4, extins în
+proză. Linkuite din footer-ul landing-ului (`app/page.tsx`) și din rail-ul feed-ului authed
+(`components/feed-rail.tsx`). Fiecare pagină are un banner vizibil: document de lucru, **nerevizuit încă de
+jurist**. Operatorul e listat generic („SRL în curs de înregistrare") — Liviu+Edi nu au firmă înființată
+încă; de completat cu denumire/CUI/sediu ulterior. Contact: `support@detalia.ro`.
+
+### fix — dedicat sesiunii: 13 documente din `docs/` verificate/actualizate față de cod + `docs/README.md` nou
+`SCHEMA.md` (lipseau `canvases`/`canvas_items`, `CAD`), `ARHITECTURA.md` (referință reziduală invitații, faze
+nemarcate închise, status email notificări greșit), `SECURITATE.md` (notă „rămân de testat" depășită, acum
+acoperită de `admin-access.spec.ts`+`suspended.spec.ts`), `PLAN-TESTE.md` (22→~86 teste), `EMAILURI.md`
+(nu menționa oprirea emailurilor de notificare), `PLAN-SEED.md` (criteriu de succes imposibil — verificare rol
+pe HOLD), `DEPLOY.md` (lipsea backup-ul orar GH Actions), `Detalia_Canvas.md` (banner de divergență explicit
+față de implementarea v2). Găsit și: secțiunea „§Decizii / HOLD" citată de mai multe docs nu mai există în
+`.remember/remember.md` (pierdută într-o comprimare anterioară) — de recreat.
+
+---
+
+## 2026-07-07 (12) — Acoperire e2e extinsă (8 fișiere noi) + fix bug reproductibilitate `auth.setup.ts`
+
+### test — 8 fișiere e2e noi, acoperă paginile/fluxurile rămase netestate
+`profile-edit.spec.ts`, `profile-public.spec.ts`, `saved.spec.ts`, `notifications-page.spec.ts`,
+`sketch-public.spec.ts` (teaser `/s/[id]`), `admin-access.spec.ts` (privilege-escalation pe `/admin-page`,
+fără să depindă de un email real din `ADMIN_EMAILS`), `feed-search.spec.ts` (căutare + filtrare categorie),
+`verify-and-maintenance.spec.ts` (`/verify` + SEC-03 anti-open-redirect + `/maintenance`). Toate înregistrate
+în `playwright.config.ts` (4 dintre ele existau scrise dintr-o iterație anterioară a sesiunii dar nu erau în
+niciun `project.testMatch` — nu rulau deloc, prinse din timp).
+Rămas neacoperit deliberat: lockdown global live-toggle (risc de coliziune pe DB shared, `fullyParallel`).
+
+### fix — `auth.setup.ts`: `seed.json.categoryId` putea diverge de categoria REAL legată de detaliul seedat
+`pickLeafCategories(1)` alege o categorie nedeterministă la FIECARE rulare și o scrie mereu în `seed.json`,
+dar legătura reală (`detail_categories`) se creează o singură dată (prima rulare, detaliul e reutilizat după
+aia) — pe rulările următoare, `seed.json.categoryId` reflecta o categorie nouă, aleasă acum, nu cea legată
+efectiv în DB. Confirmat direct din DB (query dedicat), nu presupus. Fix: la reutilizare, citește înapoi
+legătura reală din `detail_categories` în loc să folosească alegerea nouă. A cauzat eșecul real (nu flaky) al
+testului de filtrare pe categorie din `feed-search.spec.ts`.
+
+### fix — 2 teste proprii, cauze reale confirmate cu dovadă
+`saved.spec.ts`: butonul de bookmark nu e în interiorul `<a href>` (sibling, în div-ul de conținut) — selector
+scopat greșit pe ancoră → timeout; scopat pe `<article>`. Al doilea test presupunea empty-state global (fragil
+pe DB shared) → verifică acum specific dispariția detaliului nostru. `feed-search.spec.ts`: titlul apare de 2
+ori pe pagină (cardul + rail-ul „În dezbatere acum") → dezambiguizat cu `getByRole("heading")`.
+
+### infra — regex de config `public.spec.ts` prindea și `profile-public.spec.ts` (substring match)
+`profile-public.spec.ts` rula (greșit) și anonim, fără sesiune → toate 3 teste picau pe redirect la `/login`.
+Ancorat regexul (`/(^|[\\/])public\.spec\.ts$/`).
+
+### notă — 2 eșecuri pre-existente rămase deschise, neatinse (nu sunt din fișierele adăugate azi)
+`authed.spec.ts` „Dezaprob" și `sketch.spec.ts` „Șterge schița mea" — flake documentat deja în handoff,
+regula „NU relua cu ipoteze noi fără dovadă nouă" încă se aplică. Plus 2 eșecuri noi apărute o singură dată
+(`canvas.spec.ts` „redenumește planșa", `suspended.spec.ts`) — posibil flake tranzitoriu din load-ul rulărilor
+repetate pe DB shared, de reconfirmat la următoarea rulare (Liviu a curățat DB-ul de preview între timp).
+
+---
+
+## 2026-07-07 (11) — DB backup: fix pg_dump v18 + Sentry pe `platform_settings` + tweak sidebar categorii
+
+### fix — `db-backup.yml` picase din nou, cauză diferită de `deb822`
+Instalarea `postgresql-client-18` a mers de data asta, dar `pg_dump` apelat era tot v16 (implicit în PATH pe
+Ubuntu runner) — mismatch cu serverul (Postgres 18.4), `pg_dump: aborting because of server version mismatch`.
+Fix: apelat binarul explicit (`/usr/lib/postgresql/18/bin/pg_dump`). Confirmat cu `workflow_dispatch` manual.
+
+### fix — `platform_settings` citire eșuată intermitent, fără vizibilitate în Sentry
+Raportat de Liviu: eroare recurentă (mai multe zile), dar „nu văd nimic în Sentry". Cauză: catch-ul din
+`settingsRepo.ts` doar loga `err.message` (wrapper Drizzle generic) cu `console.error`, fără
+`Sentry.captureException` — ajungea în Vercel Logs, nu în Sentry Issues. Verificat SQL pe producție: coloanele
+DB sunt corecte, NU e drift de schemă (ipoteza din comentariul vechi era greșită). Fix: log și `err.cause`
+(eroarea Postgres reală) + `Sentry.captureException` (tag `platform_settings`). Cauza reală rămâne de văzut
+la următoarea apariție, acum cu vizibilitate în Sentry.
+
+### tweak — UI sidebar categorii feed (cerut explicit de Liviu)
+`category-filter-list.tsx`: rândul activ nu mai are fundal bej — doar bară verticală `border-primary` + text
+bold. Cifra „0" de lângă frunze ascunsă complet când `count === 0` (afișată doar dacă sunt detalii reale).
+
 ## 2026-07-07 (10) — Fix date: categorii cu `parent_id` greșit DOAR pe producție + consistență header pagini „ale mele"
 
 ### fix — săgețile expand/collapse din sidebar feed și din formularul de adăugare detaliu păreau moarte

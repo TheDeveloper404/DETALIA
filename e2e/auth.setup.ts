@@ -133,6 +133,18 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
         .returning({ id: details.id })
     )[0];
     await db.insert(detailCategories).values({ detailId: detail.id, categoryId: category.id });
+  } else {
+    // Detaliul e reutilizat dintr-o rulare anterioară — dar `category` de mai sus a fost ales ACUM,
+    // via `pickLeafCategories` (nedeterminist), și poate fi diferit de categoria legată efectiv atunci.
+    // Citim înapoi legătura REALĂ ca `seed.json.categoryId` să reflecte adevărul din DB, nu o alegere nouă.
+    const existingLink = (
+      await db
+        .select({ categoryId: detailCategories.categoryId })
+        .from(detailCategories)
+        .where(eq(detailCategories.detailId, detail.id))
+        .limit(1)
+    )[0];
+    if (existingLink) category = { id: existingLink.categoryId };
   }
 
   // 6) Cookie de sesiune Auth.js. Numele/securizarea depind de protocol (https → prefix `__Secure-`).

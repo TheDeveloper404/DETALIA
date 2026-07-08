@@ -19,7 +19,8 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
     // Preview-urile Vercel sunt în spatele Deployment Protection (zid de login SSO). Trecem de el cu
     // „Protection Bypass for Automation": un header cu secretul proiectului (+ cookie pe navigările următoare).
     // Secretul: Vercel → Settings → Deployment Protection → Protection Bypass for Automation → în `.env.e2e`.
@@ -36,7 +37,15 @@ export default defineConfig({
     // Fluxuri PUBLICE — anonim (fără storageState), nicio dependență de DB.
     {
       name: "public",
-      testMatch: /public\.spec\.ts/,
+      testMatch: [/(^|[\\/])public\.spec\.ts$/, /verify-and-maintenance\.spec\.ts/],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // Teaser public de schiță (/s/[id]) — anonim, fără storageState, dar are nevoie de seed.json
+    // (detailId/testerUserId) și de DB pentru schița PUBLISHED de test → depinde de "setup".
+    {
+      name: "sketch-public",
+      testMatch: /sketch-public\.spec\.ts/,
+      dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"] },
     },
     // Setup AUTHED — seedează user+rol+sesiune+detaliu în DB și salvează storageState. Cere DATABASE_URL.
@@ -58,6 +67,11 @@ export default defineConfig({
         /detail-edit\.spec\.ts/,
         /feed\.spec\.ts/,
         /sketch-numbering\.spec\.ts/,
+        /feed-search\.spec\.ts/,
+        /profile-edit\.spec\.ts/,
+        /profile-public\.spec\.ts/,
+        /saved\.spec\.ts/,
+        /notifications-page\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {
@@ -83,6 +97,13 @@ export default defineConfig({
       name: "suspended",
       testMatch: /suspended\.spec\.ts/,
       dependencies: ["setup"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // Acces admin (/admin-page/*) — sesiune SEPARATĂ de useri, browser anonim (fără storageState).
+    // Nu depinde de "setup" — nu folosește seed.json, doar DB direct (adminLoginTokens/adminSessions).
+    {
+      name: "admin-access",
+      testMatch: /admin-access\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     // Onboarding — user dedicat FĂRĂ rol, cookie JWT propriu (storageState-ul comun din "authed" e al unui

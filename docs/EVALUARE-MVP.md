@@ -4,7 +4,8 @@
 > pentru fiecare. Exclude din scor: blocajele cunoscute, deciziile pe HOLD și cele intenționate (vezi `CLAUDE.md`
 > „Decizii deschise" + handoff). Sursa de adevăr pentru securitate = `SECURITATE.md`; aici e doar sinteza + planul.
 >
-> **Data evaluării:** 2026-07-04 (actualizat după auditul pe scenarii). De re-evaluat după fiecare fază mare.
+> **Data evaluării:** 2026-07-04 (audit pe scenarii), actualizat 2026-07-07 (acoperire E2E extinsă +
+> gol de observabilitate deschis). De re-evaluat după fiecare fază mare.
 > Istoricul „ce s-a făcut și când" trăiește în `docs/CHANGELOG.md` — aici stau doar starea curentă + golurile
 > rămase, nu un jurnal de implementare.
 
@@ -26,8 +27,8 @@ nu lăsate pe pilot automat.
 | Performanță | 9/10 | indexare corectă; rămâne doar profilarea pe trafic real (netestabilă acum) |
 | Scalabilitate | 8.5/10 | OK pentru fază |
 | Clean architecture / principii | 9.5/10 | §11c igienă închisă |
-| Testare | 9.5/10 | E2E verde 22/22 (schiță + IDOR + integrare atomicitate/cascadă) + teste în CI |
-| Observabilitate | 9/10 | Sentry live + alerte active pe rate-limit/suspendare/admin-login-failed |
+| Testare | 9.5/10 | E2E extins la ~86 teste/24 fișiere (2026-07-07) — acoperă și paginile secundare (profil, saved, notificări), admin access-control, feed search/filtrare; rulare curată în așteptare |
+| Observabilitate | 8.5/10 | Sentry live + alerte active pe rate-limit/suspendare/admin-login-failed; **gol deschis:** `platform_settings` — citire eșuată intermitent în prod, cauză reală încă necunoscută |
 
 ---
 
@@ -96,28 +97,50 @@ crește baza de cod.
 
 ## Testare — 9/10
 
-**De ce:** unit + domain + servicii (cu repo-uri mock) solide (11 fișiere `.test.ts`) + E2E Playwright VERDE
-22/22 pe preview (public + setup + authed + schiță + securitate + integrare): landing/auth UI,
-deny-by-default, 404, feed authed, profil, validarea pe roluri, comentariu, schiță publish→teanc→delete,
-**IDOR pe comentariu și schiță** (cross-user, service+DB real), **integrare** (atomicitatea `createDetail`,
-cascada la ștergere detaliu + polimorfism validare/comentariu pe schiță). Authed via cookie de sesiune JWT —
-fără bypass în producție. CI rulează `npm test` (vitest) pe fiecare PR; E2E NU rulează în CI (cere preview +
-bypass), manual pe preview.
+**De ce:** unit + domain + servicii (cu repo-uri mock) solide (11 fișiere `.test.ts`) + E2E Playwright extins
+2026-07-07 la **~86 teste / 24 fișiere** pe preview (public + setup + authed + schiță + securitate + integrare
++ admin-access + sketch-public + feed-search): landing/auth UI, deny-by-default, 404, feed authed (+ căutare
+și filtrare pe categorie), profil (propriu + public), saved/bookmark, notificări, validarea pe roluri,
+comentariu, schiță publish→teanc→delete, teaser public de schiță (`/s/[id]`), control acces `/admin-page`
+(privilege-escalation, fără să depindă de un email real din allowlist), **IDOR pe comentariu și schiță**
+(cross-user, service+DB real), **integrare** (atomicitatea `createDetail`, cascada la ștergere detaliu +
+polimorfism validare/comentariu pe schiță). Authed via cookie de sesiune JWT — fără bypass în producție. CI
+rulează `npm test` (vitest) pe fiecare PR; E2E NU rulează în CI (cere preview + bypass), manual pe preview.
+
+**Gol găsit + reparat (2026-07-07):** `auth.setup.ts` avea un bug de reproductibilitate — categoria seedată
+era aleasă nedeterminist la fiecare rulare, divergea de legătura reală din DB. Corectat; a cauzat un eșec
+real (nu flaky) în noile teste de filtrare pe categorie.
+
+**De confirmat:** rulare curată completă după curățarea DB-ului de preview (date acumulate din rulări
+repetate) — 2 eșecuri (`canvas.spec.ts`, `suspended.spec.ts`) apărute o singură dată, suspectate flake
+tranzitoriu, neconfirmate încă pe DB curat. 2 eșecuri vechi documentate (`authed.spec.ts` „Dezaprob",
+`sketch.spec.ts` „Șterge schița mea") — posibil artefact Playwright, nu bug real, neinvestigate cu ipoteze
+noi fără dovadă.
 
 **Cum ajunge la 10:** aproape închis — restul e doar volum. **Gol punctual (2026-07-04):** cele 9 fixuri din
 auditul pe scenarii sunt verificate static (`tsc`+eslint) dar doar #1 are teste unit noi; `npm test` de rulat +
-de adăugat teste pe consumul token-ului admin și pe blocarea SEC-04 la nivel de acțiune.
+de adăugat teste pe consumul token-ului admin și pe blocarea SEC-04 la nivel de acțiune (parțial acoperit acum
+de `admin-access.spec.ts`, 2026-07-07).
 
 ---
 
-## Observabilitate — 9/10
+## Observabilitate — 8.5/10
 
 **De ce:** audit trail structurat (`lib/audit.ts`) + loguri Vercel native + Sentry live pe prod (erori
 server/client/edge) + alerte active (Sentry Alerts pe tag `audit_event`: rate-limit, cont suspendat,
 login-admin eșuat → notificare Liviu).
 
+**Gol deschis (de zile, necunoscut):** `getSettingsRow()` (`server/repos/settingsRepo.ts`) — citirea
+tabelului `platform_settings` (config de mentenanță/lockdown, citit pe căi critice: proxy + feed) eșuează
+intermitent în producție, în zile diferite. Nu e drift de schemă (verificat direct în DB). Tolerant by design
+(catch → default, site-ul nu pică), deci fără impact vizibil pe useri — dar cauza reală rămâne necunoscută.
+Până 2026-07-07 eroarea nu ajungea deloc în Sentry (doar `console.error`, deci invizibilă retroactiv în Vercel
+Logs); acum raportează cu `err.cause` + tag `platform_settings` — următoarea apariție va avea, sperăm, cauza
+reală (connection refused / pool epuizat / timeout Neon).
+
 **Cum ajunge la 10:**
-1. **Correlation ID** propagat prin request (acum evenimentele sunt punctuale) — util la debugging cap-coadă.
+1. **`platform_settings`** — de investigat cu dovadă din Sentry la următoarea apariție (nu ghicit).
+2. **Correlation ID** propagat prin request (acum evenimentele sunt punctuale) — util la debugging cap-coadă.
 
 ---
 

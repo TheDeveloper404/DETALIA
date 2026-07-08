@@ -1,10 +1,23 @@
 # Detalia — Specificație tehnică: PLANȘA (Canvas privat)
 
-**Versiune:** 1.0 — document de lucru
+**Versiune:** 1.0 — document de lucru (concept inițial, PARȚIAL NEACTUAL)
 **Data:** Iulie 2026
 **Autor:** Eduard (concept) — pentru Liviu (implementare)
-**Statut:** Feature aprobat pentru MVP, cu scope-ul strict definit mai jos
-**Relație cu restul documentelor:** extinde Specificația MVP v1.0; absoarbe prototipul tehnic al schițării colaborative cerut în Documentul Fundamental cap. 20.3
+**Statut:** Implementat și live — reconstruit ca **v2** (2026-07-05) cu engine propriu, pe un model diferit
+în puncte concrete față de conceptul inițial de mai jos.
+**Relație cu restul documentelor:** extinde Specificația MVP v1.0; absoarbe prototipul tehnic al schițării
+colaborative cerut în Documentul Fundamental cap. 20.3
+
+> ⚠️ **Sursa de adevăr pentru implementarea curentă = `ARHITECTURA.md §7.7` + `SCHEMA.md` (tabelele
+> `canvases`/`canvas_items`) + codul (`components/plansa/`).** Acest document rămâne conceptul original,
+> util pentru intenția de UX, dar **diverge pe puncte concrete**:
+> - **Canvas FIX (rație 16:10), NU infinit** — „canvas infinit" (§1, §2.4 mai jos) a fost respins explicit
+>   ca linie roșie pentru v1.
+> - Unelte confirmate: culori + grosimi + radieră + undo/redo (nu linii/săgeți/text/forme, ca în §1).
+> - Modelul de date real: `canvases` (owner_id, name, `state` jsonb = items+strokes, thumbnail_url) +
+>   `canvas_items` (relația cu detalii/schițe) — vezi `SCHEMA.md`.
+> - Strict privat, fără share/public/colaborare/rotație/multi-select — confirmat, neschimbat față de §1.
+> Restul documentului (fluxul „Trimite în Planșă", cazul de utilizare fondator) rămâne conceptual valabil.
 
 ---
 
