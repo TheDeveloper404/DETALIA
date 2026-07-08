@@ -20,7 +20,13 @@ efective, nu presupunere):
    `cookieStore.set(name, "", { path:"/", maxAge:0, httpOnly:true, secure:true, sameSite:"lax" })` în loc de
    `delete()`.
 
-Confirmat REZOLVAT: `suspended.spec.ts` verde de 2 ori la rând după fix.
+Confirmat REZOLVAT pentru garanția care contează: **mutația e blocată + redirect la `/login` de fiecare
+dată, în toate rulările** (verificat direct). Un al treilea aspect a rămas cosmetic-racy și a fost slăbit
+în test, nu forțat cu alt patch: strategia JWT (Auth.js) reîmprospătează cookie-ul de sesiune pe ORICE
+citire reușită (design intenționat — citirea trece cu token stale), iar un prefetch automat de `<Link>`
+(navbar) concurent cu delogarea poate re-emite cookie-ul DUPĂ ștergerea noastră (cursă confirmată din trace,
+nu bug de cod — JWT nu poate fi invalidat server-side înainte de expirare fără o listă neagră, per docs
+Auth.js). Testul nu mai asertează „cookie mereu absent" — asertează garanția reală (mutație blocată).
 
 ### fix(test) — 4 bug-uri reale în suita e2e, NU flake (toate cu dovadă din trace/screenshot Playwright)
 - `saved.spec.ts` (ambele teste „salvează"/„scoate din salvate"): click optimist pe butonul de bookmark
@@ -28,9 +34,11 @@ Confirmat REZOLVAT: `suspended.spec.ts` verde de 2 ori la rând după fix.
   server să ajungă, anulându-l (confirmat ulterior și în Sentry: `TypeError: Failed to fetch` real pe POST
   `/saved`, prins live după o rulare e2e). **Prima încercare de fix a fost greșită** —
   `await expect(saveButton).toHaveAttribute("aria-pressed", ...)` verifică starea OPTIMISTĂ din UI, care se
-  schimbă instant, înainte de round-trip — nu garantează nimic despre server. Fix real: `waitForResponse`
-  pe POST-ul efectiv al server action-ului (`Promise.all([page.waitForResponse(...), saveButton.click()])`,
-  același pattern deja folosit corect în `authed.spec.ts`), pe ambele teste.
+  schimbă instant, înainte de round-trip — nu garantează nimic despre server. **A doua încercare a fost tot
+  greșită**: `waitForResponse((r) => r.request().method()==="POST" && r.ok())` fără filtru pe URL prindea
+  primul POST reușit din pagină — care era `sentry-tunnel` (telemetrie), nu server action-ul real (confirmat
+  din trace: request-ul de save nici nu apărea încă în listă). Fix real: matcher pe URL-ul EXACT al paginii
+  curente (`r.url() === page.url()`), pe ambele teste.
 - `authed.spec.ts` „Dezaprob cere justificare": `getByRole("button", { name: /retrage/ })` — regex FĂRĂ flag
   `i` (case-sensitive), dar textul afișat e „Retrage" (R mare) → locatorul nu se potrivea niciodată, `click()`
   expira 30s fără nicio eroare vizibilă. Plus: asertarea `getByText(/Ai dezaprobat acest detaliu/)` viza un

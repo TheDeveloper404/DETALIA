@@ -26,9 +26,12 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     // Butonul e optimist (fire-and-forget) — aria-pressed se schimbă INSTANT (optimist), înainte ca
     // request-ul către server să se termine, deci a-l aștepta NU garantează round-trip-ul (confirmat de
     // eroarea reală din Sentry: "Failed to fetch" pe POST-ul întrerupt de goto() imediat următor).
-    // waitForResponse pe POST-ul real (server action → POST la URL-ul curent) e singura garanție.
+    // waitForResponse pe POST-ul real (server action → POST la URL-ul curent) e singura garanție — dar
+    // matcher-ul TREBUIE să fie pe URL exact, nu generic (altfel prinde orice alt POST concurent —
+    // sentry-tunnel, vercel.live — care răspunde 200 mai devreme; bug confirmat din trace, 2026-07-08).
+    const feedUrl = page.url();
     await Promise.all([
-      page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+      page.waitForResponse((r) => r.url() === feedUrl && r.request().method() === "POST" && r.ok()),
       saveButton.click(),
     ]);
 
@@ -44,10 +47,11 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
     await expect(card).toBeVisible();
     const saveButton = card.getByTitle(/Salvează detaliul|Salvat/);
-    // Vezi nota din testul de mai sus — aria-pressed e optimist, nu garantează round-trip-ul. Aștept
-    // răspunsul real al server action-ului înainte de a naviga.
+    // Vezi nota din testul de mai sus — aria-pressed e optimist, nu garantează round-trip-ul, iar
+    // matcher-ul trebuie legat de URL-ul exact (nu generic „orice POST ok").
+    const savedUrl = page.url();
     await Promise.all([
-      page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+      page.waitForResponse((r) => r.url() === savedUrl && r.request().method() === "POST" && r.ok()),
       saveButton.click(),
     ]);
 
