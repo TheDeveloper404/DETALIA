@@ -24,6 +24,9 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
       await page.waitForTimeout(300);
     }
     await saveButton.click();
+    // Butonul e optimist (fire-and-forget) — aștept confirmarea (aria-pressed="true") înainte de a
+    // naviga, altfel goto() poate anula request-ul către server înainte să ajungă la DB.
+    await expect(saveButton).toHaveAttribute("aria-pressed", "true");
 
     await page.goto("/saved");
     await expect(page.getByRole("heading", { name: "Detalii salvate" })).toBeVisible();
