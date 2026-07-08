@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 import dotenv from "dotenv";
 
 // Variabile E2E (E2E_BASE_URL al mediului-țintă, DATABASE_URL pt seed sesiune) din `.env.e2e` (negitat).
-dotenv.config({ path: path.resolve(__dirname, ".env.e2e") });
+dotenv.config({ path: path.resolve(__dirname, ".env.e2e"), quiet: true });
 
 // E2E rulează pe un mediu DEJA pornit (preview Vercel sau dev local) — fără `webServer`. Mediul-țintă
 // se dă prin `E2E_BASE_URL` (ex. URL-ul de preview al PR-ului). Vezi `e2e/README.md` pentru rulare.
