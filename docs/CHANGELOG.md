@@ -4,6 +4,66 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-08 — Fix SEC-04 (cookie sesiune la suspendare) + 4 bug-uri reale în suita e2e + manual utilizator
+
+### fix(security) — cookie-ul de sesiune supraviețuia suspendării unui cont (SEC-04)
+`suspended.spec.ts` prindea corect problema (nu era flake): la prima mutație a unui cont suspendat,
+`requireActiveUserId` (`lib/require-active-user.ts`) trebuia să delogheze real (cookie șters), dar cookie-ul
+rămânea viu. Două cauze combinate, găsite cu dovadă directă din trace Playwright (headere `Set-Cookie`
+efective, nu presupunere):
+1. **Ordine greșită** — ștergerea manuală a cookie-ului rula ÎNAINTE de `signOut()`, iar `signOut()` își
+   re-scrie propriul `Set-Cookie` (re-emite un token) DUPĂ, anulând ștergerea. Fix: ștergerea mutată în
+   `finally` (rulează după `signOut()`, deci ultima pe wire).
+2. **`cookieStore.delete(name)` nu acceptă opțiuni** (verificat cu context7 în docs oficiale Next.js) →
+   Set-Cookie-ul de ștergere ieșea fără `Secure`. Un cookie cu prefix `__Secure-` e respins de browser dacă
+   Set-Cookie-ul care-l atinge n-are `Secure` (regulă de spec) → ștergerea era ignorată silențios. Fix:
+   `cookieStore.set(name, "", { path:"/", maxAge:0, httpOnly:true, secure:true, sameSite:"lax" })` în loc de
+   `delete()`.
+
+Confirmat REZOLVAT: `suspended.spec.ts` verde de 2 ori la rând după fix.
+
+### fix(test) — 4 bug-uri reale în suita e2e, NU flake (toate cu dovadă din trace/screenshot Playwright)
+- `saved.spec.ts` (ambele teste „salvează"/„scoate din salvate"): click optimist pe butonul de bookmark
+  (fire-and-forget, `feed-save-button.tsx`) + `page.goto()` imediat după → naviga înainte ca request-ul către
+  server să ajungă, anulându-l (confirmat ulterior și în Sentry: `TypeError: Failed to fetch` real pe POST
+  `/saved`, prins live după o rulare e2e). **Prima încercare de fix a fost greșită** —
+  `await expect(saveButton).toHaveAttribute("aria-pressed", ...)` verifică starea OPTIMISTĂ din UI, care se
+  schimbă instant, înainte de round-trip — nu garantează nimic despre server. Fix real: `waitForResponse`
+  pe POST-ul efectiv al server action-ului (`Promise.all([page.waitForResponse(...), saveButton.click()])`,
+  același pattern deja folosit corect în `authed.spec.ts`), pe ambele teste.
+- `authed.spec.ts` „Dezaprob cere justificare": `getByRole("button", { name: /retrage/ })` — regex FĂRĂ flag
+  `i` (case-sensitive), dar textul afișat e „Retrage" (R mare) → locatorul nu se potrivea niciodată, `click()`
+  expira 30s fără nicio eroare vizibilă. Plus: asertarea `getByText(/Ai dezaprobat acest detaliu/)` viza un
+  text care nu mai era vizibil pe pagină de la refactorul UI din 2026-07-06 (devenise doar `title` pe butonul
+  colapsat). Fix: flag `i` adăugat + asertare mutată pe `getByText(/dezaprobă/)` din rândul de poziții
+  (pattern identic cu testul de Aprob).
+- `sketch.spec.ts` „Șterge schița mea": butonul are `role="menuitem"` explicit (`detail-actions-menu.tsx`),
+  care suprascrie rolul implicit ARIA „button" al elementului `<button>`. Testul căuta
+  `getByRole("button", ...)` — rol greșit, locatorul nu se rezolva niciodată (confirmat din trace: butonul
+  era perfect vizibil în screenshot, dar cu alt rol ARIA, nicidecum problemă de vizibilitate/timing). Fix:
+  `getByRole("menuitem", ...)`.
+
+Corectează retroactiv notele din (11)/(10)/(8) mai jos, care presupuneau flake/hidratare — cauza reală era
+alta, în ambele cazuri bug-uri de test cu fix exact, nu artefacte.
+
+### feat(docs) — `docs/MANUAL_UTILIZATOR.md` nou
+Manual non-tehnic pentru useri: creare cont → rol (+ notă că verificarea rolului nu e încă disponibilă) →
+feed → postare detaliu → aprob/dezaprob → schițe → comentarii → salvare → planșe → notificări → editare
+profil, plus tabel cu toate limitele de rate-limit explicate în termeni umani.
+
+### fix(docs) — `/confidentialitate` — lista de furnizori tehnici înlocuită cu formulare vagă
+Secțiunea „Cu cine partajăm datele" enumera explicit furnizorii (Vercel/Neon/Resend/Sentry/Cloudflare
+Turnstile) — înlocuit cu descriere generică (găzduire, bază de date, email, stocare imagini), fără nume de
+firme.
+
+### infra — DNS Cloudflare verificat vizual (screenshot Liviu), toate corecte
+12 records, toate DNS only (niciuna proxiată): Google Workspace pe root (MX/SPF/DKIM/DMARC) + Resend pe
+`send.notifications.detalia.ro` (SPF/DKIM/DMARC separate, fără conflict cu SPF-ul de pe root) + Vercel
+(CNAME apex/www + verificare domeniu). `support@detalia.ro` rămâne alias (routing) pe `liviu@detalia.ro` în
+Google Workspace — nu cont nou; cele 2 conturi plătite (`liviu@`, `edi@`) rămân neschimbate.
+
+---
+
 ## 2026-07-07 (13) — Publicat Termeni și condiții + Notă de confidențialitate (draft)
 
 ### feat — `/termeni` + `/confidentialitate`, linkuite din footer
@@ -54,11 +114,18 @@ ori pe pagină (cardul + rail-ul „În dezbatere acum") → dezambiguizat cu `g
 `profile-public.spec.ts` rula (greșit) și anonim, fără sesiune → toate 3 teste picau pe redirect la `/login`.
 Ancorat regexul (`/(^|[\\/])public\.spec\.ts$/`).
 
-### notă — 2 eșecuri pre-existente rămase deschise, neatinse (nu sunt din fișierele adăugate azi)
-`authed.spec.ts` „Dezaprob" și `sketch.spec.ts` „Șterge schița mea" — flake documentat deja în handoff,
-regula „NU relua cu ipoteze noi fără dovadă nouă" încă se aplică. Plus 2 eșecuri noi apărute o singură dată
-(`canvas.spec.ts` „redenumește planșa", `suspended.spec.ts`) — posibil flake tranzitoriu din load-ul rulărilor
-repetate pe DB shared, de reconfirmat la următoarea rulare (Liviu a curățat DB-ul de preview între timp).
+### notă — 2 eșecuri pre-existente, ACTUALIZARE 2026-07-08: ambele rezolvate, nu erau flake
+`authed.spec.ts` „Dezaprob" — vezi intrarea (10) mai jos, REZOLVAT (bug real de test: regex fără flag `i` +
+asertare pe text devenit `title`, nu mai vizibil pe pagină). `sketch.spec.ts` „Șterge schița mea" — REZOLVAT
+2026-07-08: cauza reală era `role="menuitem"` explicit pe buton (`detail-actions-menu.tsx`), care suprascrie
+rolul implicit „button" — testul căuta `getByRole("button", ...)`, rol greșit, locatorul nu se rezolva
+niciodată (confirmat din trace: butonul era perfect vizibil, dar cu alt rol ARIA). Niciunul nu era flake —
+erau bug-uri de test, cu cauză exactă, găsite cu dovadă (trace Playwright), nu ghicite.
+`canvas.spec.ts` „redenumește planșa" nu a mai reapărut în rulările ulterioare — confirmat flake tranzitoriu
+din load-ul rulărilor repetate, cum era suspectat. `suspended.spec.ts` NU era flake: era un bug real de
+securitate (SEC-04) — cookie-ul de sesiune supraviețuia suspendării contului din două cauze combinate
+(ordine `signOut()`/ștergere cookie + lipsă atribut `Secure` pe cookie-ul de ștergere, obligatoriu pentru
+prefixul `__Secure-`). Fix + detaliu complet în handoff-ul de azi (2026-07-08).
 
 ---
 
@@ -126,6 +193,11 @@ Fix: `CommentItem` randează acum `<div>` — părintele (`comments-section.tsx`
 `nonce`, generic și inofensiv, prezent pe orice pagină Next.js). Ciclu Retrage→Aprob→Retrage testat repetat,
 instant, fără blocaje. `authed.spec.ts` „Dezaprob" și `sketch.spec.ts` „Șterge schița mea" ar trebui să treacă
 stabil de-acum (de reconfirmat cu `npm run e2e`).
+
+**Corecție 2026-07-08:** predicția de mai sus nu s-a confirmat — cele două teste au continuat să pice și după
+acest fix. Fix-ul de hidratare de aici a fost real și corect (rămâne valid), dar NU era cauza eșecurilor
+persistente din cele două teste — acelea aveau bug-uri de test complet separate (vezi intrarea (11) de mai
+jos, secțiunea actualizată 2026-07-08).
 
 ## 2026-07-07 (7) — Fix teste stricate DE fix-ul de date de la (6) + concurență documentată
 
@@ -243,10 +315,13 @@ spec rulat în paralel (race condition, nu poluare), și CORS pe upload real de 
 pe TOATE cererile inclusiv PUT-ul direct către Vercel Blob storage — fix: `e2e/strip-bypass-headers.ts`
 scoate headerul doar pe cererile către domeniile Blob.
 
-**Rămas neînchis, documentat, NEBLOCANT:** `authed.spec.ts` „Dezaprob" — React error #418 (hydration
-mismatch) chiar înainte de click pe „Retrage", butonul rămâne fără handler o vreme. 3 ipoteze respinse cu
-dovadă (suppressHydrationWarning, timezone, repro local cu nonce mismatch generic — niciuna nu a fost cauza
-reală). Impact: glitch UI tranzitoriu, nu securitate/date, nu blochează fluxul — nu se reia fără dovadă nouă.
+**REZOLVAT 2026-07-08:** `authed.spec.ts` „Dezaprob" — cauza reală (două bug-uri de test, nu de aplicație,
+găsite cu dovadă directă din trace Playwright): `getByRole("button", { name: /retrage/ })` fără flag `i`
+(regex case-sensitive, textul afișat e „Retrage" cu R mare → locator nu se potrivea niciodată, click expira
+30s) + asertarea `getByText(/Ai dezaprobat acest detaliu/)` viza un text care nu mai era vizibil pe pagină
+(devenise doar `title` pe butonul colapsat, din refactorul 2026-07-06). Fix în ambele puncte — testul trece
+consistent de atunci. Nota veche „React error #418 hydration" era o ipoteză respinsă la vremea ei; cauza
+reală era în altă parte.
 
 ## 2026-07-07 (2) — Teste e2e editare detaliu + fix regresie (non-autor pe /edit dădea 404)
 

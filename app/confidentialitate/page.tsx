@@ -88,18 +88,11 @@ export default function ConfidentialitatePage() {
 
         <section>
           <h2 className="mb-2 text-lg font-bold">3. Cu cine partajăm datele</h2>
-          <p className="mb-3">
-            Nu vindem și nu partajăm datele tale cu terți în scop de marketing. Folosim următorii furnizori
-            (procesatori de date), strict pentru a face platforma să funcționeze:
+          <p>
+            Nu vindem și nu partajăm datele tale cu terți în scop de marketing. Folosim un număr limitat de
+            furnizori tehnici (procesatori de date), strict pentru a face platforma să funcționeze — găzduire,
+            bază de date, trimitere de emailuri de conectare și stocare de imagini.
           </p>
-          <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-            <li><strong className="text-foreground">Vercel</strong> — găzduirea aplicației.</li>
-            <li><strong className="text-foreground">Neon</strong> — baza de date.</li>
-            <li><strong className="text-foreground">Resend</strong> — trimiterea emailurilor de conectare.</li>
-            <li><strong className="text-foreground">Vercel Blob</strong> — stocarea imaginilor/schițelor.</li>
-            <li><strong className="text-foreground">Sentry</strong> — raportarea erorilor tehnice.</li>
-            <li><strong className="text-foreground">Cloudflare Turnstile</strong> — verificare anti-bot la conectare/înregistrare.</li>
-          </ul>
         </section>
 
         <section>

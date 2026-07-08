@@ -122,6 +122,14 @@ lib/        auth, email, storage, utils
 - Toate regulile de business de mai sus = enforce pe server. Frontend-ul nu e sursă de adevăr.
 - Magic link: token scurt, one-time.
 
+### Mentenanță recurentă (de reamintit lui Liviu, nu se întâmplă automat)
+- **`AUTH_SECRET` — rotire trimestrială.** Rotirea invalidează instant TOATE sesiunile active (JWT semnate cu
+  secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din greșeală. Schimbi valoarea în
+  Vercel (env, ambele scope-uri Preview + Production) → redeploy.
+- (Candidat de adăugat aici dacă Liviu confirmă că-l vrea ca rutină: test periodic de restore pe backup-ul
+  DB — există doar backup automat, nu verificare că restore-ul chiar funcționează. Neconfirmat încă ca
+  obligație recurentă.)
+
 ---
 
 ## Standarde moștenite (`D:\Claude_Development_Rules`)

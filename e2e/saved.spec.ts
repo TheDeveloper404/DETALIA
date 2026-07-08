@@ -23,10 +23,14 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
       await saveButton.click();
       await page.waitForTimeout(300);
     }
-    await saveButton.click();
-    // Butonul e optimist (fire-and-forget) — aștept confirmarea (aria-pressed="true") înainte de a
-    // naviga, altfel goto() poate anula request-ul către server înainte să ajungă la DB.
-    await expect(saveButton).toHaveAttribute("aria-pressed", "true");
+    // Butonul e optimist (fire-and-forget) — aria-pressed se schimbă INSTANT (optimist), înainte ca
+    // request-ul către server să se termine, deci a-l aștepta NU garantează round-trip-ul (confirmat de
+    // eroarea reală din Sentry: "Failed to fetch" pe POST-ul întrerupt de goto() imediat următor).
+    // waitForResponse pe POST-ul real (server action → POST la URL-ul curent) e singura garanție.
+    await Promise.all([
+      page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+      saveButton.click(),
+    ]);
 
     await page.goto("/saved");
     await expect(page.getByRole("heading", { name: "Detalii salvate" })).toBeVisible();
@@ -40,11 +44,12 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
     await expect(card).toBeVisible();
     const saveButton = card.getByTitle(/Salvează detaliul|Salvat/);
-    await saveButton.click();
-    // Butonul e optimist (fire-and-forget) — title/aria-pressed se schimbă imediat în UI; aștept
-    // confirmarea (aria-pressed="false") înainte de a naviga, altfel goto() poate anula request-ul
-    // către server înainte să ajungă la DB.
-    await expect(saveButton).toHaveAttribute("aria-pressed", "false");
+    // Vezi nota din testul de mai sus — aria-pressed e optimist, nu garantează round-trip-ul. Aștept
+    // răspunsul real al server action-ului înainte de a naviga.
+    await Promise.all([
+      page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
+      saveButton.click(),
+    ]);
 
     await page.goto("/saved");
     // Verific specific detaliul nostru, NU starea globală goală — userul de test poate avea alte
