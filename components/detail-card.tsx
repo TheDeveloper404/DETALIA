@@ -111,17 +111,22 @@ export function DetailCard({
 
         {/* Autor + rol. */}
         <div className="mb-3 flex flex-wrap items-center gap-2.5">
-          <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[11px] text-muted-foreground">
-            {detail.authorImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={detail.authorImage} alt="" className="size-full object-cover" />
-            ) : (
-              initials(detail.authorName)
-            )}
-          </span>
-          <span className="text-sm font-semibold text-foreground">
-            {detail.authorName ?? "Anonim"}
-          </span>
+          <Link
+            href={`/profile/${detail.authorId}`}
+            className="flex items-center gap-2.5 no-underline"
+          >
+            <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[11px] text-muted-foreground">
+              {detail.authorImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={detail.authorImage} alt="" className="size-full object-cover" />
+              ) : (
+                initials(detail.authorName)
+              )}
+            </span>
+            <span className="text-sm font-semibold text-foreground hover:underline">
+              {detail.authorName ?? "Anonim"}
+            </span>
+          </Link>
           <RolePill
             roleMain={detail.authorRoleMain}
             subRole={detail.authorSubRole}

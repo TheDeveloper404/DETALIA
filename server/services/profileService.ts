@@ -180,7 +180,6 @@ export async function getProfileView(
     website: safeWebsite(profile.website),
     bio: profile.headline, // headline = tagline sub nume
     about: profile.about,
-    specializations: [],
     verified: profile.verificationStatus === "VERIFIED",
     stats,
     // Repo-ul filtrează PUBLISHED (profileRepo) → imageUrl mereu setat.

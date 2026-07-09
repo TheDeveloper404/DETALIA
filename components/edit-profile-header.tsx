@@ -13,7 +13,7 @@ import {
 } from "@/app/(app)/profile/actions";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { uploadImageToBlob } from "@/lib/blob-upload";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
+import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
 
 const ACCEPT = ALLOWED_IMAGE_TYPES.join(",");
 
@@ -21,8 +21,8 @@ function validate(f: File): string | null {
   if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(f.type)) {
     return "Format neacceptat (PNG, JPG, WebP, AVIF).";
   }
-  if (f.size > MAX_IMAGE_BYTES) {
-    return `Imaginea e prea mare (max ${MAX_IMAGE_MB} MB).`;
+  if (f.size > MAX_AVATAR_BYTES) {
+    return `Imaginea e prea mare (max ${MAX_AVATAR_MB} MB).`;
   }
   return null;
 }
@@ -58,7 +58,7 @@ function useImageTarget(
     }
     setBusy(true);
     try {
-      const uploaded = await uploadImageToBlob(folder, f);
+      const uploaded = await uploadImageToBlob(folder, f, "avatar");
       const res = await save(uploaded);
       if (!res.ok) {
         setError(res.error);
@@ -280,8 +280,8 @@ export function EditProfileHeader({
         </p>
       )}
 
-      <p className="border-t border-border px-5 py-2 text-xs text-muted-foreground">
-        Imagini: PNG, JPG, WebP sau AVIF · max {MAX_IMAGE_MB} MB
+      <p className="px-5 pb-3 text-xs text-muted-foreground">
+        PNG, JPG, WebP sau AVIF · max {MAX_AVATAR_MB} MB
       </p>
     </div>
   );
