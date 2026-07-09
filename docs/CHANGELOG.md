@@ -4,6 +4,44 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-09 — Licență proprietară, fix UX sesiune-fantomă, cleanup profil, limită avatar separată, autor→profil clickabil
+
+### docs — `LICENSE` proprietar la rădăcină
+Fișier explicit „toate drepturile rezervate" (nu o licență open-source din listă GitHub) — decizie luată
+anterior (vezi handoff), rămasă neexecutată până acum. Fără nume de entitate/CUI (SRL încă neînființat).
+
+### fix(security) — UX sesiune-fantomă după curățare DB
+Un cont șters complet din DB (curățare/GDPR) cu JWT stale încă valid rămânea „blocat" vizual logat, într-o
+buclă la `/onboarding` (poarta din `proxy.ts` verifica doar „are rol?", nu „mai există userul?"). Fix: funcție
+nouă `userExistsById` (`server/repos/usersRepo.ts`) apelată pe calea `!hasRole`; dacă userul nu mai există,
+`proxy.ts` șterge direct cookie-urile de sesiune și redirectează la `/login` în loc de `/onboarding`.
+
+### refactor — elimină „Specializări" (câmp mort din profil)
+`specializations: []` din `profileService.ts` era mereu gol, hardcodat, nefolosit — redundant cu meseria
+(`subRole`, deja implementată în `server/domain/roles.ts`). Șters din `profileService.ts` și `profile-view.tsx`
+(tip + blocul UI condiționat care nu randa niciodată nimic). Backlog-ul „Specializări pe profil" închis.
+
+### fix(limits) — limită de mărime separată pentru avatar/cover (8MB) vs imagine de detaliu (25MB)
+`MAX_IMAGE_MB=25` era folosit peste tot, inclusiv pentru avatar/cover — prea generos pentru o poză de profil.
+Limită nouă `MAX_AVATAR_MB=8` (`lib/upload-limits.ts`), enforce pe server (poarta reală, `/api/blob/upload`,
+`kind: "avatar"`) + validare client (`edit-profile-header.tsx`, `onboarding-form.tsx`). Imaginea de detaliu
+rămâne la 25MB.
+
+### style — nota de format imagine mai discretă în edit-profile-header
+Textul „PNG, JPG, WebP sau AVIF · max X MB" avea `border-t` + padding propriu care-l făcea să arate ca o bară
+separată de card. Scos separatorul, redus padding-ul.
+
+### feat(ux) — click pe numele/avatarul autorului duce direct la profil (stil LinkedIn)
+Adăugat link spre `/profile/{authorId}` pe avatar+nume în: card feed (`detail-card.tsx`), header pagină
+detaliu (`detail-workspace.tsx`), comentarii+reply-uri (`comments-section.tsx`), editorul de schiță
+(`sketch-editor.tsx`, a necesitat threaduirea unui prop nou `authorId` din `edit/page.tsx`). Nu s-au atins:
+taburile de schițe din teanc (switch funcțional, nu navigare), mențiunile `@` (picker funcțional), teaser-ul
+public `/s/[id]` (decizie documentată: doar CTA, fără linkuri adânci pentru anonimi). Eliminat itemul „Vezi
+profilul autorului" din meniul kebab (`detail-actions-menu.tsx`, acum redundant) + cleanup prop `authorId` și
+import `User` rămase neutilizate.
+
+---
+
 ## 2026-07-08 — Fix SEC-04 (cookie sesiune la suspendare) + 4 bug-uri reale în suita e2e + manual utilizator
 
 ### fix(security) — cookie-ul de sesiune supraviețuia suspendării unui cont (SEC-04)
