@@ -5,6 +5,10 @@
 export const MAX_IMAGE_MB = 25;
 export const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 
+// Avatar/cover de profil — limită separată, mai mică (nu au nevoie de rezoluția unei imagini de detaliu tehnic).
+export const MAX_AVATAR_MB = 8;
+export const MAX_AVATAR_BYTES = MAX_AVATAR_MB * 1024 * 1024;
+
 export const ALLOWED_IMAGE_TYPES = [
   "image/png",
   "image/jpeg",

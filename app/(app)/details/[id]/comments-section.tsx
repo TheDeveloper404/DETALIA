@@ -1,6 +1,7 @@
 "use client";
 
 import { AtSign, Pencil, Reply, Trash2, X } from "lucide-react";
+import Link from "next/link";
 import {
   useActionState,
   useEffect,
@@ -503,7 +504,9 @@ function CommentItem({
     // SAU o replică în <ul> de replici); un <li> aici ar imbrica <li> în <li>, HTML invalid → hydration
     // mismatch real (React #418, confirmat cu dovadă 2026-07-07 — vezi CHANGELOG).
     <div className="flex gap-3">
-      <AvatarInitials name={c.authorName} imageUrl={c.authorImage} size={38} />
+      <Link href={`/profile/${c.authorId}`}>
+        <AvatarInitials name={c.authorName} imageUrl={c.authorImage} size={38} />
+      </Link>
       <div
         className={cn(
           "min-w-0 flex-1",
@@ -512,7 +515,9 @@ function CommentItem({
         )}
       >
         <div className="mb-1.5 flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold">{c.authorName ?? "Anonim"}</span>
+          <Link href={`/profile/${c.authorId}`} className="text-sm font-semibold no-underline hover:underline">
+            {c.authorName ?? "Anonim"}
+          </Link>
           <RolePill roleMain={c.authorRoleMain} subRole={c.authorSubRole} verified={c.authorVerification === "VERIFIED"} />
           {isDisapproval && (
             <span className="inline-flex items-center gap-1 rounded-md border border-destructive/25 bg-destructive/10 px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wide text-destructive">

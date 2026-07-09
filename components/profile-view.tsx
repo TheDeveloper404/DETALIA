@@ -6,10 +6,8 @@ import { useState } from "react";
 
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 
-// Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven.
-// Folosit acum de preview-ul cu date mock; gândit ca, după ce modelul de date primește câmpurile
-// necesare (bio, locație, specializări) + agregările (statistici, taburi), aceeași componentă să
-// fie alimentată cu date reale. Culorile de accent (verde/amber) sunt specifice acestui ecran → inline.
+// Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven, alimentată
+// cu date reale. Culorile de accent (verde/amber) sunt specifice acestui ecran → inline.
 
 export type ProfileStats = {
   published: number;
@@ -57,7 +55,6 @@ export type ProfileViewData = {
   website: { href: string; label: string } | null;
   bio: string | null;
   about: string | null;
-  specializations: string[];
   verified: boolean;
   stats: ProfileStats;
   details: ProfileDetailItem[];
@@ -205,29 +202,12 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         </div>
 
         <aside className="flex flex-col gap-[18px]">
-          {(data.about || data.specializations.length > 0) && (
+          {data.about && (
             <div className="rounded-lg bg-card p-5 ring-1 ring-foreground/10">
               <SectionLabel>Despre</SectionLabel>
-              {data.about && (
-                <p className="mb-4 mt-3 text-sm leading-relaxed text-muted-foreground">
-                  {data.about}
-                </p>
-              )}
-              {data.specializations.length > 0 && (
-                <>
-                  <SectionLabel>Specializări</SectionLabel>
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {data.specializations.map((s) => (
-                      <span
-                        key={s}
-                        className="rounded-full border border-border bg-secondary px-2.5 py-1 text-[12.5px] text-foreground/80"
-                      >
-                        {s}
-                      </span>
-                    ))}
-                  </div>
-                </>
-              )}
+              <p className="mb-4 mt-3 text-sm leading-relaxed text-muted-foreground">
+                {data.about}
+              </p>
             </div>
           )}
 

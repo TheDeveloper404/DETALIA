@@ -20,6 +20,14 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
   return !!row;
 }
 
+// Existența unui cont după id — folosit în poarta de onboarding (proxy.ts) ca să distingem
+// „logat, fără rol încă" (redirect la /onboarding) de „userul a dispărut din DB" (curățare/GDPR
+// cu JWT stale încă viu) — al doilea caz trebuie delogat, nu trimis într-o buclă de onboarding.
+export async function userExistsById(userId: string): Promise<boolean> {
+  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
+  return !!row;
+}
+
 // Datele de profil colectate la onboarding (text). Imaginile (image/coverImage) se setează separat,
 // după upload-ul în Blob. `name` îl compunem aici din first + last pentru codul care-l citește.
 export async function updateUserProfile(
