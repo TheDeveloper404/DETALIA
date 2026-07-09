@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, BookmarkCheck, Check, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2, User } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
@@ -27,7 +27,6 @@ import { toggleSaveDetailAction } from "./save-actions";
 // Detaliul de bază nu are variantă publică → nu are niciun item de „copiază link" în meniu.
 export function DetailActionsMenu({
   detailId,
-  authorId,
   isAuthor,
   isSaved,
   canSendToCanvas,
@@ -36,7 +35,6 @@ export function DetailActionsMenu({
   deleteSketchLabel,
 }: {
   detailId: string;
-  authorId: string;
   isAuthor: boolean;
   isSaved: boolean;
   // „Trimite în Planșă" — vizibil doar când userul e logat (orice tab: detaliu SAU schiță).
@@ -112,19 +110,6 @@ export function DetailActionsMenu({
                 )}
               </button>
             </form>
-
-            {/* Vezi profilul autorului — poziție FIXĂ (a doua, mereu), indiferent ce iteme condiționale
-                apar sub ea (Trimite în Planșă / Copiază linkul) — altfel „sare" de pe poziția 2 pe 3 în
-                funcție de context, cum a semnalat Liviu (1.png vs 2.png, 2026-07-06). */}
-            <Link
-              href={`/profile/${authorId}`}
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className={itemClass}
-            >
-              <User className="size-4 text-muted-foreground" strokeWidth={2} />
-              Vezi profilul autorului
-            </Link>
 
             {/* Trimite în Planșă — doar dacă modelul poate reprezenta corect ce vede userul (tab de bază). */}
             {canSendToCanvas && (

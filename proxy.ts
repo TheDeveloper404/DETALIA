@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { buildCspHeader } from "@/lib/csp";
 import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
+import { userExistsById } from "@/server/repos/usersRepo";
 import { userHasRole } from "@/server/services/roleService";
 
 // Rutele de cron invocate de Vercel (fără sesiune de user) — autorizare reală prin CRON_SECRET, în
@@ -122,9 +123,25 @@ export default auth(async (req) => {
     // înainte de a avea rol. Ruta `/api/blob/upload` cere oricum sesiune (deny-by-default în handler),
     // deci e sigur s-o lăsăm să treacă fără rol — altfel poza din onboarding e redirectată (302) și eșuează.
     const onboardingAllowedApi = pathname === "/api/blob/upload";
-    // Logat fără rol, oriunde în zona protejată → trimis să-și declare rolul întâi.
-    if (!hasRole && !onOnboarding && !isPublic && !onboardingAllowedApi) {
-      return Response.redirect(new URL("/onboarding", origin));
+    // Logat fără rol, oriunde în zona protejată (INCLUSIV chiar pe /onboarding) → verificăm întâi dacă
+    // userul chiar mai există în DB. Fără acest check, un cont șters (curățare/GDPR) cu JWT stale încă
+    // viu rămânea „blocat" vizual logat pe /onboarding, într-o buclă fără ieșire (declareRole ar respinge
+    // oricum, dar userul nu vede de ce). Delogare directă în loc de onboarding-loop.
+    if (!hasRole && !isPublic && !onboardingAllowedApi) {
+      const exists = await userExistsById(userId);
+      if (!exists) {
+        const res = Response.redirect(new URL("/login", origin));
+        for (const name of ["authjs.session-token", "__Secure-authjs.session-token"]) {
+          res.headers.append(
+            "Set-Cookie",
+            `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${name.startsWith("__Secure-") ? "; Secure" : ""}`,
+          );
+        }
+        return res;
+      }
+      if (!onOnboarding) {
+        return Response.redirect(new URL("/onboarding", origin));
+      }
     }
     // Logat cu rol care nimerește pe onboarding → direct în feed (nu mai are ce căuta acolo).
     if (hasRole && onOnboarding) {
