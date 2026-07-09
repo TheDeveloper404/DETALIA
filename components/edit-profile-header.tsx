@@ -12,12 +12,15 @@ import {
   saveCoverUrl,
 } from "@/app/(app)/profile/actions";
 import { AvatarInitials } from "@/components/avatar-initials";
-import { uploadImageToBlob } from "@/lib/blob-upload";
+import { HEIC_ERROR_MESSAGE, isHeicFile, uploadImageToBlob } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
 
 const ACCEPT = ALLOWED_IMAGE_TYPES.join(",");
 
 function validate(f: File): string | null {
+  if (isHeicFile(f)) {
+    return HEIC_ERROR_MESSAGE;
+  }
   if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(f.type)) {
     return "Format neacceptat (PNG, JPG, WebP, AVIF).";
   }
