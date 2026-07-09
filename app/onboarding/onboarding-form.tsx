@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 
 import { CityAutocomplete } from "@/components/city-autocomplete";
 import { uploadImageToBlob } from "@/lib/blob-upload";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
+import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
 import {
   ROLE_MAINS,
   ROLE_MAIN_LABELS,
@@ -118,8 +118,8 @@ export function OnboardingForm() {
       setClientErr("Poza trebuie să fie PNG, JPG, WebP sau AVIF.");
       return;
     }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setClientErr(`Poza e prea mare (max ${MAX_IMAGE_MB} MB).`);
+    if (file.size > MAX_AVATAR_BYTES) {
+      setClientErr(`Poza e prea mare (max ${MAX_AVATAR_MB} MB).`);
       return;
     }
     setClientErr(null);
@@ -148,11 +148,11 @@ export function OnboardingForm() {
       setClientErr(null);
       try {
         if (needAvatar) {
-          const u = await uploadImageToBlob("avatars", avatarFile!);
+          const u = await uploadImageToBlob("avatars", avatarFile!, "avatar");
           if (avatarUrlRef.current) avatarUrlRef.current.value = u;
         }
         if (needCover) {
-          const u = await uploadImageToBlob("covers", coverFile!);
+          const u = await uploadImageToBlob("covers", coverFile!, "avatar");
           if (coverUrlRef.current) coverUrlRef.current.value = u;
         }
         formRef.current?.requestSubmit();

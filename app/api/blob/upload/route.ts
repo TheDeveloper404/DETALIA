@@ -11,6 +11,7 @@ import {
   ALLOWED_CAD_TYPES,
   ALLOWED_DOC_TYPES,
   ALLOWED_IMAGE_TYPES,
+  MAX_AVATAR_BYTES,
   MAX_CAD_BYTES,
   MAX_DOC_BYTES,
   MAX_IMAGE_BYTES,
@@ -18,9 +19,9 @@ import {
 
 // "kind" vine din clientPayload (setat de client în uploadFileToBlob) — alege allowlist-ul de
 // tip/mărime pe server. Default "image" dacă lipsește/e necunoscut (fail-safe, cel mai restrictiv).
-type UploadKind = "image" | "pdf" | "cad";
+type UploadKind = "image" | "avatar" | "pdf" | "cad";
 function resolveKind(clientPayload: string | null): UploadKind {
-  if (clientPayload === "pdf" || clientPayload === "cad") return clientPayload;
+  if (clientPayload === "avatar" || clientPayload === "pdf" || clientPayload === "cad") return clientPayload;
   return "image";
 }
 
@@ -78,6 +79,13 @@ export async function POST(request: Request): Promise<NextResponse> {
           return {
             allowedContentTypes: [...ALLOWED_CAD_TYPES],
             maximumSizeInBytes: MAX_CAD_BYTES,
+            addRandomSuffix: true,
+          };
+        }
+        if (kind === "avatar") {
+          return {
+            allowedContentTypes: [...ALLOWED_IMAGE_TYPES],
+            maximumSizeInBytes: MAX_AVATAR_BYTES,
             addRandomSuffix: true,
           };
         }

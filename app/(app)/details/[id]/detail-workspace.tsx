@@ -172,8 +172,15 @@ export function DetailWorkspace({
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />
-            <span className="font-heading text-[15.5px] font-bold">{detailAuthor.name ?? "Anonim"}</span>
+            <Link
+              href={`/profile/${detailAuthor.id}`}
+              className="flex items-center gap-2 no-underline"
+            >
+              <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />
+              <span className="font-heading text-[15.5px] font-bold hover:underline">
+                {detailAuthor.name ?? "Anonim"}
+              </span>
+            </Link>
             <RolePill
               roleMain={detailAuthor.roleMain}
               subRole={detailAuthor.subRole}
@@ -194,7 +201,6 @@ export function DetailWorkspace({
             <span className="ml-auto">
               <DetailActionsMenu
                 detailId={detailId}
-                authorId={detailAuthor.id ?? ""}
                 isAuthor={isDetailAuthor}
                 isSaved={header.isSaved}
                 canSendToCanvas={!!currentUserId}

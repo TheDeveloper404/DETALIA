@@ -33,6 +33,7 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
       imageUrl={detail.imageUrl!}
       initialStrokes={draft.value.strokes}
       detailTitle={detail.title}
+      authorId={detail.authorId}
       authorName={detail.authorName}
       authorRoleMain={detail.authorRoleMain}
       authorSubRole={detail.authorSubRole}
