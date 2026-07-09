@@ -4,6 +4,13 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-10 — Suită E2E completă: 82/82 verde
+Rulare completă (`npm run e2e -- --workers=1`), confirmată de Liviu: **82 passed, 0 erori.** Zero regresii pe
+tot ce s-a schimbat în ultimele două zile (Turnstile admin login, CSP scope preview, security.txt, fix HEIC
+upload, +2 teste IDOR, test de concurență). Suita e verde de la un cap la altul, nu doar fișierele noi.
+
+---
+
 ## 2026-07-10 — Infra: DMARC întărit, redirect canonical www, confirmări Vercel/Sentry
 Continuare pe golurile minore rămase din auditul de securitate 2026-07-09 (`docs/SECURITATE.md`):
 - **DMARC `p=none`→`p=quarantine`** pe AMBELE înregistrări (`_dmarc.detalia.ro` + auto-generata
@@ -62,6 +69,8 @@ draft, ciornă detaliu, planșă, editare detaliu). **Concurență:** test nou c
 atomic `onConflictDoUpdate` cu `setWhere`, nu doar citit codul). Rulare: `npx playwright test
 e2e/security.spec.ts` (preview, nu prod). *(`platform_settings` rămâne observare, nu bug — calea de citire e
 tolerantă + instrumentată Sentry cu `.cause`; nu se repară pe ghicit fără traceul real.)*
+
+**Confirmat rulat 2026-07-10 (Liviu): 9/9 teste verzi** (`npx playwright test e2e/security.spec.ts`).
 
 ### fix(security) — hygiene din audit: security.txt + CSP scope pe preview (Low)
 Două minore din audit: (1) `/.well-known/security.txt` (RFC 9116) — route handler public (adăugat în
