@@ -5,7 +5,9 @@
 > „Decizii deschise" + handoff). Sursa de adevăr pentru securitate = `SECURITATE.md`; aici e doar sinteza + planul.
 >
 > **Data evaluării:** 2026-07-04 (audit pe scenarii), actualizat 2026-07-07 (acoperire E2E extinsă +
-> gol de observabilitate deschis). De re-evaluat după fiecare fază mare.
+> gol de observabilitate deschis), **recalibrat 2026-07-09** (două treceri: prima a amestecat „calitate cod"
+> cu „rezistă la orice atac" în același număr și a scăzut nota de securitate prea mult, la 7; a doua trecere
+> a corectat asta — vezi `docs/SECURITATE.md` §„Nota onestă"). De re-evaluat după fiecare fază mare.
 > Istoricul „ce s-a făcut și când" trăiește în `docs/CHANGELOG.md` — aici stau doar starea curentă + golurile
 > rămase, nu un jurnal de implementare.
 
@@ -13,17 +15,25 @@
 
 ## Verdict
 
-**MVP prod-ready: ~96%.** Securitatea și funcționalul sunt validate end-to-end, inclusiv teste distructive
-reale pe prod (§11). JWT deployat, login confirmat pe viu. **Nu există „100%" onest la acest stadiu** —
-motivul e simplu: nimic din ce s-a validat n-a văzut încă **trafic real**. Codul e solid; comportamentul la
-scară (feed cu sute de detalii, useri simultani) e necunoscut, nu testat, pentru că nu a existat încă ocazia.
+**MVP prod-ready: ~93%.** Funcționalul și fundamentele de securitate sunt validate end-to-end, inclusiv teste
+distructive reale pe prod (§11) și un audit extern independent (Codex, black-box) — **zero Critical/High pe
+ambele lentile**. **Nu există „100%" onest la acest stadiu** — nu pentru că s-ar fi găsit ceva greșit, ci pentru
+că nimic din ce s-a validat n-a văzut încă **trafic real**, și niciun audit (al meu sau extern) nu înlocuiește o
+verificare umană adversă reală — asta e o limită a oricărei metode de evaluare, nu un defect găsit în platformă.
 Asta nu ține pe loc lansarea (e exact scopul fazei de validare de piață) — ține pe loc declarația de „gata și
 nu se mai poate întâmpla nimic". Primele zile cu useri reali trebuie urmărite activ (Sentry + Vercel Logs),
 nu lăsate pe pilot automat.
 
+> **Notă despre recalibrarea 2026-07-09:** a fost în două trepte. Prima trecere a amestecat „cât de bine e
+> testat codul" cu „nimeni nu poate certifica rezistență la orice atac" în ACELAȘI număr, ceea ce a dus nota
+> de securitate greșit de jos, la 7 — și cu ea, tot procentul, la ~87%. A doua trecere a corectat asta: numărul
+> măsoară STRICT ce s-a testat (dovadă: zero Critical/High, două lentile independente, IDOR+concurență testate
+> real); limita „niciun audit nu certifică rezistență la un atacator uman" se spune în cuvinte, separat, fără
+> să tragă fals-precis un scor în jos. Detalii complete → `docs/SECURITATE.md` §„Nota onestă".
+
 | Capitol | Notă | Direcția |
 |---|---|---|
-| Securitate | 9.8/10 | audit categorii + **audit pe scenarii (7 feature-uri, 9 fixuri)** — clasa SEC-04 închisă uniform |
+| Securitate | 8.5–9/10 | vezi `docs/SECURITATE.md` §„Nota onestă" — postura TESTATĂ a codului: zero Critical/High pe două audituri independente (white-box + black-box), IDOR (7 scenarii) și concurență testate real, nu doar citite. Ce NU intră în număr (limită de metodă, nu defect găsit): rezistență la atacator uman real, comportament la trafic real — vezi document pentru detaliu |
 | Performanță | 9/10 | indexare corectă; rămâne doar profilarea pe trafic real (netestabilă acum) |
 | Scalabilitate | 8.5/10 | OK pentru fază |
 | Clean architecture / principii | 9.5/10 | §11c igienă închisă |
@@ -32,31 +42,22 @@ nu lăsate pe pilot automat.
 
 ---
 
-## Securitate — 9.8/10
+## Securitate — 8.5–9/10 (postura testată a codului)
 
-**De ce:** deny-by-default, IDOR enforce în services, rate-limit distribuit (Upstash) + alerte Sentry active pe
-evenimentele de audit, upload re-procesat (strip EXIF, validare din magic bytes), allowlist URL/Blob (anti-SSRF),
-CSP + security headers, validare UUID centralizată, audit trail fără PII, ștergere cont GDPR. Audit formal
-CRITICAL (13 categorii) APROBAT, verificat cu atacuri reale pe prod — detalii în `docs/SECURITATE.md` (sursa
-unică de adevăr pentru securitate).
+> **Recalibrat 2026-07-09, în două treceri** — vezi `docs/SECURITATE.md` §„Nota onestă" pentru analiza
+> completă și istoricul corecției. Analiza nu se duplică aici; doar sinteza.
 
-**Audit pe SCENARII (2026-07-04) — complementar auditului pe categorii.** Metodă nouă: matrice
-actor×acțiune×perturbare executată prin cod (nu checklist), pe toate cele 7 feature-uri cu mutații (~99
-scenarii). A prins ce auditul pe categorii nu vede — **comportament**, nu proprietăți statice. **9 fixuri:**
-5 goluri SEC-04 (cont suspendat cu JWT viu putea încă face mutații — retragere poziție, ștergere/creare schiță,
-ștergere ciornă/detaliu/comentariu, plus poarta de upload; acum **clasa e închisă UNIFORM**), 1 race atomic la
-dublu-submit dezaprobare (comentarii duplicate), 1 consum atomic al token-ului de magic link admin (evită sesiuni
-duble), 1 de-anonimizare GDPR la onboarding (PII rescris peste cont șters), 1 cleanup thumbnail orfan. Detalii →
-CHANGELOG 2026-07-04 (#1–#7).
+Fundamentele (auth, authz, IDOR — 7 scenarii testate real, injecție, rate-limiting fail-closed în prod,
+business logic cu tranziții atomice testate sub concurență) sunt închise la nivel de inginerie, confirmate
+independent de **două audituri metodologic diferite** (white-box al meu + black-box independent Codex) —
+**zero Critical, zero High, pe amândouă.** Asta e dovadă, nu ton.
 
-> ⚠️ **Verificare:** fixurile sunt validate cu `tsc`+eslint + citire cap-coadă; #1 are teste unit noi
-> (`validationService.test.ts`). **Rulează `npm test`** înainte de următorul deploy; restul fixurilor (SEC-04,
-> token admin, upload) sunt corecturi mici/atomice fără test dedicat (greu de acoperit unitar fără browser/DB).
-
-**Cum ajunge la 10 (rămas):**
-1. ✅ Procedura de **rotație a secretelor** e scrisă (`docs/DEPLOY.md` §2b) — rămâne doar **executată o dată**
-   (manual, de Liviu) + validat **backup/restore** Neon.
-2. Materializează în teste scenariile confirmate care încă n-au acoperire (consum token admin; SEC-04 pe acțiuni).
+**Ce NU intră în acest număr, deliberat** (limită de metodă, nu defect găsit în platformă): rezistența la un
+atacator uman real și determinat — niciun audit AI n-o poate certifica; comportamentul sub trafic real —
+netestat pentru că n-a existat încă ocazia. Rămân și câteva goluri concrete, cunoscute, cu plan: DMARC `p=none`
+(deschis, cu grijă la livrare), `platform_settings` (instrumentat, așteaptă traceul real), alertare Sentry
+neconfirmată end-to-end. Niciunul dintre astea nu e „vibe coding" sau neglijență — sunt limite normale pentru
+un MVP în fază de validare, fără resurse pentru pentest uman plătit sau ani de trafic real.
 
 ---
 

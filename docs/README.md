@@ -8,7 +8,7 @@ la divergență, câștigă codul (excepție: `INCIDENTS.md` și `CHANGELOG.md`,
 | [ARHITECTURA.md](ARHITECTURA.md) | Arhitectură + plan de atac: stack, straturi, modelul de roluri, fazare/roadmap, deciziile de produs confirmate. Punctul de plecare pentru orice context tehnic nou. |
 | [ADR.md](ADR.md) | Registru compact de decizii de arhitectură durabile (context → decizie → consecințe), formă scurtă, ușor de revizitat. |
 | [SCHEMA.md](SCHEMA.md) | Proiectarea concretă a modelului de date (tabele, enum-uri, constrângeri, indici) — design doc; sursa de adevăr reală e `db/schema.ts`. |
-| [SECURITATE.md](SECURITATE.md) | Sursa unică de adevăr pentru securitate: auditul CRITICAL (13 categorii) + auditurile de follow-up, constatări și remedieri. |
+| [SECURITATE.md](SECURITATE.md) | Sursa unică de adevăr pentru securitate: auditul CRITICAL (13 categorii) + auditurile de follow-up (intern + extern black-box Codex) + nota onestă de ansamblu, într-un singur document. |
 | [PLAN-TESTE.md](PLAN-TESTE.md) | Strategia de testare (unit/E2E/security), suita reală de teste pe fișier, cum se rulează. |
 | [EMAILURI.md](EMAILURI.md) | Copy-ul emailurilor trimise prin Resend (magic link + notificări), sincronizat cu `lib/email.ts`. |
 | [DEPLOY.md](DEPLOY.md) | Infrastructură live: servicii third-party, separare medii dev/prod, backup/restore, reguli de release. |

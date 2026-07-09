@@ -11,22 +11,30 @@
 // FĂRĂ `strict-dynamic`: ar ignora allowlist-ul de host → ar rupe toolbar-ul `vercel.live` pe preview. Păstrăm
 // allowlist-ul de host alături de nonce (ambele surse valide). Edge-safe (doar construire de string).
 
-export function buildCspHeader(nonce: string, isDev = false): string {
+// `previewTools` = includem originile toolbar-ului Vercel (vercel.live/vercel.com/pusher). Ele NU rulează pe
+// producție (doar pe preview) → le scoatem din CSP-ul de prod (suprafață mai mică). MVP n-are real-time, deci
+// pusher e exclusiv infra toolbar-ului. Storage-ul Blob și Turnstile rămân MEREU (sunt funcțional real).
+export function buildCspHeader(nonce: string, isDev = false, previewTools = true): string {
+  const live = previewTools ? " https://vercel.live" : "";
+  const liveConnect = previewTools
+    ? " https://vercel.com https://vercel.live wss://*.pusher.com https://*.pusher.com"
+    : "";
+  const liveFrame = previewTools ? "https://vercel.live " : "";
   return [
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",
-    // nonce pt scripturile noastre + Next; host pt toolbar-ul vercel.live (preview). `unsafe-eval` doar în dev (HMR).
-    // nonce + host vercel.live (preview) + challenges.cloudflare.com (widget-ul Turnstile pe auth).
-    `script-src 'self' 'nonce-${nonce}' https://vercel.live https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
+    // nonce pt scripturile noastre + Next; host vercel.live doar pe preview; challenges.cloudflare.com = Turnstile.
+    // `unsafe-eval` doar în dev (HMR).
+    `script-src 'self' 'nonce-${nonce}'${live} https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'", // vezi nota: atributele style din React nu pot fi noncuite
-    "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://vercel.live https://vercel.com",
-    "font-src 'self' data: https://vercel.live",
-    "connect-src 'self' https://vercel.com https://*.vercel-storage.com https://vercel.live wss://*.pusher.com https://*.pusher.com https://challenges.cloudflare.com",
-    // frame-src: toolbar vercel.live (preview) + iframe-ul Turnstile.
-    "frame-src https://vercel.live https://challenges.cloudflare.com",
+    `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com${previewTools ? " https://vercel.live https://vercel.com" : ""}`,
+    `font-src 'self' data:${live}`,
+    `connect-src 'self' https://*.vercel-storage.com https://challenges.cloudflare.com${liveConnect}`,
+    // frame-src: toolbar vercel.live (doar preview) + iframe-ul Turnstile.
+    `frame-src ${liveFrame}https://challenges.cloudflare.com`,
     "upgrade-insecure-requests",
   ].join("; ");
 }

@@ -6,6 +6,7 @@ import { createAdminLoginUrl, adminLinkTtlMinutes, isAdminEmail } from "@/lib/ad
 import { audit } from "@/lib/audit";
 import { adminLoginEmailHtml, adminLoginEmailText, sendEmail } from "@/lib/email";
 import { checkLimit, clientIp, hashAuditId, limiters } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export type AdminLoginState = { sent: boolean; error: string | null };
 
@@ -27,6 +28,13 @@ export async function requestAdminLinkAction(
   ]);
   if (!byUser.ok || !byIp.ok) {
     return { sent: false, error: "Prea multe încercări. Așteaptă câteva minute." };
+  }
+
+  // Anti-bot: validăm tokenul Turnstile la Cloudflare ÎNAINTE de ramura isAdminEmail — răspuns generic,
+  // fără a scurge dacă emailul e admin. No-op fără chei (dev). La eșec: mesaj generic, fără a atinge Resend.
+  const captcha = String(formData.get("cf-turnstile-response") ?? "") || null;
+  if (!(await verifyTurnstile(captcha, ip))) {
+    return { sent: false, error: "Verificarea anti-bot a eșuat. Reîncarcă pagina și încearcă din nou." };
   }
 
   if (isAdminEmail(email)) {
