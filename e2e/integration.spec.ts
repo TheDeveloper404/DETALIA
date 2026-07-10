@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { comments, detailCategories, detailResources, details, sketches, validations } from "../db/schema";
-import { addComment } from "../server/services/commentService";
+import { commentLikes, comments, detailCategories, detailResources, details, sketches, validations } from "../db/schema";
+import { addComment, getComments, toggleCommentLike } from "../server/services/commentService";
 import { createDetail, deleteDetail } from "../server/services/detailService";
 import { approve } from "../server/services/validationService";
 import { getSeed } from "./seed";
@@ -93,4 +93,69 @@ test("deleteDetail: cascada șterge schița + validarea/comentariul polimorfice 
   expect(remainingValidations).toHaveLength(0);
   expect(remainingComments).toHaveLength(0);
   expect(remainingDetail).toHaveLength(0);
+});
+
+test("toggleCommentLike: toggle real pe DB + CANNOT_LIKE_OWN + cascadă la ștergerea comentariului", async () => {
+  const { testerUserId, authorUserId, categoryId } = getSeed();
+
+  const created = await createDetail({
+    authorId: testerUserId,
+    title: `Integration test — like comentariu ${Date.now()}`,
+    categoryIds: [categoryId],
+    imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+    resources: [],
+  });
+  expect(created.ok).toBe(true);
+  if (!created.ok) return;
+  const detailId = created.detailId;
+
+  try {
+    // Comentariu al lui `author` pe detaliul lui `tester`.
+    const commentRes = await addComment({
+      userId: authorUserId,
+      targetType: "DETAIL",
+      targetId: detailId,
+      body: "Comentariu de integrare — like",
+    });
+    expect(commentRes.ok).toBe(true);
+
+    const [comment] = await db.select({ id: comments.id }).from(comments).where(eq(comments.targetId, detailId));
+
+    // Autorul nu-și poate aprecia propriul comentariu (CANNOT_LIKE_OWN, enforce în service).
+    const ownLike = await toggleCommentLike({ userId: authorUserId, commentId: comment.id });
+    expect(ownLike).toEqual({ ok: false, error: "CANNOT_LIKE_OWN" });
+
+    // `tester` apreciază comentariul lui `author` → toggle real pe tabelul comment_likes.
+    const liked = await toggleCommentLike({ userId: testerUserId, commentId: comment.id });
+    expect(liked).toEqual({ ok: true, liked: true });
+
+    const rowsAfterLike = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
+    expect(rowsAfterLike).toHaveLength(1);
+
+    // Agregarea din listCommentsForTarget (likeCount/likedByMe/likers) reflectă like-ul.
+    const listedForTester = await getComments("DETAIL", detailId, testerUserId);
+    const listed = listedForTester.find((c) => c.id === comment.id);
+    expect(listed?.likeCount).toBe(1);
+    expect(listed?.likedByMe).toBe(true);
+    expect(listed?.likers).toHaveLength(1);
+    expect(listed?.likers[0]).toMatchObject({ id: testerUserId });
+
+    // Din perspectiva altcuiva (author), likedByMe e fals — poziția e per-user.
+    const listedForAuthor = await getComments("DETAIL", detailId, authorUserId);
+    expect(listedForAuthor.find((c) => c.id === comment.id)?.likedByMe).toBe(false);
+
+    // Retragere — toggle din nou → liked: false, rândul dispare.
+    const unliked = await toggleCommentLike({ userId: testerUserId, commentId: comment.id });
+    expect(unliked).toEqual({ ok: true, liked: false });
+    const rowsAfterUnlike = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
+    expect(rowsAfterUnlike).toHaveLength(0);
+
+    // Cascadă: ștergerea detaliului (→ șterge comentariul) elimină și un like rămas.
+    await toggleCommentLike({ userId: testerUserId, commentId: comment.id }); // re-apreciază
+    await deleteDetail({ detailId, userId: testerUserId });
+    const remainingLikes = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
+    expect(remainingLikes).toHaveLength(0);
+  } finally {
+    await db.delete(details).where(eq(details.id, detailId));
+  }
 });
