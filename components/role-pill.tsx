@@ -38,7 +38,7 @@ export function RolePill({
         </span>
       )}
       <span
-        className="rounded-full px-2 py-0.5 font-mono text-[11.5px] leading-none"
+        className="whitespace-nowrap rounded-full px-2 py-0.5 font-mono text-[11.5px] leading-none"
         style={{ background: style.bg, color: style.fg }}
       >
         {label}

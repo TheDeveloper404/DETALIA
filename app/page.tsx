@@ -483,6 +483,7 @@ export default function Home() {
       {/* ===== FOOTER ===== */}
       <footer style={{ background: "#241611", color: "#c4bcae" }}>
         <div
+          className="dc-footer-inner"
           style={{
             maxWidth: MAXW,
             margin: "0 auto",
@@ -494,14 +495,14 @@ export default function Home() {
             gap: 20,
           }}
         >
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="dc-footer-brand" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center" }}>
               {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
               <img src="/logo-dark.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
             </div>
             <span style={{ fontSize: 16, color: "#8c8475" }}>Detaliul de execuție, pus la dezbatere pe roluri.</span>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
+          <div className="dc-footer-links" style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
             <Link href="/termeni" style={{ fontSize: 13.5, color: "#8c8475", textDecoration: "none" }}>
               Termeni și condiții
             </Link>

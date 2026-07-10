@@ -309,6 +309,23 @@
     grid-template-columns: 1fr;
     gap: 40px;
   }
+  /* Header-ul rămâne sticky doar pe desktop — pe mobil, fixat peste tot scroll-ul (inclusiv secțiunea
+     dark CTA și footer) dă senzația că „acoperă" conținutul; pe ecran îngust nu are nevoie să fie mereu vizibil. */
+  .dc-landing > header {
+    position: static !important;
+  }
+  /* Footer-ul se centrează pe mobil — pe rândurile individuale rezultate din flex-wrap, „space-between"
+     lasă fiecare bloc lipit de marginea stângă în loc de centrat. */
+  .dc-footer-inner {
+    justify-content: center !important;
+    text-align: center;
+  }
+  .dc-footer-brand {
+    align-items: center;
+  }
+  .dc-footer-links {
+    justify-content: center;
+  }
 }
 
 /* Planșa din hero — se „desenează" singură la încărcare (stroke-draw via pathLength=1),
