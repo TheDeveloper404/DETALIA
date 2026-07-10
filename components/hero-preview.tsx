@@ -117,7 +117,7 @@ export function HeroPreview() {
             width="100%"
             viewBox="0 0 420 250"
             fill="none"
-            style={{ display: "block" }}
+            style={{ display: "block", width: "100%", height: "auto", aspectRatio: "420 / 250" }}
             aria-hidden
           >
             {/* contur secțiune atic */}

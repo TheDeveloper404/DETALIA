@@ -67,7 +67,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
 
   const userId = session.user.id;
   const validation = await getTargetValidationView("DETAIL", detail.id, userId);
-  const comments = await getComments("DETAIL", detail.id);
+  const comments = await getComments("DETAIL", detail.id, userId);
 
   // Schițele publicate (teancul), fiecare cu validarea ei per-țintă (per-SKETCH RĂMÂNE). Dezbaterea NU mai
   // e per-schiță → nu mai fetchăm comentarii pe SKETCH (câștig de perf: elimină N query-uri).

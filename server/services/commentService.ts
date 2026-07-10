@@ -13,6 +13,7 @@ import {
   getRootCommentForTarget,
   insertComment,
   listCommentsForTarget,
+  toggleCommentLike as toggleCommentLikeRepo,
   updateCommentByAuthor,
 } from "@/server/repos/commentsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
@@ -84,9 +85,9 @@ export async function addComment(input: {
   return { ok: true };
 }
 
-export async function getComments(targetType: TargetType, targetId: string) {
+export async function getComments(targetType: TargetType, targetId: string, currentUserId?: string) {
   if (!isUuid(targetId)) return []; // SEC-11: id malformat → fără comentarii (nu eroare SQL)
-  return listCommentsForTarget(targetType, targetId);
+  return listCommentsForTarget(targetType, targetId, currentUserId);
 }
 
 export type EditCommentResult =
@@ -127,4 +128,27 @@ export async function deleteComment(input: {
   if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
   const deleted = await deleteFreeCommentByAuthor(input.commentId, input.userId);
   return deleted ? { ok: true } : { ok: false, error: "NOT_FOUND" };
+}
+
+export type ToggleCommentLikeResult =
+  | { ok: true; liked: boolean }
+  | { ok: false; error: "NO_ROLE" | "NOT_FOUND" | "CANNOT_LIKE_OWN" };
+
+// Toggle like — cere rol declarat (ca la comentat/validat) și blochează like-ul pe propriul comentariu
+// (aceeași regulă ca la validare: nu te poți valida/aprecia singur).
+export async function toggleCommentLike(input: {
+  userId: string;
+  commentId: string;
+}): Promise<ToggleCommentLikeResult> {
+  if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
+
+  const role = await getRoleByUserId(input.userId);
+  if (!role) return { ok: false, error: "NO_ROLE" };
+
+  const target = await getCommentTarget(input.commentId);
+  if (!target) return { ok: false, error: "NOT_FOUND" };
+  if (target.authorId === input.userId) return { ok: false, error: "CANNOT_LIKE_OWN" };
+
+  const liked = await toggleCommentLikeRepo(input.commentId, input.userId);
+  return { ok: true, liked };
 }

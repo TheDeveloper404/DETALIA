@@ -276,7 +276,7 @@ export function ValidationPanel({
       {positions.length > 0 && (
         <ul className="mt-4 flex flex-col gap-2.5 border-t border-[#eee6da] pt-4">
           {positions.map((p) => (
-            <li key={p.userId} className="flex items-center justify-between gap-2">
+            <li key={p.userId} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
               <span className="flex min-w-0 items-center gap-2">
                 <AvatarInitials name={p.userName} imageUrl={p.userImage} size={28} />
                 <span className="truncate text-sm font-semibold">{p.userName ?? "Anonim"}</span>
