@@ -1,11 +1,12 @@
 "use client";
 
-import { AtSign, Pencil, Reply, Trash2, X } from "lucide-react";
+import { AtSign, Heart, Pencil, Reply, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import {
   useActionState,
   useEffect,
   useMemo,
+  useOptimistic,
   useRef,
   useState,
   useTransition,
@@ -28,7 +29,9 @@ import {
   type AddCommentState,
   deleteCommentAction,
   editCommentAction,
+  toggleCommentLikeAction,
 } from "./comment-actions";
+import { CommentLikersModal } from "./comment-likers-modal";
 
 const initialState: AddCommentState = { error: null, ok: false };
 
@@ -470,6 +473,23 @@ function CommentItem({
   const editLabelsRef = useRef(new Map<string, string>());
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Like — optimistic (aceeași idee ca la validare): pornește din props (c.likedByMe/likeCount),
+  // se ajustează instant la click, apoi se reconciliază cu server-ul după revalidatePath.
+  const [likeState, applyLikeOptimistic] = useOptimistic<{ liked: boolean; count: number }, boolean>(
+    { liked: c.likedByMe, count: c.likeCount },
+    (s, liked) => ({ liked, count: s.count + (liked ? 1 : -1) }),
+  );
+  const [likePending, startLikeTransition] = useTransition();
+  const [likersOpen, setLikersOpen] = useState(false);
+
+  function toggleLike() {
+    const next = !likeState.liked;
+    startLikeTransition(async () => {
+      applyLikeOptimistic(next);
+      await toggleCommentLikeAction(c.id, detailId);
+    });
+  }
+
   function startEdit() {
     const { display, labels } = mentionsToDisplay(c.body);
     editLabelsRef.current = labels;
@@ -627,6 +647,45 @@ function CommentItem({
         ) : (
           <CommentBody body={c.body} validSketchIds={validSketchIds} onSelectSketch={onSelectSketch} />
         )}
+
+        {!editing && (
+          <div className="mt-2 flex items-center gap-3">
+            {!isOwner && (
+              <button
+                type="button"
+                onClick={toggleLike}
+                disabled={likePending}
+                aria-pressed={likeState.liked}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] transition-colors disabled:opacity-50",
+                  likeState.liked
+                    ? "text-primary"
+                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                )}
+              >
+                <Heart className="size-3" strokeWidth={2} fill={likeState.liked ? "currentColor" : "none"} />
+                {likeState.count > 0 ? likeState.count : "Apreciază"}
+              </button>
+            )}
+            {isOwner && likeState.count > 0 && (
+              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+                <Heart className="size-3" strokeWidth={2} />
+                {likeState.count}
+              </span>
+            )}
+            {likeState.count > 0 && (
+              <button
+                type="button"
+                onClick={() => setLikersOpen(true)}
+                className="font-mono text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+              >
+                vezi cine
+              </button>
+            )}
+          </div>
+        )}
+
+        {likersOpen && <CommentLikersModal likers={c.likers} onClose={() => setLikersOpen(false)} />}
 
         {error && (
           <p role="alert" className="mt-1.5 text-xs text-destructive">
