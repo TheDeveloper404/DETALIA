@@ -5,7 +5,13 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
-import { uploadDocToBlob, uploadImageToBlob } from "@/lib/blob-upload";
+import {
+  HEIC_ERROR_MESSAGE,
+  HeicUnsupportedError,
+  isHeicFile,
+  uploadDocToBlob,
+  uploadImageToBlob,
+} from "@/lib/blob-upload";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_CAD_BYTES,
@@ -345,6 +351,11 @@ export function DetailForm({
       return;
     }
     // Validare client = doar UX (serverul impune tipul/mărimea la emiterea tokenului de upload).
+    if (isHeicFile(file)) {
+      setClientError(HEIC_ERROR_MESSAGE);
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
       setClientError("Imaginea trebuie să fie PNG, JPG, WebP sau AVIF.");
       if (fileRef.current) fileRef.current.value = "";
@@ -429,8 +440,12 @@ export function DetailForm({
       const url = await uploadImageToBlob("details", imageFile);
       if (imageUrlRef.current) imageUrlRef.current.value = url;
       formRef.current?.requestSubmit(submitter ?? undefined);
-    } catch {
-      setClientError("Încărcarea imaginii a eșuat. Încearcă din nou.");
+    } catch (err) {
+      setClientError(
+        err instanceof HeicUnsupportedError
+          ? HEIC_ERROR_MESSAGE
+          : "Încărcarea imaginii a eșuat. Încearcă din nou.",
+      );
     } finally {
       setUploading(false);
     }

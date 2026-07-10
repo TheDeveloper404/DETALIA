@@ -1,12 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { canvases, comments, details, sketches } from "../db/schema";
+import { canvases, comments, details, sketches, validations } from "../db/schema";
 import { deleteComment, editComment } from "../server/services/commentService";
-import { updateDetail } from "../server/services/detailService";
+import { deleteDetailDraft, updateDetail } from "../server/services/detailService";
 import { createCanvas, getCanvasForEdit } from "../server/services/plansaService";
-import { deleteSketch } from "../server/services/sketchService";
+import { deleteDraft, deleteSketch } from "../server/services/sketchService";
+import { disapprove } from "../server/services/validationService";
 import { getSeed } from "./seed";
 
 // E2E de SECURITATE — IDOR (nu-s teste de UI/browser, ci apeluri directe pe service+DB reale, ca
@@ -129,6 +130,60 @@ test.describe("IDOR — planșă (strict privată)", () => {
   });
 });
 
+test.describe("IDOR — ștergere ciornă detaliu (deleteDetailDraft)", () => {
+  test("un user nu poate șterge ciorna de detaliu a altui user", async () => {
+    const { testerUserId, authorUserId } = getSeed();
+    // Ciornă „victimă": DRAFT, autorată de authorUserId. testerUserId încearcă s-o șteargă.
+    const [victimDraft] = await db
+      .insert(details)
+      .values({
+        title: "Ciorna privată a victimei",
+        description: "seed IDOR draft",
+        authorId: authorUserId,
+        imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+        status: "DRAFT",
+      })
+      .returning({ id: details.id });
+
+    try {
+      const res = await deleteDetailDraft({ detailId: victimDraft.id, authorId: testerUserId });
+      expect(res.ok).toBe(false);
+      if (!res.ok) expect(res.error).toBe("NOT_FOUND");
+
+      const [row] = await db.select({ id: details.id }).from(details).where(eq(details.id, victimDraft.id));
+      expect(row).toBeTruthy(); // supraviețuiește
+    } finally {
+      await db.delete(details).where(eq(details.id, victimDraft.id));
+    }
+  });
+});
+
+test.describe("IDOR — ștergere ciornă schiță (deleteDraft)", () => {
+  test("un user nu poate șterge ciorna de schiță a altui user", async () => {
+    const { detailId, testerUserId, authorUserId } = getSeed();
+    // Ciornă de schiță „victimă": DRAFT, autorată de authorUserId, peste detaliul seedat.
+    const [victimDraft] = await db
+      .insert(sketches)
+      .values({
+        detailId,
+        authorId: authorUserId,
+        status: "DRAFT",
+        strokesJson: [],
+      })
+      .returning({ id: sketches.id });
+
+    try {
+      const deleted = await deleteDraft({ sketchId: victimDraft.id, authorId: testerUserId });
+      expect(deleted).toBe(false); // non-owner → nimic șters
+
+      const [row] = await db.select({ id: sketches.id }).from(sketches).where(eq(sketches.id, victimDraft.id));
+      expect(row).toBeTruthy(); // supraviețuiește
+    } finally {
+      await db.delete(sketches).where(eq(sketches.id, victimDraft.id));
+    }
+  });
+});
+
 test.describe("IDOR — editare detaliu (updateDetail)", () => {
   test("un user care NU e autorul detaliului nu-l poate edita", async () => {
     // Detaliul seedat (auth.setup.ts) e autorat de authorUserId — testerUserId încearcă să-l editeze.
@@ -148,5 +203,58 @@ test.describe("IDOR — editare detaliu (updateDetail)", () => {
 
     const [after] = await db.select({ title: details.title }).from(details).where(eq(details.id, detailId));
     expect(after.title).toBe(before.title); // neatins
+  });
+});
+
+// Concurență — dublu-submit real (Promise.all), nu doar citit codul. Testul care închide golul semnalat
+// în auditul intern: sub cereri paralele, invarianții de business (o poziție/țintă, fără comentarii duplicate)
+// trebuie garantați ÎN DB (constrângere unică + upsert atomic cu setWhere), nu prin read-then-write în service.
+test.describe("Concurență — dublu-submit dezaprobare (upsert atomic)", () => {
+  const JUSTIF = "Dezaprobare concurentă de test (concurrency spec)";
+
+  test("5 dezaprobări paralele pe aceeași țintă → O poziție + UN comentariu-justificare", async () => {
+    // testerUserId poate dezaproba detaliul seedat (autorat de author → nu e propriul conținut).
+    const { detailId, testerUserId } = getSeed();
+
+    const targetWhere = and(
+      eq(validations.userId, testerUserId),
+      eq(validations.targetType, "DETAIL"),
+      eq(validations.targetId, detailId),
+    );
+    const commentWhere = and(
+      eq(comments.targetType, "DETAIL"),
+      eq(comments.targetId, detailId),
+      eq(comments.authorId, testerUserId),
+      eq(comments.body, JUSTIF),
+    );
+
+    // Curăță reziduuri din rulări anterioare (poziția + comentariul de test).
+    await db.delete(comments).where(commentWhere);
+    await db.delete(validations).where(targetWhere);
+
+    try {
+      const results = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          disapprove({ userId: testerUserId, targetType: "DETAIL", targetId: detailId, justification: JUSTIF }),
+        ),
+      );
+      // Toate răspund ok (idempotent); invariantul real e în DB, nu în răspuns.
+      for (const r of results) expect(r.ok).toBe(true);
+
+      // Exact O poziție DISAPPROVE (constrângere unică + onConflictDoUpdate).
+      const positions = await db
+        .select({ position: validations.position })
+        .from(validations)
+        .where(targetWhere);
+      expect(positions).toHaveLength(1);
+      expect(positions[0].position).toBe("DISAPPROVE");
+
+      // Exact UN comentariu-justificare — nu 5 duplicate (setWhere blochează tranzițiile ulterioare).
+      const justif = await db.select({ id: comments.id }).from(comments).where(commentWhere);
+      expect(justif).toHaveLength(1);
+    } finally {
+      await db.delete(comments).where(commentWhere);
+      await db.delete(validations).where(targetWhere);
+    }
   });
 });

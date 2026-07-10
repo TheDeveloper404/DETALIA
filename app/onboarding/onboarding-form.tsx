@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { CityAutocomplete } from "@/components/city-autocomplete";
-import { uploadImageToBlob } from "@/lib/blob-upload";
+import { HEIC_ERROR_MESSAGE, HeicUnsupportedError, isHeicFile, uploadImageToBlob } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
 import {
   ROLE_MAINS,
@@ -114,6 +114,10 @@ export function OnboardingForm() {
       }
       return;
     }
+    if (isHeicFile(file)) {
+      setClientErr(HEIC_ERROR_MESSAGE);
+      return;
+    }
     if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
       setClientErr("Poza trebuie să fie PNG, JPG, WebP sau AVIF.");
       return;
@@ -156,8 +160,12 @@ export function OnboardingForm() {
           if (coverUrlRef.current) coverUrlRef.current.value = u;
         }
         formRef.current?.requestSubmit();
-      } catch {
-        setClientErr("Încărcarea imaginii a eșuat. Încearcă din nou.");
+      } catch (err) {
+        setClientErr(
+          err instanceof HeicUnsupportedError
+            ? HEIC_ERROR_MESSAGE
+            : "Încărcarea imaginii a eșuat. Încearcă din nou.",
+        );
       } finally {
         setUploading(false);
       }
