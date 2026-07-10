@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
-import { addComment, deleteComment, editComment } from "@/server/services/commentService";
+import { addComment, deleteComment, editComment, toggleCommentLike } from "@/server/services/commentService";
 
 export type AddCommentState = { error: string | null; ok: boolean };
 
@@ -17,6 +17,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   NOT_FOUND: "Comentariul nu mai există sau nu îți aparține.",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
   INVALID_PARENT: "Comentariul la care răspunzi nu mai există.",
+  NO_ROLE: "Ai nevoie de un rol declarat.",
+  CANNOT_LIKE_OWN: "Nu poți aprecia propriul comentariu.",
 };
 
 export async function addCommentAction(
@@ -89,4 +91,23 @@ export async function deleteCommentAction(
   }
   revalidatePath(`/details/${detailId}`);
   return { error: null };
+}
+
+// Toggle like pe comentariu — apelată direct din client (în transition), la fel ca edit/delete.
+export async function toggleCommentLikeAction(
+  commentId: string,
+  detailId: string,
+): Promise<{ error: string | null; liked?: boolean }> {
+  const userId = await requireActiveUserId();
+
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+
+  const res = await toggleCommentLike({ userId, commentId });
+  if (!res.ok) {
+    return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
+  }
+  revalidatePath(`/details/${detailId}`);
+  return { error: null, liked: res.liked };
 }

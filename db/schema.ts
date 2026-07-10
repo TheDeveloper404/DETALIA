@@ -329,6 +329,26 @@ export const comments = pgTable(
   ],
 );
 
+// Like pe comentariu — un user apreciază un comentariu. Compus (userId, commentId) = PK → o singură
+// poziție per user per comentariu, reversibilă (toggle), garantată de DB. Autorul nu-și poate aprecia
+// propriul comentariu — enforce în commentService (CANNOT_LIKE_OWN), nu aici.
+export const commentLikes = pgTable(
+  "comment_likes",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    commentId: uuid()
+      .notNull()
+      .references(() => comments.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.commentId] }),
+    index("comment_likes_comment_id_idx").on(t.commentId),
+  ],
+);
+
 // Detaliu salvat (bookmark) — un user marchează un detaliu pentru „citește mai târziu".
 // Compus (userId, detailId) = PK → unicitate garantată de DB (nu se salvează de două ori).
 // Ambele FK cad în cascadă (userul șters / detaliul șters → bookmark-ul dispare).

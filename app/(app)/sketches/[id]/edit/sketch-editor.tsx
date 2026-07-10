@@ -88,7 +88,7 @@ export function SketchEditor({
         <div className="h-7 w-px flex-none bg-border" />
 
         <div className="flex min-w-0 flex-1 items-center gap-2.5">
-          <span className="inline-flex flex-none items-center gap-1.5 rounded-[7px] border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary">
+          <span className="hidden flex-none items-center gap-1.5 rounded-[7px] border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary sm:inline-flex">
             <Pencil className="size-3" strokeWidth={2} />
             Schiță peste
           </span>
@@ -111,19 +111,21 @@ export function SketchEditor({
           type="button"
           onClick={handleSaveDraft}
           disabled={disabled}
-          className="inline-flex flex-none items-center gap-2 rounded-[9px] border border-[#d8cfc0] bg-card px-4 py-2.5 font-heading text-sm font-semibold transition-colors hover:border-primary disabled:opacity-50"
+          aria-label="Salvează ciornă"
+          className="inline-flex flex-none items-center gap-2 rounded-[9px] border border-[#d8cfc0] bg-card px-2.5 py-2.5 font-heading text-sm font-semibold transition-colors hover:border-primary disabled:opacity-50 sm:px-4"
         >
           <Save className="size-[15px] text-muted-foreground" strokeWidth={1.9} />
-          Salvează ciornă
+          <span className="hidden sm:inline">Salvează ciornă</span>
         </button>
         <button
           type="button"
           onClick={handleSend}
           disabled={disabled}
-          className="inline-flex flex-none items-center gap-2 rounded-[9px] border border-[#95492e] bg-primary px-4 py-2.5 font-heading text-sm font-bold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-60"
+          aria-label={pending ? "Se publică…" : "Publică schița"}
+          className="inline-flex flex-none items-center gap-2 rounded-[9px] border border-[#95492e] bg-primary px-2.5 py-2.5 font-heading text-sm font-bold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-60 sm:px-4"
         >
           <Send className="size-[15px]" strokeWidth={2} />
-          {pending ? "Se publică…" : "Publică schița"}
+          <span className="hidden sm:inline">{pending ? "Se publică…" : "Publică schița"}</span>
         </button>
       </header>
 

@@ -1,9 +1,35 @@
 // Repo comentarii — singurul loc cu acces Drizzle pentru tabelul `comments` (polimorfic Detail/Sketch).
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { comments, roles, users } from "@/db/schema";
+import { commentLikes, comments, roles, users } from "@/db/schema";
 import type { TargetType } from "@/server/domain/validation";
+
+// Nr. de aprecieri pe comentariu — subquery corelat (nu join, ca să nu dublăm rândul comentariului).
+const likeCount = sql<number>`(select count(*)::int from ${commentLikes}
+   where ${commentLikes.commentId} = ${comments.id})`;
+
+// Lista celor care au apreciat (nume + rol + verificare), cei mai recenți primii — pentru popup-ul
+// „vezi cine a apreciat". La scara MVP (comunitate mică) e ieftin să vină odată cu comentariul, fără
+// fetch separat la deschiderea popup-ului.
+const commentLikers = sql<
+  { id: string; name: string | null; image: string | null; roleMain: string | null; subRole: string | null; verified: boolean }[]
+>`(
+  select coalesce(json_agg(json_build_object(
+    'id', sub.id, 'name', sub.name, 'image', sub.image,
+    'roleMain', sub.role_main, 'subRole', sub.sub_role, 'verified', sub.verified
+  )), '[]'::json)
+  from (
+    select ${users.id} as id, ${users.name} as name, ${users.image} as image,
+           ${roles.roleMain} as role_main, ${roles.subRole} as sub_role,
+           (${roles.verificationStatus} = 'VERIFIED') as verified
+    from ${commentLikes}
+    join ${users} on ${users.id} = ${commentLikes.userId}
+    left join ${roles} on ${roles.userId} = ${commentLikes.userId}
+    where ${commentLikes.commentId} = ${comments.id}
+    order by ${commentLikes.createdAt} desc
+  ) sub
+)`;
 
 export async function insertComment(input: {
   targetType: TargetType;
@@ -51,7 +77,13 @@ export async function getRootCommentForTarget(
 }
 
 // Comentariile unei ținte, cu autor (nume + rol curent). Cronologic (cele vechi sus).
-export async function listCommentsForTarget(targetType: TargetType, targetId: string) {
+// currentUserId opțional → dacă lipsește, likedByMe e mereu false (ex. context fără sesiune).
+export async function listCommentsForTarget(targetType: TargetType, targetId: string, currentUserId?: string) {
+  const likedByMe = currentUserId
+    ? sql<boolean>`exists (select 1 from ${commentLikes}
+        where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.userId} = ${currentUserId})`
+    : sql<boolean>`false`;
+
   return db
     .select({
       id: comments.id,
@@ -66,6 +98,9 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       authorRoleMain: roles.roleMain,
       authorSubRole: roles.subRole,
       authorVerification: roles.verificationStatus,
+      likeCount,
+      likedByMe,
+      likers: commentLikers,
     })
     .from(comments)
     .leftJoin(users, eq(users.id, comments.authorId))
@@ -111,4 +146,18 @@ export async function deleteFreeCommentByAuthor(id: string, authorId: string): P
     .where(and(eq(comments.id, id), eq(comments.authorId, authorId), isNull(comments.originValidationId)))
     .returning({ id: comments.id });
   return rows.length > 0;
+}
+
+// Toggle like pe comentariu — o singură poziție per user per comentariu, reversibilă (delete dacă
+// exista, altfel insert). Ownership („nu-ți poți aprecia propriul comentariu") se verifică în service,
+// nu aici. Întoarce true = acum e apreciat, false = tocmai a fost retras.
+export async function toggleCommentLike(commentId: string, userId: string): Promise<boolean> {
+  const deleted = await db
+    .delete(commentLikes)
+    .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)))
+    .returning({ commentId: commentLikes.commentId });
+  if (deleted.length > 0) return false;
+
+  await db.insert(commentLikes).values({ commentId, userId }).onConflictDoNothing();
+  return true;
 }

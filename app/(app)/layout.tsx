@@ -12,7 +12,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       <AppHeader />
-      {children}
+      {/* pb-24: rezervă spațiu sub conținut ca ultimele rânduri (ex. comentarii) să nu fie acoperite
+          de AddDetailFab, care e `fixed` peste pagină indiferent de scroll. */}
+      <div className="pb-24">{children}</div>
       <AddDetailFab />
     </>
   );

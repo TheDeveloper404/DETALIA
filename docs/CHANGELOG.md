@@ -4,6 +4,48 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-10 — Like pe comentarii (o singură poziție per user, blocat pe conținut propriu) + popup cu aprecierile
+Feature nou, cerut de Liviu, pattern identic cu validarea pe roluri (o poziție per user, reversibilă,
+enforce pe server):
+- **DB:** tabel nou `comment_likes` (PK compus `user_id`+`comment_id` → o singură apreciere per user per
+  comentariu, toggle reversibil; FK cascadă spre `users`/`comments`; index pe `comment_id`).
+- **Server:** `commentsRepo.toggleCommentLike()` (delete-dacă-exista / insert, `onConflictDoNothing` pt
+  curse) + `likeCount`/`likedByMe`/`likers` (subquery corelat, `json_agg`) adăugate în
+  `listCommentsForTarget`. `commentService.toggleCommentLike()` — cere rol declarat (`NO_ROLE`, ca la
+  comentat) și blochează like-ul pe propriul comentariu (`CANNOT_LIKE_OWN`, aceeași regulă ca la
+  `CANNOT_VALIDATE_OWN`). Server action `toggleCommentLikeAction` (rate-limited, `revalidatePath`).
+- **UI:** buton „Apreciază" (inimă, optimistic prin `useOptimistic`) lângă fiecare comentariu/reply,
+  ascuns pentru autorul propriu. Link „vezi cine" deschide `CommentLikersModal` — popup centrat, listă
+  scrollabilă (nume+avatar+rol, click → profil), refolosind tiparul de modal existent (`SendToCanvasModal`),
+  fără librărie nouă de dialog.
+- **Teste:** unit (`commentService.test.ts` — NO_ROLE, NOT_FOUND, CANNOT_LIKE_OWN, toggle liked/unliked) +
+  integrare pe DB real (`e2e/integration.spec.ts` — toggle real pe `comment_likes`, agregarea
+  `likeCount`/`likedByMe`/`likers` din `getComments`, cascadă la ștergerea detaliului).
+- **De rulat manual pe Neon (dev întâi, apoi production)** — SQL în `docs/DEPLOY.md` sau cerut direct de la
+  Claude; fără `db:push`/`db:migrate` din terminal.
+
+---
+
+## 2026-07-10 — Fix layout mobil (7 probleme, din screenshot-uri reale ale lui Liviu)
+Audit vizual pe 6 screenshot-uri mobile (landing, profil, pagina de detaliu, mod schiță) — toate elemente
+poziționate absolut/fix care nu se adaptau la viewport îngust:
+- **Footer (landing):** linkuri + copyright centrate pe mobil (≤720px) — erau lipite de marginea stângă
+  din cauza `justify-content: space-between` pe elemente care se rup (`flex-wrap`) în rânduri separate.
+- **Header (landing):** pe mobil devine `static` în loc de `sticky` — rămânea fixat peste secțiunea dark
+  CTA și footer în timpul scroll-ului.
+- **Hero preview (SVG animat):** `aspect-ratio` explicit pe SVG — putea colapsa la randare pe Safari mobil
+  (fără `height`/`aspect-ratio`, doar `width:100%` + `viewBox`).
+- **Toolbar mod-schiță:** badge „Schiță peste" ascuns sub `sm:`, butoanele „Salvează ciornă"/„Publică"
+  devin icon-only pe mobil — eliminată suprapunerea peste titlul detaliului.
+- **Dropdown notificări:** pe mobil devine `fixed` ancorat de viewport (nu `absolute` relativ la
+  wrapper-ul îngust al clopoțelului) — elimina overflow-ul din stânga ecranului („Notificări" tăiat).
+- **Badge rol suprapus (pagina de detaliu):** `whitespace-nowrap` pe pastila de rol + rândul de poziții
+  devine `flex-wrap` — „Beneficiar documentat" nu se mai rupe pe 2 linii suprapuse.
+- **FAB „Adaugă detaliu":** `pb-24` pe zona de conținut a layout-ului autentificat — butonul fix nu mai
+  acoperă ultimele rânduri (ex. comentarii) pe nicio pagină.
+
+---
+
 ## 2026-07-10 — Suită E2E completă: 82/82 verde
 Rulare completă (`npm run e2e -- --workers=1`), confirmată de Liviu: **82 passed, 0 erori.** Zero regresii pe
 tot ce s-a schimbat în ultimele două zile (Turnstile admin login, CSP scope preview, security.txt, fix HEIC
