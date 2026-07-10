@@ -2,9 +2,15 @@
 
 import { useActionState } from "react";
 
+import { TurnstileWidget } from "@/components/turnstile-widget";
+
 import { type AdminLoginState, requestAdminLinkAction } from "./actions";
 
 const INITIAL: AdminLoginState = { sent: false, error: null };
+
+// Site key public Turnstile (inline la build). Fără el (dev fără chei) nu randăm widget-ul, iar
+// verificarea server-side e no-op → fluxul de login admin merge normal local.
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
 export function AdminLoginForm() {
   const [state, formAction, pending] = useActionState(requestAdminLinkAction, INITIAL);
@@ -36,6 +42,10 @@ export function AdminLoginForm() {
           className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
         />
       </div>
+
+      {/* Turnstile — aceeași protecție anti-bot ca pe /login. Injectează `cf-turnstile-response`
+          în acest form, verificat server-side în requestAdminLinkAction. */}
+      {TURNSTILE_SITE_KEY && <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} />}
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 

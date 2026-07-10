@@ -32,6 +32,7 @@ const PUBLIC_PATHS = [
   "/termeni", // Termeni și condiții — public, linkuit din footer
   "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
   "/sentry-tunnel", // proxy Sentry (evită ad-blockere) — trebuie accesibil și pt erori pre-auth (/login etc.)
+  "/.well-known/security.txt", // canal RFC 9116 de raportare responsabilă — public prin natura lui
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
   "/admin-page",
@@ -152,7 +153,9 @@ export default auth(async (req) => {
   // SEC-08 hardening: CSP cu nonce per request. Generăm nonce, îl punem pe x-nonce (citit de RSC/layout pt
   // scripturile inline) ȘI pe headerul CSP (request + response) → Next aplică nonce-ul pe scripturile lui.
   const nonce = btoa(crypto.randomUUID());
-  const csp = buildCspHeader(nonce, process.env.NODE_ENV === "development");
+  // Toolbar-ul Vercel (vercel.live/pusher) rulează doar pe preview → pe producție îl scoatem din CSP.
+  const previewTools = process.env.VERCEL_ENV !== "production";
+  const csp = buildCspHeader(nonce, process.env.NODE_ENV === "development", previewTools);
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", csp);

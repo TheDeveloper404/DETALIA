@@ -4,6 +4,93 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-10 — Suită E2E completă: 82/82 verde
+Rulare completă (`npm run e2e -- --workers=1`), confirmată de Liviu: **82 passed, 0 erori.** Zero regresii pe
+tot ce s-a schimbat în ultimele două zile (Turnstile admin login, CSP scope preview, security.txt, fix HEIC
+upload, +2 teste IDOR, test de concurență). Suita e verde de la un cap la altul, nu doar fișierele noi.
+
+---
+
+## 2026-07-10 — Infra: DMARC întărit, redirect canonical www, confirmări Vercel/Sentry
+Continuare pe golurile minore rămase din auditul de securitate 2026-07-09 (`docs/SECURITATE.md`):
+- **DMARC `p=none`→`p=quarantine`** pe AMBELE înregistrări (`_dmarc.detalia.ro` + auto-generata
+  `_dmarc.send.notifications.detalia.ro`) — după confirmarea DKIM+SPF verified în Resend pe
+  `notifications.detalia.ro`. **Monitorizare ~1-2 săptămâni în curs** (rapoarte `rua=` pe `liviu@detalia.ro`)
+  înainte de a trece la `p=reject` + SPF `~all`→`-all` (nu înainte de ~2026-07-24).
+- **`www.detalia.ro` → redirect canonical 308 la `detalia.ro`** — Vercel Domains, confirmat activ.
+- **Plan Vercel confirmat: rămâne Hobby** — migrarea la pay-as-you-go (Neon Launch + Upstash PAYG) trecută
+  pe HOLD, nu e urgentă la volumul actual.
+- **Alertarea Sentry confirmată funcțională** — notificările de issue nou chiar ajung la Liviu (era doar
+  „configurată", neverificat direct până acum).
+
+---
+
+## 2026-07-10 — Mesaj clar pentru poze HEIC la upload (fix preventiv; NU cauza incidentului investigat)
+Pornit de la un log de producție (`1.png`) — un user a raportat că prima poză n-a mers, a doua da. Investigație
+în etape, cu corectare pe parcurs (nu s-a ghicit o cauză finală fără dovadă):
+1. Ipoteză inițială: userul era pe iPhone (semnal din log: `SafariViewService`, browser-în-aplicație iOS),
+   deci poza ar fi fost HEIC — format nesuportat de `sharp` (binarele precompilate npm/Vercel NU decodează
+   HEIC, codec HEVC sub restricții de brevet, confirmat din docs oficiale `sharp`).
+2. **Corectat:** telefonul real era un Nothing Phone (Android) — rândul `SafariViewService` din log aparținea
+   altui vizitator (iPhone), coincidență de timp, nu acestui user. Ipoteza HEIC/iPhone nu se aplică incidentului.
+3. Test live pe producție cu o poză HEIF reală → **a mers fără eroare** — confirmă că browserul/OS-ul convertește
+   HEIF→JPEG la selectare înainte să ajungă la codul nostru (comportament comun), nu că `sharp` suportă HEIF.
+4. **Sentry verificat pentru fereastra incidentului: zero evenimente.** Exclude o excepție server capturată
+   (ex. eșec la reprocesare). Concluzie onestă: **cauza reală a incidentului rămâne necunoscută** — probabil
+   ne-related la formatul imaginii (conexiune, eroare de operare, glitch local), nu un bug confirmat de-al nostru.
+
+**Fix livrat totuși** (util independent de acest incident, protejează userii de iPhone unde HEIC e o problemă
+documentată): detecție HEIC ÎNAINTE de upload, cu mesaj clar și acționabil în loc de eroarea generică „format
+neacceptat". `lib/blob-upload.ts` — `isHeicFile()` (verifică `file.type` ȘI extensia din nume, HEIC vine des cu
+`file.type` gol în unele browsere) + `HEIC_ERROR_MESSAGE` partajat. Aplicat în cele 3 puncte de upload de
+imagine: `detail-form.tsx`, `onboarding-form.tsx`, `edit-profile-header.tsx`. Fără teste noi — validare pură de
+UX client. **Nu se închide ca „incident rezolvat"** — rămâne fără cauză confirmată, doar fără reproducere/dovezi
+suplimentare de urmărit.
+
+---
+
+## 2026-07-09 — Audit securitate (Codex black-box + audit intern white-box) + fix Turnstile pe admin login
+
+### audit(security) — dublu audit înainte de expunere publică
+Auditul STRICT programat rulat în două paralele: **Codex** (black-box, producție, fără cont/mutații — nota
+8.2/10 pe suprafața anonimă, zero Critical/High) + **audit intern white-box** (verificare directă în cod a
+suprafețelor pe care black-box-ul nu le poate atinge: mutații/server actions, mass-assignment, XSS stored,
+upload, CSRF). Verdict intern: **APPROVED, zero Critical/High**. Confirmat curat: rate-limit distribuit
+fail-closed în prod, `verificationStatus` nesettabil de user, mențiuni randate prin parser (fără injecție),
+blob pinuit pe store-ul propriu, `npm audit` = 0 vulnerabilități. Findings coincidente (toate minore):
+DMARC `p=none`, `www` fără canonical, `vercel.live` în CSP prod, `security.txt` lipsă.
+
+### test(security) — acoperire IDOR completă + concurență (dublu-submit)
+Închide golurile semnalate în auditul intern. IDOR (`e2e/security.spec.ts`): +2 scenarii cross-user —
+ștergere ciornă detaliu (`deleteDetailDraft` → `NOT_FOUND`) și ștergere ciornă schiță (`deleteDraft` →
+`false`), victima supraviețuiește. Total IDOR: 7 scenarii (comentariu edit/delete, schiță delete published/
+draft, ciornă detaliu, planșă, editare detaliu). **Concurență:** test nou care trage 5 dezaprobări paralele
+(`Promise.all`) pe aceeași țintă → verifică în DB O poziție + UN comentariu-justificare (probează upsert-ul
+atomic `onConflictDoUpdate` cu `setWhere`, nu doar citit codul). Rulare: `npx playwright test
+e2e/security.spec.ts` (preview, nu prod). *(`platform_settings` rămâne observare, nu bug — calea de citire e
+tolerantă + instrumentată Sentry cu `.cause`; nu se repară pe ghicit fără traceul real.)*
+
+**Confirmat rulat 2026-07-10 (Liviu): 9/9 teste verzi** (`npx playwright test e2e/security.spec.ts`).
+
+### fix(security) — hygiene din audit: security.txt + CSP scope pe preview (Low)
+Două minore din audit: (1) `/.well-known/security.txt` (RFC 9116) — route handler public (adăugat în
+`PUBLIC_PATHS`), canal standard de raportare responsabilă; contact `liviu@detalia.ro` (deja public în DNS
+DMARC), `Expires` 2027-07-09 (de reînnoit). (2) CSP — originile toolbar-ului Vercel (`vercel.live`,
+`vercel.com`, `pusher`) trec pe preview ONLY (`VERCEL_ENV !== "production"`); pe producție suprafața CSP e
+mai mică. Blob storage + Turnstile rămân MEREU (funcțional real). MVP n-are real-time → pusher e exclusiv
+toolbar. Test unit nou `lib/csp.test.ts`. *(Rămân minorele infra `www` canonical + DMARC `p=quarantine` —
+în handoff, se fac din DNS/Vercel UI.)*
+
+### fix(security) — Turnstile pe admin login (SEC — Medium din audit)
+`/admin-page/login` nu avea Turnstile, spre deosebire de `/login` (era deja atenuat de rate-limit 10/15min
+email + 30/15min IP + allowlist + anti-enumerare, dar inconsistent). Fix: extras widget-ul Turnstile într-un
+component partajat nou (`components/turnstile-widget.tsx`, fără a atinge `auth-form.tsx` live), adăugat în
+`login-form.tsx`, verificare server-side `verifyTurnstile` în `requestAdminLinkAction` — plasată ÎNAINTE de
+ramura `isAdminEmail` (răspuns generic, fără scurgere). Test unit nou: `app/admin-page/login/actions.test.ts`
+(captcha respins blochează înainte de sendEmail, anti-enumerare pe email non-admin).
+
+---
+
 ## 2026-07-09 — Licență proprietară, fix UX sesiune-fantomă, cleanup profil, limită avatar separată, autor→profil clickabil
 
 ### docs — `LICENSE` proprietar la rădăcină
