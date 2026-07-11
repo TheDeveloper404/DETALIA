@@ -21,12 +21,16 @@ const OWN_STORE_IMAGE_URL = "https://oqhrxxllqvcxn05s.public.blob.vercel-storage
 
 
 test.describe.serial("Editare detaliu existent", () => {
-  const { categoryId } = getSeed();
+  // getSeed() NU se apelează în scope-ul describe: describe-urile se execută la COLECTAREA testelor,
+  // înainte ca proiectul "setup" să scrie e2e/.auth/seed.json → pe o mașină proaspătă (CI) pică cu
+  // ENOENT. Se citește lazy, în beforeAll (după setup).
+  let categoryId: string;
   let detailId: string | null = null;
   const originalTitle = `E2E editare — original ${Date.now()}`;
 
   test.beforeAll(async () => {
-    const { testerUserId } = getSeed();
+    const { testerUserId, categoryId: seededCategoryId } = getSeed();
+    categoryId = seededCategoryId;
     const created = await createDetail({
       authorId: testerUserId,
       title: originalTitle,

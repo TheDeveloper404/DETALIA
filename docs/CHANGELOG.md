@@ -5,6 +5,10 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 ---
 
 ## 2026-07-11 — E2E în CI (Playwright pe preview Vercel) + allowlist permisiuni + worksheet UI landing
+- **Fix (primul run real al workflow-ului E2E):** `e2e/detail-edit.spec.ts` apela `getSeed()` în scope-ul
+  `describe` → rula la COLECTAREA testelor, înainte ca proiectul `setup` să scrie `e2e/.auth/seed.json` →
+  ENOENT pe mașină proaspătă (CI). Local nu se vedea (fișierul exista din rulări vechi). Mutat lazy în
+  `beforeAll`. Singurul spec cu problema (verificat toate apelurile `getSeed()`).
 - **`.github/workflows/e2e.yml` (NOU):** rulează `npx playwright test` automat după fiecare deploy de
   PREVIEW reușit, via `repository_dispatch: vercel.deployment.success` (production exclus explicit prin
   `client_payload.environment == 'preview'`; sursă: docs oficiale Vercel). Coadă `concurrency` pe DB-ul
