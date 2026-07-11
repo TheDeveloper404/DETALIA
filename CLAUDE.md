@@ -158,46 +158,11 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 
 ---
 
-## Fluxul de lucru per task (SDLC minimal — obligatoriu, nu opțional)
-> Motivul: fără asta, se acumulează „de testat mai târziu" până devine varză (lecție 2026-07-06 — s-au
-> recuperat într-o sesiune teste e2e pentru feature-uri vechi de săptămâni). Testul e parte din task,
-> NU o fază separată făcută în bloc altă dată.
-
-Orice feature/fix trece prin pașii de mai jos, ÎN ACEEAȘI sesiune/task — nu se declară „gata" cu pași săriți:
-
-1. **Definește** — ce, cu ce scop, ce e explicit OUT of scope (deja: „un fix pe rând").
-2. **Clasifică** — SMALL / NORMAL / CRITICAL (`/classify` sau spontan, vezi CLAUDE.md global §Step 0).
-3. **Implementează.**
-4. **Testează, proporțional cu clasificarea** — NU amânat:
-   - SMALL → sanity check; poate fără test nou (decizie explicită, nu omisiune tăcută).
-   - NORMAL → unit pt logică nouă + minim un test de integrare/e2e pe fluxul principal (happy path).
-   - CRITICAL → unit + integrare + e2e + trecere adversarială (deja: regula de gândire adversarială proactivă).
-5. **Review scurt** (verificare proprie; code-reviewer/security-engineer pe NORMAL/CRITICAL).
-6. **Documentează** — CHANGELOG (+ doc afectat dacă schimbă contracte/schema).
-7. **Task închis** — dacă un pas s-a sărit conștient (ex. SMALL fără test), se spune explicit, nu se ascunde.
-
-**Declanșator simplu pentru Liviu:** la finalul oricărui task, întrebi „unde e testul?" — ca la build/typecheck.
-Nu trebuie să știi să scrii teste; trebuie doar să ceri dovada. Clasificarea (deci proporția testului) o fac eu.
-
-**Recurent, NU continuu — checkpoint la ~1 lună (sau la fiecare N feature-uri mari):** o trecere scurtă
-„ce s-a construit fără test în perioada asta?" — nu un audit complet. Listă goală = disciplina ține.
-Listă nu-goală = se recuperează, dar ca excepție rară, nu ca normalitate.
-
-**Auditul de securitate STRICT (13 categorii, `security-audit`) rămâne obligatoriu la momente-cheie, NU
-înlocuit de disciplina de mai sus:** înainte de lansarea publică (deja pe listă, vezi `.remember/remember.md`),
-la orice schimbare pe auth/permisiuni/plăți/date sensibile (CRITICAL, oricând), și după incidente reale.
-Disciplina per-task elimină nevoia de „audit de recuperare" pe cod deja livrat — nu elimină nevoia de audit
-complet înainte de expunere publică reală sau pe zone cu risc mare.
-
-### Definition of Done — bifă rapidă (nu doar proză)
-Înainte să declar un task „gata" (NORMAL/CRITICAL — pe SMALL e opțional dacă decizia de a sări e explicită):
-- [ ] Clasificat (SMALL/NORMAL/CRITICAL) — spus explicit, nu implicit
-- [ ] Implementat conform scope-ului definit (fără scope creep)
-- [ ] Testat proporțional (unit/integrare/e2e — sau motiv explicit dacă nu)
-- [ ] `tsc --noEmit` / lint / build rulate dacă s-au atins tipuri/schema
-- [ ] CHANGELOG actualizat (+ doc afectat dacă schimbă un contract/schema)
-- [ ] Dacă a fost o migrație de schemă → SQL dat pe AMBELE ramuri Neon (dev + prod)
-- [ ] Mesaj de commit sugerat lăsat pentru Liviu
+## Fluxul de lucru per task (SDLC minimal)
+**Fluxul complet (7 pași) + Definition of Done sunt GLOBALE din 2026-07-11** — vezi `CLAUDE.md` global
+§„Per-task SDLC flow". Aici doar specificul DETALIA:
+- Migrație de schemă → SQL brut dat lui Liviu pentru AMBELE ramuri Neon (dev + prod) — vezi skill `neon-sql`.
+- Auditul de securitate complet (13 categorii) e pe listă ÎNAINTE de lansarea publică (vezi `.remember/remember.md`).
 
 ### Rollback — dacă `main`/producția se strică după merge
 Procedură completă (Vercel „Promote to Production" + schema Neon + reparare pe `dev`) în
@@ -217,12 +182,10 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 ---
 
 ## Convenții de lucru (specifice acestui proiect)
-- Răspuns **în română**. Nu încep cod fără „da" explicit. Un fix pe rând.
-- **Teste:** marker `HUMAN_RUNS_TESTS` activ → **userul rulează testele**. Eu le scriu + spun ce/unde.
-  `tsc --noEmit` / `next build` le pot rula eu (nu-s „teste").
-- După schimbări de **tipuri/schemă** → rulez **build / type-check**, nu doar mă bazez pe teste.
-- **Git:** userul comite/push singur din **VS Code Source Control**. Eu las **mesaj de commit sugerat** după
-  fiecare set de modificări. Nu raportez ce e comis. Niciodată direct pe `main` (`dev` → PR).
+- **Regulile de colaborare sunt GLOBALE** (sursa: `rules/working-style.md` din config-ul global, nu se
+  dublează aici): română · aprobare pe PLANURI nu pe pași · un fix pe rând · teste split (eu rulez UNIT,
+  Liviu rulează E2E — hook `block-tests` blochează doar e2e) · build/type-check după schimbări de
+  tipuri/schemă · git exclusiv de Liviu din VS Code (mesaj de commit sugerat de mine; niciodată pe `main`).
 - **Documentație** în `docs/`. **Changelog detaliat cu dată** în `docs/CHANGELOG.md` (cel mai recent sus).
 - **Handoff** „unde am rămas" în `.remember/remember.md` după fiecare oprire. **Handoff-ul = briefing, nu arhivă:**
   ce e închis/implementat se trece ca **o linie cu referință la CHANGELOG** (ce + dată → vezi changelog), NU cu
