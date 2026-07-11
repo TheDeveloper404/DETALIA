@@ -4,6 +4,27 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-11 — E2E în CI (Playwright pe preview Vercel) + allowlist permisiuni + worksheet UI landing
+- **`.github/workflows/e2e.yml` (NOU):** rulează `npx playwright test` automat după fiecare deploy de
+  PREVIEW reușit, via `repository_dispatch: vercel.deployment.success` (production exclus explicit prin
+  `client_payload.environment == 'preview'`; sursă: docs oficiale Vercel). Coadă `concurrency` pe DB-ul
+  partajat de test; raport Playwright ca artifact la eșec; `workflow_dispatch` manual pentru testare.
+  **NEactivat încă:** (1) devine funcțional abia după merge în `main` (repository_dispatch declanșează
+  doar de pe branch-ul default); (2) Liviu trebuie să adauge 3 secrete în GitHub → Settings → Secrets:
+  `E2E_DATABASE_URL` (ramura Neon dev), `E2E_AUTH_SECRET` (AUTH_SECRET din scope-ul Preview),
+  `VERCEL_AUTOMATION_BYPASS_SECRET`. Netestat pe un run real până atunci (YAML validat sintactic).
+- **`.claude/settings.json` — allowlist permisiuni (20 reguli):** generat din analiza transcripturilor
+  (`/fewer-permission-prompts`) — tsc --noEmit, eslint, npm run lint/test, git fetch, vercel read-only
+  (whoami/env ls/logs/ls/inspect), context7, tool-urile read-only Playwright MCP. Mai puține prompturi
+  de aprobare pe sesiune. Notă: `npx eslint *` include și `--fix` (mutare de fișiere echivalentă cu Edit).
+- **`docs/worksheet-ui-landing.csv` (NOU):** worksheet pentru schimbările de UI pe landing, pe secțiunile
+  reale din `app/page.tsx` (Header, Hero B, 01–04, CTA dark, Footer + General/responsive) — Liviu îl
+  importă în Google Sheets și completează; implementarea se face pe baza lui.
+- **Context (în afara repo-ului, config global Claude):** aprobare pe planuri nu pe pași, split teste
+  (Claude rulează unit, Liviu e2e — hook `block-tests` ajustat), SDLC per task promovat global, skill-uri
+  noi (unde-am-ramas/neon-sql/citeste-poza), rutine cloud (DMARC 24 iul, checkpoint lunar teste,
+  reminder trimestrial AUTH_SECRET), curățenie memorie + WhatsappAI eliminat din config.
+
 ## 2026-07-10 — Like pe comentarii (o singură poziție per user, blocat pe conținut propriu) + popup cu aprecierile
 Feature nou, cerut de Liviu, pattern identic cu validarea pe roluri (o poziție per user, reversibilă,
 enforce pe server):

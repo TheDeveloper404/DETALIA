@@ -1,0 +1,74 @@
+# E2E (Playwright) pe preview-ul Vercel — rulează automat după fiecare deploy de PREVIEW reușit.
+#
+# Cum funcționează: integrarea Vercel↔GitHub trimite `repository_dispatch` cu tipul
+# `vercel.deployment.success`; payload-ul conține `url` (preview-ul) și `environment`.
+# Producția e EXCLUSĂ explicit (if-ul de mai jos) — e2e-ul seedează date de test în DB și nu
+# are ce căuta pe production.
+#
+# ⚠️ repository_dispatch declanșează DOAR workflow-uri de pe branch-ul default (`main`) —
+# devine activ abia după merge-ul acestui fișier în main. Până atunci se poate testa manual
+# cu `workflow_dispatch` (Actions → E2E → Run workflow, cu URL-ul de preview).
+#
+# Secrete necesare (GitHub → Settings → Secrets and variables → Actions):
+#   E2E_DATABASE_URL                — ramura Neon dev/preview (ACEEAȘI pe care o folosește preview-ul)
+#   E2E_AUTH_SECRET                 — AUTH_SECRET-ul din scope-ul Preview (semnarea sesiunii seedate)
+#   VERCEL_AUTOMATION_BYPASS_SECRET — Vercel → Deployment Protection → Protection Bypass for Automation
+
+name: E2E
+
+on:
+  repository_dispatch:
+    types:
+      - 'vercel.deployment.success'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'URL-ul de preview pe care rulează testele (https://...vercel.app)'
+        required: true
+        type: string
+
+# DB-ul de test e partajat — două rulări simultane și-ar strica reciproc seed-ul.
+# Se rulează pe rând (coadă, fără anulare).
+concurrency:
+  group: e2e-shared-db
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    # Doar preview (sau rulare manuală). NICIODATĂ pe production.
+    if: github.event_name == 'workflow_dispatch' || github.event.client_payload.environment == 'preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout (commit-ul deploy-ului)
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.client_payload.git.sha || github.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright (chromium)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E
+        run: npx playwright test
+        env:
+          E2E_BASE_URL: ${{ github.event.client_payload.url || inputs.base_url }}
+          DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
+          AUTH_SECRET: ${{ secrets.E2E_AUTH_SECRET }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+
+      - name: Raport Playwright (la eșec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
