@@ -26,6 +26,24 @@ export function isHeicFile(file: File): boolean {
   return ext === "heic" || ext === "heif";
 }
 
+// @vercel/blob/client înghite orice eroare a rutei /api/blob/upload într-un BlobError generic
+// ("Failed to retrieve the client token") — codul real (UNAUTHORIZED/RATE_LIMITED) nu ajunge la noi
+// (verificat în node_modules/@vercel/blob/dist/client.js: retrieveClientToken aruncă mereu același
+// mesaj generic la orice răspuns non-2xx). Singurul diagnostic fiabil rămas pe client e să verificăm
+// dacă sesiunea mai e validă, ca să distingem "sesiune expirată" de o eroare reală de upload.
+export async function isSessionAlive(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/auth/session");
+    if (!res.ok) return false;
+    const session = (await res.json()) as { user?: unknown };
+    return Boolean(session?.user);
+  } catch {
+    return false;
+  }
+}
+
+export const SESSION_EXPIRED_MESSAGE = "Sesiunea a expirat. Reîncarcă pagina și autentifică-te din nou.";
+
 export async function uploadImageToBlob(
   folder: string,
   file: File,

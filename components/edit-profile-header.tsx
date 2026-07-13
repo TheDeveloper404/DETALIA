@@ -12,7 +12,13 @@ import {
   saveCoverUrl,
 } from "@/app/(app)/profile/actions";
 import { AvatarInitials } from "@/components/avatar-initials";
-import { HEIC_ERROR_MESSAGE, isHeicFile, uploadImageToBlob } from "@/lib/blob-upload";
+import {
+  HEIC_ERROR_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
+  isHeicFile,
+  isSessionAlive,
+  uploadImageToBlob,
+} from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
 
 const ACCEPT = ALLOWED_IMAGE_TYPES.join(",");
@@ -71,7 +77,7 @@ function useImageTarget(
       // deci nu îl putem folosi pentru preview — altfel imaginea apare spartă până la refresh.
       setUrl(res.url ?? uploaded);
     } catch {
-      setError("Încărcarea a eșuat. Încearcă din nou.");
+      setError((await isSessionAlive()) ? "Încărcarea a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE);
     } finally {
       setBusy(false);
     }
@@ -89,7 +95,7 @@ function useImageTarget(
       }
       setUrl(null);
     } catch {
-      setError("Ștergerea a eșuat. Încearcă din nou.");
+      setError((await isSessionAlive()) ? "Ștergerea a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE);
     } finally {
       setBusy(false);
     }
