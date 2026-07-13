@@ -27,6 +27,8 @@ export type AuditEvent =
   | "maintenance_toggled" // admin a schimbat modul de mentenanță (acțiune administrativă cu impact global)
   | "admin_login_success" // autentificare reușită în panoul de admin
   | "admin_login_failed" // încercare eșuată de login admin (user inexistent / parolă greșită) — semnal brute-force
+  | "admin_user_suspended" // admin a suspendat un cont (moderare reversibilă)
+  | "admin_user_reactivated" // admin a reactivat un cont suspendat anterior
   | "notifications_retention_cleanup"; // cron de retenție a șters notificări citite vechi (15 zile)
 
 export function audit(

@@ -9,7 +9,7 @@
 import { isUuid } from "@/server/domain/ids";
 import { type Stroke, validateStrokes } from "@/server/domain/sketch";
 
-export const MIN_NAME_LENGTH = 1;
+const MIN_NAME_LENGTH = 1;
 export const MAX_NAME_LENGTH = 80;
 
 // Câte detalii poate aduna o planșă (v1 — performanță, anti-abuz). Enforce în service la add.

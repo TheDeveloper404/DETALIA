@@ -5,11 +5,6 @@ import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { categories, detailCategories, details } from "@/db/schema";
 
-export async function getCategoryById(id: string) {
-  const [row] = await db.select().from(categories).where(eq(categories.id, id)).limit(1);
-  return row ?? null;
-}
-
 // Numărul de ID-uri valide (existente ȘI bifabile — nu grupuri, ex. „Instalații") dintr-o listă —
 // verificare de integritate pentru multi-categorie la creare/editare. Un grup trimis direct (ocolind
 // UI-ul, care nu-l oferă ca bifabil) pică aici, nu doar la existență.

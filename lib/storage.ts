@@ -6,9 +6,7 @@ import { del } from "@vercel/blob";
 
 import { processAndUploadImage } from "@/lib/image-processing";
 // Limitele de upload trăiesc în `lib/upload-limits.ts` (partajate client+server, fără SDK Blob).
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
-
-export { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES };
+import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
 export type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE" | "UPLOAD_FAILED";
 export type UploadImageResult = { ok: true; url: string } | { ok: false; error: ImageValidationError };

@@ -11,7 +11,6 @@ vi.mock("@/server/repos/sketchesRepo", () => ({
   deleteSketchCascade: vi.fn(),
   listDraftsByAuthor: vi.fn(),
   listPublishedByDetail: vi.fn(),
-  listRecentPublished: vi.fn(),
   publishFromDraft: vi.fn(),
   updateStrokes: vi.fn(),
 }));

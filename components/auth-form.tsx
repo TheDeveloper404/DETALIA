@@ -11,6 +11,10 @@ import { Input } from "@/components/ui/input";
 // Site key public Turnstile (inline la build). Fără el (dev fără chei) nu randăm widget-ul, iar
 // verificarea server-side e no-op → fluxul de auth merge normal local.
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+// Pe preview (VERCEL_ENV !== "production") nu randăm widget-ul deloc: domeniul dinamic *.vercel.app
+// nu poate fi în allowlist-ul Turnstile din Cloudflare → widget-ul aruncă mereu eroare 110200
+// (vezi verifyTurnstile, care e no-op în afara producției, în oglindă cu asta).
+const TURNSTILE_ENABLED = Boolean(TURNSTILE_SITE_KEY) && process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 declare global {
   interface Window {
@@ -112,13 +116,13 @@ export function AuthForm({
       {/* Turnstile — widget invizibil/managed care injectează `cf-turnstile-response` în acest form.
           Randare explicită (vezi TurnstileWidget) — `render=explicit` dezactivează scanarea automată
           a scriptului, ca să nu randeze de două ori. Verificat pe server în signInWithEmailAction. */}
-      {TURNSTILE_SITE_KEY && (
+      {TURNSTILE_ENABLED && (
         <>
           <Script
             src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
             strategy="afterInteractive"
           />
-          <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} />
+          <TurnstileWidget siteKey={TURNSTILE_SITE_KEY!} />
         </>
       )}
 

@@ -97,8 +97,6 @@ export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
 }
 
-export type SketchWithAuthor = Awaited<ReturnType<typeof listPublishedByDetail>>[number];
-
 // Filtrează, dintr-un set de id-uri candidate, doar pe cele care sunt schițe PUBLISHED ale acestui
 // detaliu. Folosit la validarea mențiunilor @schiță din comentarii (anti-IDOR: nu poți referi o schiță
 // din alt detaliu / inexistentă). Întoarce un Set pentru lookup O(1) în sanitizarea corpului.
@@ -120,31 +118,6 @@ export async function filterSketchIdsByDetail(
   return new Set(rows.map((r) => r.id));
 }
 
-// Cele mai recente schițe PUBLISHED din toată platforma (pentru rail-ul feed-ului „Schițe noi în teanc").
-// Doar metadate de afișare (fără strokesJson) — randăm thumbnail-ul deja generat la publicare.
-export function listRecentPublished(limit: number) {
-  return db
-    .select({
-      id: sketches.id,
-      detailId: sketches.detailId,
-      thumbnailUrl: sketches.thumbnailUrl,
-      acceptedAt: sketches.acceptedAt,
-      detailTitle: details.title,
-      authorName: users.name,
-      authorImage: users.image,
-      authorRoleMain: roles.roleMain,
-      authorVerification: roles.verificationStatus,
-    })
-    .from(sketches)
-    .innerJoin(details, eq(details.id, sketches.detailId))
-    .leftJoin(users, eq(users.id, sketches.authorId))
-    .leftJoin(roles, eq(roles.userId, sketches.authorId))
-    .where(eq(sketches.status, "PUBLISHED"))
-    .orderBy(desc(sketches.acceptedAt))
-    .limit(limit);
-}
-
-export type RecentPublishedSketch = Awaited<ReturnType<typeof listRecentPublished>>[number];
 
 // Teaser PUBLIC (fără autentificare) al unei schițe — DOAR PUBLISHED (draft-urile nu sunt niciodată
 // accesibile fără cont). Randăm `thumbnailUrl` (imaginea deja compusă la publicare: detaliul-mamă +
@@ -172,8 +145,6 @@ export async function getPublicSketchTeaser(id: string) {
   return row ?? null;
 }
 
-export type PublicSketchTeaser = Awaited<ReturnType<typeof getPublicSketchTeaser>>;
-
 // Ciornele (DRAFT) ale unui autor — cu titlul + imaginea detaliului-mamă, pentru a le relua din „Ciornele mele".
 export function listDraftsByAuthor(authorId: string) {
   return db
@@ -189,8 +160,6 @@ export function listDraftsByAuthor(authorId: string) {
     .where(and(eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
     .orderBy(desc(sketches.createdAt));
 }
-
-export type DraftItem = Awaited<ReturnType<typeof listDraftsByAuthor>>[number];
 
 // Șterge o ciornă — DOAR a autorului ei și DOAR cât e DRAFT (delete condiționat). Întoarce true dacă a șters.
 export async function deleteDraftByAuthor(id: string, authorId: string): Promise<boolean> {

@@ -39,19 +39,6 @@ export function parseMentions(body: string): MentionSegment[] {
   return segments;
 }
 
-// Găsește tokenul de mențiune care se termină EXACT la poziția caretului (folosit la Backspace, ca
-// să ștergem tot tokenul dintr-o apăsare — altfel userul trebuie să șteargă caracter cu caracter
-// prin `@[Nume](sid:uuid)`, ~50 de caractere).
-export function mentionTokenEndingAt(text: string, caret: number): { start: number; end: number } | null {
-  MENTION_RE.lastIndex = 0;
-  for (let m = MENTION_RE.exec(text); m !== null; m = MENTION_RE.exec(text)) {
-    const end = m.index + m[0].length;
-    if (end === caret) return { start: m.index, end };
-    if (end > caret) break;
-  }
-  return null;
-}
-
 // Reconstruiește corpul cu tokeni din textul AFIȘAT: fiecare `@Etichetă` cunoscută devine tokenul ei.
 // Înlocuire cu GRANIȚĂ de cuvânt (nu substring naiv): `@Ana` NU se potrivește în `@Anatol` — altfel
 // corpul salvat iese corupt (`@[Ana](sid:...)tol`). Etichetele lungi primele („Nume — schița 2"
