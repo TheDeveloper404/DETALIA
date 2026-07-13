@@ -226,6 +226,49 @@ store-ul propriu (`isOwnBlobUrl`), CSRF acoperit de Origin-check built-in al ser
 
 ---
 
+## Audit complet (13 categorii) — 2026-07-14 (security-engineer, white-box) — constatări + remediere
+
+Declanșat după fix-ul unui bug de producție (CSP bloca toate upload-urile client-side — vezi CHANGELOG
+2026-07-14). Platforma e live public de ~o săptămână, cu useri activi reali — context tratat ca atare, nu
+ipotetic. **Verdict: APPROVED** (Critical 0, High 0, Medium 3, Low 5, Info 2). Toate Medium + 2 din Info
+remediate în aceeași zi:
+
+- **SEC-002 (Medium, open-redirect):** `callbackUrl` din formularul de login/signup (client-controlled)
+  ajungea nevalidat în `redirect()` — un `callbackUrl=//evil.com` putea produce o redirecționare externă.
+  **REMEDIATED:** `safeCallbackUrl()` în `app/auth-actions.ts` — whitelist strict, doar path relativ cu un
+  singur `/`. Test nou (`it.each`, 4 payload-uri) în `auth-actions.test.ts`.
+- **SEC-004 (Low, host header confusion):** login admin (`app/admin-page/login/actions.ts`) folosea Host
+  header ca fallback dacă `AUTH_URL` lipsea din env — un admin ar fi putut autentifica pe deploy-ul greșit.
+  **REMEDIATED:** fallback doar pe `localhost:3000` (ca în `lib/auth.ts`), niciodată pe Host header.
+- **SEC-001 (Medium, SEC-04 excepție):** autosave-ul Planșei (`saveCanvasDocumentAction`,
+  `saveCanvasThumbnailAction`) folosea `auth()` (doar cookie) în loc de `requireActiveUserId()` (status
+  proaspăt din DB) — inconsecvent cu restul mutațiilor. **REMEDIATED:** aliniat la `requireActiveUserId()`
+  peste tot.
+- **SEC-005 (Low, tombstone email):** email-ul de la ștergere cont conținea `userId`-ul real
+  (`deleted-${userId}@deleted.invalid`) — corelabil dintr-un export/backup viitor cu conținutul rămas.
+  **REMEDIATED:** `crypto.randomUUID()` random, fără legătură cu userId.
+- **SEC-003 (Medium, dependințe):** `npm audit --omit=dev --audit-level=high` → **0 vulnerabilități.**
+- **SEC-006 (Low, Turnstile fail-open pe outage Cloudflare):** decizie confirmată explicit de Liviu — rate-
+  limit-ul rămâne plasa reală, nu blocăm signup-ul la o pană externă. Risc acceptat, fără schimbare.
+- **SEC-007 (Low, `next-auth` beta):** verificat — `5.0.0-beta.31` e deja ultima beta publicată. Regulă de
+  verificare periodică adăugată în `CLAUDE.md` (§Mentenanță recurentă).
+- **SEC-008 (Low, CSP `style-src unsafe-inline`):** 231 utilizări `style={{}}` în 26 fișiere (poziționare
+  dinamică canvas/schiță/drag) — nonce-ul CSP nu acoperă atributul `style`. Recomandare: **NU** se scoate
+  `unsafe-inline` acum — refactor mare, risc de stricare UI pe useri live, beneficiu de securitate mic.
+  Risc acceptat, documentat.
+
+**Feature nou din audit (nu era finding, era gol de proces):** nu exista niciun mecanism de suspendare de
+cont din `/admin-page` — singura armă de moderare era ștergerea ireversibilă (GDPR anonimizare). Adăugat
+`setUserStatus` (repo + service + acțiune admin + buton UI cu confirmare + audit `admin_user_suspended`/
+`admin_user_reactivated`) — moderare reversibilă, testat unit + e2e (`e2e/admin-suspend.spec.ts`).
+
+**Igienă Sentry (efect secundar util al auditului):** 9 issue-uri vechi `unresolved` erau cod mort
+(Planșa pre-rescriere, excalidraw/tldraw) sau incident istoric de migrație (2026-07-05) — închise cu
+comentariu explicativ. Regulă nouă adăugată în `CLAUDE.md`: după orice refactor care elimină cod, trece
+prin Sentry și închide ce nu se mai poate reproduce.
+
+---
+
 ## Nota onestă
 
 > **Corectat 2026-07-09 (a doua trecere):** prima variantă a acestei secțiuni dădea 7/10, amestecând în
