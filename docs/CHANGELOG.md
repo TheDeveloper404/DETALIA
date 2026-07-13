@@ -4,6 +4,56 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — Fix critic upload (CSP) + audit securitate complet + suspendare admin + curățenie cod mort
+
+**Bug de producție găsit din raportare user (poză profil "încărcarea a eșuat"), reprodus și confirmat prin
+Sentry/Vercel Logs, apoi corectat:**
+- **`lib/csp.ts` — FIX CRITIC:** `https://vercel.com` (API-ul REST real al Vercel Blob, folosit de
+  `@vercel/blob/client` la fiecare upload direct din browser) era gatat greșit în spatele flagului
+  `previewTools` (presupus, greșit, că era doar toolbar de preview) → **CSP bloca TOATE upload-urile
+  client-side pe producție** (avatar, cover, imagine detaliu, schiță desenată, resurse PDF/CAD), de la
+  introducerea nonce-ului. Acum mereu în `connect-src`, indiferent de mediu. Test nou în `csp.test.ts`.
+- **Mesaje de eroare mai clare la upload/ștergere** (`components/edit-profile-header.tsx`,
+  `app/(app)/details/new/detail-form.tsx`, helper comun `lib/blob-upload.ts`): catch-ul generic
+  („Încărcarea a eșuat. Încearcă din nou.") nu distingea o sesiune expirată de o eroare reală — acum
+  verifică `/api/auth/session` și arată „Sesiunea a expirat..." când e cazul.
+- **Turnstile dezactivat pe preview:** domeniile dinamice `*.vercel.app` nu pot fi în allowlist-ul
+  Cloudflare Turnstile (eroare 110200) → `lib/turnstile.ts` + `auth-form.tsx` + `admin-page/login-form.tsx`
+  no-op pe `VERCEL_ENV !== "production"`, la fel ca lipsa secretului. Pe producție neschimbat.
+
+**Audit de securitate complet (13 categorii) — vezi `docs/SECURITATE.md` §2026-07-14 pentru detaliu.**
+Verdict APPROVED. Fixate: open-redirect pe `callbackUrl` (auth-actions.ts), fallback nesigur pe Host header
+la login admin, autosave Planșă aliniat pe `requireActiveUserId` (SEC-04 consecvent peste tot), tombstone
+email cu UUID random (nu userId real). `npm audit` — 0 vulnerabilități.
+
+**Feature nou: suspendare/reactivare cont din `/admin-page`** (`server/repos/usersRepo.ts` `setUserStatus`,
+`server/services/accountService.ts`, `app/admin-page/actions.ts` `setUserStatusAction`, buton UI cu
+confirmare `user-status-button.tsx`) — moderare reversibilă, alternativă la ștergerea ireversibilă de cont.
+Audit nou (`admin_user_suspended`/`admin_user_reactivated`). Test unit (`accountService.test.ts`) + e2e
+(`e2e/admin-suspend.spec.ts`, înregistrat în proiectul `admin-access` din `playwright.config.ts`).
+
+**Curățenie cod mort (`knip`):** 3 fișiere complet neutilizate șterse (`category-filter.tsx` — înlocuit
+de `category-filter-list.tsx`, `ui/badge.tsx`, `ui/separator.tsx`) + ~20 exporturi/tipuri moarte
+(funcții repo/service fără niciun apelant, re-exporturi orfane). Verificat cu `tsc`+teste unit+`next build`
+după fiecare lot. `updateRole`/`UpdateRoleResult` (roleService.ts) păstrate deliberat — feature implementat
+dar nelegat încă în UI (schimbare rol post-onboarding), nu cod abandonat.
+
+**Igienă Sentry:** 9 issue-uri vechi `unresolved` închise — 7 erau cod mort (Planșa pre-rescriere,
+excalidraw/tldraw, eliminate la rescrierea motorului propriu) sau incident istoric de migrație
+(2026-07-05, auto-rezolvat); 2 (open-redirect, autosave) rezolvate prin fix-urile de mai sus.
+
+**Reguli noi în `CLAUDE.md` (proiect):** igienă Sentry obligatorie după orice refactor care elimină cod;
+scanare periodică `knip` (~lunar sau CI) cu avertisment despre fals-pozitive pe Server Actions; verificare
+periodică versiune `next-auth` (beta) — verificat azi, suntem pe ultima (`5.0.0-beta.31`).
+
+**Infra:** `db-backup.yml` — frecvență redusă de la orar la zilnic (03:00 UTC), retenție neschimbată (30
+zile) → ~30 backup-uri simultane în loc de ~720 (repo public, fără cost, dar zgomot inutil).
+
+**Documentație:** `docs/QA_TEST_CASES.md` (NOU) — 113 cazuri de test QA pe toate modulele platformei,
+generat din codul real (servicii + rute), pentru completat manual (Trece/Nu trece/Parțial).
+
+---
+
 ## 2026-07-11 — E2E în CI (Playwright pe preview Vercel) + allowlist permisiuni + worksheet UI landing
 - **Fix (primul run real al workflow-ului E2E):** `e2e/detail-edit.spec.ts` apela `getSeed()` în scope-ul
   `describe` → rula la COLECTAREA testelor, înainte ca proiectul `setup` să scrie `e2e/.auth/seed.json` →
