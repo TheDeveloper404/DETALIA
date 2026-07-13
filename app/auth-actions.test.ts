@@ -129,4 +129,21 @@ describe("signInWithEmailAction", () => {
     );
     expect(url).toBe("/feed");
   });
+
+  it.each(["//evil.com", "/\\evil.com", "https://evil.com", "javascript:alert(1)"])(
+    "SEC-002: callbackUrl=%s (open-redirect) → normalizat la '/', niciodată trimis extern",
+    async (malicious) => {
+      checkLimit.mockResolvedValue({ ok: true });
+      verifyTurnstile.mockResolvedValue(true);
+      userExistsByEmail.mockResolvedValueOnce(true);
+      signIn.mockResolvedValueOnce(undefined);
+
+      const url = await runExpectingRedirect(
+        formData({ email: "user@x.ro", authPath: "/login", callbackUrl: malicious }),
+      );
+
+      expect(signIn).toHaveBeenCalledWith("resend", expect.objectContaining({ redirectTo: "/" }));
+      expect(url).toBe("/");
+    },
+  );
 });

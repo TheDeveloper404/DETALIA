@@ -17,7 +17,6 @@ import {
   getPublicSketchTeaser,
   listDraftsByAuthor,
   listPublishedByDetail,
-  listRecentPublished,
   publishFromDraft,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
@@ -177,11 +176,6 @@ export function getTeanc(detailId: string) {
   return listPublishedByDetail(detailId);
 }
 
-// Schițe noi în teanc, din toată platforma (rail feed) — cele mai recent publicate.
-export function getRecentSketches(limit = 4) {
-  return listRecentPublished(limit);
-}
-
 // Teaser PUBLIC (fără sesiune) — DOAR schițe PUBLISHED (repo-ul filtrează; o schiță ștearsă/DRAFT
 // întoarce null, uniform, fără să distingem cauza — anti-enumerare, la fel ca restul platformei).
 export function getPublicSketch(sketchId: string) {
@@ -214,12 +208,4 @@ export async function getDraftForEdit(
     ok: true,
     value: { detailId: sketch.detailId, strokes: (sketch.strokesJson as Stroke[] | null) ?? [] },
   };
-}
-
-// Schița pentru vizualizare (publicată) — stroke-uri pentru randare peste imaginea-mamă.
-export async function getPublishedSketch(sketchId: string) {
-  if (!isUuid(sketchId)) return null; // SEC-11
-  const sketch = await getSketchById(sketchId);
-  if (!sketch || sketch.status !== SKETCH_STATUS.PUBLISHED) return null;
-  return sketch;
 }

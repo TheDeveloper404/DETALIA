@@ -28,9 +28,24 @@ describe("verifyTurnstile", () => {
     });
   });
 
+  describe("cu TURNSTILE_SECRET_KEY, dar pe preview (VERCEL_ENV !== production)", () => {
+    beforeEach(() => {
+      vi.stubEnv("TURNSTILE_SECRET_KEY", "test-secret");
+      vi.stubEnv("VERCEL_ENV", "preview");
+    });
+
+    it("no-op → trece chiar și fără token (domeniul *.vercel.app nu e în allowlist-ul Turnstile)", async () => {
+      const verifyTurnstile = await loadVerifyTurnstile();
+      global.fetch = vi.fn();
+      expect(await verifyTurnstile(null)).toBe(true);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
   describe("cu TURNSTILE_SECRET_KEY (producție)", () => {
     beforeEach(() => {
       vi.stubEnv("TURNSTILE_SECRET_KEY", "test-secret");
+      vi.stubEnv("VERCEL_ENV", "production");
     });
 
     it("fără token → respins (suspect, nu ajunge la Cloudflare)", async () => {

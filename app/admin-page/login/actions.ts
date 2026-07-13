@@ -1,7 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
-
 import { createAdminLoginUrl, adminLinkTtlMinutes, isAdminEmail } from "@/lib/admin-auth";
 import { audit } from "@/lib/audit";
 import { adminLoginEmailHtml, adminLoginEmailText, sendEmail } from "@/lib/email";
@@ -38,7 +36,9 @@ export async function requestAdminLinkAction(
   }
 
   if (isAdminEmail(email)) {
-    const origin = process.env.AUTH_URL ?? `https://${(await headers()).get("host") ?? "detalia.ro"}`;
+    // SEC-004: NU folosim Host header ca fallback (client/edge-controlled pe preview → un admin ar putea
+    // autentifica pe deploy-ul greșit). Singurul fallback sigur e localhost, la fel ca în lib/auth.ts.
+    const origin = process.env.AUTH_URL ?? "http://localhost:3000";
     const url = await createAdminLoginUrl(email, origin);
     const ttl = adminLinkTtlMinutes();
     await sendEmail({

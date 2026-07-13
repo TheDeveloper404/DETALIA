@@ -103,7 +103,7 @@ export default defineConfig({
     // Nu depinde de "setup" — nu folosește seed.json, doar DB direct (adminLoginTokens/adminSessions).
     {
       name: "admin-access",
-      testMatch: /admin-access\.spec\.ts/,
+      testMatch: [/admin-access\.spec\.ts/, /admin-suspend\.spec\.ts/],
       use: { ...devices["Desktop Chrome"] },
     },
     // Onboarding — user dedicat FĂRĂ rol, cookie JWT propriu (storageState-ul comun din "authed" e al unui

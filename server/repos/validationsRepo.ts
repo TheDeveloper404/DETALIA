@@ -5,25 +5,6 @@ import { db } from "@/db";
 import { roles, users, validations } from "@/db/schema";
 import type { RoleSnapshot, TargetType, ValidationPosition } from "@/server/domain/validation";
 
-export async function getUserPosition(
-  userId: string,
-  targetType: TargetType,
-  targetId: string,
-) {
-  const [row] = await db
-    .select()
-    .from(validations)
-    .where(
-      and(
-        eq(validations.userId, userId),
-        eq(validations.targetType, targetType),
-        eq(validations.targetId, targetId),
-      ),
-    )
-    .limit(1);
-  return row ?? null;
-}
-
 // Pozițiile userului curent pe mai multe ținte deodată (batch, pentru feed) — fără N+1.
 export async function listUserPositionsForTargets(
   userId: string,

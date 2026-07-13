@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { destroyAdminSession, getAdminSession } from "@/lib/admin-auth";
 import { audit } from "@/lib/audit";
 import { checkLimit, hashAuditId, limiters } from "@/lib/rate-limit";
+import { setUserStatus } from "@/server/services/accountService";
 import { setPlatform } from "@/server/services/settingsService";
 
 export type MaintenanceFormState = { ok: boolean; error: string | null };
@@ -68,4 +69,25 @@ export async function setPlatformAction(
 export async function adminLogoutAction(): Promise<void> {
   await destroyAdminSession();
   redirect("/admin-page/login");
+}
+
+// Suspendare/reactivare cont — moderare reversibilă (alternativă la ștergerea ireversibilă a contului).
+// userId vine din server (legat direct de rândul din tabel la randare), nu din input liber de admin.
+export async function setUserStatusAction(userId: string, status: "ACTIVE" | "SUSPENDED"): Promise<void> {
+  const admin = await getAdminSession();
+  if (!admin) redirect("/admin-page/login");
+
+  if (!(await checkLimit(limiters.mutation, admin.email)).ok) return;
+
+  const result = await setUserStatus(userId, status);
+  if (result.ok) {
+    // SEC-14: acțiune administrativă cu impact pe alt cont → audit (cine + asupra cui + ce).
+    audit(
+      status === "SUSPENDED" ? "admin_user_suspended" : "admin_user_reactivated",
+      { adminEmailHash: hashAuditId(admin.email), targetEmailHash: hashAuditId(result.email) },
+      "warning",
+    );
+  }
+
+  revalidatePath("/admin-page");
 }

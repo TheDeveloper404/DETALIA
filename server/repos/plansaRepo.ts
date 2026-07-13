@@ -145,14 +145,6 @@ export async function deleteSketchItem(canvasId: string, sketchId: string) {
     .where(and(eq(canvasItems.canvasId, canvasId), eq(canvasItems.sketchId, sketchId)));
 }
 
-export async function countItems(canvasId: string): Promise<number> {
-  const [row] = await db
-    .select({ n: sql<number>`count(*)::int` })
-    .from(canvasItems)
-    .where(eq(canvasItems.canvasId, canvasId));
-  return row?.n ?? 0;
-}
-
 // Index-ul planșei (detalii + schițe) — pentru reconcilierea la load (ce items există + ce mai e accesibil).
 export async function listItems(canvasId: string): Promise<CanvasItemRow[]> {
   return db

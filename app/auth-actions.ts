@@ -16,9 +16,17 @@ function safeAuthPath(formData: FormData): "/login" | "/signup" {
   return formData.get("authPath") === "/signup" ? "/signup" : "/login";
 }
 
+// SEC-002: callbackUrl vine tot din formular (client-controlled) — un `//evil.com` sau `/\evil.com` e
+// redirect protocol-relative către un domeniu extern. Acceptăm DOAR path-uri relative care încep cu
+// exact un singur `/`, nu cu `//` sau `/\` (browserele tratează ambele ca schema-relative).
+function safeCallbackUrl(raw: string): string {
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/";
+  return raw;
+}
+
 export async function signInWithEmailAction(formData: FormData): Promise<void> {
   const email = String(formData.get("email") ?? "").trim();
-  const callbackUrl = String(formData.get("callbackUrl") || "/");
+  const callbackUrl = safeCallbackUrl(String(formData.get("callbackUrl") || "/"));
   const authPath = safeAuthPath(formData);
 
   const ip = await clientIp();
