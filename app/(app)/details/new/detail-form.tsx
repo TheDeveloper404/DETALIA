@@ -8,7 +8,9 @@ import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketc
 import {
   HEIC_ERROR_MESSAGE,
   HeicUnsupportedError,
+  SESSION_EXPIRED_MESSAGE,
   isHeicFile,
+  isSessionAlive,
   uploadDocToBlob,
   uploadImageToBlob,
 } from "@/lib/blob-upload";
@@ -418,7 +420,9 @@ export function DetailForm({
         if (imageUrlRef.current) imageUrlRef.current.value = url;
         formRef.current?.requestSubmit(submitter ?? undefined);
       } catch {
-        setClientError("Salvarea desenului a eșuat. Încearcă din nou.");
+        setClientError(
+          (await isSessionAlive()) ? "Salvarea desenului a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE,
+        );
       } finally {
         setUploading(false);
       }
@@ -441,11 +445,13 @@ export function DetailForm({
       if (imageUrlRef.current) imageUrlRef.current.value = url;
       formRef.current?.requestSubmit(submitter ?? undefined);
     } catch (err) {
-      setClientError(
-        err instanceof HeicUnsupportedError
-          ? HEIC_ERROR_MESSAGE
-          : "Încărcarea imaginii a eșuat. Încearcă din nou.",
-      );
+      if (err instanceof HeicUnsupportedError) {
+        setClientError(HEIC_ERROR_MESSAGE);
+      } else {
+        setClientError(
+          (await isSessionAlive()) ? "Încărcarea imaginii a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE,
+        );
+      }
     } finally {
       setUploading(false);
     }
@@ -482,7 +488,8 @@ export function DetailForm({
       const url = await uploadDocToBlob("resources", file, type === "CAD" ? "cad" : "pdf");
       updateResource(i, { value: url });
     } catch {
-      setResourceUploadError((e) => ({ ...e, [i]: "Încărcarea a eșuat. Încearcă din nou." }));
+      const message = (await isSessionAlive()) ? "Încărcarea a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE;
+      setResourceUploadError((e) => ({ ...e, [i]: message }));
     } finally {
       setResourceUploadingIndex(null);
     }
