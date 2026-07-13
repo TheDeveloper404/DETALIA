@@ -67,6 +67,7 @@ skills-lock.json
 
 # === Continuitate sesiune (local, nu cod de proiect) ===
 .remember/
+docs/TOOLING.md
 code-review.md
 /Detalia_Canvas.md
 
