@@ -12,6 +12,10 @@ export async function verifyTurnstile(
 ): Promise<boolean> {
   // Fără secret (dev/local) → dezactivat, ca Sentry cu DSN gol. În prod secretul e în env → activ.
   if (!SECRET) return true;
+  // Preview (VERCEL_ENV !== "production") → widget-ul nu se randează (vezi TURNSTILE_ENABLED în
+  // auth-form.tsx/login-form.tsx): domeniul dinamic *.vercel.app nu poate fi în allowlist-ul Turnstile
+  // din Cloudflare (eroare 110200). No-op aici, la fel ca lipsa secretului — preview nu e trafic public.
+  if (process.env.VERCEL_ENV !== "production") return true;
   // Widget nerenderat / token lipsă în prod = suspect → respins.
   if (!token) return false;
 

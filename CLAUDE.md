@@ -129,6 +129,11 @@ lib/        auth, email, storage, utils
 - (Candidat de adăugat aici dacă Liviu confirmă că-l vrea ca rutină: test periodic de restore pe backup-ul
   DB — există doar backup automat, nu verificare că restore-ul chiar funcționează. Neconfirmat încă ca
   obligație recurentă.)
+- **`next-auth` (Auth.js v5) — verificare periodică de versiune** *(confirmat 2026-07-13, audit securitate)*:
+  proiectul rulează pe `5.0.0-beta.31` — librăria de autentificare e încă oficial BETA. La checkpoint-ul
+  lunar (sau când apare un motiv), verifică `npm view next-auth versions` pentru o beta mai nouă cu fix-uri
+  de securitate; folosește context7 dacă ai nevoie de detalii de migrare API. Verificat azi: suntem deja pe
+  ultima versiune publicată, nimic de actualizat acum.
 
 ---
 
@@ -163,6 +168,16 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 §„Per-task SDLC flow". Aici doar specificul DETALIA:
 - Migrație de schemă → SQL brut dat lui Liviu pentru AMBELE ramuri Neon (dev + prod) — vezi skill `neon-sql`.
 - Auditul de securitate complet (13 categorii) e pe listă ÎNAINTE de lansarea publică (vezi `.remember/remember.md`).
+- **Igienă Sentry după orice refactor/rescriere care elimină cod** *(regulă 2026-07-13, după ce 7 issue-uri
+  vechi din Sentry — cod din Planșa pre-rescriere (excalidraw/tldraw) + un incident de migrație — au rămas
+  `unresolved` zile/săptămâni deși codul care le cauza nu mai există)*: după ce ștergi/înlocuiești un fișier
+  sau o librărie, treci prin Sentry (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
+  ce nu se mai poate reproduce, cu un comentariu scurt de ce. Sentry nu se auto-curăță la refactor.
+- **Scanare periodică de cod mort cu `knip`** *(regulă 2026-07-13)*: Sentry arată doar ce a crăpat vreodată,
+  nu cod mort care n-a aruncat nicio eroare. Rulează `npx knip` ~lunar (sau adaugă ca pas CI, neblocant la
+  început) — fișiere/exporturi neutilizate + dependențe nedeclarate. **Nu șterge orbește din rezultat:**
+  Server Actions (`"use server"`) apar des fals-pozitiv (apelate din client prin `action={...}`, knip nu le
+  urmărește mereu) — verifică fiecare candidat înainte de ștergere.
 
 ### Rollback — dacă `main`/producția se strică după merge
 Procedură completă (Vercel „Promote to Production" + schema Neon + reparare pe `dev`) în

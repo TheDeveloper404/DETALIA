@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-import { type ProfileFormState, signOutAction, updateProfileDetailsAction } from "./actions";
+import { type ProfileFormState, updateProfileDetailsAction } from "./actions";
 
 // Starea inițială a formularelor — definită aici (client), NU în „use server" (care exportă doar funcții async).
 const initialProfileState: ProfileFormState = { error: null, ok: false };
@@ -163,15 +163,5 @@ export function VerificationSection({ status }: { status: VerificationStatus }) 
       <strong className="font-semibold text-foreground">Această funcție nu este încă disponibilă.</strong>{" "}
       Până atunci, rolul declarat este funcțional integral.
     </p>
-  );
-}
-
-export function SignOutButton() {
-  return (
-    <form action={signOutAction}>
-      <Button type="submit" variant="outline">
-        Deconectare
-      </Button>
-    </form>
   );
 }

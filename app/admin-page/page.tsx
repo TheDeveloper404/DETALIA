@@ -7,6 +7,7 @@ import { getPlatformState } from "@/server/services/settingsService";
 
 import { adminLogoutAction } from "./actions";
 import { MaintenanceForm } from "./maintenance-form";
+import { UserStatusButton } from "./user-status-button";
 
 // Panou de admin (MVP) — autentificare SEPARATĂ de useri. Fără sesiune de admin → login.
 // Conține: lista userilor (nume/email/rol/dată) + toggle-ul de mentenanță.
@@ -78,12 +79,13 @@ export default async function AdminPage() {
                 <th className="px-4 py-2.5 font-medium">Email</th>
                 <th className="px-4 py-2.5 font-medium">Rol</th>
                 <th className="px-4 py-2.5 font-medium">Creat</th>
+                <th className="px-4 py-2.5 font-medium">Acțiuni</th>
               </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
                     Niciun user încă.
                   </td>
                 </tr>
@@ -113,6 +115,17 @@ export default async function AdminPage() {
                       <td className="px-4 py-2.5">{roleLabel}</td>
                       <td className="px-4 py-2.5 font-mono text-[13px] text-muted-foreground">
                         {fmtDate(u.createdAt)}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {u.status === "DELETED" ? (
+                          <span className="text-[12px] text-muted-foreground">—</span>
+                        ) : (
+                          <UserStatusButton
+                            userId={u.id}
+                            email={u.email}
+                            status={u.status === "SUSPENDED" ? "SUSPENDED" : "ACTIVE"}
+                          />
+                        )}
                       </td>
                     </tr>
                   );

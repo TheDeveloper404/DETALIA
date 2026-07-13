@@ -1,6 +1,6 @@
 // Repo users — extensii DETALIA peste tabelul gestionat de Auth.js. Singurul loc cu acces Drizzle pe `users`.
 // Auth.js gestionează crearea/sesiunile; aici doar actualizăm câmpuri de profil (ex: poza).
-import { eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { accounts, details, roles, sessions, users } from "@/db/schema";
@@ -173,6 +173,21 @@ export async function getUserMedia(userId: string) {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
+  return row ?? null;
+}
+
+// Suspendare/reactivare de admin (moderare reversibilă — alternativă la ștergerea ireversibilă a contului).
+// Exclude explicit conturile DELETED (`ne`): un cont anonimizat nu poate fi "reactivat" — identitatea reală
+// e deja distrusă ireversibil, nu doar blocat accesul. Întoarce null dacă userul nu există sau e DELETED.
+export async function setUserStatus(
+  userId: string,
+  status: "ACTIVE" | "SUSPENDED",
+): Promise<{ id: string; email: string } | null> {
+  const [row] = await db
+    .update(users)
+    .set({ status })
+    .where(and(eq(users.id, userId), ne(users.status, "DELETED")))
+    .returning({ id: users.id, email: users.email });
   return row ?? null;
 }
 

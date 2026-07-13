@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { ProfileView } from "@/components/profile-view";
 import { auth } from "@/lib/auth";
+import { isUuid } from "@/server/domain/ids";
 import { getProfileView } from "@/server/services/profileService";
 
 // Profil PUBLIC (adresabil prin userId) — aceeași ProfileView, read-only (fără „Editează profil").
@@ -15,6 +16,7 @@ export default async function PublicProfilePage({
   if (!session?.user?.id) redirect("/login");
 
   const { userId } = await params;
+  if (!isUuid(userId)) notFound();
   // Propriul profil → pagina proprie (cu editare).
   if (userId === session.user.id) redirect("/profile");
 

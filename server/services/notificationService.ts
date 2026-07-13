@@ -10,7 +10,6 @@ import {
   sketchProposedEmailText,
 } from "@/lib/email";
 import {
-  countUnread,
   deleteReadNotificationsOlderThan,
   insertNotification,
   listByRecipient,
@@ -60,10 +59,6 @@ async function notify(input: {
 // ── Citiri (UI: clopoțel + pagină) ───────────────────────────────────────────
 export function getNotifications(userId: string) {
   return listByRecipient(userId);
-}
-
-export function getUnreadCount(userId: string) {
-  return countUnread(userId);
 }
 
 // Marchează citite toate notificările userului (la vizitarea paginii). userId din sesiune = anti-IDOR.

@@ -1,8 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
-
-import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs, uploadCanvasThumbnail } from "@/lib/storage";
@@ -29,24 +26,25 @@ function parseDocument(raw: string): unknown {
   }
 }
 
-// Autosave document — doar owner-ul. Nu redirecționează.
-// SEC-04 — EXCEPȚIE DELIBERATĂ (ca la schițe): autosave e hot-path (debounced la câteva secunde), un SELECT
-// de status per apel ar costa degeaba; planșa e PRIVATĂ. Rămâne pe auth() (sesiune), nu pe status proaspăt.
+// Autosave document — doar owner-ul.
+// SEC-001 (fix 2026-07-13): folosea `auth()` (doar cookie, nu status DB proaspăt) ca excepție de
+// performanță — dar un cont suspendat/șters ar fi putut rămâne "activ" pe autosave până la expirarea
+// JWT-ului (7 zile), inconsecvent cu restul mutațiilor. Aliniat acum la `requireActiveUserId()`, ca
+// peste tot: un cont non-ACTIVE e delogat la PRIMA încercare de autosave, nu doar la alte acțiuni.
 export async function saveCanvasDocumentAction(
   canvasId: string,
   documentJson: string,
 ): Promise<CanvasEditActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const userId = await requireActiveUserId();
 
   // SEC-01: salvarea scrie în DB la fiecare apel (declanșată des din editor) → limită per user.
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
   const res = await saveCanvasDocument({
     canvasId,
-    ownerId: session.user.id,
+    ownerId: userId,
     document: parseDocument(documentJson),
   });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut salva." };
@@ -57,10 +55,9 @@ export async function saveCanvasDocumentAction(
 export async function saveCanvasThumbnailAction(
   formData: FormData,
 ): Promise<CanvasEditActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const userId = await requireActiveUserId();
 
-  if (!(await checkLimit(limiters.mutation, session.user.id)).ok) {
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
@@ -74,7 +71,7 @@ export async function saveCanvasThumbnailAction(
 
   const res = await saveCanvasThumbnail({
     canvasId,
-    ownerId: session.user.id,
+    ownerId: userId,
     thumbnailUrl: upload.url,
   });
   if (!res.ok) {
