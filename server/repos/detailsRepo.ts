@@ -455,6 +455,4 @@ export async function listSavedDetails(userId: string) {
     .orderBy(desc(savedDetails.createdAt));
 }
 
-export type DetailWithAuthor = Awaited<ReturnType<typeof getDetailById>>;
 export type FeedItem = Awaited<ReturnType<typeof listFeed>>[number];
-export type RelatedDetail = Awaited<ReturnType<typeof listRelatedDetails>>[number];

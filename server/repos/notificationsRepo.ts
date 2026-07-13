@@ -35,14 +35,6 @@ export async function listByRecipient(userId: string, limit = 30) {
     .limit(limit);
 }
 
-export async function countUnread(userId: string): Promise<number> {
-  const [row] = await db
-    .select({ count: sql<number>`cast(count(*) as integer)` })
-    .from(notifications)
-    .where(and(eq(notifications.recipientUserId, userId), isNull(notifications.readAt)));
-  return row?.count ?? 0;
-}
-
 // Marchează citite toate notificările unui user (sau doar una). userId = plasă anti-IDOR în service.
 export async function markAllRead(userId: string) {
   await db

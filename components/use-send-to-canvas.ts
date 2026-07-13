@@ -91,4 +91,3 @@ export function useSendToCanvas(detailId: string, sketchId?: string | null) {
   };
 }
 
-export type { Picker as SendToCanvasPicker };

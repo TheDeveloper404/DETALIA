@@ -11,6 +11,9 @@ const INITIAL: AdminLoginState = { sent: false, error: null };
 // Site key public Turnstile (inline la build). Fără el (dev fără chei) nu randăm widget-ul, iar
 // verificarea server-side e no-op → fluxul de login admin merge normal local.
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+// Pe preview (VERCEL_ENV !== "production") nu randăm widget-ul: domeniul dinamic *.vercel.app nu
+// poate fi în allowlist-ul Turnstile din Cloudflare → eroare 110200. No-op în oglindă cu verifyTurnstile.
+const TURNSTILE_ENABLED = Boolean(TURNSTILE_SITE_KEY) && process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 export function AdminLoginForm() {
   const [state, formAction, pending] = useActionState(requestAdminLinkAction, INITIAL);
@@ -45,7 +48,7 @@ export function AdminLoginForm() {
 
       {/* Turnstile — aceeași protecție anti-bot ca pe /login. Injectează `cf-turnstile-response`
           în acest form, verificat server-side în requestAdminLinkAction. */}
-      {TURNSTILE_SITE_KEY && <TurnstileWidget siteKey={TURNSTILE_SITE_KEY} />}
+      {TURNSTILE_ENABLED && <TurnstileWidget siteKey={TURNSTILE_SITE_KEY!} />}
 
       {state.error && <p className="text-sm text-destructive">{state.error}</p>}
 
