@@ -86,3 +86,6 @@ plan-detaliu.md
 .env*
 
 .env*
+
+.vercel
+.env*

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 
 import { db } from "../db";
 import { comments, validations } from "../db/schema";
@@ -51,6 +51,17 @@ test.describe.serial("Validare pe rol", () => {
       .where(and(eq(validations.userId, testerUserId), eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId)));
   });
 
+  // Fără curățare, fiecare rulare lasă un comentariu-justificare permanent (dezaprobarea din testul
+  // de mai jos) — pagina detaliului acumulase 36+ comentarii reziduale din rulări trecute, suficient
+  // ca revalidarea sub 6 workers paraleli să depășească timeout-ul implicit (bug găsit 2026-07-14,
+  // aceeași cauză ca la testul „comentariu pe detaliu apare în dezbatere").
+  test.afterAll(async () => {
+    const { testerUserId, detailId } = getSeed();
+    await db
+      .delete(comments)
+      .where(and(eq(comments.targetId, detailId), eq(comments.authorId, testerUserId), like(comments.body, "E2E justificare %")));
+  });
+
   test("Aprob = 1 click → poziția devine activă", async ({ page }) => {
     await page.goto(detailUrl());
     // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.
@@ -85,7 +96,8 @@ test.describe.serial("Validare pe rol", () => {
 
     // Confirmarea nu mai e text vizibil (colaps la pastilă icon-only, 2026-07-06) — doar `title`.
     // Semnalul real e rândul din lista de poziții (identic cu pattern-ul de la Aprob, linia 64).
-    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible();
+    // Timeout generos: revalidarea sub workers paraleli poate depăși cei 5s impliciți.
+    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/dezaprobă/)).toBeVisible();
     // Justificarea devine comentariu vizibil în dezbatere (fără „dezaprobare mută").
     await expect(page.getByText(justif)).toBeVisible();
