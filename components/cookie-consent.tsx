@@ -30,7 +30,7 @@ export function CookieConsent() {
   return (
     <div
       role="status"
-      className="fixed bottom-5 left-5 z-50 max-w-sm rounded-xl border border-border bg-card p-4 shadow-lg"
+      className="fixed bottom-5 left-4 right-4 z-50 mx-auto max-w-sm rounded-xl border border-border bg-card p-4 shadow-lg sm:left-5 sm:right-auto sm:mx-0"
     >
       <p className="text-sm leading-relaxed text-muted-foreground">
         Folosim doar cookie-ul strict necesar pentru autentificare — fără tracking, fără marketing.
