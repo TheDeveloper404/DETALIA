@@ -17,6 +17,12 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
+  // Timeout GLOBAL pt. `expect()`, nu implicitul de 5s — suita rulează contra unui deploy Vercel
+  // preview REAL, nu localhost, iar rularea locală (6 workers auto-detectați) lovește simultan
+  // ACEEAȘI ramură + ACELAȘI user seedat. Round-trip-urile de server-mutation ocazional depășesc 5s
+  // sub concurență, nu pt. că e cod stricat — orice test cu un round-trip e vulnerabil, aleatoriu,
+  // sub load. Fix la sursă (2026-07-14) — nu mai peticim per-assertion pe măsură ce pică alt test.
+  expect: { timeout: 10_000 },
   use: {
     baseURL,
     trace: "retain-on-failure",

@@ -96,8 +96,7 @@ test.describe.serial("Validare pe rol", () => {
 
     // Confirmarea nu mai e text vizibil (colaps la pastilă icon-only, 2026-07-06) — doar `title`.
     // Semnalul real e rândul din lista de poziții (identic cu pattern-ul de la Aprob, linia 64).
-    // Timeout generos: revalidarea sub workers paraleli poate depăși cei 5s impliciți.
-    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible();
     await expect(page.getByText(/dezaprobă/)).toBeVisible();
     // Justificarea devine comentariu vizibil în dezbatere (fără „dezaprobare mută").
     await expect(page.getByText(justif)).toBeVisible();
@@ -111,9 +110,7 @@ test("comentariu pe detaliu apare în dezbatere", async ({ page }) => {
   try {
     await page.getByPlaceholder(/Adaugă la dezbatere/).fill(body);
     await page.getByRole("button", { name: "Comentează" }).click();
-    // Timeout generos: pagina asta acumulase 28+ comentarii din rulări anterioare fără curățare
-    // (fix aici, cleanup în finally) — revalidarea sub 6 workers paraleli poate depăși 5s implicit.
-    await expect(page.getByText(body)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(body)).toBeVisible();
   } finally {
     // Curăță reziduul, ca testul să NU mai umfle dezbaterea la fiecare rulare (cauza reală a
     // flakiness-ului găsit 2026-07-14 — pagina devenea tot mai grea de la o rulare la alta).
