@@ -4,6 +4,38 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — E2E: eșecuri la publish cauzate de epuizarea reală a rate-limit-ului (nu bug de cod)
+
+**Diagnosticat din dovadă directă** (DOM capturat la eșec, `error-context.md`): testele de publicare
+detaliu picau constant pe „Publică detaliul" (URL rămânea pe `/edit` sau `/new`). Snapshot-ul arăta
+clar alerta reală a aplicației: *„Prea multe detalii publicate într-un timp scurt. Încearcă mai
+târziu."* — nu era flakiness, era **`limiters.createDetail` (10 publicări/oră per user, `lib/rate-
+limit.ts`) real epuizat**, pentru că userul seedat de e2e e FIX la fiecare rulare, iar suita a rulat
+de multe ori azi în aceeași fereastră de o oră.
+
+- **Fix:** `e2e/auth.setup.ts` resetează acum cotele Redis (`createDetail`, `mutation`, `upload`) ale
+  userilor seedați la începutul fiecărei rulări, via `Ratelimit.resetUsedTokens()` (API oficial,
+  verificat cu context7 — nu s-a ghicit formatul cheilor Redis). Rulează doar dacă `UPSTASH_REDIS_
+  REST_URL`/`TOKEN` sunt prezente în `.env.e2e` (opțional — lipsă = warning, nu eroare fatală).
+  Namespace-ul Redis calculat corect după `E2E_BASE_URL` (`"preview"` pt orice deploy Vercel,
+  `"development"` pt localhost) — NU după env-ul procesului local de Playwright.
+- **Limiter-ul de producție NU a fost atins** (protecție reală anti-abuz, SEC-01) — fix-ul e strict pe
+  partea de test infrastructure.
+- **Ipoteză separată, neconfirmată:** un al doilea eșec (`notifications-page.spec.ts`) a apărut DOAR
+  la rulare locală cu 6 workers (CI rulează cu 1, `playwright.config.ts`), consistent cu limiter-ul
+  general `mutation` (40/min) sub presiune de la workers paraleli pe același user seedat. Recomandare:
+  `npx playwright test --workers=3` la rulări locale ale suitei complete, ca să nu se apropie de prag.
+- „Rulează de două ori" (confuzie raportată) — verificat direct în `gh run list`: **nu rulează**, doar
+  apare de două ori în lista de Actions. Vercel trimite webhook-ul `vercel.deployment.success` de două
+  ori per deploy; al doilea e filtrat de condiția `if: environment == 'preview'` din `e2e.yml` și
+  devine `skipped` fără să pornească vreun job.
+- **`e2e.yml` (CI)** actualizat să treacă și `UPSTASH_REDIS_REST_URL`/`TOKEN` la job — altfel fix-ul de
+  mai sus se sare (warning) și în rulările automate din CI, nu doar local. Secrete noi de adăugat în
+  GitHub → Settings → Secrets and variables → Actions: `E2E_UPSTASH_REDIS_REST_URL`,
+  `E2E_UPSTASH_REDIS_REST_TOKEN` (aceleași valori ca scope-ul Preview din Vercel).
+
+---
+
 ## 2026-07-14 — Fix: dezaprobare repetată raporta „succes" fals, fără să salveze justificarea
 
 **Bug găsit din raportare directă a lui Liviu** (a scris o justificare la dezaprobare, textul nu a

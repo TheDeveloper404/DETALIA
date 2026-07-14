@@ -13,6 +13,11 @@
 #   E2E_DATABASE_URL                — ramura Neon dev/preview (ACEEAȘI pe care o folosește preview-ul)
 #   E2E_AUTH_SECRET                 — AUTH_SECRET-ul din scope-ul Preview (semnarea sesiunii seedate)
 #   VERCEL_AUTOMATION_BYPASS_SECRET — Vercel → Deployment Protection → Protection Bypass for Automation
+#   E2E_UPSTASH_REDIS_REST_URL      — opțional, scope Preview (Vercel → Env Vars) — fără el, setup-ul
+#                                      sare peste reset-ul cotelor rate-limit (warning, nu eroare) și
+#                                      userul de test poate epuiza real createDetail (10/h) la rulări
+#                                      dese (bug găsit 2026-07-14, vezi CHANGELOG)
+#   E2E_UPSTASH_REDIS_REST_TOKEN    — idem, tokenul asociat
 
 name: E2E
 
@@ -64,6 +69,8 @@ jobs:
           DATABASE_URL: ${{ secrets.E2E_DATABASE_URL }}
           AUTH_SECRET: ${{ secrets.E2E_AUTH_SECRET }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          UPSTASH_REDIS_REST_URL: ${{ secrets.E2E_UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.E2E_UPSTASH_REDIS_REST_TOKEN }}
 
       - name: Raport Playwright (la eșec)
         if: failure()
