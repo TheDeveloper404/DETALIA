@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { expect, test } from "@playwright/test";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 
 import { db } from "../db";
 import { comments, validations } from "../db/schema";
@@ -49,6 +49,17 @@ test.describe.serial("Validare pe rol", () => {
     await db
       .delete(validations)
       .where(and(eq(validations.userId, testerUserId), eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId)));
+  });
+
+  // Fără curățare, fiecare rulare lasă un comentariu-justificare permanent (dezaprobarea din testul
+  // de mai jos) — pagina detaliului acumulase 36+ comentarii reziduale din rulări trecute, suficient
+  // ca revalidarea sub 6 workers paraleli să depășească timeout-ul implicit (bug găsit 2026-07-14,
+  // aceeași cauză ca la testul „comentariu pe detaliu apare în dezbatere").
+  test.afterAll(async () => {
+    const { testerUserId, detailId } = getSeed();
+    await db
+      .delete(comments)
+      .where(and(eq(comments.targetId, detailId), eq(comments.authorId, testerUserId), like(comments.body, "E2E justificare %")));
   });
 
   test("Aprob = 1 click → poziția devine activă", async ({ page }) => {
@@ -99,9 +110,7 @@ test("comentariu pe detaliu apare în dezbatere", async ({ page }) => {
   try {
     await page.getByPlaceholder(/Adaugă la dezbatere/).fill(body);
     await page.getByRole("button", { name: "Comentează" }).click();
-    // Timeout generos: pagina asta acumulase 28+ comentarii din rulări anterioare fără curățare
-    // (fix aici, cleanup în finally) — revalidarea sub 6 workers paraleli poate depăși 5s implicit.
-    await expect(page.getByText(body)).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(body)).toBeVisible();
   } finally {
     // Curăță reziduul, ca testul să NU mai umfle dezbaterea la fiecare rulare (cauza reală a
     // flakiness-ului găsit 2026-07-14 — pagina devenea tot mai grea de la o rulare la alta).
