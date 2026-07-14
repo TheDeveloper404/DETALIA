@@ -4,6 +4,46 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — Landing page: animații pe secțiunile 01-05, secțiune nouă „Planșa ta", hero rescris, fix-uri mobil
+
+**Landing public (`app/page.tsx`) redesenat pe bucăți — de la conținut static la interacțiv, pe baza
+feedback-ului direct al lui Liviu (comparat cu screenshot-uri reale din aplicație: `feed.png`,
+înregistrare `test.mp4`):**
+
+- **01 — Problema & soluția:** panoul „diff" cascadă rând cu rând (nu tot blocul deodată); hover pe
+  rând mărește ușor textul (variabile CSS, nu inline, ca să evite conflictul de specificitate cu
+  starea implicită).
+- **02 — Cum funcționează:** fiecare cadru (`FlowFrame`) folosește acum un detaliu REAL (imagine,
+  fundal eliminat — `public/landing/how-it-works-detail.png`), cu propunerea desenată live peste el
+  (traseu unghiular, nu curbă/mâzgălitură) + hașură (notație reală de material) + filtru SVG de
+  „tremur de mână" (`feTurbulence`/`feDisplacementMap`). Butoane reale „Schițează"/„Aprob"/„Dezaprob"
+  cu tap simulat, întreaga secvență în buclă la 10s (nu o singură dată).
+- **03 — Planșa ta (NOU):** secțiune nouă, introdusă după 02 (feature „Planșă" — spațiul privat de
+  organizare a detaliilor — nu avea deloc prezență pe landing). Mockup cu 4 „bilețele" (2 cu imagini
+  reale, 2 cu schițe abstracte generice — nu desene tehnice false), plutire lentă continuă
+  (`--plansa-rot` custom property, respectă `prefers-reduced-motion`). Restul secțiunilor renumerotate
+  04 (Ce câștigi, reveal în cascadă) / 05 (Pentru cine, accent de culoare pe rol identic cu
+  `role-pill.tsx` în loc de emoji generic, motiv vizual „un singur detaliu" deasupra grid-ului).
+- **Hero (`components/hero-preview.tsx`) rescris complet:** poveste în 2 etape — (1) FEED, screenshot
+  REAL din aplicație (`public/landing/feed-real.png`, cadru din `test.mp4`, **nume/avatare anonimizate**
+  — fără PII reale pe landing-ul public), tap simulat pe un card, (2) crossfade spre detaliul deschis
+  (imagine reală `public/landing/hero-detail.png`) cu schiță subțire desenată live + chrome-ul complet
+  al cardului (identic cu cardul din feed, pentru continuitate).
+- **CTA final „Pre-lansare":** revenit la forma inițială (fără bandă de statistici — testat, dar
+  eliminat la cererea lui Liviu, arăta „orfan").
+- **Fix-uri mobil:** header-ul (logo + Autentificare + Creează cont) se înghesuia sub ~400px —
+  link-ul „Autentificare" se ascunde sub acest prag, padding redus; cookie-consent (`components/
+  cookie-consent.tsx`) nu era centrat pe mobil (`max-w-sm` + `left-5` fix depășea viewport-ul) — acum
+  responsive (centrat pe mobil, colț jos-stânga pe desktop, ca înainte).
+
+**Verificat activ cu Chrome DevTools MCP** (screenshot-uri reale, nu presupuneri) după ce prima rundă
+de modificări „arăta identic" din cauza unor bug-uri de specificitate CSS (inline style vs. regulă de
+clasă — inline câștigă mereu fără `!important`) prinse abia la verificare vizuală directă.
+
+`tsc` + `lint` + `build` complet — toate verzi.
+
+---
+
 ## 2026-07-14 — Fix critic upload (CSP) + audit securitate complet + suspendare admin + curățenie cod mort
 
 **Bug de producție găsit din raportare user (poză profil "încărcarea a eșuat"), reprodus și confirmat prin

@@ -2,14 +2,19 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 
-// Cardul de preview din hero-ul landing — oglindește un CARD REAL din feed (`DetailCard`): thumbnail cu
-// planșa care „se desenează", etichetă de categorie, titlu, autor + rol, stivă de validatori, contoare
-// (validări/comentarii/schițe) și pozițiile pe roluri (Aprobă/Dezaprobă cu justificare). La fiecare ciclu
-// secvența se reia prin remontare (key=cycle) — un `animation-delay` pur CSS nu păstrează stagger-ul peste iterații.
+// Cardul de preview din hero-ul landing — (1) FEED: SCREENSHOT REAL din aplicație (nu o recreere de
+// cod — public/landing/feed-real.png, cadru din înregistrarea trimisă de Liviu, test.mp4), cu tap
+// simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
+// desenul de mai jos), (2) crossfade spre detaliul REAL (imagine, fundal eliminat —
+// public/landing/hero-detail.png) cu o propunere desenată live peste el (traseu subțire + hașură,
+// filtru fin de „mână"), (3) chrome-ul cardului (titlu/autor/rol — IDENTICE cu cardul din feed, ca
+// tranziția să fie continuă) + pozițiile pe roluri (Aprobă/Dezaprobă cu justificare). La fiecare
+// ciclu secvența se reia prin remontare (key=cycle) — un `animation-delay` pur CSS nu păstrează
+// stagger-ul peste iterații.
 
 const MONO = "var(--font-plex-mono), monospace";
 const SANS = "var(--font-archivo), system-ui, sans-serif";
-const CYCLE_MS = 6500;
+const CYCLE_MS = 8600;
 
 const stackAvatar: CSSProperties = {
   flex: "none",
@@ -78,7 +83,27 @@ export function HeroPreview() {
           overflow: "hidden",
         }}
       >
-        {/* Thumbnail — planșa care se desenează, cu eticheta de categorie peste (ca în feed). */}
+        {/* ETAPA 1 — FEED: screenshot REAL (nu o recreere), tap simulat pe „Cornișă șarpantă lemn"
+            (al treilea card — chiar cel care se deschide spre desenul de mai jos), apoi crossfade. */}
+        <div
+          className="dc-hero-feed"
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 2,
+            aspectRatio: "702 / 808",
+            backgroundImage: "url(/landing/feed-real.png)",
+            backgroundSize: "contain",
+            backgroundPosition: "top center",
+            backgroundRepeat: "no-repeat",
+            backgroundColor: "var(--card)",
+          }}
+        >
+          <span className="dc-hero-tap" aria-hidden style={{ left: "50%", top: "83%" }} />
+        </div>
+
+        {/* Thumbnail — detaliul REAL, cu propunerea desenată live peste el, eticheta de categorie peste (ca în feed). */}
         <div style={{ position: "relative", background: "#faf7f1", padding: 22 }}>
           <span
             style={{
@@ -97,7 +122,7 @@ export function HeroPreview() {
               borderRadius: 7,
             }}
           >
-            Acoperișuri
+            Șarpantă
           </span>
           <span
             style={{
@@ -115,76 +140,86 @@ export function HeroPreview() {
           <svg
             className="dc-sketch"
             width="100%"
-            viewBox="0 0 420 250"
-            fill="none"
-            style={{ display: "block", width: "100%", height: "auto", aspectRatio: "420 / 250" }}
+            viewBox="0 0 200 120"
+            style={{ display: "block", width: "100%", height: "auto", aspectRatio: "200 / 120" }}
             aria-hidden
           >
-            {/* contur secțiune atic */}
-            <rect data-draw="1" pathLength={1} x="60" y="40" width="150" height="150" stroke="#c4b59c" strokeWidth="1.5" style={{ animationDelay: "0s" }} />
-            <rect data-draw="1" pathLength={1} x="60" y="40" width="44" height="150" stroke="#c4b59c" strokeWidth="1.5" style={{ animationDelay: "0.3s" }} />
-            {/* hașură termoizolație */}
-            <line data-draw="1" pathLength={1} x1="104" y1="48" x2="186" y2="190" stroke="#d8cab1" strokeWidth="1" style={{ animationDelay: "0.55s" }} />
-            <line data-draw="1" pathLength={1} x1="118" y1="48" x2="186" y2="166" stroke="#d8cab1" strokeWidth="1" style={{ animationDelay: "0.67s" }} />
-            <line data-draw="1" pathLength={1} x1="132" y1="48" x2="186" y2="142" stroke="#d8cab1" strokeWidth="1" style={{ animationDelay: "0.79s" }} />
-            <line data-draw="1" pathLength={1} x1="146" y1="48" x2="186" y2="118" stroke="#d8cab1" strokeWidth="1" style={{ animationDelay: "0.91s" }} />
-            {/* cotă 30 cm */}
-            <path data-draw="1" pathLength={1} d="M60 40 L60 24 L260 24" stroke="#a9573a" strokeWidth="1.4" fill="none" style={{ animationDelay: "1.1s" }} />
-            <line data-draw="1" pathLength={1} x1="60" y1="16" x2="60" y2="32" stroke="#a9573a" strokeWidth="1" style={{ animationDelay: "1.18s" }} />
-            <line data-draw="1" pathLength={1} x1="210" y1="16" x2="210" y2="32" stroke="#a9573a" strokeWidth="1" style={{ animationDelay: "1.26s" }} />
-            <text data-fade="1" x="120" y="14" fontFamily={MONO} fontSize="12" fill="#a9573a" style={{ animationDelay: "1.5s" }}>
-              30 cm
-            </text>
-            {/* indicator șorț tablă */}
-            <circle data-draw="1" pathLength={1} cx="186" cy="92" r="4" stroke="#8a8073" strokeWidth="1" fill="none" style={{ animationDelay: "1.3s" }} />
-            <line data-draw="1" pathLength={1} x1="186" y1="92" x2="300" y2="70" stroke="#8a8073" strokeWidth="1" style={{ animationDelay: "1.45s" }} />
-            <text data-fade="1" x="306" y="66" fontFamily={MONO} fontSize="11" fill="#8a8073" style={{ animationDelay: "1.75s" }}>
-              șorț tablă
-            </text>
-            {/* PROPUNEREA — desenată după detaliu (cineva propune pe schiță) */}
-            <line data-draw="1" pathLength={1} x1="240" y1="120" x2="350" y2="120" stroke="#a9573a" strokeWidth="1.6" strokeLinecap="round" style={{ animationDelay: "2s" }} />
-            <circle data-fade="1" cx="240" cy="120" r="3.5" fill="#a9573a" style={{ animationDelay: "2.2s" }} />
-            <text data-fade="1" x="256" y="138" fontFamily={MONO} fontSize="11" fill="#a9573a" style={{ animationDelay: "2.3s" }}>
+            <defs>
+              {/* Filtru de „mână" — tremur FIN, potrivit pentru linie subțire (nu marker gros):
+                  baseFrequency mai mare + scale mic → jitter fin, nu distorsiune haotică. */}
+              <filter id="dc-hero-sketch-rough" x="-30%" y="-30%" width="160%" height="160%">
+                <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="7" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="0.55" xChannelSelector="R" yChannelSelector="G" />
+              </filter>
+            </defs>
+            {/* Detaliul REAL (hero-detail.png — desen dedicat animației din hero). */}
+            <image
+              data-fade="1"
+              href="/landing/hero-detail.png"
+              x="0" y="0" width="200" height="120"
+              preserveAspectRatio="xMidYMid meet"
+              style={{ animationDelay: "1.6s" }}
+            />
+            {/* PROPUNEREA — traseu principal (contur element nou, linie subțire ca un creion, nu
+                marker gros) + hașură (notația reală de material din desenul tehnic) — o schiță
+                compusă din mai multe tușe succesive, poziționată lângă joncțiunea pantă-perete. */}
+            <path
+              data-draw="1"
+              pathLength={1}
+              d="M100 50 L 122 50 L 122 36 L 140 36"
+              stroke="var(--primary)" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round"
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "2.2s" }}
+            />
+            {/* Hașură — 4 tuse scurte, succesive, ca material nou adăugat (izolație) în zona conturată. */}
+            <path data-draw="1" pathLength={1} d="M104 47 L 110 40" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "2.95s" }} />
+            <path data-draw="1" pathLength={1} d="M110 47 L 116 40" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.05s" }} />
+            <path data-draw="1" pathLength={1} d="M116 47 L 122 40" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.15s" }} />
+            <path data-draw="1" pathLength={1} d="M126 34 L 134 34" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.25s" }} />
+            <circle data-fade="1" cx="140" cy="36" r="2.2" fill="var(--primary)" style={{ animationDelay: "3.8s" }} />
+            <text data-fade="1" x="98" y="26" fontFamily={MONO} fontSize="8.5" fill="var(--primary)" style={{ animationDelay: "3.9s" }}>
               propunere
             </text>
           </svg>
         </div>
 
-        {/* Conținutul cardului — chrome-ul real din feed, apare după ce planșa s-a desenat. */}
+        {/* Conținutul cardului — IDENTIC cu al treilea card din feed-real.png (titlu/autor/rol), ca
+            tranziția să fie continuă, nu un montaj cu date diferite. */}
         <div style={{ padding: "16px 18px 4px" }}>
           {/* Titlu */}
-          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "var(--foreground)", animationDelay: "2.5s" }}>
-            Atic acoperiș terasă
+          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "var(--foreground)", animationDelay: "4.4s" }}>
+            Cornișă șarpantă lemn
           </div>
 
           {/* Autor + rol */}
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "2.7s" }}>
-            <span style={voteAvatar}>MP</span>
-            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>M. Popa</span>
-            <span style={rolePill}>Proiectant</span>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "4.6s" }}>
+            <span style={voteAvatar}>RI</span>
+            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>R. Ionescu</span>
+            <span style={rolePill}>Beneficiar</span>
           </div>
 
           {/* Stivă de validatori — avatarele celor care au luat poziție (apar pe rând). */}
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "3.2s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "5.1s" }}>
+            <span style={stackAvatar}>MP</span>
             <span style={stackAvatar}>IR</span>
-            <span style={stackAvatar}>AS</span>
-            <span style={stackAvatar}>DV</span>
-            <span style={{ ...stackAvatar, fontWeight: 600, color: "var(--muted-foreground)" }}>+9</span>
           </div>
 
           {/* Contoare — ca în feed: validări · comentarii · schițe în teanc. */}
-          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "var(--muted-foreground)", animationDelay: "3.45s" }}>
-            <span>12 validări</span>
+          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "var(--muted-foreground)", animationDelay: "5.35s" }}>
+            <span>2 validări</span>
             <span style={{ color: "var(--border)" }}>·</span>
-            <span>3 comentarii</span>
+            <span>1 comentariu</span>
             <span style={{ color: "var(--border)" }}>·</span>
-            <span>5 schițe în teanc</span>
+            <span>2 schițe în teanc</span>
           </div>
         </div>
 
         {/* Pozițiile pe roluri — partea „vie" a dezbaterii (Aprobă / Dezaprobă cu justificare). */}
         <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "3.9s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "5.8s" }}>
             <span style={voteAvatar}>MP</span>
             <span style={{ fontSize: 13.5, flex: 1 }}>
               <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
@@ -193,7 +228,7 @@ export function HeroPreview() {
               ✓ Aprobă
             </span>
           </div>
-          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "4.6s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "6.5s" }}>
             <span style={voteAvatar}>IR</span>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -205,7 +240,7 @@ export function HeroPreview() {
                 </span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.45 }}>
-                „Șorțul nu acoperă rostul — apa intră pe la atic.”
+                „Cosoroaba nu ține cornișa la deschiderea asta — mai pune un reazem.”
               </div>
             </div>
           </div>
