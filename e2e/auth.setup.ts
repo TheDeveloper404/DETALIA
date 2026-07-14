@@ -3,6 +3,8 @@ import path from "node:path";
 
 import { encode } from "@auth/core/jwt";
 import { test as setup, expect } from "@playwright/test";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
@@ -145,6 +147,35 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
         .limit(1)
     )[0];
     if (existingLink) category = { id: existingLink.categoryId };
+  }
+
+  // 5b) Resetează cotele Redis (SEC-01, lib/rate-limit.ts) ale userilor seedați — userul de test e
+  // FIX între rulări, deci rulările repetate în aceeași fereastră de timp altfel epuizează real
+  // limiterul `createDetail` (10/oră) și publish-ul pică pe alert-ul real de rate-limit, nu pe un
+  // bug de cod (găsit 2026-07-14 — vezi CHANGELOG). Namespace-ul TREBUIE să corespundă cu ce vede
+  // aplicația țintă (VERCEL_ENV="preview" pe orice deploy Vercel; local = NODE_ENV="development"),
+  // nu cu env-ul procesului local de Playwright.
+  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (upstashUrl && upstashToken) {
+    const redis = new Redis({ url: upstashUrl, token: upstashToken });
+    const targetEnvNs = baseURL.includes("localhost") ? "development" : "preview";
+    const mutationRl = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(40, "1 m"), prefix: `detalia:rl:${targetEnvNs}:mutation` });
+    const createDetailRl = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, "1 h"), prefix: `detalia:rl:${targetEnvNs}:create-detail` });
+    const uploadRl = new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, "1 h"), prefix: `detalia:rl:${targetEnvNs}:upload` });
+    for (const uid of [user.id, author.id]) {
+      await Promise.all([
+        mutationRl.resetUsedTokens(uid),
+        createDetailRl.resetUsedTokens(uid),
+        uploadRl.resetUsedTokens(uid),
+      ]);
+    }
+  } else {
+    console.warn(
+      "e2e: UPSTASH_REDIS_REST_URL/TOKEN lipsesc din .env.e2e — cotele rate-limit ale userului seedat NU " +
+        "se resetează; rulări repetate în aceeași oră pot epuiza createDetail (10/h) și pica testele de " +
+        "publicare pe alertă reală de rate-limit (fals-pozitiv, nu bug de cod).",
+    );
   }
 
   // 6) Cookie de sesiune Auth.js. Numele/securizarea depind de protocol (https → prefix `__Secure-`).
