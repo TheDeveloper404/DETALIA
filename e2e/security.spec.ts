@@ -238,8 +238,13 @@ test.describe("Concurență — dublu-submit dezaprobare (upsert atomic)", () =>
           disapprove({ userId: testerUserId, targetType: "DETAIL", targetId: detailId, justification: JUSTIF }),
         ),
       );
-      // Toate răspund ok (idempotent); invariantul real e în DB, nu în răspuns.
-      for (const r of results) expect(r.ok).toBe(true);
+      // Fix 2026-07-14: doar UNA din cele 5 cereri paralele câștigă tranziția (ok:true); restul
+      // primesc ALREADY_DISAPPROVED (nu mai raportăm „succes" fals când justificarea lor nu s-a
+      // salvat — vezi validationService.ts). Invariantul real tot în DB, nu în răspuns.
+      const oks = results.filter((r) => r.ok);
+      const alreadyDisapproved = results.filter((r) => !r.ok && r.error === "ALREADY_DISAPPROVED");
+      expect(oks).toHaveLength(1);
+      expect(alreadyDisapproved).toHaveLength(4);
 
       // Exact O poziție DISAPPROVE (constrângere unică + onConflictDoUpdate).
       const positions = await db
