@@ -16,6 +16,14 @@ if [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 0; else exit 1; fi
 ```
 Sare Preview-ul pe `main` (Production nu e afectat, se face separat). Salvat de Liviu, confirmat.
 
+**Corecție:** comanda inițială verifica doar branch-ul (`VERCEL_GIT_COMMIT_REF = main`), care se potrivește
+și la deploy-ul de Production (nu doar la Preview-ul în plus) → a anulat Production-ul la primul merge în
+`main`. Comanda corectă diferențiază prin `VERCEL_ENV`:
+```
+if [ "$VERCEL_ENV" = "preview" ] && [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 0; else exit 1; fi
+```
+Deployment-ul anulat a fost redeploy-at manual (`vercel redeploy`), Production confirmat Ready pe `detalia.ro`.
+
 ---
 
 ## 2026-07-14 — E2E: timeout global (nu per-test) — se rezolvă tiparul, nu simptomul
