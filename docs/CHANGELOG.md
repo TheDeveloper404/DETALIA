@@ -4,6 +4,20 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — Vercel: branch Neon `preview/main` recurent — Ignored Build Step
+
+Deploy-ul de Preview se declanșa și pe push direct pe `main` (în plus față de Production), iar integrarea
+Neon↔Vercel creează automat un branch DB nou la fiecare deploy Preview — de-aia reapărea mereu un branch
+Neon `preview/main` nefolosit, deși era șters manual.
+
+**Fix:** Vercel → Project Settings → General → **Ignored Build Step** → Custom:
+```
+if [ "$VERCEL_GIT_COMMIT_REF" = "main" ]; then exit 0; else exit 1; fi
+```
+Sare Preview-ul pe `main` (Production nu e afectat, se face separat). Salvat de Liviu, confirmat.
+
+---
+
 ## 2026-07-14 — E2E: timeout global (nu per-test) — se rezolvă tiparul, nu simptomul
 
 **Corecție de curs, azi mai devreme repar-am câte un test pe rând (dezaprob, profile-edit, etc.) cu
