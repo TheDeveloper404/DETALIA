@@ -24,7 +24,9 @@ test.describe("Editare profil", () => {
     await headline.fill(value);
     await page.getByRole("button", { name: "Salvează profilul" }).click();
 
-    await expect(page.getByRole("status")).toHaveText("Profilul a fost actualizat.");
+    // Timeout generos: sub 6 workers paraleli, round-trip-ul server action-ului poate depăși 5s
+    // impliciți (buton „Se salvează…" încă disabled la eșec, nu bug de cod — bug găsit 2026-07-14).
+    await expect(page.getByRole("status")).toHaveText("Profilul a fost actualizat.", { timeout: 10_000 });
     await page.reload();
     await expect(page.getByLabel(/Titlu\/headline/)).toHaveValue(value);
   });
