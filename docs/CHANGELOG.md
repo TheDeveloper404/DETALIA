@@ -4,6 +4,26 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — E2E: timeout global (nu per-test) — se rezolvă tiparul, nu simptomul
+
+**Corecție de curs, azi mai devreme repar-am câte un test pe rând (dezaprob, profile-edit, etc.) cu
+`{ timeout: 10_000 }` individual, pe măsură ce fiecare pica — greșit, era whack-a-mole pe simptom.**
+Toate au aceeași semnătură din DOM la eșec: buton „Se trimite…"/„Se salvează…" încă `[disabled]` la
+timeout. Cauza comună: suita rulează contra unui deploy Vercel **preview real** (nu localhost), iar
+local, cu workers auto-detectați (6), toți lovesc simultan **aceeași ramură + același user seedat** —
+round-trip-urile ocazional depășesc 5s-ul implicit Playwright sub concurență, aleatoriu, pe orice test
+cu un round-trip de server. Nu era un test stricat, era orice test, la momentul nepotrivit.
+
+- **Fix la sursă:** `playwright.config.ts` — `expect: { timeout: 10_000 }` global, o singură dată.
+- Override-urile individuale adăugate azi mai devreme (`authed.spec.ts` ×2, `profile-edit.spec.ts`)
+  **scoase** — redundante față de default-ul nou, ar fi rămas inconsistență inutilă în cod.
+- Fix-urile reale de conținut rămân valabile (cleanup reziduu, `describe.serial` pe coliziune,
+  `resetUsedTokens` pe rate-limit) — timeout-ul global e complementar, nu le înlocuiește.
+
+`tsc`+`lint` verzi.
+
+---
+
 ## 2026-07-14 — E2E: 2 eșecuri noi, cauze confirmate din DOM (nu presupuse), reziduu + coliziune de test
 
 **`authed.spec.ts` „Dezaprob cere justificare"** — DOM-ul de la eșec arăta „Se trimite…" încă
