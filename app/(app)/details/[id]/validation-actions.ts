@@ -18,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   JUSTIFICATION_REQUIRED: "Dezaprobarea cere o justificare.",
   JUSTIFICATION_TOO_LONG: "Justificarea e prea lungă (max 5000 de caractere).",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
+  ALREADY_DISAPPROVED: "Ai dezaprobat deja acest conținut — textul nou nu a fost salvat. Editează justificarea existentă din comentarii dacă vrei s-o schimbi.",
 };
 
 // targetType/targetId = ținta poziției (DETAIL sau SKETCH); detailId = pagina de revalidat (detaliul-părinte).
