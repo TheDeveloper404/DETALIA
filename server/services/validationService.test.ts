@@ -67,10 +67,12 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
 
   // Acoperă și race-ul dublu-submit: repo-ul întoarce null când poziția era DEJA DISAPPROVE
   // (decis atomic în DB, nu prin read-then-write) → a doua cerere nu mai creează comentariu.
-  it("re-dezaprobare / cerere paralelă pierzătoare (tranziție null) → NU dublează comentariul", async () => {
+  // Bug găsit 2026-07-14: înainte se răspundea `{ ok: true }` aici, deci userul primea „succes"
+  // fals fără să știe că justificarea lui nouă nu a fost salvată nicăieri.
+  it("re-dezaprobare / cerere paralelă pierzătoare (tranziție null) → ALREADY_DISAPPROVED, NU dublează comentariul", async () => {
     vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue(null as never);
     const r = await disapprove({ ...target, justification: "iar nu merge" });
-    expect(r).toEqual({ ok: true });
+    expect(r).toEqual({ ok: false, error: "ALREADY_DISAPPROVED" });
     expect(insertComment).not.toHaveBeenCalled();
   });
 });
