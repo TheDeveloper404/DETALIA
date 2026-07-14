@@ -522,7 +522,7 @@
 }
 .dc-landing .dc-hero-feed {
   animation: dc-hero-feed-out 0.5s ease forwards;
-  animation-delay: 1.5s;
+  animation-delay: 2.8s;
 }
 @keyframes dc-hero-tap-kf {
   0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.8; }
@@ -538,7 +538,7 @@
   pointer-events: none;
   transform: translate(-50%, -50%);
   animation: dc-hero-tap-kf 0.45s ease-out;
-  animation-delay: 0.95s;
+  animation-delay: 2.25s;
 }
 @media (prefers-reduced-motion: reduce) {
   .dc-landing .dc-sketch [data-draw],

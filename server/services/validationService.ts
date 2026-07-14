@@ -30,7 +30,8 @@ export type ValidationError =
   | "TARGET_NOT_FOUND"
   | "CANNOT_VALIDATE_OWN"
   | "JUSTIFICATION_REQUIRED"
-  | "JUSTIFICATION_TOO_LONG";
+  | "JUSTIFICATION_TOO_LONG"
+  | "ALREADY_DISAPPROVED";
 
 export type ValidationResult = { ok: true } | { ok: false; error: ValidationError };
 
@@ -126,15 +127,20 @@ export async function disapprove(input: {
     roleSnapshot: snapshotFromRole(role),
   });
 
-  if (transition) {
-    await insertComment({
-      targetType: input.targetType,
-      targetId: input.targetId,
-      authorId: input.userId,
-      body: j.value,
-      originValidationId: transition.id,
-    });
+  // transition null = era deja DISAPPROVE — nu s-a creat alt comentariu-justificare (evită duplicate).
+  // Bug găsit 2026-07-14: raportam `{ ok: true }` și aici, deci userul primea „succes" fals, fără să
+  // știe că textul lui nu a fost salvat nicăieri.
+  if (!transition) {
+    return { ok: false, error: "ALREADY_DISAPPROVED" };
   }
+
+  await insertComment({
+    targetType: input.targetType,
+    targetId: input.targetId,
+    authorId: input.userId,
+    body: j.value,
+    originValidationId: transition.id,
+  });
 
   return { ok: true };
 }
