@@ -4,6 +4,26 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — E2E: 2 eșecuri noi, cauze confirmate din DOM (nu presupuse), reziduu + coliziune de test
+
+**`authed.spec.ts` „Dezaprob cere justificare"** — DOM-ul de la eșec arăta „Se trimite…" încă
+`[disabled]` la timeout, iar dezbaterea acumulase **36 comentarii**, majoritatea reziduu „fostă
+dezaprobare · retrasă" din rulări trecute (ore/zile în urmă) — testul „Validare pe rol" nu-și curăța
+niciodată justificarea de dezaprobare creată. Aceeași cauză ca la fix-ul anterior de azi pe alt test
+din același fișier, ratată atunci pe acest bloc. Fix: `test.afterAll` șterge toate comentariile
+`"E2E justificare %"` ale userului seedat pe acest detaliu (curăță și reziduul vechi acumulat, o
+singură rulare) + timeout mărit la 10s pe assertion.
+
+**`notifications-page.spec.ts` „fără notificări → mesaj empty state"** — DOM-ul arăta o notificare
+PREZENTĂ deși testul tocmai ștersese toate notificările userului. Cauză: acest test și cel de
+dinaintea lui operează pe notificările **aceluiași user seedat**, fără serializare — sub 6 workers
+paraleli, insertul unuia poate ateriza exact în fereastra de verificare a celuilalt. Fix: ambele
+teste înfășurate în `test.describe.serial(...)`.
+
+`tsc`+`lint` verzi. Rulează din nou `npx playwright test` să confirmi.
+
+---
+
 ## 2026-07-14 — E2E: eșecuri la publish cauzate de epuizarea reală a rate-limit-ului (nu bug de cod)
 
 **Diagnosticat din dovadă directă** (DOM capturat la eșec, `error-context.md`): testele de publicare
