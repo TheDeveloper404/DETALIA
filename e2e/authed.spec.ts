@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { validations } from "../db/schema";
+import { comments, validations } from "../db/schema";
 import { getSeed } from "./seed";
 
 // E2E — fluxuri AUTHED (pornesc cu sesiunea seedată de `auth.setup.ts`, via storageState). Acoperă inima
@@ -93,9 +93,18 @@ test.describe.serial("Validare pe rol", () => {
 });
 
 test("comentariu pe detaliu apare în dezbatere", async ({ page }) => {
+  const { detailId } = getSeed();
   await page.goto(detailUrl());
   const body = `E2E comentariu ${Date.now()}`;
-  await page.getByPlaceholder(/Adaugă la dezbatere/).fill(body);
-  await page.getByRole("button", { name: "Comentează" }).click();
-  await expect(page.getByText(body)).toBeVisible();
+  try {
+    await page.getByPlaceholder(/Adaugă la dezbatere/).fill(body);
+    await page.getByRole("button", { name: "Comentează" }).click();
+    // Timeout generos: pagina asta acumulase 28+ comentarii din rulări anterioare fără curățare
+    // (fix aici, cleanup în finally) — revalidarea sub 6 workers paraleli poate depăși 5s implicit.
+    await expect(page.getByText(body)).toBeVisible({ timeout: 10_000 });
+  } finally {
+    // Curăță reziduul, ca testul să NU mai umfle dezbaterea la fiecare rulare (cauza reală a
+    // flakiness-ului găsit 2026-07-14 — pagina devenea tot mai grea de la o rulare la alta).
+    await db.delete(comments).where(and(eq(comments.targetId, detailId), eq(comments.body, body)));
+  }
 });
