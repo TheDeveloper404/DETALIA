@@ -4,6 +4,30 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-14 — Fix: dezaprobare repetată raporta „succes" fals, fără să salveze justificarea
+
+**Bug găsit din raportare directă a lui Liviu** (a scris o justificare la dezaprobare, textul nu a
+apărut nicăieri — nici ca dezaprobare, nici ca simplu comentariu):
+
+- **Cauza reală (verificată în cod, nu presupusă):** `disapprove()` din `validationService.ts` întorcea
+  necondiționat `{ ok: true }`, chiar și când `upsertDisapprovalIfTransition` întorcea `null` (userul era
+  DEJA în poziția DISAPPROVE pe acea țintă — tranziția atomică din DB nu s-a produs, deci comentariul-
+  justificare nu s-a mai creat, intenționat, ca să nu apară duplicate). Userul primea confirmare de
+  succes, dar textul lui nu ajungea nicăieri, fără nicio eroare vizibilă.
+- **Fix:** cod nou de eroare `ALREADY_DISAPPROVED` — `disapprove()` întoarce acum `{ ok: false, error:
+  "ALREADY_DISAPPROVED" }` în acest caz; `validation-actions.ts` mapează mesajul: *„Ai dezaprobat deja
+  acest conținut — textul nou nu a fost salvat. Editează justificarea existentă din comentarii dacă vrei
+  s-o schimbi."*
+- **Verificat, NU schimbat** (decizie confirmată cu Liviu, contrar propunerii lui inițiale): diferența
+  vizuală comentariu/dezaprobare exista deja (`comments-section.tsx` — chenar roșu + etichetă „✕
+  dezaprobare"), la fel „fostă dezaprobare · retrasă" la retragere. Justificarea la retragere **rămâne**
+  intenționat (decizie din 2026-07-06, motiv documentat în cod: transparență/istoric public al
+  dezbaterii) — NU se șterge, cum propusese inițial Liviu; a confirmat recomandarea de a păstra.
+- Test unitar existent (`validationService.test.ts`, cazul de dublu-submit/race) actualizat să aștepte
+  noul cod de eroare în loc de `{ ok: true }`. 12/12 teste unitare verzi, `tsc`+`lint`+`build` verzi.
+
+---
+
 ## 2026-07-14 — Landing page: animații pe secțiunile 01-05, secțiune nouă „Planșa ta", hero rescris, fix-uri mobil
 
 **Landing public (`app/page.tsx`) redesenat pe bucăți — de la conținut static la interacțiv, pe baza

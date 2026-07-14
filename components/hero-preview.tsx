@@ -14,7 +14,10 @@ import { type CSSProperties, useEffect, useState } from "react";
 
 const MONO = "var(--font-plex-mono), monospace";
 const SANS = "var(--font-archivo), system-ui, sans-serif";
-const CYCLE_MS = 8600;
+const CYCLE_MS = 10500;
+// Revenirea la feed (remount pe key=cycle) altfel e instant/bruscă — fadăm cardul la 0 ÎNAINTE de
+// remount, apoi îl remontăm (invizibil) și îl lăsăm să reapară — un crossfade, nu o tăietură seacă.
+const LOOP_FADE_MS = 450;
 
 const stackAvatar: CSSProperties = {
   flex: "none",
@@ -62,17 +65,25 @@ const rolePill: CSSProperties = {
 
 export function HeroPreview() {
   const [cycle, setCycle] = useState(0);
+  const [fading, setFading] = useState(false);
 
   useEffect(() => {
     // Respectă prefers-reduced-motion: nu mai reluăm secvența (totul rămâne afișat static).
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setCycle((c) => c + 1), CYCLE_MS);
+    const t = setInterval(() => {
+      setFading(true);
+      setTimeout(() => {
+        setCycle((c) => c + 1);
+        setFading(false);
+      }, LOOP_FADE_MS);
+    }, CYCLE_MS);
     return () => clearInterval(t);
   }, []);
 
   return (
     <div style={{ position: "relative" }}>
-      {/* key=cycle pe tot cardul → remontează SVG-ul (se redesenează) ȘI re-pornește apariția chrome-ului. */}
+      {/* key=cycle pe tot cardul → remontează SVG-ul (se redesenează) ȘI re-pornește apariția chrome-ului.
+          `fading` fadează cardul la 0 ÎNAINTE de remount (crossfade la reluarea ciclului, nu o tăietură). */}
       <div
         key={cycle}
         style={{
@@ -81,6 +92,8 @@ export function HeroPreview() {
           borderRadius: "var(--radius)",
           boxShadow: "0 24px 60px -28px rgba(33,29,24,0.28)",
           overflow: "hidden",
+          opacity: fading ? 0 : 1,
+          transition: `opacity ${LOOP_FADE_MS}ms ease`,
         }}
       >
         {/* ETAPA 1 — FEED: screenshot REAL (nu o recreere), tap simulat pe „Cornișă șarpantă lemn"
@@ -158,7 +171,7 @@ export function HeroPreview() {
               href="/landing/hero-detail.png"
               x="0" y="0" width="200" height="120"
               preserveAspectRatio="xMidYMid meet"
-              style={{ animationDelay: "1.6s" }}
+              style={{ animationDelay: "2.9s" }}
             />
             {/* PROPUNEREA — traseu principal (contur element nou, linie subțire ca un creion, nu
                 marker gros) + hașură (notația reală de material din desenul tehnic) — o schiță
@@ -168,19 +181,19 @@ export function HeroPreview() {
               pathLength={1}
               d="M100 50 L 122 50 L 122 36 L 140 36"
               stroke="var(--primary)" strokeWidth="1.4" fill="none" strokeLinecap="round" strokeLinejoin="round"
-              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "2.2s" }}
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.5s" }}
             />
             {/* Hașură — 4 tuse scurte, succesive, ca material nou adăugat (izolație) în zona conturată. */}
             <path data-draw="1" pathLength={1} d="M104 47 L 110 40" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
-              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "2.95s" }} />
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "4.25s" }} />
             <path data-draw="1" pathLength={1} d="M110 47 L 116 40" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
-              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.05s" }} />
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "4.35s" }} />
             <path data-draw="1" pathLength={1} d="M116 47 L 122 40" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
-              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.15s" }} />
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "4.45s" }} />
             <path data-draw="1" pathLength={1} d="M126 34 L 134 34" stroke="var(--primary)" strokeWidth="1" strokeLinecap="round"
-              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "3.25s" }} />
-            <circle data-fade="1" cx="140" cy="36" r="2.2" fill="var(--primary)" style={{ animationDelay: "3.8s" }} />
-            <text data-fade="1" x="98" y="26" fontFamily={MONO} fontSize="8.5" fill="var(--primary)" style={{ animationDelay: "3.9s" }}>
+              style={{ filter: "url(#dc-hero-sketch-rough)", animationDelay: "4.55s" }} />
+            <circle data-fade="1" cx="140" cy="36" r="2.2" fill="var(--primary)" style={{ animationDelay: "5.1s" }} />
+            <text data-fade="1" x="98" y="26" fontFamily={MONO} fontSize="8.5" fill="var(--primary)" style={{ animationDelay: "5.2s" }}>
               propunere
             </text>
           </svg>
@@ -190,25 +203,25 @@ export function HeroPreview() {
             tranziția să fie continuă, nu un montaj cu date diferite. */}
         <div style={{ padding: "16px 18px 4px" }}>
           {/* Titlu */}
-          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "var(--foreground)", animationDelay: "4.4s" }}>
+          <div data-rise="1" style={{ fontFamily: SANS, fontWeight: 700, fontSize: 16, color: "var(--foreground)", animationDelay: "5.7s" }}>
             Cornișă șarpantă lemn
           </div>
 
           {/* Autor + rol */}
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "4.6s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "5.9s" }}>
             <span style={voteAvatar}>RI</span>
             <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>R. Ionescu</span>
             <span style={rolePill}>Beneficiar</span>
           </div>
 
           {/* Stivă de validatori — avatarele celor care au luat poziție (apar pe rând). */}
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "5.1s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "6.4s" }}>
             <span style={stackAvatar}>MP</span>
             <span style={stackAvatar}>IR</span>
           </div>
 
           {/* Contoare — ca în feed: validări · comentarii · schițe în teanc. */}
-          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "var(--muted-foreground)", animationDelay: "5.35s" }}>
+          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 12, fontFamily: MONO, fontSize: 11.5, color: "var(--muted-foreground)", animationDelay: "6.65s" }}>
             <span>2 validări</span>
             <span style={{ color: "var(--border)" }}>·</span>
             <span>1 comentariu</span>
@@ -219,7 +232,7 @@ export function HeroPreview() {
 
         {/* Pozițiile pe roluri — partea „vie" a dezbaterii (Aprobă / Dezaprobă cu justificare). */}
         <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "5.8s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "7.1s" }}>
             <span style={voteAvatar}>MP</span>
             <span style={{ fontSize: 13.5, flex: 1 }}>
               <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
@@ -228,7 +241,7 @@ export function HeroPreview() {
               ✓ Aprobă
             </span>
           </div>
-          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "6.5s" }}>
+          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "7.8s" }}>
             <span style={voteAvatar}>IR</span>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
