@@ -107,7 +107,8 @@
 
 /* Landing public (app/page.tsx) — paletă proprie de brand, separată de tokenii UI shadcn.
    Inline style nu poate exprima :hover, deci interacțiunile stau aici, scoped la .dc-landing. */
-/* Secțiunea „Pentru cine" — card de rol cu emoji: hover ridică ușor cardul + scalează emoji-ul. */
+/* Secțiunea „Pentru cine" — card de rol cu accent de culoare reală (vezi ROLES în page.tsx):
+   hover ridică ușor cardul. */
 .dc-landing .dt-role-card {
   transition:
     transform 0.2s ease,
@@ -116,23 +117,6 @@
 .dc-landing .dt-role-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 18px 40px -28px rgba(33, 29, 24, 0.4);
-}
-.dc-landing .dt-role-emoji {
-  flex: none;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  line-height: 1;
-  border-radius: 12px;
-  background: #f6ede4;
-  border: 1px solid #ecdcc8;
-  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.dc-landing .dt-role-card:hover .dt-role-emoji {
-  transform: scale(1.08) rotate(-4deg);
 }
 
 /* Secțiunea „Ce câștigi" — listă editorială (fără carduri), contrast intenționat cu restul paginii.
@@ -150,6 +134,31 @@
     gap: 36px;
   }
 }
+/* Secțiunea „Planșa ta" — coloană text + mockup, colapsează pe mobil ca la „Ce câștigi". */
+@media (max-width: 900px) {
+  .dc-landing .dt-plansa-grid {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+}
+/* Bilețelele de pe planșă „plutesc" continuu — translate + rotație ușoară în jurul poziției de bază
+   (--plansa-rot, setată inline per bilețel) — ca planșa să pară vie, nu o compoziție statică.
+   Fiecare bilețel are propriul animation-delay/duration (inline), deci nu se mișcă sincron. */
+@keyframes dt-plansa-float {
+  0%, 100% { transform: rotate(var(--plansa-rot)) translate(0, 0); }
+  50% { transform: rotate(calc(var(--plansa-rot) + 1.2deg)) translate(2px, -4px); }
+}
+.dc-landing .dt-plansa-float {
+  animation-name: dt-plansa-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dc-landing .dt-plansa-float {
+    animation: none;
+    transform: rotate(var(--plansa-rot));
+  }
+}
 .dc-landing .dt-gain {
   display: grid;
   grid-template-columns: 150px 1fr;
@@ -158,7 +167,9 @@
   border-top: 1px solid #e3ddd2;
   align-items: start;
 }
-.dc-landing .dt-gain-list .dt-gain:last-child {
+/* :last-child se uită la .dt-reveal (wrapper-ul de cascadă din page.tsx), nu la .dt-gain direct —
+   fiecare rând e acum înfășurat individual pentru reveal-ul în cascadă. */
+.dc-landing .dt-gain-list > *:last-child .dt-gain {
   border-bottom: 1px solid #e3ddd2;
 }
 @media (max-width: 560px) {
@@ -236,6 +247,131 @@
   }
 }
 
+/* Rând de diff (secțiunea 01) — la hover: bară stânga colorată + gutter/text puțin mai mari
+   (variabilele --diff-sign-fs/--diff-text-fs/--diff-pad, citite de DiffLine în page.tsx) — semnal
+   că e o interfață reală, nu o ilustrație statică. Creștere doar la hover, nu fixă pe niciun rând. */
+.dt-diff-row {
+  position: relative;
+  transition: box-shadow 0.15s ease;
+}
+.dt-diff-row:hover {
+  box-shadow: inset 3px 0 0 var(--primary);
+  --diff-sign-fs: 17px;
+  --diff-text-fs: 16.5px;
+  --diff-pad: 15px;
+}
+
+/* Secțiunea „Cum funcționează" (FlowFrame) — pasul 2/3 rulează o secvență în BUCLĂ de 10s
+   (buton apare → tap → desen/reset se întâmplă → totul dispare → reia), cât timp cadrul e vizibil.
+   Toate keyframes de mai jos sunt procente din acel ciclu de 10s — modifică-le împreună dacă schimbi
+   un timp, ca să rămână sincronizate (ex. tap-ul unui buton cu desenul/reset-ul declanșat de el). */
+.dt-flow-image {
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: 0.05s;
+}
+.dt-reveal.is-in .dt-flow-image {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Traseul desenat (pasul 2) — desenare 17%→35% (~1.7s→3.5s), rămâne vizibil, se estompează
+   85%→93%, se resetează invizibil înainte de a relua ciclul. */
+@keyframes dt-flow-draw-loop {
+  0%, 17% { stroke-dashoffset: 150; opacity: 1; }
+  35%, 85% { stroke-dashoffset: 0; opacity: 1; }
+  93% { stroke-dashoffset: 0; opacity: 0; }
+  94%, 100% { stroke-dashoffset: 150; opacity: 0; }
+}
+.dt-reveal.is-in .dt-flow-draw-loop {
+  animation: dt-flow-draw-loop 10s linear infinite;
+}
+
+/* Butoane (Schițează/Aprob/Dezaprob) — apar 0%→5%, rămân, dispar 85%→92%, ciclul reia. */
+@keyframes dt-flow-btn-loop {
+  0% { opacity: 0; transform: translateY(6px); }
+  5%, 84% { opacity: 1; transform: none; }
+  92%, 100% { opacity: 0; transform: translateY(6px); }
+}
+.dt-reveal.is-in .dt-flow-btn-loop {
+  animation: dt-flow-btn-loop 10s linear infinite;
+}
+
+/* Apăsarea vizuală a butonului (dip scurt) — un keyframes distinct per buton, ca fiecare să aibă
+   propriul moment de „click" în ciclul de 10s (Schițează/Aprob la 15%, Dezaprob la 45% — vezi
+   `dt-flow-draw-loop` mai sus, sincronizat cu 15% pentru Schițează). */
+@keyframes dt-flow-press-s2-loop {
+  0%, 14.5%, 16.5%, 100% { transform: scale(1); filter: brightness(1); }
+  15.5% { transform: scale(0.92); filter: brightness(0.92); }
+}
+@keyframes dt-flow-press-approve-loop {
+  0%, 14.5%, 16.5%, 100% { transform: scale(1); filter: brightness(1); }
+  15.5% { transform: scale(0.92); filter: brightness(0.92); }
+}
+@keyframes dt-flow-press-reject-loop {
+  0%, 44.5%, 46.5%, 100% { transform: scale(1); filter: brightness(1); }
+  45.5% { transform: scale(0.92); filter: brightness(0.92); }
+}
+.dt-reveal.is-in .dt-flow-press-s2-loop { animation: dt-flow-press-s2-loop 10s linear infinite; }
+.dt-reveal.is-in .dt-flow-press-approve-loop { animation: dt-flow-press-approve-loop 10s linear infinite; }
+.dt-reveal.is-in .dt-flow-press-reject-loop { animation: dt-flow-press-reject-loop 10s linear infinite; }
+
+/* Inelul de „tap" — o rază care se extinde și dispare exact la momentul apăsării fiecărui buton. */
+.dt-flow-btn-loop [class*="dt-flow-tap"] {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes dt-flow-tap-s2-loop {
+  0%, 15% { transform: scale(0.3); opacity: 0; }
+  15.3% { opacity: 0.8; }
+  18.5%, 100% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes dt-flow-tap-approve-loop {
+  0%, 15% { transform: scale(0.3); opacity: 0; }
+  15.3% { opacity: 0.8; }
+  18.5%, 100% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes dt-flow-tap-reject-loop {
+  0%, 45% { transform: scale(0.3); opacity: 0; }
+  45.3% { opacity: 0.8; }
+  48.5%, 100% { transform: scale(2.1); opacity: 0; }
+}
+.dt-reveal.is-in .dt-flow-tap-s2-loop { animation: dt-flow-tap-s2-loop 10s linear infinite; }
+.dt-reveal.is-in .dt-flow-tap-approve-loop { animation: dt-flow-tap-approve-loop 10s linear infinite; }
+.dt-reveal.is-in .dt-flow-tap-reject-loop { animation: dt-flow-tap-reject-loop 10s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dt-flow-image {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .dt-flow-draw-loop {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .dt-flow-btn-loop {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  [class*="dt-flow-press"] {
+    animation: none !important;
+  }
+  .dt-flow-btn-loop [class*="dt-flow-tap"] {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+}
+
 /* Secțiunea „Cum funcționează" — storyboard pe 3 cadre conectate de săgeți (secvența reală).
    Pe mobil se stivuiește vertical și săgețile dispar. */
 .dc-landing .dt-flow {
@@ -285,6 +421,9 @@
 /* CTA-ul din header pe mobil: micșorează gap-ul + butonul „Creează cont" ca să nu se înghesuie/rupă
    lângă logo. Inline style are specificitate mai mare → !important. */
 @media (max-width: 560px) {
+  .dc-landing .dc-header-inner {
+    padding: 0 16px !important;
+  }
   .dc-landing .dc-header-cta {
     gap: 12px !important;
   }
@@ -294,6 +433,13 @@
   .dc-landing .dc-header-cta .dc-btn-primary {
     font-size: 14px !important;
     padding: 9px 15px !important;
+  }
+}
+/* Sub 400px, „Autentificare" + logo + butonul principal nu mai încap confortabil — păstrăm doar
+   CTA-ul principal (Creează cont); autentificarea rămâne accesibilă din pagina de login/creare cont. */
+@media (max-width: 400px) {
+  .dc-landing .dc-header-login {
+    display: none !important;
   }
 }
 /* Hero B = două coloane (text + card preview). Inline style are specificitate mai mare decât
@@ -365,6 +511,35 @@
     transform: translateY(0);
   }
 }
+/* Etapa FEED din hero (screenshot real) — un tap pe cardul „Cornișă șarpantă lemn", apoi tot
+   overlay-ul face crossfade, dezvăluind detaliul deschis dedesubt (deja randat, doar ascuns de
+   opacity:0 până la delay-urile lui — vezi hero-preview.tsx). */
+@keyframes dc-hero-feed-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+.dc-landing .dc-hero-feed {
+  animation: dc-hero-feed-out 0.5s ease forwards;
+  animation-delay: 1.5s;
+}
+@keyframes dc-hero-tap-kf {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+.dc-landing .dc-hero-tap {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #a9573a;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: dc-hero-tap-kf 0.45s ease-out;
+  animation-delay: 0.95s;
+}
 @media (prefers-reduced-motion: reduce) {
   .dc-landing .dc-sketch [data-draw],
   .dc-landing .dc-sketch [data-fade],
@@ -373,6 +548,10 @@
     stroke-dashoffset: 0;
     opacity: 1;
     transform: none;
+  }
+  .dc-landing .dc-hero-feed,
+  .dc-landing .dc-hero-tap {
+    display: none;
   }
 }
 
