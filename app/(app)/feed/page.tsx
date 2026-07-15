@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
-import { type FeedSort, getActiveAuthors, getFeed, getMySavedDetailIds } from "@/server/services/detailService";
+import { getActiveAuthors, getFeed, getMySavedDetailIds, getTopDebated } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
 import { getMyPositions } from "@/server/services/validationService";
@@ -21,23 +21,23 @@ import { FeedEntrance } from "./feed-entrance";
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; sort?: string; q?: string; welcome?: string }>;
+  searchParams: Promise<{ cat?: string; q?: string; welcome?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const { cat, sort: sortParam, q: rawQ, welcome } = await searchParams;
+  const { cat, q: rawQ, welcome } = await searchParams;
   const q = rawQ?.trim() || null;
-  const sort: FeedSort = sortParam === "recent" ? "recent" : "debated";
 
-  const [categories, role, authors, media, platform] = await Promise.all([
+  const [categories, role, authors, media, platform, debated] = await Promise.all([
     listCategoriesWithCounts(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
     getUserMedia(session.user.id),
     getPlatformState(),
+    getTopDebated(5),
   ]);
 
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
@@ -50,7 +50,7 @@ export default async function FeedPage({
     : null;
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
-  const details = await getFeed({ categoryId: activeId, q, sort });
+  const details = await getFeed({ categoryId: activeId, q });
   const myPositions = await getMyPositions(
     session.user.id,
     "DETAIL",
@@ -66,16 +66,6 @@ export default async function FeedPage({
   const roleLabel = role
     ? (role.subRole ?? ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain)
     : null;
-
-  const debated = [...details]
-    .sort((a, b) => b.commentCount - a.commentCount)
-    .slice(0, 3)
-    .map((d) => ({
-      id: d.id,
-      title: d.title,
-      commentCount: d.commentCount,
-      sketchCount: d.sketchCount,
-    }));
 
 
   return (
