@@ -32,6 +32,7 @@ const PUBLIC_PATHS = [
   "/termeni", // Termeni și condiții — public, linkuit din footer
   "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
   "/sentry-tunnel", // proxy Sentry (evită ad-blockere) — trebuie accesibil și pt erori pre-auth (/login etc.)
+  "/ingest", // proxy PostHog (evită ad-blockere) — trebuie accesibil pre-auth (pageview pe landing/login/signup)
   "/.well-known/security.txt", // canal RFC 9116 de raportare responsabilă — public prin natura lui
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
