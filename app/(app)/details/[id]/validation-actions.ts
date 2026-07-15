@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
 import { createDraft } from "@/server/services/sketchService";
@@ -18,7 +19,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   JUSTIFICATION_REQUIRED: "Dezaprobarea cere o justificare.",
   JUSTIFICATION_TOO_LONG: "Justificarea e prea lungă (max 5000 de caractere).",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
-  ALREADY_DISAPPROVED: "Ai dezaprobat deja acest conținut — textul nou nu a fost salvat. Editează justificarea existentă din comentarii dacă vrei s-o schimbi.",
+  ALREADY_DISAPPROVED:
+    "Ai dezaprobat deja acest conținut — textul nou nu a fost salvat. Editează justificarea existentă din comentarii dacă vrei s-o schimbi.",
 };
 
 // targetType/targetId = ținta poziției (DETAIL sau SKETCH); detailId = pagina de revalidat (detaliul-părinte).
@@ -45,6 +47,14 @@ export async function approveAction(formData: FormData): Promise<void> {
   const { targetType, targetId, detailId } = readTarget(formData);
   const res = await approve({ userId, targetType, targetId });
   if (!res.ok && res.error === "NO_ROLE") redirect("/onboarding");
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "detail_approved",
+    properties: { target_type: targetType, target_id: targetId, detail_id: detailId },
+  });
+  await posthog.flush();
 
   revalidatePath(`/details/${detailId}`);
 }
@@ -98,6 +108,14 @@ export async function disapproveAction(
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "detail_disapproved",
+    properties: { target_type: targetType, target_id: targetId, detail_id: detailId },
+  });
+  await posthog.flush();
 
   revalidatePath(`/details/${detailId}`);
   return { error: null };

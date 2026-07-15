@@ -36,7 +36,7 @@ export function buildCspHeader(nonce: string, isDev = false, previewTools = true
     "style-src 'self' 'unsafe-inline'", // vezi nota: atributele style din React nu pot fi noncuite
     `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com${previewTools ? " https://vercel.live https://vercel.com" : ""}`,
     `font-src 'self' data:${live}`,
-    `connect-src 'self' https://*.vercel-storage.com https://vercel.com https://challenges.cloudflare.com${liveConnect}`,
+    `connect-src 'self' https://*.vercel-storage.com https://vercel.com https://challenges.cloudflare.com /ingest https://eu-assets.i.posthog.com${liveConnect}`,
     // frame-src: toolbar vercel.live (doar preview) + iframe-ul Turnstile.
     `frame-src ${liveFrame}https://challenges.cloudflare.com`,
     "upgrade-insecure-requests",

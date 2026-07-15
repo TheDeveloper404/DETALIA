@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
 import {
@@ -99,7 +100,8 @@ export async function updateProfileDetailsAction(
     website: String(formData.get("website") ?? ""),
     company: String(formData.get("company") ?? ""),
   });
-  if (!res.ok) return { error: DETAILS_ERRORS[res.reason] ?? "Profilul n-a putut fi salvat.", ok: false };
+  if (!res.ok)
+    return { error: DETAILS_ERRORS[res.reason] ?? "Profilul n-a putut fi salvat.", ok: false };
 
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -130,5 +132,10 @@ export async function signOutAction() {
 export async function deleteAccountAction(): Promise<void> {
   const userId = await requireUserId();
   await deleteAccount(userId);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: userId, event: "account_deleted" });
+  await posthog.flush();
+
   await signOut({ redirectTo: "/" });
 }

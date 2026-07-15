@@ -4,9 +4,15 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
-import { addComment, deleteComment, editComment, toggleCommentLike } from "@/server/services/commentService";
+import {
+  addComment,
+  deleteComment,
+  editComment,
+  toggleCommentLike,
+} from "@/server/services/commentService";
 
 export type AddCommentState = { error: string | null; ok: boolean };
 
@@ -46,6 +52,19 @@ export async function addCommentAction(
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou.", ok: false };
   }
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "comment_added",
+    properties: {
+      target_type: targetType,
+      target_id: targetId,
+      detail_id: detailId,
+      is_reply: !!parentCommentId,
+    },
+  });
+  await posthog.flush();
 
   revalidatePath(`/details/${detailId}`);
   return { error: null, ok: true };
