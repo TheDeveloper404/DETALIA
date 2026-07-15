@@ -1,3 +1,4 @@
+import { withPostHogConfig } from "@posthog/nextjs-config";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
@@ -57,10 +58,22 @@ const nextConfig: NextConfig = {
   },
 };
 
+// PostHog — source maps pt erori de producție lizibile. No-op complet dacă lipsește cheia (build local
+// fără POSTHOG_PERSONAL_API_KEY nu se strică — vezi `enabled` condiționat).
+const configWithPostHog = withPostHogConfig(nextConfig, {
+  personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY ?? "",
+  envId: process.env.POSTHOG_ENV_ID ?? "",
+  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+  sourcemaps: {
+    enabled: !!process.env.POSTHOG_PERSONAL_API_KEY,
+    deleteAfterUpload: true,
+  },
+});
+
 // Sentry — no-op complet dacă lipsesc env-urile (build local fără cont Sentry nu se strică).
 // `tunnelRoute`: erorile trec prin propriul domeniu (`/sentry-tunnel`), nu direct spre *.sentry.io —
 // evită ad-blockere ȘI ne scutește de allowlist nou în CSP (`lib/csp.ts` rămâne neatins).
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(configWithPostHog, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
