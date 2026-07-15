@@ -325,12 +325,7 @@ const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
 
 // Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
 // Sortare după interacțiuni (caracter de comunitate), tie-break după dată descrescătoare.
-export async function listFeed(input: {
-  categoryId?: string | null;
-  q?: string | null;
-  limit: number;
-  sort?: "debated" | "recent";
-}) {
+export async function listFeed(input: { categoryId?: string | null; q?: string | null; limit: number }) {
   const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED)];
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
   // Căutare simplă pe titlu (ILIKE, case-insensitive). `%` din input e escapat ca să fie literal.
@@ -339,12 +334,6 @@ export async function listFeed(input: {
     conds.push(sql`${details.title} ilike ${term}`);
   }
   const where = and(...conds);
-
-  // „recent" = doar după dată; „debated" (default) = după interacțiuni, tie-break pe dată.
-  const orderBy =
-    input.sort === "recent"
-      ? [desc(details.createdAt)]
-      : [sql`${interactionScore} desc`, desc(details.createdAt)];
 
   return db
     .select({
@@ -359,8 +348,25 @@ export async function listFeed(input: {
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(where)
-    .orderBy(...orderBy)
+    .orderBy(desc(details.createdAt))
     .limit(input.limit);
+}
+
+// „În dezbatere acum" (rail-ul din feed) — top N global pe scor de interacțiune (validări+comentarii+
+// schițe), independent de filtrele/paginarea feed-ului principal (altfel rail-ul ar reflecta doar un
+// subset, nu adevăratul top). Feed-ul principal e strict cronologic — vezi `listFeed`.
+export async function listTopDebated(limit: number) {
+  return db
+    .select({
+      id: details.id,
+      title: details.title,
+      commentCount,
+      sketchCount,
+    })
+    .from(details)
+    .where(eq(details.status, DETAIL_STATUS.PUBLISHED))
+    .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
+    .limit(limit);
 }
 
 // Detalii înrudite = cel puțin o categorie comună (Edi: „bifezi oricâte"), PUBLISHED, exclus self.

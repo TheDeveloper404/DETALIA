@@ -21,6 +21,11 @@
 | **Cloudflare Turnstile** | Anti-bot pe login+signup (widget, verificare server-side) | ✅ Configurat 2026-07-02 |
 | **Upstash Redis** | Rate-limit (login, mutații, upload) — fail-closed în prod la outage | ✅ Configurat |
 | **Sentry** | Erori server/client/edge, tunnel prin `/sentry-tunnel` + Alerts pe `audit_event` | ✅ Configurat 2026-07-02/03 |
+| **PostHog** | Analytics + error tracking (migrare din Sentry în curs) — regiune EU | ✅ Live din 2026-07-15 |
+
+**Acces MCP Claude (2026-07-15):** pe lângă Vercel CLI (deja existent), Claude are acum acces direct și
+la **Neon** (branch-uri, SQL read-only prin `run_sql`) și **PostHog** (query erori/evenimente) prin MCP —
+poate verifica direct starea reală în ambele, fără să ceară screenshot-uri.
 
 **Concepte (ca să nu se amestece):**
 - **Registrar** (Hostico) = deține domeniul. Singurul lucru pe care-l mai faci în Hostico: schimbi nameserverele spre Cloudflare.
@@ -197,6 +202,58 @@ Trei lucruri pot trimite cod prost în prod — astea le închidem:
       cu schema nouă; dacă nu, scrii SQL de revenire (regula obișnuită: SQL brut, rulat manual, verificat înainte).
    3. Repari cauza pe `dev`, testezi pe preview, abia apoi refaci PR-ul `dev → main` normal.
    4. Scrii un rând scurt în `docs/INCIDENTS.md` (ce, de ce, ce s-a schimbat) — vezi mai jos.
+
+---
+
+## 2d. Harta pipeline-ului: de la `git commit` la `main` (verificat 2026-07-15)
+
+Ce se întâmplă, în ordine, la fiecare etapă — ca să știi mereu unde să te uiți când ceva pare ciudat.
+Automat = pornește singur. Manual = tu declanșezi.
+
+**1. `git commit` + `push` pe `dev`** (manual, din VS Code)
+
+**2. Declanșat automat de push-ul pe `dev`:**
+- **Vercel** rulează `ignoreCommand` din **`vercel.json`** (mutat din Vercel Dashboard aici 2026-07-15 —
+  vizibil în repo/git history, nu mai stă ascuns doar în UI). Pt push pe `dev`, condiția de skip
+  (`preview && ref=main`) e falsă →
+  build normal → **Preview deployment**, alias `detalia-git-dev-...`.
+- **Neon**: integrarea Vercel↔Neon creează/reactivează branch-ul `preview/dev`, atașat acelui Preview.
+- **GitHub Actions `ci.yml`**: type-check + lint + build + unit tests (vitest) + secret scan (gitleaks)
+  + audit dependențe. Rulează pe push ȘI pe orice PR către `dev`/`main`.
+- **GitHub Actions `e2e.yml`** — **ATENȚIE, rulează AUTOMAT**, nu doar când tu tastezi `npm run e2e`
+  local: după ce Preview-ul de mai sus devine Ready, Vercel trimite un webhook
+  (`vercel.deployment.success`) → declanșează suita completă de 84 teste E2E contra acelui Preview,
+  în GitHub Actions. Rezultatul e vizibil în **GitHub → Actions tab**, NU în terminalul tău local —
+  dacă rulezi și tu manual în paralel, sunt DOUĂ rulări separate, posibil cu rezultate ușor diferite
+  (load diferit). Explică parțial confuzia „de unde vine rezultatul ăsta".
+
+**3. Deschizi PR `dev → main`** — PR-ul doar AFIȘEAZĂ rezultatul CI de la pasul 2 (verde/roșu). Branch
+protection cere CI verde + branch la zi înainte să apară butonul Merge.
+
+**4. Merge PR → `main` actualizat:**
+- **Vercel**: din nou `ignoreCommand`. Push pe `main` are `VERCEL_ENV=production` → condiția de skip
+  nu se potrivește → build normal → **Production deployment**, alias `detalia-git-main-...`, live pe
+  `detalia.ro`.
+- **REZOLVAT 2026-07-15** (era marcat neconfirmat mai devreme azi): un branch Neon `preview/main` apărut
+  la un moment dat NU venea din pipeline — Liviu îl ștersese manual mai devreme, apoi a reapărut în
+  UI din cache/vedere veche. Confirmat direct cu Neon MCP (`describe_project`): proiectul are azi
+  exact 2 branch-uri reale, `production` + `preview/dev`. Nicio acțiune de făcut.
+- **GitHub Actions `ci.yml`** rulează din nou (push pe `main`).
+- Dacă apare vreun Preview suplimentar la pasul de mai sus și devine Ready → `e2e.yml` s-ar declanșa din
+  nou automat (aceeași logică de la pasul 2).
+
+**5. Manual, de făcut de tine, NICIODATĂ automat:**
+- Schema DB (coloană/tabel/enum nou) → SQL brut, rulat manual în Neon SQL Editor, pe **ambele** ramuri
+  (`preview/dev` întâi, apoi `production`) — niciodată `db:push`/`db:migrate` din terminal.
+- Verificare vizuală pe URL-ul de Preview al PR-ului, înainte de merge (regula din §2c.3).
+- `npm run smoke:prod` — DOAR după ce Production e Ready (izolat, nu rulează niciodată automat/CI).
+
+**Unde te uiți, în ordine, când ceva pare ciudat:**
+1. **GitHub → Actions tab** — ce a rulat automat (`ci.yml`, `e2e.yml`), cu ce rezultat, pe ce commit.
+2. **Vercel → Deployments tab** — Preview vs Production; alias-ul (`git-dev` / `git-main`) spune sigur
+   de pe ce branch a plecat, mai de încredere decât „Age"/ora.
+3. **Neon → Branches** — ce branch-uri există, creat de cine (Vercel = integrare automată), când.
+4. **PR-ul pe GitHub → tab Checks** — rezumatul CI pt acel PR specific.
 
 ---
 
