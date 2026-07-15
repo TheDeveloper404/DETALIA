@@ -1,3 +1,4 @@
+import { withPostHogConfig } from "@posthog/nextjs-config";
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
@@ -32,6 +33,23 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async rewrites() {
+    return [
+      {
+        source: "/ingest/static/:path*",
+        destination: "https://eu-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/ingest/array/:path*",
+        destination: "https://eu-assets.i.posthog.com/array/:path*",
+      },
+      {
+        source: "/ingest/:path*",
+        destination: "https://eu.i.posthog.com/:path*",
+      },
+    ];
+  },
+  skipTrailingSlashRedirect: true,
   // VERCEL_ENV nu ajunge niciodată în bundle-ul de CLIENT (nu e prefixat NEXT_PUBLIC_) — fără mapping-ul
   // ăsta, Sentry de pe browser nu poate ști dacă rulează pe preview sau production (vezi sentry-config
   // pt detaliul complet: fără el, evenimentele client cădeau invizibile sub orice filtru de environment).
@@ -40,10 +58,25 @@ const nextConfig: NextConfig = {
   },
 };
 
+// PostHog — source maps pt erori de producție lizibile. No-op complet dacă lipsește cheia (build local
+// fără POSTHOG_PERSONAL_API_KEY nu se strică — vezi `enabled` condiționat).
+// Host-ul de API/release e cel de APLICAȚIE (eu.posthog.com), NU cel de ingest (eu.i.posthog.com,
+// folosit de SDK în instrumentation-client.ts/posthog-server.ts) — cheia personală nu e recunoscută
+// pe host-ul de ingest (authentication_failed dacă le confunzi).
+const configWithPostHog = withPostHogConfig(nextConfig, {
+  personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY ?? "",
+  envId: process.env.POSTHOG_ENV_ID ?? "",
+  host: "https://eu.posthog.com",
+  sourcemaps: {
+    enabled: !!process.env.POSTHOG_PERSONAL_API_KEY,
+    deleteAfterUpload: true,
+  },
+});
+
 // Sentry — no-op complet dacă lipsesc env-urile (build local fără cont Sentry nu se strică).
 // `tunnelRoute`: erorile trec prin propriul domeniu (`/sentry-tunnel`), nu direct spre *.sentry.io —
 // evită ad-blockere ȘI ne scutește de allowlist nou în CSP (`lib/csp.ts` rămâne neatins).
-export default withSentryConfig(nextConfig, {
+export default withSentryConfig(configWithPostHog, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,

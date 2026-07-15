@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
@@ -113,6 +114,20 @@ export async function createDetailAction(
     }
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "detail_published",
+    properties: {
+      detail_id: result.detailId,
+      category_count: categoryIds.length,
+      has_description: description.trim().length > 0,
+      has_resources: resources.length > 0,
+      resource_count: resources.length,
+    },
+  });
+  await posthog.flush();
 
   // Detaliul nou apare în feed (listă + counts pe categorie) → invalidează cache-ul feed-ului.
   revalidatePath("/feed");
