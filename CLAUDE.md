@@ -233,6 +233,10 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 - **Cookie sesiune persistent** — `authjs.session-token` persistă în browser; test ca anonim = incognito/clear cookies.
 - **Drift schema Neon** — `production` și `preview/dev` sunt baze SEPARATE; orice `ALTER TABLE` se aplică manual
   pe AMBELE ramuri, altfel apare drift (verificat cu `SELECT count(*)`/`\d tabel`, nu presupus).
+- **Verificările Neon via MCP țin compute-ul treaz** — orice query (chiar `describe_project`/`run_sql` SELECT)
+  resetează timer-ul de suspend (`suspend_timeout_seconds: 300`). Dacă compute-ul pare „mereu activ" fără
+  useri, verifică întâi dacă NU e efectul propriilor verificări repetate (2026-07-15) înainte să suspectezi
+  un bug real.
 - **Migrație distructivă fără verificare = pierdere de date reală** (s-a întâmplat 2026-07-02 pe `category_id`).
   Înainte de orice `DROP COLUMN`/migrație distructivă pe branch real: verific efectiv că tabelul e gol pe
   branch-ul țintă, nu presupun din handoff.
