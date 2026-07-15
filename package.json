@@ -17,8 +17,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx db/seed.ts",
-    "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "e2e": "playwright test --project=public --project=sketch-public --project=setup --project=authed --project=security --project=suspended --project=admin-access --project=onboarding",
+    "e2e:ui": "playwright test --ui",
+    "smoke:prod": "cross-env SMOKE_PROD=1 playwright test --project=smoke-prod"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",
@@ -53,6 +54,7 @@
     "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",

@@ -119,5 +119,18 @@ export default defineConfig({
       testMatch: /onboarding\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
+    // Smoke producție — proiect EXCLUS by default (inclusiv din CI, care rulează `npx playwright test`
+    // direct, nu `npm run e2e` — allowlist-ul din package.json NU îl protejează acolo). Există doar dacă
+    // SMOKE_PROD=1 e setat explicit (vezi `npm run smoke:prod`). Hardcodează baseURL la detalia.ro în
+    // spec — vezi smoke-prod.spec.ts.
+    ...(process.env.SMOKE_PROD === "1"
+      ? [
+          {
+            name: "smoke-prod",
+            testMatch: /smoke-prod\.spec\.ts/,
+            use: { ...devices["Desktop Chrome"] },
+          },
+        ]
+      : []),
   ],
 });
