@@ -60,10 +60,13 @@ const nextConfig: NextConfig = {
 
 // PostHog — source maps pt erori de producție lizibile. No-op complet dacă lipsește cheia (build local
 // fără POSTHOG_PERSONAL_API_KEY nu se strică — vezi `enabled` condiționat).
+// Host-ul de API/release e cel de APLICAȚIE (eu.posthog.com), NU cel de ingest (eu.i.posthog.com,
+// folosit de SDK în instrumentation-client.ts/posthog-server.ts) — cheia personală nu e recunoscută
+// pe host-ul de ingest (authentication_failed dacă le confunzi).
 const configWithPostHog = withPostHogConfig(nextConfig, {
   personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY ?? "",
   envId: process.env.POSTHOG_ENV_ID ?? "",
-  host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+  host: "https://eu.posthog.com",
   sourcemaps: {
     enabled: !!process.env.POSTHOG_PERSONAL_API_KEY,
     deleteAfterUpload: true,
