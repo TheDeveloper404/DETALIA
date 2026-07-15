@@ -16,7 +16,7 @@ export type DetailStatus = (typeof DETAIL_STATUS)[keyof typeof DETAIL_STATUS];
 export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 5000;
 export const MAX_DETAIL_RESOURCES = 3;
-export const DEFAULT_FEED_SIZE = 20; // feed finit, fără scroll infinit (caracter de comunitate)
+export const DEFAULT_FEED_SIZE = 30; // feed finit, fără scroll infinit (caracter de comunitate)
 // SEC-11 — plafon defensiv pe nr. de categorii bifate (Edi: „oricâte" — capul e doar anti-abuz, nu produs).
 export const MAX_DETAIL_CATEGORIES = 10;
 export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonabilă de browser/DB)

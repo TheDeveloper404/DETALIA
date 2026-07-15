@@ -122,18 +122,31 @@ lib/        auth, email, storage, utils
 - Toate regulile de business de mai sus = enforce pe server. Frontend-ul nu e sursă de adevăr.
 - Magic link: token scurt, one-time.
 
-### Mentenanță recurentă (de reamintit lui Liviu, nu se întâmplă automat)
+### Mentenanță recurentă (de reamintit lui Liviu — TOATE remindere-le periodice, nu se întâmplă automat)
+> Secțiune unică pt orice „trebuie verificat/schimbat din când în când" — nu se împrăștie în alte secțiuni.
+
 - **`AUTH_SECRET` — rotire trimestrială.** Rotirea invalidează instant TOATE sesiunile active (JWT semnate cu
   secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din greșeală. Schimbi valoarea în
   Vercel (env, ambele scope-uri Preview + Production) → redeploy.
-- (Candidat de adăugat aici dacă Liviu confirmă că-l vrea ca rutină: test periodic de restore pe backup-ul
-  DB — există doar backup automat, nu verificare că restore-ul chiar funcționează. Neconfirmat încă ca
-  obligație recurentă.)
 - **`next-auth` (Auth.js v5) — verificare periodică de versiune** *(confirmat 2026-07-13, audit securitate)*:
   proiectul rulează pe `5.0.0-beta.31` — librăria de autentificare e încă oficial BETA. La checkpoint-ul
   lunar (sau când apare un motiv), verifică `npm view next-auth versions` pentru o beta mai nouă cu fix-uri
-  de securitate; folosește context7 dacă ai nevoie de detalii de migrare API. Verificat azi: suntem deja pe
-  ultima versiune publicată, nimic de actualizat acum.
+  de securitate; folosește context7 dacă ai nevoie de detalii de migrare API.
+- **Scanare periodică de cod mort cu `knip`** *(regulă 2026-07-13)*: Sentry/PostHog arată doar ce a crăpat
+  vreodată, nu cod mort care n-a aruncat nicio eroare. Rulează `npx knip` ~lunar — fișiere/exporturi
+  neutilizate + dependențe nedeclarate. **Nu șterge orbește din rezultat:** Server Actions (`"use server"`)
+  apar des fals-pozitiv (apelate din client prin `action={...}`, knip nu le urmărește mereu) — verifică
+  fiecare candidat înainte de ștergere.
+- **Igienă observabilitate (Sentry/PostHog) după orice refactor/rescriere care elimină cod** *(regulă
+  2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau o librărie,
+  treci prin dashboard-ul de erori (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
+  ce nu se mai poate reproduce, cu un comentariu scurt de ce. Nu se auto-curăță la refactor.
+- **Reminder săptămânal Sentry** (rutină cloud `/schedule`, luni 09:00 RO) — doar notificare push, fără
+  verificare automată de Claude; **de re-orientat spre PostHog** după decommission-ul Sentry (~2026-07-22).
+- **Migrare PostHog → decommission Sentry, ~2026-07-22**: dacă rularea paralelă confirmă paritate (fără
+  gap-uri de erori reale), scos SDK+env+dependențe Sentry — vezi `.remember/remember.md` „URMEAZĂ".
+- (Candidat, neconfirmat ca obligație recurentă: test periodic de restore pe backup-ul DB — există doar
+  backup automat, nu verificare că restore-ul chiar funcționează.)
 
 ---
 
@@ -168,16 +181,8 @@ non-enumerare, logging fără valori sensibile, env pentru config.
 §„Per-task SDLC flow". Aici doar specificul DETALIA:
 - Migrație de schemă → SQL brut dat lui Liviu pentru AMBELE ramuri Neon (dev + prod) — vezi skill `neon-sql`.
 - Auditul de securitate complet (13 categorii) e pe listă ÎNAINTE de lansarea publică (vezi `.remember/remember.md`).
-- **Igienă Sentry după orice refactor/rescriere care elimină cod** *(regulă 2026-07-13, după ce 7 issue-uri
-  vechi din Sentry — cod din Planșa pre-rescriere (excalidraw/tldraw) + un incident de migrație — au rămas
-  `unresolved` zile/săptămâni deși codul care le cauza nu mai există)*: după ce ștergi/înlocuiești un fișier
-  sau o librărie, treci prin Sentry (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
-  ce nu se mai poate reproduce, cu un comentariu scurt de ce. Sentry nu se auto-curăță la refactor.
-- **Scanare periodică de cod mort cu `knip`** *(regulă 2026-07-13)*: Sentry arată doar ce a crăpat vreodată,
-  nu cod mort care n-a aruncat nicio eroare. Rulează `npx knip` ~lunar (sau adaugă ca pas CI, neblocant la
-  început) — fișiere/exporturi neutilizate + dependențe nedeclarate. **Nu șterge orbește din rezultat:**
-  Server Actions (`"use server"`) apar des fals-pozitiv (apelate din client prin `action={...}`, knip nu le
-  urmărește mereu) — verifică fiecare candidat înainte de ștergere.
+- **Igienă observabilitate post-refactor + scanare `knip`** — remindere recurente, vezi secțiunea
+  „Mentenanță recurentă" mai sus (nu se duplică aici).
 
 ### Rollback — dacă `main`/producția se strică după merge
 Procedură completă (Vercel „Promote to Production" + schema Neon + reparare pe `dev`) în
@@ -228,6 +233,10 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 - **Cookie sesiune persistent** — `authjs.session-token` persistă în browser; test ca anonim = incognito/clear cookies.
 - **Drift schema Neon** — `production` și `preview/dev` sunt baze SEPARATE; orice `ALTER TABLE` se aplică manual
   pe AMBELE ramuri, altfel apare drift (verificat cu `SELECT count(*)`/`\d tabel`, nu presupus).
+- **Verificările Neon via MCP țin compute-ul treaz** — orice query (chiar `describe_project`/`run_sql` SELECT)
+  resetează timer-ul de suspend (`suspend_timeout_seconds: 300`). Dacă compute-ul pare „mereu activ" fără
+  useri, verifică întâi dacă NU e efectul propriilor verificări repetate (2026-07-15) înainte să suspectezi
+  un bug real.
 - **Migrație distructivă fără verificare = pierdere de date reală** (s-a întâmplat 2026-07-02 pe `category_id`).
   Înainte de orice `DROP COLUMN`/migrație distructivă pe branch real: verific efectiv că tabelul e gol pe
   branch-ul țintă, nu presupun din handoff.
