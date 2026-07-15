@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 
 // Variabile E2E (E2E_BASE_URL al mediului-țintă, DATABASE_URL pt seed sesiune) din `.env.e2e` (negitat).
 dotenv.config({ path: path.resolve(__dirname, ".env.e2e"), quiet: true });
+// NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN (public, safe) din `.env.local` — necesar DOAR de smoke-prod.spec.ts,
+// nu suprascrie ce a încărcat deja `.env.e2e` mai sus.
+dotenv.config({ path: path.resolve(__dirname, ".env.local"), quiet: true });
 
 // E2E rulează pe un mediu DEJA pornit (preview Vercel sau dev local) — fără `webServer`. Mediul-țintă
 // se dă prin `E2E_BASE_URL` (ex. URL-ul de preview al PR-ului). Vezi `e2e/README.md` pentru rulare.
