@@ -352,7 +352,7 @@ export async function listFeed(input: { categoryId?: string | null; q?: string |
     .limit(input.limit);
 }
 
-// „În dezbatere acum" (rail-ul din feed) — top N global pe scor de interacțiune (validări+comentarii+
+// „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune (validări+comentarii+
 // schițe), independent de filtrele/paginarea feed-ului principal (altfel rail-ul ar reflecta doar un
 // subset, nu adevăratul top). Feed-ul principal e strict cronologic — vezi `listFeed`.
 export async function listTopDebated(limit: number) {
@@ -360,10 +360,19 @@ export async function listTopDebated(limit: number) {
     .select({
       id: details.id,
       title: details.title,
+      categories: detailCategoriesJson,
+      authorName: users.name,
+      authorImage: users.image,
+      authorRoleMain: roles.roleMain,
+      authorSubRole: roles.subRole,
+      authorVerification: roles.verificationStatus,
+      validationCount,
       commentCount,
       sketchCount,
     })
     .from(details)
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(eq(details.status, DETAIL_STATUS.PUBLISHED))
     .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
     .limit(limit);

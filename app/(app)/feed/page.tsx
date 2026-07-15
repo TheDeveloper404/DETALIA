@@ -37,7 +37,7 @@ export default async function FeedPage({
     getActiveAuthors(5),
     getUserMedia(session.user.id),
     getPlatformState(),
-    getTopDebated(5),
+    getTopDebated(7),
   ]);
 
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.

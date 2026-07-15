@@ -414,7 +414,7 @@ export async function getFeed(options?: { categoryId?: string | null; q?: string
   });
 }
 
-// „În dezbatere acum" (rail-ul din feed) — top N global pe scor de interacțiune, independent de
+// „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune, independent de
 // filtrele feed-ului principal.
 export async function getTopDebated(limit: number) {
   return listTopDebated(limit);

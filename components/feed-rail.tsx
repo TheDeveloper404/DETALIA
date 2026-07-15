@@ -1,4 +1,4 @@
-// Coloana dreaptă a feed-ului — autori activi + „în dezbatere acum" + nudge de validare pe rol.
+// Coloana dreaptă a feed-ului — autori activi + „cele mai dezbătute" + nudge de validare pe rol.
 // Prezentațional (props-driven). „În dezbatere" = detaliile cu cele mai multe comentarii (derivat din feed).
 import Link from "next/link";
 
@@ -18,6 +18,13 @@ export type RailAuthor = {
 export type RailDebated = {
   id: string;
   title: string;
+  categories: { id: string; name: string; slug: string }[];
+  authorName: string | null;
+  authorImage: string | null;
+  authorRoleMain: string | null;
+  authorSubRole: string | null;
+  authorVerification: string | null;
+  validationCount: number;
   commentCount: number;
   sketchCount: number;
 };
@@ -64,24 +71,39 @@ export function FeedRail({
         </div>
       )}
 
-      {/* În dezbatere acum. */}
+      {/* Cele mai dezbătute. */}
       {debated.length > 0 && (
         <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
           <div className="mb-3.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-            În dezbatere acum
+            Cele mai dezbătute
           </div>
           <ul className="flex list-none flex-col gap-3.5 p-0">
             {debated.map((d, i) => (
               <li key={d.id} className={i > 0 ? "border-t border-[#eee6da] pt-3.5" : undefined}>
-                <Link
-                  href={`/details/${d.id}`}
-                  className="block font-semibold leading-snug text-foreground no-underline hover:text-primary"
-                >
-                  {d.title}
+                <Link href={`/details/${d.id}`} className="block no-underline">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <AvatarInitials name={d.authorName} imageUrl={d.authorImage} size={22} />
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+                      {d.authorName ?? "Anonim"}
+                      {d.authorVerification === "VERIFIED" && (
+                        <span className="ml-1 text-[#d99a2b]" title="Rol verificat">★</span>
+                      )}
+                      {" · "}
+                      {d.authorSubRole ??
+                        (d.authorRoleMain ? (ROLE_MAIN_LABELS[d.authorRoleMain as RoleMain] ?? d.authorRoleMain) : "—")}
+                    </span>
+                  </div>
+                  <div className="font-semibold leading-snug text-foreground hover:text-primary">{d.title}</div>
+                  {d.categories.length > 0 && (
+                    <span className="mt-1 inline-block rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
+                      {d.categories[0].name}
+                      {d.categories.length > 1 && ` +${d.categories.length - 1}`}
+                    </span>
+                  )}
+                  <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">
+                    {d.validationCount} validări · {d.commentCount} comentarii · {d.sketchCount} schițe
+                  </div>
                 </Link>
-                <span className="font-mono text-[11px] text-muted-foreground">
-                  {d.commentCount} comentarii · {d.sketchCount} schițe
-                </span>
               </li>
             ))}
           </ul>
