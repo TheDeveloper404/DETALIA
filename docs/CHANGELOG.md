@@ -4,6 +4,43 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-15 — Migrare Sentry → PostHog (error tracking + analytics) + integrare Slack/GitHub
+
+**Motiv:** free tier Sentry (5k erori/lună, 1 user) prea strâns pentru trafic real; PostHog free =
+100k erori/lună + 1M evenimente + analytics de produs incluse, PAYG ieftin peste. **Sentry rămâne activ
+în cod** — rulare paralelă ~1 săptămână (până ~2026-07-22) înainte de decommission, ca plasă de siguranță.
+
+**Instalare:** SDK client+server (`posthog-js`, `posthog-node`), regiune EU, proxy `/ingest` (evită
+ad-blockere). 8 evenimente de produs instrumentate — `onboarding_completed`, `detail_published`,
+`sketch_published`, `detail_approved`, `detail_disapproved`, `comment_added`, `detail_saved`,
+`account_deleted` — fără PII în properties (doar ID-uri/boolean-uri; numele merge separat prin
+`identify()`). Session replay, data warehouse, log-uri OpenTelemetry — sărite conștient (nu erau în
+scop; session replay respinsă explicit, construcții = conținut vizual posibil sensibil).
+
+**Source maps:** `@posthog/nextjs-config`, cheie `POSTHOG_PERSONAL_API_KEY`+`POSTHOG_ENV_ID` (Vercel,
+ambele scope-uri). Bug găsit și fixat: host-ul de API pt upload trebuie să fie `eu.posthog.com` (aplicație),
+NU `eu.i.posthog.com` (ingest, folosit de SDK) — confuzia a picat build-ul de Preview cu
+`authentication_failed`; fix în `next.config.ts`.
+
+**Alerting + rate limits:** Slack conectat la PostHog, 2 notificări active (issue created, issue spiking).
+Rate limits: 200 excepții/15min project-wide, 20/30min per-issue (protecție cost/DoS pe free tier).
+
+**Clasificare revizuită:** inițial marcată CRITICAL (regulă generică „infra"), retroclasificată NORMAL
+după verificare directă în cod — nu atinge auth/sesiuni/permisiuni/plăți, fără PII în evenimente, date
+în regiune EU (GDPR), cheia secretă doar server-side/build-time. Fără audit complet de 13 categorii.
+
+**Web analytics:** domeniu `https://detalia.ro` adăugat la Authorized URLs (rezolvă health check).
+
+**Integrare Slack (nou, dincolo de PostHog):**
+- Notificare Slack la `onboarding_completed` (PostHog → Data pipelines → Destinations)
+- GitHub → Slack: `/github subscribe TheDeveloper404/DETALIA` + workflow CI pe `dev` și `main` —
+  canalul primește acum issues/pulls/commits/releases/deployments + rezultate CI
+- Vercel → Slack: **renunțat**, necesită plan Pro
+
+Build (`tsc`+`next build`) + unit (163/163) + e2e (84/84) verzi pe tot parcursul. Live în `main`.
+
+---
+
 ## 2026-07-14 — Vercel: branch Neon `preview/main` recurent — Ignored Build Step
 
 Deploy-ul de Preview se declanșa și pe push direct pe `main` (în plus față de Production), iar integrarea
