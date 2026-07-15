@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { isOwnBlobUrl } from "@/lib/blob-url";
@@ -131,7 +132,10 @@ export async function onboardingAction(
   if (coverResult?.ok) {
     await updateUserCoverImage(userId, coverResult.url);
     // Poziția verticală a cover-ului (0..100); clamp server-side (frontend nu e sursa de adevăr).
-    const coverPosition = Math.min(100, Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)));
+    const coverPosition = Math.min(
+      100,
+      Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)),
+    );
     await updateUserCoverPosition(userId, coverPosition);
   }
 
@@ -142,6 +146,14 @@ export async function onboardingAction(
   if (!result.ok) {
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
+
+  const posthog = getPostHogClient();
+  posthog.capture({
+    distinctId: userId,
+    event: "onboarding_completed",
+    properties: { role_main: roleMain, sub_role: subRole, secondary_role: secondaryRole },
+  });
+  await posthog.flush();
 
   // Profil complet → direct în feed (frecare minimă la primul contact).
   redirect("/feed");
