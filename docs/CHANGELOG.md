@@ -4,6 +4,24 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-15 (cont.) — Feed: sortare strict cronologică + „În dezbatere acum" devine query globală
+
+**Motiv:** feed-ul principal avea un mod de sortare „debated" (după interacțiuni) care nu era expus în
+UI (fără toggle, doar via parametru URL manual) — mort funcțional. Separat, containerul „În dezbatere
+acum" din rail era derivat client-side din orice se întâmpla să fi adus deja query-ul principal
+(sortat doar după `commentCount`, primele 3) — dacă feed-ul era filtrat pe categorie sau altă pagină,
+rail-ul reflecta un subset, nu adevăratul top global.
+
+- **Feed principal**: sortare fixă `createdAt desc`, elimin parametrul `sort`/`FeedSort` (zero cod mort,
+  nimic din UI depindea de el).
+- **„În dezbatere acum"**: query nouă și independentă (`listTopDebated`), pe scorul real de interacțiune
+  (`validări + comentarii + schițe`, nu doar comentarii), **top 5** (de la 3), globală — nu mai depinde de
+  filtrele/paginarea feed-ului principal.
+- `server/repos/detailsRepo.ts`, `server/services/detailService.ts`, `app/(app)/feed/page.tsx`.
+  Build+unit(163/163)+e2e(84/84) verzi.
+
+---
+
 ## 2026-07-15 (cont.) — Pipeline deploy documentat + config mutat în repo + acces MCP Neon/PostHog
 
 **Motiv:** confuzie reală despre ce se întâmplă automat de la commit până în `main` (Vercel, Neon, GitHub
