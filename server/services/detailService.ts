@@ -27,6 +27,7 @@ import {
   isDetailSavedByUser,
   listDetailDraftsByAuthor,
   listFeed,
+  listTopDebated,
   listRelatedDetails,
   listSavedDetailIds,
   listSavedDetails,
@@ -403,22 +404,20 @@ export async function deleteDetail(input: {
   return { ok: true };
 }
 
-export type FeedSort = "debated" | "recent";
-
-// Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu, sortabil. Fără scroll infinit.
-export async function getFeed(options?: {
-  categoryId?: string | null;
-  q?: string | null;
-  limit?: number;
-  sort?: FeedSort;
-}) {
+// Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu, strict cronologic. Fără scroll infinit.
+export async function getFeed(options?: { categoryId?: string | null; q?: string | null; limit?: number }) {
   const limit = options?.limit ?? DEFAULT_FEED_SIZE;
   return listFeed({
     categoryId: options?.categoryId ?? null,
     q: options?.q?.trim() || null,
     limit,
-    sort: options?.sort ?? "debated",
   });
+}
+
+// „În dezbatere acum" (rail-ul din feed) — top N global pe scor de interacțiune, independent de
+// filtrele feed-ului principal.
+export async function getTopDebated(limit: number) {
+  return listTopDebated(limit);
 }
 
 // ───────────────────────── Bookmark (salvează detaliu) ─────────────────────────

@@ -4,6 +4,27 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-15 (cont.) — Pipeline deploy documentat + config mutat în repo + acces MCP Neon/PostHog
+
+**Motiv:** confuzie reală despre ce se întâmplă automat de la commit până în `main` (Vercel, Neon, GitHub
+Actions se declanșează reciproc, greu de urmărit doar din memorie/UI).
+
+- **`vercel.json`**: adăugat `ignoreCommand` (scriptul care sare Preview-ul redundant pe `main`) — mutat
+  din Vercel Dashboard (invizibil, doar UI) în repo (vizibil, versionat, revizuit la PR). Dashboard-ul
+  rămâne pe „Automatic", `vercel.json` câștigă automat (confirmat din docs Vercel).
+- **`docs/DEPLOY.md` §2d (nou)**: hartă completă, verificată direct (nu din memorie) a pipeline-ului
+  commit→`main` — ce e automat (Vercel Preview/Production, Neon branch-per-preview, CI + E2E pe GitHub
+  Actions — inclusiv descoperirea că E2E rulează AUTOMAT la fiecare Preview reușit, nu doar manual) vs.
+  ce e manual (SQL schema, `smoke:prod`, verificare vizuală pre-merge). Include unde te uiți pt fiecare
+  sistem când ceva pare ciudat.
+- **Acces MCP nou pentru Claude**: Neon (branch-uri, SQL read-only) + PostHog (query erori/evenimente) —
+  verificare directă posibilă acum, fără screenshot-uri, pe lângă Vercel CLI (deja existent) și GitHub CLI.
+- **Investigație branch Neon `preview/main`** (părea recurent) — clarificat: Liviu îl ștersese manual,
+  UI-ul arăta o vedere veche din cache. Confirmat cu Neon MCP: doar 2 branch-uri reale există
+  (`production`, `preview/dev`). Nu era bug de pipeline.
+
+---
+
 ## 2026-07-15 — Migrare Sentry → PostHog (error tracking + analytics) + integrare Slack/GitHub
 
 **Motiv:** free tier Sentry (5k erori/lună, 1 user) prea strâns pentru trafic real; PostHog free =
