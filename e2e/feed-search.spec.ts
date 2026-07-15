@@ -11,7 +11,7 @@ test("căutare cu termen din titlul detaliului seedat → apare în rezultate", 
 
   await page.goto(`/feed?q=${encodeURIComponent(term)}`);
   await expect(page.getByRole("heading", { name: `Rezultate pentru „${term}”` })).toBeVisible();
-  // Titlul apare de 2 ori pe pagină (cardul + rail-ul „În dezbatere acum") — doar cardul e heading real
+  // Titlul apare de 2 ori pe pagină (cardul + rail-ul „Cele mai dezbătute") — doar cardul e heading real
   // (<h3>), rail-ul e un simplu <Link> → getByRole("heading") dezambiguizează.
   await expect(page.getByRole("heading", { name: detailTitle })).toBeVisible();
 });
