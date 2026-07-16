@@ -143,8 +143,6 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                   <Star className="text-[#d99a2b]" /> Verificat
                 </span>
               )}
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2.5">
               <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
@@ -213,7 +211,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-2 text-[13.5px] text-primary underline-offset-2 hover:underline"
                   >
-                    {data.website.label}
+                    <Globe /> {data.website.label}
                   </a>
                 )}
                 {data.phone && (
@@ -239,6 +237,13 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
         {data.bio && (
           <p className="mt-[18px] max-w-[64ch] leading-relaxed text-muted-foreground">{data.bio}</p>
+        )}
+
+        {data.about && (
+          <div className="mt-[18px]">
+            <SectionLabel>Despre</SectionLabel>
+            <p className="mt-2 max-w-[64ch] text-sm leading-relaxed text-muted-foreground">{data.about}</p>
+          </div>
         )}
       </div>
       </div>
@@ -277,15 +282,6 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         </div>
 
         <aside className="flex flex-col gap-[18px]">
-          {data.about && (
-            <div className="rounded-lg bg-card p-5 ring-1 ring-foreground/10">
-              <SectionLabel>Despre</SectionLabel>
-              <p className="mb-4 mt-3 text-sm leading-relaxed text-muted-foreground">
-                {data.about}
-              </p>
-            </div>
-          )}
-
           <div className="rounded-lg bg-card p-5 ring-1 ring-foreground/10">
             <SectionLabel>Rol &amp; verificare</SectionLabel>
             {data.verified ? (
@@ -369,7 +365,12 @@ function TabButton({
   );
 }
 
+// Listele de pe profil arată doar primele câteva, ca la LinkedIn — restul se cere explicit prin
+// „Vezi toate", nu scroll lung (cerință Liviu, 2026-07-16).
+const TAB_PAGE_SIZE = 4;
+
 function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; viewerIsOwner: boolean }) {
+  const [expanded, setExpanded] = useState(false);
   if (items.length === 0)
     return (
       <EmptyTab>
@@ -389,32 +390,50 @@ function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; view
         )}
       </EmptyTab>
     );
+  const visible = expanded ? items : items.slice(0, TAB_PAGE_SIZE);
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      {items.map((d) => (
-        <Link
-          key={d.id}
-          href={`/details/${d.id}`}
-          className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10 transition-shadow hover:ring-primary/40"
-        >
-          <div className="relative flex h-[120px] items-center justify-center overflow-hidden border-b border-border bg-secondary">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={d.imageUrl} alt={d.title} className="absolute inset-0 size-full object-cover" />
-            {d.categoryName && (
-              <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
-                {d.categoryName}
-              </span>
-            )}
-          </div>
-          <div className="px-4 py-3.5">
-            <h3 className="mb-1.5 font-semibold text-foreground">{d.title}</h3>
-            <div className="font-mono text-[11px] text-muted-foreground">
-              {d.validationCount} validări · {d.sketchCount} schițe
+    <>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {visible.map((d) => (
+          <Link
+            key={d.id}
+            href={`/details/${d.id}`}
+            className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10 transition-shadow hover:ring-primary/40"
+          >
+            <div className="relative flex h-[120px] items-center justify-center overflow-hidden border-b border-border bg-secondary">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={d.imageUrl} alt={d.title} className="absolute inset-0 size-full object-cover" />
+              {d.categoryName && (
+                <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
+                  {d.categoryName}
+                </span>
+              )}
             </div>
-          </div>
-        </Link>
-      ))}
-    </div>
+            <div className="px-4 py-3.5">
+              <h3 className="mb-1.5 font-semibold text-foreground">{d.title}</h3>
+              <div className="font-mono text-[11px] text-muted-foreground">
+                {d.validationCount} validări · {d.sketchCount} schițe
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+      {!expanded && items.length > TAB_PAGE_SIZE && (
+        <ShowMoreButton onClick={() => setExpanded(true)} />
+      )}
+    </>
+  );
+}
+
+function ShowMoreButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="mt-4 w-full rounded-lg border border-border bg-card py-2.5 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+    >
+      Vezi mai multe
+    </button>
   );
 }
 
@@ -437,38 +456,45 @@ const SKETCH_STATUS_STYLE: Record<
 };
 
 function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
+  const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return <EmptyTab>Nicio schiță propusă încă.</EmptyTab>;
+  const visible = expanded ? items : items.slice(0, TAB_PAGE_SIZE);
   return (
-    <div className="flex flex-col gap-3.5">
-      {items.map((s) => {
-        const st = SKETCH_STATUS_STYLE[s.statusKind];
-        return (
-          <Link
-            key={s.id}
-            href={`/details/${s.detailId}`}
-            className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
-          >
-            <div className="relative h-[74px] w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
-              {s.thumbnailUrl && (
-                <Image src={s.thumbnailUrl} alt="" fill sizes="96px" className="object-cover" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="mb-1 font-mono text-[11px] text-muted-foreground">
-                Schiță peste · {s.parentTitle}
+    <>
+      <div className="flex flex-col gap-3.5">
+        {visible.map((s) => {
+          const st = SKETCH_STATUS_STYLE[s.statusKind];
+          return (
+            <Link
+              key={s.id}
+              href={`/details/${s.detailId}`}
+              className="flex items-center gap-4 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
+            >
+              <div className="relative h-[74px] w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
+                {s.thumbnailUrl && (
+                  <Image src={s.thumbnailUrl} alt="" fill sizes="96px" className="object-cover" />
+                )}
               </div>
-              <h3 className="mb-1.5 font-semibold">{s.title}</h3>
-              <span
-                className="inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[11px]"
-                style={{ background: st.bg, border: `1px solid ${st.border}`, color: st.fg }}
-              >
-                {s.statusLabel}
-              </span>
-            </div>
-          </Link>
-        );
-      })}
-    </div>
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 font-mono text-[11px] text-muted-foreground">
+                  Schiță peste · {s.parentTitle}
+                </div>
+                <h3 className="mb-1.5 font-semibold">{s.title}</h3>
+                <span
+                  className="inline-flex items-center rounded-full px-2.5 py-0.5 font-mono text-[11px]"
+                  style={{ background: st.bg, border: `1px solid ${st.border}`, color: st.fg }}
+                >
+                  {s.statusLabel}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+      {!expanded && items.length > TAB_PAGE_SIZE && (
+        <ShowMoreButton onClick={() => setExpanded(true)} />
+      )}
+    </>
   );
 }
 
@@ -523,35 +549,42 @@ function activityText(a: ProfileActivityItem) {
 }
 
 function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
+  const [expanded, setExpanded] = useState(false);
   if (items.length === 0) return <EmptyTab>Nicio activitate încă.</EmptyTab>;
+  const visible = expanded ? items : items.slice(0, TAB_PAGE_SIZE);
   return (
-    <div className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
-      {items.map((a, i) => {
-        const icon = ACTIVITY_ICON[a.kind];
-        return (
-          <div
-            key={a.id}
-            className={`flex gap-3.5 px-4 py-4 ${i < items.length - 1 ? "border-b border-border" : ""}`}
-          >
-            <span
-              className="flex size-[30px] shrink-0 items-center justify-center rounded-lg text-sm font-bold"
-              style={{ background: icon.bg, color: icon.fg }}
+    <>
+      <div className="overflow-hidden rounded-lg bg-card ring-1 ring-foreground/10">
+        {visible.map((a, i) => {
+          const icon = ACTIVITY_ICON[a.kind];
+          return (
+            <div
+              key={a.id}
+              className={`flex gap-3.5 px-4 py-4 ${i < visible.length - 1 ? "border-b border-border" : ""}`}
             >
-              {icon.glyph}
-            </span>
-            <div className="flex-1">
-              <div className="text-sm leading-relaxed text-foreground">{activityText(a)}</div>
-              {a.justification && (
-                <div className="mt-1.5 border-l-2 border-destructive/30 pl-2.5 text-[13px] leading-snug text-muted-foreground">
-                  „{a.justification}”
-                </div>
-              )}
-              <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{a.time}</div>
+              <span
+                className="flex size-[30px] shrink-0 items-center justify-center rounded-lg text-sm font-bold"
+                style={{ background: icon.bg, color: icon.fg }}
+              >
+                {icon.glyph}
+              </span>
+              <div className="flex-1">
+                <div className="text-sm leading-relaxed text-foreground">{activityText(a)}</div>
+                {a.justification && (
+                  <div className="mt-1.5 border-l-2 border-destructive/30 pl-2.5 text-[13px] leading-snug text-muted-foreground">
+                    „{a.justification}”
+                  </div>
+                )}
+                <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{a.time}</div>
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {!expanded && items.length > TAB_PAGE_SIZE && (
+        <ShowMoreButton onClick={() => setExpanded(true)} />
+      )}
+    </>
   );
 }
 
@@ -614,6 +647,16 @@ function Building() {
       <path d="M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16" />
       <path d="M19 21V11a1 1 0 0 0-1-1h-3" />
       <path d="M9 7h2M9 11h2M9 15h2" />
+    </svg>
+  );
+}
+
+function Globe() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   );
 }
