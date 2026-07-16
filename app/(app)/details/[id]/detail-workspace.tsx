@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Pencil, Snowflake } from "lucide-react";
+import { Activity, MapPin, Pencil, Snowflake } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +12,7 @@ import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { DEFAULT_LOCATION } from "@/server/domain/detail";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
@@ -31,6 +32,7 @@ export type DetailHeader = {
   description: string | null;
   createdAt: Date;
   categories: { id: string; name: string }[];
+  location: string;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -224,6 +226,16 @@ export function DetailWorkspace({
               />
             </span>
           </div>
+
+          {/* Locație — doar dacă NU e România (implicit, nu adăugăm zgomot pt cazul normal). */}
+          {header.location !== DEFAULT_LOCATION && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
+                <MapPin className="size-3 text-[#5e6f8a]" strokeWidth={2} />
+                {header.location}
+              </span>
+            </div>
+          )}
 
           {/* parametri tehnici */}
           {(header.climateZone ||

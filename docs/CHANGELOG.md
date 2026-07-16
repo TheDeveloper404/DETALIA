@@ -4,6 +4,68 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Feature: resursă IMAGE afișată ca imagine reală + lightbox (punct 4b, listă Edi)
+
+**Cerere Edi:** PDF/Link/CAD rămân neschimbate. La resursa de tip Imagine, în loc de chip cu link
+generic (comportamentul de până acum), trebuie să apară **imaginea propriu-zisă** (thumbnail mic),
+iar click pe ea o deschide mărită (lightbox). Limita rămâne 25MB, max 3 resurse (plafonul existent,
+nu unul nou separat pe tip). Clasificare: SMALL — doar afișare, fără schemă/logică nouă.
+
+**Verificat înainte de implementare:** limita de 25MB (`MAX_IMAGE_MB`) și validarea de tip erau deja
+corecte din sesiunea anterioară (enforce și client, și server la `/api/blob/upload` prin
+`maximumSizeInBytes: MAX_IMAGE_BYTES`) — nimic de schimbat acolo.
+
+- **`app/(app)/details/[id]/resource-image.tsx`** (nou, client): thumbnail 52px + lightbox (imaginea
+  mărită, click pe fundal sau Escape închide).
+- **`app/(app)/details/[id]/page.tsx`**: resursele tip IMAGE randează `ResourceImage` în loc de
+  chip-ul generic cu link; PDF/Link/CAD/Text neschimbate.
+
+**Testat:** `e2e/detail-edit.spec.ts` (+1 test — thumbnail vizibil ca `<button>` nu `<a>`, click
+deschide dialog, Închide îl scoate). `tsc --noEmit`, `lint`, `next build`, `vitest` (181/181) — verzi.
+
+---
+
+## 2026-07-16 — Feature: locație detaliu — pill România / Altă locație (punct 4a, listă Edi)
+
+**Cerere Edi:** la adăugare/editare detaliu, două pill-uri „România" / „Altă locație". România
+(implicit) = Context tehnic (zonă climatică/seismic/zăpadă/vânt) rămâne complet valabil, ca acum.
+Altă locație = apare un câmp liber „Țară, oraș" → Context tehnic dispare din formular și **nu poate fi
+completat în acel context** (enforce pe server, nu doar UI — un POST direct nu poate strecura o
+clasificare românească pe un detaliu din altă țară). Clasificare: NORMAL.
+
+**Verificat înainte de implementare:** câmpurile tehnice RO nu sunt cuplate cu feed-ul/căutarea (doar
+formular + pagina proprie a detaliului) — schimbare izolată, fără risc ascuns pe discovery.
+
+- **Schemă:** `details.location` (text, `NOT NULL DEFAULT 'România'`) — coloană nouă, fără migrație
+  distructivă, rândurile existente devin automat „România" (comportamentul implicit oricum).
+- **Domeniu** (`server/domain/detail.ts`): `validateDetailInput` — locație omisă (undefined/null) =
+  implicit România; locație trimisă explicit dar goală (pill „Altă locație" fără text) =
+  `LOCATION_REQUIRED`, NU cade silențios pe România. Pentru orice locație ≠ România, parametrii
+  tehnici sunt **forțați** la valoarea neutră (null/„General") indiferent ce trimite clientul.
+- **Repo/service:** `location` propagat prin `insertDetailWithRelations`, `updateDetailRow`,
+  `createDetail`/`updateDetail`/`createDetailDraft`/`saveDetailDraft`/`publishDetailDraft`.
+- **UI** (`detail-form.tsx`): pill-uri (același stil vizual ca toggle-ul upload/desenează existent);
+  la „Altă locație" secțiunea Context tehnic dispare complet din DOM (nu doar ascunsă). Afișare:
+  `detail-workspace.tsx` arată un badge de locație doar când ≠ România (fără zgomot pe cazul normal).
+- **Migrație DB:** `ALTER TABLE details ADD COLUMN location text NOT NULL DEFAULT 'România'` — rulată
+  manual de Liviu pe Neon dev și production, confirmată cu query direct pe `information_schema`.
+
+**Bug găsit la `/code-review` (medium, 3 unghiuri paralele) și fixat înainte de a considera task-ul
+gata:** `LOCATION_REQUIRED` rula necondiționat, inclusiv pe CIORNĂ (`strict:false`) — un user care
+alegea pillul „Altă locație" fără să apuce să scrie textul nu mai putea salva ciorna deloc, deși
+ciorna tolerează totul în afară de titlu. Fix: verificarea e acum condiționată de `strict`; la ciornă,
+locație goală explicit → cade pe „România" implicit, nu blochează salvarea. Adăugat și guard ieftin
+(`location` gol → eroare) în `createDetailAction`/`updateDetailAction`, înainte de reprocesarea
+imaginii — evită upload/reencodare irosite când oricum urma să pice la validare.
+
+**Testat:** `server/domain/detail.test.ts` (+6 teste — omis→România, explicit România, non-România
+forțează context tehnic neutru, gol explicit strict→`LOCATION_REQUIRED`, peste `LOCATION_MAX_LENGTH`,
+regresie gol explicit la ciornă→NU blochează) + `e2e/detail-edit.spec.ts` (+3 teste browser — toggle
+pill ascunde/arată Context tehnic, salvare cu locație afișată pe pagina publică, validare server pe
+text gol, revenire la România). `tsc --noEmit`, `lint`, `next build`, `vitest` (181/181) — toate verzi.
+
+---
+
 ## 2026-07-16 — Feature: „ridic mâna" — Furnizorul semnalează că poate oferta materiale
 
 **Cerere Edi** (propunerile din handoff, pct. 3): Furnizorii n-aveau nicio pârghie comercială pe un
@@ -35,10 +97,20 @@ vizibilă public, ca la validare), `app/(app)/details/[id]/supplier-offer-panel.
 **Migrație DB:** `ALTER TYPE notification_type ADD VALUE 'SUPPLIER_OFFERED'` + `CREATE TABLE
 supplier_offers` — rulate manual de Liviu pe Neon dev și production, confirmate cu query-uri directe.
 
-**Testat:** `server/services/supplierOfferService.test.ts` (nou, 7 teste — gating rol, SEC-11 id
-malformat, `CANNOT_OFFER_OWN`, toggle reversibil, notificare doar la primul click). `tsc --noEmit`,
-`lint`, `next build`, `vitest` (175/175) — toate verzi. Deploy verificat live pe `detalia.ro`
-(merge pe `main` prin PR #162, CI verde, Vercel production Ready).
+**Testat:** `server/services/supplierOfferService.test.ts` (unit, 7 teste — gating rol, SEC-11 id
+malformat, `CANNOT_OFFER_OWN`, toggle reversibil, notificare doar la primul click) +
+`e2e/supplier-offer.spec.ts` (integrare reală pe DB, 3 teste, înregistrat în `playwright.config.ts`
+proiectul `security`). `tsc --noEmit`, `lint`, `next build`, `vitest` (175/175) — toate verzi. Deploy
+verificat live pe `detalia.ro` (merge pe `main` prin PR #162, CI verde, Vercel production Ready).
+
+**Două bug-uri de test găsite și fixate la rulare (nu bug-uri de aplicație):**
+1. Cleanup-ul notificării de test rula DUPĂ ultima asertare — dacă asertarea pica, rândul rămânea
+   orfan și contamina rulările următoare. Fix: cleanup necondiționat în `finally`, idempotent și la
+   pornirea testului (șterge orice gunoi anterior).
+2. Race condition la `npm run e2e` (fullyParallel): testele mutau rolul aceluiași user seedat
+   (`testerUserId`) fără izolare — testul „toggle" seta rolul la FURNIZOR chiar în timp ce „gating"
+   verifica PROIECTANT, pe alt worker. Fix: `test.describe.serial(...)` — testele din fișier rulează
+   secvențial între ele, nu în paralel.
 
 ---
 
