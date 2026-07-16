@@ -4,6 +4,25 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Fix: 3 bug-uri de test E2E găsite la rularea reală (nu bug-uri de aplicație)
+
+Descoperite prin rulare efectivă (`npx playwright test e2e/detail-edit.spec.ts`), nu presupuse:
+
+1. **`golirea tuturor categoriilor`** — selectorul global `button[aria-pressed="true"]` (fără scop)
+   prindea acum și pill-urile noi de Locație (au `aria-pressed` la fel). Fix: `data-testid=
+   "category-dropdown-panel"` adăugat pe panoul dropdown (`detail-form.tsx`) + selector scopat în test.
+2. **Același test, al doilea eșec după fix #1** — `.count()` e sincron, citea DOM-ul înainte ca panoul
+   să apuce să se monteze (re-render React după click) → 0 fals, categoriile rămâneau nebifate. Fix:
+   `await expect(panel).toBeVisible()` explicit înainte de `.count()`.
+3. **„Altă locație” fără text completat`** — testul nu golea explicit câmpul; starea rămasă de la
+   testul anterior din același bloc (locație deja „Italia, Roma") făcea submisia validă, nu goală.
+   Fix: `fill("")` explicit înainte de submit.
+
+**Testat:** `npx playwright test e2e/detail-edit.spec.ts` local — de la 2 eșecuri → 1 → (de confirmat)
+0. `tsc --noEmit`, `lint` — verzi pe fiecare fix.
+
+---
+
 ## 2026-07-16 — Fix: confirmare ștergere stil platformă (nu window.confirm nativ)
 
 **Cerere Edi:** „Șterge schița"/„Șterge detaliul" arătau popup-ul nativ al browserului, inconsecvent

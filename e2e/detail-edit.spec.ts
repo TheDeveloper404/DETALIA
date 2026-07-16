@@ -77,9 +77,11 @@ test.describe.serial("Editare detaliu existent", () => {
     // SCOPAT strict la panoul de categorii (2026-07-16) — un selector global pe pagină ar prinde și
     // alte pill-uri cu aria-pressed (ex. locație, upload/desenează), nu doar categoriile.
     await page.getByTestId("category-dropdown-trigger").click();
-    const pressedButtons = page
-      .getByTestId("category-dropdown-panel")
-      .locator('button[aria-pressed="true"]');
+    const panel = page.getByTestId("category-dropdown-panel");
+    // `.count()` e sincron — fără așteptarea asta, poate citi DOM-ul ÎNAINTE ca panoul să se monteze
+    // (re-render React după click), returnând 0 fals și lăsând categoriile nebifate (race, nu bug UI).
+    await expect(panel).toBeVisible();
+    const pressedButtons = panel.locator('button[aria-pressed="true"]');
     const count = await pressedButtons.count();
     for (let i = 0; i < count; i++) {
       await pressedButtons.first().click();
