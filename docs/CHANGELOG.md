@@ -4,6 +4,29 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Profil: pill-uri pe rândul numelui, icon website, „Despre" sub headline, liste trunchiate
+
+`components/profile-view.tsx`, cerut de Liviu din poze (`1.png`/`2.png`):
+1. Pill-ul de rol + butonul „Date de contact" mutate pe ACELAȘI rând cu numele (erau pe rândul de dedesubt,
+   spațiu alb inutil).
+2. Link-ul de website din modalul „Date de contact" primește iconiță (globe), consecvent cu
+   locație/firmă/telefon/email (singurul fără icon până acum).
+3. Secțiunea „Despre" (`data.about`) mutată din aside-ul din dreapta direct sub headline (`data.bio`), în
+   cardul principal — stil LinkedIn (nume → headline → despre), nu ascunsă lateral.
+4. Listele Detalii/Schițe/Activitate arată primele 4 + buton „Vezi mai multe" (expandare inline, fără
+   navigare) — nu mai e listă lungă cu scroll. Opțiunea aleasă dintre 3 propuse (vs. paginare/pagină dedicată).
+
+**Code review propriu (proporțional, diff mic single-file)**: 1 bug real — textul butonului avea acord de
+gen greșit la un singur element rămas („1 rămasă" greșit pt „detaliu", neutru); simplificat la „Vezi mai
+multe" (Liviu a sugerat, elimină problema complet). Verificat: `tsc`/`lint`/`vitest` (191/191) toate verzi.
+
+**Decizie de business notă în `CLAUDE.md`** (situl „Mentenanță recurentă"): trunchierea e strict client-side
+— `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`) nu au `LIMIT`, aduc TOATE rândurile
+userului la fiecare încărcare. Verificat direct în DB: maxim real 6 detalii/user — neglijabil acum. De
+revizuit (adăugat `LIMIT` + fetch separat la expand) doar dacă vreun user ajunge la zeci de detalii/schițe.
+
+---
+
 ## 2026-07-16 — Audit de securitate strict, țintit (3 zone), toate APROBATE
 
 La cererea lui Liviu, după decommission-ul Sentry: audit `security-engineer` (nivel CRITICAL), 3 agenți
