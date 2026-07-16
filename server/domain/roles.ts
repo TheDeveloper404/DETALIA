@@ -32,23 +32,30 @@ export const SUBROLES: Record<RoleMain, readonly string[]> = {
     "Electrician",
     "Instalator",
     "Montator tâmplării",
-    "Diriginte de șantier",
-    "RTE",
+    "Tâmplar mobilă",
+    "Montator învelitori",
+    "Montator hidroizolații",
   ],
   FURNIZOR: ["Producător materiale", "Distribuitor materiale", "Agent vânzări materiale"],
-  BENEFICIAR: ["Beneficiar documentat", "Dezvoltator imobiliar"],
+  BENEFICIAR: ["Beneficiar", "Dezvoltator imobiliar"],
 } as const;
 
 // Etichete prietenoase — folosite DOAR la signup (grupare), nu se mai afișează în platformă.
 export const ROLE_MAIN_LABELS: Record<RoleMain, string> = {
   PROIECTANT: "Proiectare",
   EXECUTANT: "Execuție",
-  FURNIZOR: "Furnizori materiale",
+  FURNIZOR: "Achiziții materiale",
   BENEFICIAR: "Beneficiar",
 };
 
 // Rol secundar, ADITIV peste meseria de bază (câmp opțional separat, nu înlocuiește roleMain/subRole).
 export const SECONDARY_ROLES = [
+  "Specialist Case Pasive",
+  "Specialist nZEB",
+  "Student",
+  "Cadru didactic",
+  "Diriginte de șantier",
+  "RTE",
   "Arhitect șef",
   "ISC",
   "OCPI",
@@ -58,8 +65,6 @@ export const SECONDARY_ROLES = [
   "Protecția Mediului",
   "Urbanism",
   "Furnizor utilități",
-  "Cadru didactic",
-  "Student",
 ] as const;
 
 export function isValidRoleMain(value: string): value is RoleMain {

@@ -47,6 +47,10 @@ export function EditDetailsForm({
   initialLocation,
   initialWebsite,
   initialCompany,
+  initialPhone,
+  initialPhoneVisible,
+  email,
+  initialEmailVisible,
 }: {
   initialName: string | null;
   initialHeadline: string | null;
@@ -54,6 +58,10 @@ export function EditDetailsForm({
   initialLocation: string | null;
   initialWebsite: string | null;
   initialCompany: string | null;
+  initialPhone: string | null;
+  initialPhoneVisible: boolean;
+  email: string | null; // afișare informativă (nu se editează aici) — doar vizibilitatea se bifează
+  initialEmailVisible: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     updateProfileDetailsAction,
@@ -136,6 +144,52 @@ export function EditDetailsForm({
           placeholder="ex: Firma pe care o reprezinți"
           defaultValue={initialCompany ?? ""}
         />
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <h3 className="mb-1 text-sm font-semibold">Contact</h3>
+        <p className="mb-3 text-xs text-muted-foreground">
+          Opțional. Ascuns implicit — devine vizibil altor useri DOAR dacă bifezi mai jos, ca alți useri
+          să te poată contacta direct.
+        </p>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="phone">
+            Telefon <span className="font-normal text-muted-foreground">(opțional)</span>
+          </Label>
+          <Input
+            id="phone"
+            name="phone"
+            maxLength={30}
+            placeholder="ex: 07xx xxx xxx"
+            defaultValue={initialPhone ?? ""}
+          />
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              name="phoneVisible"
+              defaultChecked={initialPhoneVisible}
+              className="size-3.5"
+            />
+            Vizibil altor useri
+          </label>
+        </div>
+
+        {email && (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <Label>Email</Label>
+            <p className="text-sm text-foreground/80">{email}</p>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                name="emailVisible"
+                defaultChecked={initialEmailVisible}
+                className="size-3.5"
+              />
+              Vizibil altor useri
+            </label>
+          </div>
+        )}
       </div>
 
       <Button type="submit" disabled={pending} className="h-10 self-start">

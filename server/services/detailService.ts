@@ -52,6 +52,7 @@ export async function createDetail(input: {
   description?: string | null;
   categoryIds: string[];
   imageUrl: string;
+  location?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -70,6 +71,7 @@ export async function createDetail(input: {
     description: input.description,
     categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
+    location: input.location,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -92,6 +94,7 @@ export async function createDetail(input: {
     description: value.description,
     authorId: input.authorId,
     imageUrl: value.imageUrl,
+    location: value.location,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -122,6 +125,7 @@ export async function updateDetail(input: {
   description?: string | null;
   categoryIds: string[];
   imageUrl: string;
+  location?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -142,6 +146,7 @@ export async function updateDetail(input: {
     description: input.description,
     categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
+    location: input.location,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -162,6 +167,7 @@ export async function updateDetail(input: {
     title: value.title,
     description: value.description,
     imageUrl: value.imageUrl,
+    location: value.location,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -187,6 +193,7 @@ export type DraftDetailInput = {
   description?: string | null;
   categoryIds?: string[];
   imageUrl?: string | null;
+  location?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -210,6 +217,7 @@ async function validateDraft(input: DraftDetailInput) {
       description: input.description,
       categoryIds: input.categoryIds ?? [],
       imageUrl: input.imageUrl ?? null,
+      location: input.location,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -242,6 +250,7 @@ export async function createDetailDraft(
     description: value.description,
     authorId: input.authorId,
     imageUrl: value.imageUrl,
+    location: value.location,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -278,6 +287,7 @@ export async function saveDetailDraft(
     title: value.title,
     description: value.description,
     imageUrl: value.imageUrl,
+    location: value.location,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -307,6 +317,7 @@ export async function publishDetailDraft(
     description: input.description,
     categoryIds: input.categoryIds ?? [],
     imageUrl: input.imageUrl ?? null,
+    location: input.location,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -325,6 +336,7 @@ export async function publishDetailDraft(
     title: value.title,
     description: value.description,
     imageUrl: value.imageUrl,
+    location: value.location,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,

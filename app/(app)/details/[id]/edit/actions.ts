@@ -47,6 +47,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   CATEGORY_REQUIRED: "Alege cel puțin o categorie.",
   TOO_MANY_CATEGORIES: "Prea multe categorii bifate.",
   INVALID_ZONE: "Una dintre valorile de zonă/încărcare nu e validă.",
+  LOCATION_REQUIRED: "Completează țara și orașul.",
+  LOCATION_TOO_LONG: "Locația e prea lungă (max 200 de caractere).",
   INVALID_CATEGORY: "Una dintre categoriile alese nu există.",
   TOO_MANY_RESOURCES: "Prea multe resurse atașate (max 3).",
   INVALID_RESOURCE: "O resursă atașată e invalidă.",
@@ -68,6 +70,7 @@ export async function updateDetailAction(
   const title = String(formData.get("title") ?? "");
   const description = String(formData.get("description") ?? "");
   const categoryIds = formData.getAll("categoryIds").map(String).filter(Boolean);
+  const location = String(formData.get("location") ?? "");
   const climateZone = String(formData.get("climateZone") ?? "");
   const seismicAg = String(formData.get("seismicAg") ?? "");
   const seismicTc = String(formData.get("seismicTc") ?? "");
@@ -77,6 +80,7 @@ export async function updateDetailAction(
 
   if (title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
   if (categoryIds.length === 0) return { error: ERROR_MESSAGES.CATEGORY_REQUIRED };
+  if (location.trim().length === 0) return { error: ERROR_MESSAGES.LOCATION_REQUIRED };
 
   const imageUrl = String(formData.get("imageUrl") ?? "");
   if (!isOwnBlobUrl(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
@@ -98,6 +102,7 @@ export async function updateDetailAction(
     description,
     categoryIds,
     imageUrl: finalImageUrl,
+    location,
     climateZone,
     seismicAg,
     seismicTc,
@@ -128,6 +133,7 @@ function readDraftFields(formData: FormData) {
     title: String(formData.get("title") ?? ""),
     description: String(formData.get("description") ?? ""),
     categoryIds: formData.getAll("categoryIds").map(String).filter(Boolean),
+    location: String(formData.get("location") ?? ""),
     climateZone: String(formData.get("climateZone") ?? ""),
     seismicAg: String(formData.get("seismicAg") ?? ""),
     seismicTc: String(formData.get("seismicTc") ?? ""),

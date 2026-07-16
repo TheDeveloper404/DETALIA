@@ -69,6 +69,9 @@ export async function getUserProfile(userId: string) {
       location: users.location,
       website: users.website,
       company: users.company,
+      phone: users.phone,
+      phoneVisible: users.phoneVisible,
+      emailVisible: users.emailVisible,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -76,7 +79,8 @@ export async function getUserProfile(userId: string) {
   return row ?? null;
 }
 
-// Editarea câmpurilor de text ale profilului (nume, headline, about, locație, website, firmă). NU atinge rolul (definitiv).
+// Editarea câmpurilor de text ale profilului (nume, headline, about, locație, website, firmă, telefon +
+// vizibilitatea telefonului/emailului). NU atinge rolul (definitiv).
 export async function updateUserDetails(
   userId: string,
   fields: {
@@ -86,13 +90,18 @@ export async function updateUserDetails(
     location: string | null;
     website: string | null;
     company: string | null;
+    phone: string | null;
+    phoneVisible: boolean;
+    emailVisible: boolean;
   },
 ) {
   await db.update(users).set(fields).where(eq(users.id, userId));
 }
 
 // Profil PUBLIC (adresabil prin userId) — câmpuri publice colectate la onboarding + rol/verificare.
-// FĂRĂ email/PII (pagina e vizibilă altor useri). Rolul vine prin join (un singur rol per user).
+// Telefon/email vin ÎNTOTDEAUNA din query (+ flagurile de vizibilitate) — decizia de a le ARĂTA sau
+// nu vizitatorului (owner vede mereu tot; restul doar dacă flagul e true) se ia în profileService,
+// NU aici (repo-ul citește tot, serviciul redactează). Rolul vine prin join (un singur rol per user).
 export async function getPublicProfile(userId: string) {
   const [row] = await db
     .select({
@@ -105,6 +114,10 @@ export async function getPublicProfile(userId: string) {
       location: users.location,
       website: users.website,
       company: users.company,
+      email: users.email,
+      emailVisible: users.emailVisible,
+      phone: users.phone,
+      phoneVisible: users.phoneVisible,
       roleMain: roles.roleMain,
       subRole: roles.subRole,
       verificationStatus: roles.verificationStatus,

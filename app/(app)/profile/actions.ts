@@ -99,6 +99,9 @@ export async function updateProfileDetailsAction(
     location: String(formData.get("location") ?? ""),
     website: String(formData.get("website") ?? ""),
     company: String(formData.get("company") ?? ""),
+    phone: String(formData.get("phone") ?? ""),
+    phoneVisible: formData.get("phoneVisible") === "on",
+    emailVisible: formData.get("emailVisible") === "on",
   });
   if (!res.ok)
     return { error: DETAILS_ERRORS[res.reason] ?? "Profilul n-a putut fi salvat.", ok: false };

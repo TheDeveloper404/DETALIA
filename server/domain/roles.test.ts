@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ROLE_MAIN_LABELS,
   ROLE_MAINS,
   SECONDARY_ROLES,
   SUBROLES,
@@ -51,5 +52,34 @@ describe("isValidSecondaryRole — rol adițional (Administrativ/Educație), adi
 
   it("respinge valoare inventată", () => {
     expect(isValidSecondaryRole("Super Admin")).toBe(false);
+  });
+});
+
+describe("restructurare roluri 2026-07-16 (cerere Edi)", () => {
+  it("Diriginte de șantier / RTE au fost mutate din EXECUTANT (subrol) în Rol adițional", () => {
+    expect(isValidSubRole("EXECUTANT", "Diriginte de șantier")).toBe(false);
+    expect(isValidSubRole("EXECUTANT", "RTE")).toBe(false);
+    expect(isValidSecondaryRole("Diriginte de șantier")).toBe(true);
+    expect(isValidSecondaryRole("RTE")).toBe(true);
+  });
+
+  it("subrolurile noi de EXECUTANT sunt valide", () => {
+    expect(isValidSubRole("EXECUTANT", "Tâmplar mobilă")).toBe(true);
+    expect(isValidSubRole("EXECUTANT", "Montator învelitori")).toBe(true);
+    expect(isValidSubRole("EXECUTANT", "Montator hidroizolații")).toBe(true);
+  });
+
+  it("FURNIZOR se afișează acum ca „Achiziții materiale” (label de grupare la signup)", () => {
+    expect(ROLE_MAIN_LABELS.FURNIZOR).toBe("Achiziții materiale");
+  });
+
+  it("„Beneficiar documentat” a devenit simplu „Beneficiar”", () => {
+    expect(isValidSubRole("BENEFICIAR", "Beneficiar")).toBe(true);
+    expect(isValidSubRole("BENEFICIAR", "Beneficiar documentat")).toBe(false);
+  });
+
+  it("Specialist Case Pasive / Specialist nZEB sunt roluri adiționale valide", () => {
+    expect(isValidSecondaryRole("Specialist Case Pasive")).toBe(true);
+    expect(isValidSecondaryRole("Specialist nZEB")).toBe(true);
   });
 });

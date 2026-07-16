@@ -21,6 +21,10 @@ export const DEFAULT_FEED_SIZE = 30; // feed finit, fără scroll infinit (carac
 export const MAX_DETAIL_CATEGORIES = 10;
 export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonabilă de browser/DB)
 
+// Locație (2026-07-16, cerere Edi): pill „România" (implicit) vs „Altă locație" (text liber țară+oraș).
+export const DEFAULT_LOCATION = "România";
+export const LOCATION_MAX_LENGTH = 200;
+
 // Parametri tehnici — liste finale confirmate de Edi (`lista_categorii.md`). Toți opționali; fără
 // valoare aleasă = neafișat (nu forțăm „General" pe zona climatică, care n-are variantă neutră).
 export const CLIMATE_ZONES = ["Zona I", "Zona II", "Zona III", "Zona IV"] as const;
@@ -76,6 +80,7 @@ export type NormalizedDetailInput = {
   description: string | null;
   categoryIds: string[];
   imageUrl: string | null;
+  location: string;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -92,6 +97,8 @@ export type DetailValidationError =
   | "CATEGORY_REQUIRED"
   | "TOO_MANY_CATEGORIES"
   | "INVALID_ZONE"
+  | "LOCATION_REQUIRED"
+  | "LOCATION_TOO_LONG"
   | "TOO_MANY_RESOURCES"
   | "INVALID_RESOURCE";
 
@@ -109,6 +116,7 @@ export function validateDetailInput(
     description?: string | null;
     categoryIds: string[];
     imageUrl: string | null;
+    location?: string | null;
     climateZone?: string | null;
     seismicAg?: string | null;
     seismicTc?: string | null;
@@ -162,25 +170,54 @@ export function validateDetailInput(
     }
   }
 
+  // Locație: „România" (implicit) = pill activ RO, context tehnic valabil. Orice altă valoare = text
+  // liber „Țară, oraș" ales de user la pillul „Altă locație" — obligatoriu în acel caz LA PUBLICARE
+  // (strict). La CIORNĂ (!strict), doar titlul e obligatoriu (vezi comentariul `validateDraft` de mai
+  // jos) — un câmp gol trimis explicit nu trebuie să blocheze salvarea unei ciorne neterminate.
+  // DISTINCȚIE IMPORTANTĂ (doar în modul strict): câmp OMIS (undefined/null, apelanți vechi/servicii
+  // care nu trimit locație) → implicit România. Câmp TRIMIS explicit dar gol (formularul, pill „Altă
+  // locație" fără text completat) → LOCATION_REQUIRED, NU cade silențios pe România (altfel un user
+  // care uită să completeze textul ar publica, fără să știe, un detaliu marcat „România" cu context
+  // tehnic RO).
+  const locationProvided = input.location !== undefined && input.location !== null;
+  const locationTrimmed = input.location?.trim() ?? "";
+  const location = locationProvided && (strict || locationTrimmed.length > 0)
+    ? locationTrimmed
+    : DEFAULT_LOCATION;
+  if (strict && location.length === 0) return { ok: false, error: "LOCATION_REQUIRED" };
+  if (location.length > LOCATION_MAX_LENGTH) return { ok: false, error: "LOCATION_TOO_LONG" };
+  const isRomania = location === DEFAULT_LOCATION;
+
   // Parametri tehnici: liste fixe (Edi, `lista_categorii.md`). Toți opționali — valoare goală/lipsă
   // trece necompletată (climă) sau „General" (ceilalți, care au variantă neutră în listă).
-  const climateZoneRaw = input.climateZone?.trim() || null;
-  if (climateZoneRaw !== null && !isOneOf(CLIMATE_ZONES, climateZoneRaw)) {
-    return { ok: false, error: "INVALID_ZONE" };
+  // NU au sens în afara României — enforce pe SERVER (nu doar UI): pt orice locație ≠ România, sunt
+  // forțate la valoarea neutră INDIFERENT ce a trimis clientul (formularul le ascunde, dar un POST
+  // direct nu trebuie să poată strecura o clasificare românească pe un detaliu din altă țară).
+  let climateZone: string | null = null;
+  let seismicAg = "General";
+  let seismicTc = "General";
+  let snowLoad = "General";
+  let windLoad = "General";
+
+  if (isRomania) {
+    const climateZoneRaw = input.climateZone?.trim() || null;
+    if (climateZoneRaw !== null && !isOneOf(CLIMATE_ZONES, climateZoneRaw)) {
+      return { ok: false, error: "INVALID_ZONE" };
+    }
+    climateZone = climateZoneRaw;
+
+    seismicAg = input.seismicAg?.trim() || "General";
+    if (!isOneOf(SEISMIC_AG_VALUES, seismicAg)) return { ok: false, error: "INVALID_ZONE" };
+
+    seismicTc = input.seismicTc?.trim() || "General";
+    if (!isOneOf(SEISMIC_TC_VALUES, seismicTc)) return { ok: false, error: "INVALID_ZONE" };
+
+    snowLoad = input.snowLoad?.trim() || "General";
+    if (!isOneOf(SNOW_LOAD_VALUES, snowLoad)) return { ok: false, error: "INVALID_ZONE" };
+
+    windLoad = input.windLoad?.trim() || "General";
+    if (!isOneOf(WIND_LOAD_VALUES, windLoad)) return { ok: false, error: "INVALID_ZONE" };
   }
-  const climateZone = climateZoneRaw;
-
-  const seismicAg = input.seismicAg?.trim() || "General";
-  if (!isOneOf(SEISMIC_AG_VALUES, seismicAg)) return { ok: false, error: "INVALID_ZONE" };
-
-  const seismicTc = input.seismicTc?.trim() || "General";
-  if (!isOneOf(SEISMIC_TC_VALUES, seismicTc)) return { ok: false, error: "INVALID_ZONE" };
-
-  const snowLoad = input.snowLoad?.trim() || "General";
-  if (!isOneOf(SNOW_LOAD_VALUES, snowLoad)) return { ok: false, error: "INVALID_ZONE" };
-
-  const windLoad = input.windLoad?.trim() || "General";
-  if (!isOneOf(WIND_LOAD_VALUES, windLoad)) return { ok: false, error: "INVALID_ZONE" };
 
   return {
     ok: true,
@@ -189,6 +226,7 @@ export function validateDetailInput(
       description,
       categoryIds,
       imageUrl,
+      location,
       climateZone,
       seismicAg,
       seismicTc,
