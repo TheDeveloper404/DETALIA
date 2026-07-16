@@ -4,6 +4,53 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Feature: telefon + email opțional pe profil, vizibilitate opt-in per câmp
+
+**Cerere Edi:** dacă doi useri vor să comunice, user1 poate vedea telefonul/emailul lui user2 —
+DAR doar dacă user2 a ales explicit să-l facă vizibil. Ambele câmpuri opționale, fiecare cu propriul
+comutator de vizibilitate (nu un singur switch global). Clasificare: NORMAL (schemă + logică de
+vizibilitate PII opt-in, fără auth/bani).
+
+- **Schemă:** `users.phone` (text, nullable), `users.phoneVisible`/`users.emailVisible` (boolean,
+  `NOT NULL DEFAULT false` — privat implicit, opt-in la vizibilitate, nu opt-out).
+- **Redactare pe server** (`profileService.ts`, `getProfileView`): proprietarul vede ÎNTOTDEAUNA datele
+  lui; orice alt vizitator vede telefonul/emailul DOAR dacă flagul respectiv e `true`. `getPublicProfile`
+  citește mereu totul (repo nu decide), decizia de expunere e strict în service.
+- **Editare profil** (`profile-forms.tsx`): câmp telefon + checkbox „Vizibil altor useri" separat pt
+  telefon și separat pt email (emailul existent, needitat aici — doar vizibilitatea lui se bifează).
+- **Afișare profil public** (`profile-view.tsx`): link `tel:`/`mailto:` doar când vin din server ca
+  non-null (deja redactate).
+- **Bug prins înainte de tsc, nu la review:** `viewerIsOwner` era folosit ca variabilă în codul nou,
+  dar exista doar inline în `return` — extras într-un `const` propriu.
+
+**Testat:** `server/services/profileService.test.ts` (+4 teste — owner vede mereu, vizitator vede
+DOAR dacă flagul e true, per câmp independent) + `e2e/profile-contact.spec.ts` (nou, 5 teste browser —
+completare+vizibilitate proprie, vizitator fără acces, vizitator cu acces, pe fiecare din telefon/email).
+`tsc --noEmit`, `lint`, `next build`, `vitest` (190/190) — toate verzi.
+
+---
+
+## 2026-07-16 — Feature: restructurare roluri/subroluri (cerere Edi)
+
+Clasificare: NORMAL. Sursă unică `server/domain/roles.ts` (fără liste duplicate în alt fișier —
+verificat, toți cei 8 consumatori importă de aici).
+
+- **Execuție:** +3 subroluri (Tâmplar mobilă, Montator învelitori, Montator hidroizolații); -2
+  (Diriginte de șantier, RTE) — mutate la Rol adițional.
+- **Furnizor → afișat „Achiziții materiale"** (doar `ROLE_MAIN_LABELS`, folosit DOAR la signup/grupare —
+  `roleMain` enum-ul din DB rămâne `FURNIZOR` neschimbat, zero migrare de date).
+- **Beneficiar:** „Beneficiar documentat" → „Beneficiar".
+- **Rol adițional:** +2 noi (Specialist Case Pasive, Specialist nZEB) + reordonare (Diriginte de
+  șantier/RTE mutate aici de la Execuție).
+- **Verificat direct în producție ÎNAINTE de implementare** (nu presupus): 0 useri afectați de migrarea
+  Diriginte de șantier/RTE — un singur user EXECUTANT total, cu subrolul „Constructor general".
+
+**Testat:** `server/domain/roles.test.ts` (+5 teste țintite) + `e2e/onboarding.spec.ts` (+1 test —
+subrolurile mutate nu mai apar la Execuție, cele noi sunt selectabile și se salvează). `tsc --noEmit`,
+`lint`, `next build`, `vitest` (190/190) — toate verzi.
+
+---
+
 ## 2026-07-16 — Feature: resursă IMAGE afișată ca imagine reală + lightbox (punct 4b, listă Edi)
 
 **Cerere Edi:** PDF/Link/CAD rămân neschimbate. La resursa de tip Imagine, în loc de chip cu link

@@ -79,6 +79,7 @@ export default defineConfig({
         /feed-search\.spec\.ts/,
         /profile-edit\.spec\.ts/,
         /profile-public\.spec\.ts/,
+        /profile-contact\.spec\.ts/,
         /saved\.spec\.ts/,
         /notifications-page\.spec\.ts/,
       ],
