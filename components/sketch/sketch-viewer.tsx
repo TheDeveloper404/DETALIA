@@ -3,14 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import { renderStrokes } from "@/lib/sketch-render";
-import { TEXT_MARGIN, type Stroke } from "@/server/domain/sketch";
+import type { Stroke } from "@/server/domain/sketch";
 
 // Overlay read-only: DOAR stroke-urile schiței, suprapuse peste imaginea-mamă deja randată de părinte
 // (<Image fill object-contain> permanent montată în cutia 4/3). Canvas-ul se poziționează exact pe
 // dreptunghiul „contain" al imaginii în cutie — imaginea nu se remontează la comutarea taburilor,
 // deci nimic nu „pocnește"/tremură; doar stroke-urile apar/dispar deasupra ei.
-// Canvas-ul e mai mare decât dreptunghiul „contain" (+ TEXT_MARGIN pe fiecare parte) ca textul scris în
-// marginea foii (editor) să rămână vizibil și la citire, nu doar în editor — vezi server/domain/sketch.ts.
 export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes: Stroke[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,11 +44,6 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
     return () => observer?.disconnect();
   }, [imageUrl]);
 
-  const marginX = Math.round(rect.w * TEXT_MARGIN);
-  const marginY = Math.round(rect.h * TEXT_MARGIN);
-  const canvasW = rect.w + marginX * 2;
-  const canvasH = rect.h + marginY * 2;
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -60,23 +53,18 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
     // Foaia semitransparentă a schiței peste detaliul-mamă (care rămâne opac, randat de părinte) — IDENTIC
     // cu editorul (sketch-canvas.tsx): schița stă pe o coală translucidă peste detaliu, nu invers.
     ctx.fillStyle = "rgba(250,247,241,0.55)";
-    ctx.fillRect(marginX, marginY, rect.w, rect.h);
-    // Stroke-urile sunt normalizate față de imagine (rect.w/h) — translatăm cu marginea, IDENTIC cu
-    // editorul, ca textul din margine să cadă la fel pe canvas-ul (mai mare) de aici.
-    ctx.save();
-    ctx.translate(marginX, marginY);
-    renderStrokes(ctx, strokes, rect.w, rect.h);
-    ctx.restore();
-  }, [rect, marginX, marginY, strokes]);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    renderStrokes(ctx, strokes, canvas.width, canvas.height);
+  }, [rect, strokes]);
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
       <canvas
         ref={canvasRef}
-        width={canvasW}
-        height={canvasH}
+        width={rect.w}
+        height={rect.h}
         className="absolute"
-        style={{ left: rect.x - marginX, top: rect.y - marginY, width: canvasW, height: canvasH }}
+        style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       />
     </div>
   );

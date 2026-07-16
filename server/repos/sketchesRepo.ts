@@ -29,8 +29,11 @@ export async function getSketchById(id: string) {
   return row ?? null;
 }
 
-export async function updateStrokes(id: string, strokesJson: Stroke[]) {
-  await db.update(sketches).set({ strokesJson }).where(eq(sketches.id, id));
+// `note` opțional: undefined = nu se atinge coloana (autosave-uri vechi/apeluri fără notă nu o șterg).
+export async function updateStrokes(id: string, strokesJson: Stroke[], note?: string | null) {
+  const set: { strokesJson: Stroke[]; note?: string | null } = { strokesJson };
+  if (note !== undefined) set.note = note;
+  await db.update(sketches).set(set).where(eq(sketches.id, id));
 }
 
 // Tranziție condiționată DRAFT → PUBLISHED (PUBLISH direct, fără coadă de acceptare). Guard atomic pe
@@ -72,6 +75,7 @@ const sketchWithAuthorColumns = {
   status: sketches.status,
   thumbnailUrl: sketches.thumbnailUrl,
   strokesJson: sketches.strokesJson,
+  note: sketches.note,
   createdAt: sketches.createdAt,
   detailId: sketches.detailId,
   authorId: sketches.authorId,

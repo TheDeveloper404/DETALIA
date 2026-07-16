@@ -32,6 +32,7 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
       // Detaliul-mamă al unei schițe e mereu PUBLISHED (getDetail) → imageUrl mereu setat.
       imageUrl={detail.imageUrl!}
       initialStrokes={draft.value.strokes}
+      initialNote={draft.value.note}
       detailTitle={detail.title}
       authorId={detail.authorId}
       authorName={detail.authorName}

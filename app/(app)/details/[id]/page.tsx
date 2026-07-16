@@ -16,6 +16,7 @@ type SketchRow = {
   id: string;
   authorId: string;
   strokesJson: unknown;
+  note: string | null;
   createdAt: Date;
   authorName: string | null;
   authorImage: string | null;
@@ -37,6 +38,7 @@ function toWorkspaceSketch(r: SketchRow, validation: WorkspaceSketch["validation
       verification: r.authorVerification,
     },
     strokes: (r.strokesJson as Stroke[] | null) ?? [],
+    note: r.note,
     validation,
     createdAt: r.createdAt,
   };

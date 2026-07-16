@@ -58,6 +58,8 @@ export type WorkspaceSketch = {
   id: string;
   author: Author;
   strokes: Stroke[];
+  // Explicație în cuvinte a autorului, SEPARATĂ de desen (2026-07-16) — vezi sketch-editor.tsx.
+  note: string | null;
   validation: ValidationView;
   // Ordinalul „schița N" trebuie să fie STABIL în timp (prima creată = 1, mereu) — vezi comentariul de
   // la calculul `label` mai jos. Nu confunda cu ordinea de afișare a taburilor (cea mai nouă primă).
@@ -162,10 +164,7 @@ export function DetailWorkspace({
   return (
     <div className="flex flex-col gap-7">
       {/* id=schiteaza — ținta scurtăturii „Schițează peste" din cardul de feed. */}
-      {/* FĂRĂ overflow-hidden (2026-07-16): textul din marginea unei schițe (kind: "text", poate ieși din
-          0..1) trebuie să rămână vizibil la citire, nu doar în editor — un card care taie orice iese din
-          chenar ar ascunde exact adnotările pe care userul le-a scris intenționat lângă desen. */}
-      <section id="schiteaza" className="scroll-mt-24 rounded-xl border border-border bg-card">
+      <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
         {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
         <div className="border-b border-[#eee6da] px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -352,9 +351,7 @@ export function DetailWorkspace({
             erau deja afișate în antet (tab bază) / lângă tab-ul activ (tab schiță, RolePill de mai sus);
             singura info netă din panou era rolul, mutat acolo. Imaginea folosește acum toată lățimea. */}
         <div className="mt-3 border-t border-[#eee6da]">
-          {/* rounded-b-xl direct aici (nu mai vine gratis din overflow-hidden pe <section>) — altfel fundalul
-              crem ar arăta cu colțuri pătrate ieșind din chenarul rotunjit al cardului. */}
-          <div className="relative flex min-h-[420px] items-center justify-center rounded-b-xl bg-[#faf7f1] p-6">
+          <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6">
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
             <div className="absolute bottom-3 right-3 z-[3]">{startSketchBtn}</div>
             {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
@@ -397,6 +394,22 @@ export function DetailWorkspace({
             </div>
           </div>
         </div>
+
+        {/* Explicația autorului schiței, în cuvinte — SEPARATĂ de desen (2026-07-16). Doar pe tab de
+            schiță, doar dacă autorul a scris ceva. */}
+        {!isBase && activeSketch!.note && (
+          <div
+            key={`note-${activeSketch!.id}`}
+            className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6"
+          >
+            <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
+              Explicația autorului
+            </div>
+            <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
+              {activeSketch!.note}
+            </p>
+          </div>
+        )}
 
         {/* bara de validare CONTEXTUALĂ (pe ținta tabului activ), integrată în card (butoane compacte);
             fade-in la comutare (opacity, fără animație de layout — nu redeschide tremurul) */}
