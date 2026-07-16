@@ -120,6 +120,7 @@ export async function getProfileView(
   }
 
   const roleLabel = roleLabelOf(profile.roleMain, profile.subRole);
+  const viewerIsOwner = userId === viewerId;
 
   // Fuzionează fluxul de activitate (validări + comentarii non-justificare + publicări), recent → vechi.
   type Stamped = { item: ProfileActivityItem; at: Date };
@@ -169,7 +170,7 @@ export async function getProfileView(
   const activityItems = stamped.slice(0, ACTIVITY_LIMIT).map((s) => s.item);
 
   return {
-    viewerIsOwner: userId === viewerId,
+    viewerIsOwner,
     name: profile.name ?? "Anonim",
     image: profile.image,
     coverImage: profile.coverImage,
@@ -178,6 +179,9 @@ export async function getProfileView(
     location: profile.location,
     company: profile.company,
     website: safeWebsite(profile.website),
+    // Contact — owner vede mereu al lui; ceilalți DOAR dacă userul l-a făcut explicit vizibil (opt-in).
+    phone: viewerIsOwner || profile.phoneVisible ? profile.phone : null,
+    email: viewerIsOwner || profile.emailVisible ? profile.email : null,
     bio: profile.headline, // headline = tagline sub nume
     about: profile.about,
     verified: profile.verificationStatus === "VERIFIED",
@@ -207,6 +211,7 @@ const ABOUT_MAX = 1000;
 const LOCATION_MAX = 120;
 const WEBSITE_MAX = 200;
 const COMPANY_MAX = 120;
+const PHONE_MAX = 30;
 
 // trim + plafon; gol → null (semantica „șters" în DB).
 function clip(raw: string, max: number): string | null {
@@ -265,7 +270,17 @@ export type UpdateDetailsResult =
 // SEC-03: website cu allowlist http/https la INPUT (nu doar la randare). Primește string-uri brute din action.
 export async function updateProfileDetails(
   userId: string,
-  input: { name: string; headline: string; about: string; location: string; website: string; company: string },
+  input: {
+    name: string;
+    headline: string;
+    about: string;
+    location: string;
+    website: string;
+    company: string;
+    phone: string;
+    phoneVisible: boolean;
+    emailVisible: boolean;
+  },
 ): Promise<UpdateDetailsResult> {
   const name = input.name.trim();
   if (name.length === 0) return { ok: false, reason: "EMPTY_NAME" };
@@ -281,6 +296,9 @@ export async function updateProfileDetails(
     location: clip(input.location, LOCATION_MAX),
     website: websiteRes.value,
     company: clip(input.company, COMPANY_MAX),
+    phone: clip(input.phone, PHONE_MAX),
+    phoneVisible: input.phoneVisible,
+    emailVisible: input.emailVisible,
   });
   return { ok: true };
 }

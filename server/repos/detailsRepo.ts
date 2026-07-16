@@ -28,6 +28,7 @@ export async function insertDetailWithRelations(input: {
   description: string | null;
   authorId: string;
   imageUrl: string | null;
+  location: string;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -48,6 +49,7 @@ export async function insertDetailWithRelations(input: {
       description: input.description,
       authorId: input.authorId,
       imageUrl: input.imageUrl,
+      location: input.location,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -105,6 +107,7 @@ export async function updateDetailRow(
     title: string;
     description: string | null;
     imageUrl: string | null;
+    location: string;
     climateZone: string | null;
     seismicAg: string;
     seismicTc: string;
@@ -118,6 +121,7 @@ export async function updateDetailRow(
       title: input.title,
       description: input.description,
       imageUrl: input.imageUrl,
+      location: input.location,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -184,6 +188,7 @@ const detailWithAuthorColumns = {
   title: details.title,
   description: details.description,
   imageUrl: details.imageUrl,
+  location: details.location,
   climateZone: details.climateZone,
   seismicAg: details.seismicAg,
   seismicTc: details.seismicTc,

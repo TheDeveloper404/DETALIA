@@ -26,7 +26,9 @@ import {
 import { cn } from "@/lib/utils";
 import {
   CLIMATE_ZONES,
+  DEFAULT_LOCATION,
   DESCRIPTION_MAX_LENGTH,
+  LOCATION_MAX_LENGTH,
   MAX_DETAIL_RESOURCES,
   SEISMIC_AG_VALUES,
   SEISMIC_TC_VALUES,
@@ -55,6 +57,7 @@ export type DetailFormInitial = {
   categoryIds: string[];
   // null = ciornă fără imagine încă (înainte de upload).
   imageUrl: string | null;
+  location: string;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -316,6 +319,11 @@ export function DetailForm({
   const [resources, setResources] = useState<ResourceRow[]>(initial?.resources ?? []);
   const [drawCount, setDrawCount] = useState(0);
   const [categoryIds, setCategoryIds] = useState<string[]>(initial?.categoryIds ?? []);
+  // Pill „România" / „Altă locație" — la editare, dacă locația salvată nu e România, pornim direct
+  // pe pillul „Altă locație" cu textul deja completat (formularul reflectă starea reală salvată).
+  const isInitialRomania = !initial || initial.location === DEFAULT_LOCATION;
+  const [isRomania, setIsRomania] = useState(isInitialRomania);
+  const [locationText, setLocationText] = useState(isInitialRomania ? "" : (initial?.location ?? ""));
   // Semnalăm serverului dacă imaginea s-a schimbat efectiv (la editare) → reprocesare doar atunci.
   const [imageChanged, setImageChanged] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -590,53 +598,95 @@ export function DetailForm({
           ))}
         </div>
 
-        {/* CONTEXT TEHNIC: zonă climatică, seismică (a_g + Tc), încărcare zăpadă/vânt */}
+        {/* LOCAȚIE: pill România (context tehnic RO valabil) / Altă locație (text liber țară+oraș,
+            context tehnic ascuns — nu are sens să clasifici un detaliu din altă țară cu valori RO). */}
         <div>
-          <label className={labelClass}>
-            Context tehnic <Opt />
-          </label>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Select name="climateZone" defaultValue={initial?.climateZone ?? ""}>
-              <option value="">Zonă climatică — nespecificat</option>
-              {CLIMATE_ZONES.map((z) => (
-                <option key={z} value={z}>
-                  {z}
-                </option>
-              ))}
-            </Select>
-            <Select name="seismicAg" defaultValue={initial?.seismicAg ?? "General"}>
-              {SEISMIC_AG_VALUES.map((v) => (
-                <option key={v} value={v}>
-                  a_g {v}
-                </option>
-              ))}
-            </Select>
-            <Select name="seismicTc" defaultValue={initial?.seismicTc ?? "General"}>
-              {SEISMIC_TC_VALUES.map((v) => (
-                <option key={v} value={v}>
-                  Tc {v}
-                </option>
-              ))}
-            </Select>
-            <Select name="snowLoad" defaultValue={initial?.snowLoad ?? "General"}>
-              {SNOW_LOAD_VALUES.map((v) => (
-                <option key={v} value={v}>
-                  Zăpadă {v}
-                </option>
-              ))}
-            </Select>
-            <Select name="windLoad" defaultValue={initial?.windLoad ?? "General"}>
-              {WIND_LOAD_VALUES.map((v) => (
-                <option key={v} value={v}>
-                  Vânt {v}
-                </option>
-              ))}
-            </Select>
+          <label className={labelClass}>Locație</label>
+          <div className="mb-3 inline-flex rounded-[10px] border border-[#e6ddcf] bg-[#f6ede4] p-1">
+            {([
+              { key: true, label: "România" },
+              { key: false, label: "Altă locație" },
+            ] as const).map(({ key, label }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => setIsRomania(key)}
+                aria-pressed={isRomania === key}
+                className={cn(
+                  "rounded-[7px] px-3.5 py-2 font-heading text-[13.5px] font-semibold transition-colors",
+                  isRomania === key
+                    ? "bg-card text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <p className="mt-2 font-mono text-[11px] leading-relaxed text-[#a59a88]">
-            Lasă „General” dacă nu se aplică. Valorile reale dau greutate detaliului în dezbatere.
-          </p>
+
+          {!isRomania && (
+            <input
+              type="text"
+              value={locationText}
+              onChange={(e) => setLocationText(e.target.value)}
+              maxLength={LOCATION_MAX_LENGTH}
+              placeholder="Țară, oraș"
+              className={cn(fieldClass, "mb-3")}
+            />
+          )}
+          <input type="hidden" name="location" value={isRomania ? DEFAULT_LOCATION : locationText} />
         </div>
+
+        {/* CONTEXT TEHNIC: zonă climatică, seismică (a_g + Tc), încărcare zăpadă/vânt — DOAR pt România
+            (enforce și pe server, vezi validateDetailInput). */}
+        {isRomania && (
+          <div>
+            <label className={labelClass}>
+              Context tehnic <Opt />
+            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Select name="climateZone" defaultValue={initial?.climateZone ?? ""}>
+                <option value="">Zonă climatică — nespecificat</option>
+                {CLIMATE_ZONES.map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </Select>
+              <Select name="seismicAg" defaultValue={initial?.seismicAg ?? "General"}>
+                {SEISMIC_AG_VALUES.map((v) => (
+                  <option key={v} value={v}>
+                    a_g {v}
+                  </option>
+                ))}
+              </Select>
+              <Select name="seismicTc" defaultValue={initial?.seismicTc ?? "General"}>
+                {SEISMIC_TC_VALUES.map((v) => (
+                  <option key={v} value={v}>
+                    Tc {v}
+                  </option>
+                ))}
+              </Select>
+              <Select name="snowLoad" defaultValue={initial?.snowLoad ?? "General"}>
+                {SNOW_LOAD_VALUES.map((v) => (
+                  <option key={v} value={v}>
+                    Zăpadă {v}
+                  </option>
+                ))}
+              </Select>
+              <Select name="windLoad" defaultValue={initial?.windLoad ?? "General"}>
+                {WIND_LOAD_VALUES.map((v) => (
+                  <option key={v} value={v}>
+                    Vânt {v}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <p className="mt-2 font-mono text-[11px] leading-relaxed text-[#a59a88]">
+              Lasă „General” dacă nu se aplică. Valorile reale dau greutate detaliului în dezbatere.
+            </p>
+          </div>
+        )}
 
         {/* IMAGINEA 2D */}
         <div className="border-t border-[#eee6da] pt-6">

@@ -97,3 +97,96 @@ test.describe.serial("Editare detaliu existent", () => {
     await expect(page).toHaveURL(`/details/${authorDetailId}`);
   });
 });
+
+// Locație (2026-07-16, cerere Edi): pill „România" (context tehnic RO) vs „Altă locație" (text liber,
+// context tehnic ascuns). Detaliu propriu, izolat de blocul de mai sus.
+test.describe.serial("Editare detaliu — locație / context tehnic", () => {
+  let categoryId: string;
+  let detailId: string | null = null;
+
+  test.beforeAll(async () => {
+    const { testerUserId, categoryId: seededCategoryId } = getSeed();
+    categoryId = seededCategoryId;
+    const created = await createDetail({
+      authorId: testerUserId,
+      title: `E2E locație — ${Date.now()}`,
+      categoryIds: [categoryId],
+      imageUrl: OWN_STORE_IMAGE_URL,
+      resources: [],
+    });
+    expect(created.ok).toBe(true);
+    if (created.ok) detailId = created.detailId;
+  });
+
+  test.afterAll(async () => {
+    if (detailId) await db.delete(details).where(eq(details.id, detailId));
+  });
+
+  test("pill „Altă locație” ascunde Context tehnic; salvat corect afișează locația pe pagina publică", async ({
+    page,
+  }) => {
+    await page.goto(`/details/${detailId}/edit`);
+    await expect(page.getByText("Context tehnic")).toBeVisible();
+
+    await page.getByRole("button", { name: "Altă locație" }).click();
+    await expect(page.getByText("Context tehnic")).toHaveCount(0);
+
+    await page.getByPlaceholder("Țară, oraș").fill("Italia, Roma");
+    await page.getByRole("button", { name: "Salvează modificările" }).click();
+
+    await expect(page).toHaveURL(`/details/${detailId}`, { timeout: 15_000 });
+    await expect(page.getByText("Italia, Roma")).toBeVisible();
+  });
+
+  test("„Altă locație” fără text completat → eroare de validare, rămâne pe formular", async ({ page }) => {
+    await page.goto(`/details/${detailId}/edit`);
+    await page.getByRole("button", { name: "Altă locație" }).click();
+    // Textul rămâne gol — nu completăm nimic.
+    await page.getByRole("button", { name: "Salvează modificările" }).click();
+
+    await expect(page.locator('p[role="alert"]')).toBeVisible();
+    await expect(page).toHaveURL(`/details/${detailId}/edit`);
+  });
+
+  test("revenire la pillul „România” readuce Context tehnic vizibil", async ({ page }) => {
+    await page.goto(`/details/${detailId}/edit`);
+    await page.getByRole("button", { name: "România" }).click();
+    await expect(page.getByText("Context tehnic")).toBeVisible();
+  });
+});
+
+// Resursă IMAGE (2026-07-16, cerere Edi): thumbnail real + lightbox, NU link/chip generic ca PDF/LINK/CAD.
+test.describe.serial("Resursă suplimentară — IMAGE afișată ca imagine, cu lightbox", () => {
+  let detailId: string | null = null;
+
+  test.beforeAll(async () => {
+    const { testerUserId, categoryId } = getSeed();
+    const created = await createDetail({
+      authorId: testerUserId,
+      title: `E2E resursă imagine — ${Date.now()}`,
+      categoryIds: [categoryId],
+      imageUrl: OWN_STORE_IMAGE_URL,
+      resources: [{ type: "IMAGE", url: OWN_STORE_IMAGE_URL }],
+    });
+    expect(created.ok).toBe(true);
+    if (created.ok) detailId = created.detailId;
+  });
+
+  test.afterAll(async () => {
+    if (detailId) await db.delete(details).where(eq(details.id, detailId));
+  });
+
+  test("resursa IMAGE apare ca thumbnail; click → lightbox cu imaginea mărită", async ({ page }) => {
+    await page.goto(`/details/${detailId}`);
+
+    const thumbnail = page.getByRole("button", { name: /Mărește imaginea/ });
+    await expect(thumbnail).toBeVisible();
+    // NU e link extern — un chip PDF/LINK ar fi un <a>, thumbnail-ul e strict <button>.
+    await expect(page.locator("a", { hasText: "e2e-placeholder" })).toHaveCount(0);
+
+    await thumbnail.click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Închide" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+});

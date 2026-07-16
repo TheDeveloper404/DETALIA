@@ -4,6 +4,115 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Feature: telefon + email opțional pe profil, vizibilitate opt-in per câmp
+
+**Cerere Edi:** dacă doi useri vor să comunice, user1 poate vedea telefonul/emailul lui user2 —
+DAR doar dacă user2 a ales explicit să-l facă vizibil. Ambele câmpuri opționale, fiecare cu propriul
+comutator de vizibilitate (nu un singur switch global). Clasificare: NORMAL (schemă + logică de
+vizibilitate PII opt-in, fără auth/bani).
+
+- **Schemă:** `users.phone` (text, nullable), `users.phoneVisible`/`users.emailVisible` (boolean,
+  `NOT NULL DEFAULT false` — privat implicit, opt-in la vizibilitate, nu opt-out).
+- **Redactare pe server** (`profileService.ts`, `getProfileView`): proprietarul vede ÎNTOTDEAUNA datele
+  lui; orice alt vizitator vede telefonul/emailul DOAR dacă flagul respectiv e `true`. `getPublicProfile`
+  citește mereu totul (repo nu decide), decizia de expunere e strict în service.
+- **Editare profil** (`profile-forms.tsx`): câmp telefon + checkbox „Vizibil altor useri" separat pt
+  telefon și separat pt email (emailul existent, needitat aici — doar vizibilitatea lui se bifează).
+- **Afișare profil public** (`profile-view.tsx`): link `tel:`/`mailto:` doar când vin din server ca
+  non-null (deja redactate).
+- **Bug prins înainte de tsc, nu la review:** `viewerIsOwner` era folosit ca variabilă în codul nou,
+  dar exista doar inline în `return` — extras într-un `const` propriu.
+
+**Testat:** `server/services/profileService.test.ts` (+4 teste — owner vede mereu, vizitator vede
+DOAR dacă flagul e true, per câmp independent) + `e2e/profile-contact.spec.ts` (nou, 5 teste browser —
+completare+vizibilitate proprie, vizitator fără acces, vizitator cu acces, pe fiecare din telefon/email).
+`tsc --noEmit`, `lint`, `next build`, `vitest` (190/190) — toate verzi.
+
+---
+
+## 2026-07-16 — Feature: restructurare roluri/subroluri (cerere Edi)
+
+Clasificare: NORMAL. Sursă unică `server/domain/roles.ts` (fără liste duplicate în alt fișier —
+verificat, toți cei 8 consumatori importă de aici).
+
+- **Execuție:** +3 subroluri (Tâmplar mobilă, Montator învelitori, Montator hidroizolații); -2
+  (Diriginte de șantier, RTE) — mutate la Rol adițional.
+- **Furnizor → afișat „Achiziții materiale"** (doar `ROLE_MAIN_LABELS`, folosit DOAR la signup/grupare —
+  `roleMain` enum-ul din DB rămâne `FURNIZOR` neschimbat, zero migrare de date).
+- **Beneficiar:** „Beneficiar documentat" → „Beneficiar".
+- **Rol adițional:** +2 noi (Specialist Case Pasive, Specialist nZEB) + reordonare (Diriginte de
+  șantier/RTE mutate aici de la Execuție).
+- **Verificat direct în producție ÎNAINTE de implementare** (nu presupus): 0 useri afectați de migrarea
+  Diriginte de șantier/RTE — un singur user EXECUTANT total, cu subrolul „Constructor general".
+
+**Testat:** `server/domain/roles.test.ts` (+5 teste țintite) + `e2e/onboarding.spec.ts` (+1 test —
+subrolurile mutate nu mai apar la Execuție, cele noi sunt selectabile și se salvează). `tsc --noEmit`,
+`lint`, `next build`, `vitest` (190/190) — toate verzi.
+
+---
+
+## 2026-07-16 — Feature: resursă IMAGE afișată ca imagine reală + lightbox (punct 4b, listă Edi)
+
+**Cerere Edi:** PDF/Link/CAD rămân neschimbate. La resursa de tip Imagine, în loc de chip cu link
+generic (comportamentul de până acum), trebuie să apară **imaginea propriu-zisă** (thumbnail mic),
+iar click pe ea o deschide mărită (lightbox). Limita rămâne 25MB, max 3 resurse (plafonul existent,
+nu unul nou separat pe tip). Clasificare: SMALL — doar afișare, fără schemă/logică nouă.
+
+**Verificat înainte de implementare:** limita de 25MB (`MAX_IMAGE_MB`) și validarea de tip erau deja
+corecte din sesiunea anterioară (enforce și client, și server la `/api/blob/upload` prin
+`maximumSizeInBytes: MAX_IMAGE_BYTES`) — nimic de schimbat acolo.
+
+- **`app/(app)/details/[id]/resource-image.tsx`** (nou, client): thumbnail 52px + lightbox (imaginea
+  mărită, click pe fundal sau Escape închide).
+- **`app/(app)/details/[id]/page.tsx`**: resursele tip IMAGE randează `ResourceImage` în loc de
+  chip-ul generic cu link; PDF/Link/CAD/Text neschimbate.
+
+**Testat:** `e2e/detail-edit.spec.ts` (+1 test — thumbnail vizibil ca `<button>` nu `<a>`, click
+deschide dialog, Închide îl scoate). `tsc --noEmit`, `lint`, `next build`, `vitest` (181/181) — verzi.
+
+---
+
+## 2026-07-16 — Feature: locație detaliu — pill România / Altă locație (punct 4a, listă Edi)
+
+**Cerere Edi:** la adăugare/editare detaliu, două pill-uri „România" / „Altă locație". România
+(implicit) = Context tehnic (zonă climatică/seismic/zăpadă/vânt) rămâne complet valabil, ca acum.
+Altă locație = apare un câmp liber „Țară, oraș" → Context tehnic dispare din formular și **nu poate fi
+completat în acel context** (enforce pe server, nu doar UI — un POST direct nu poate strecura o
+clasificare românească pe un detaliu din altă țară). Clasificare: NORMAL.
+
+**Verificat înainte de implementare:** câmpurile tehnice RO nu sunt cuplate cu feed-ul/căutarea (doar
+formular + pagina proprie a detaliului) — schimbare izolată, fără risc ascuns pe discovery.
+
+- **Schemă:** `details.location` (text, `NOT NULL DEFAULT 'România'`) — coloană nouă, fără migrație
+  distructivă, rândurile existente devin automat „România" (comportamentul implicit oricum).
+- **Domeniu** (`server/domain/detail.ts`): `validateDetailInput` — locație omisă (undefined/null) =
+  implicit România; locație trimisă explicit dar goală (pill „Altă locație" fără text) =
+  `LOCATION_REQUIRED`, NU cade silențios pe România. Pentru orice locație ≠ România, parametrii
+  tehnici sunt **forțați** la valoarea neutră (null/„General") indiferent ce trimite clientul.
+- **Repo/service:** `location` propagat prin `insertDetailWithRelations`, `updateDetailRow`,
+  `createDetail`/`updateDetail`/`createDetailDraft`/`saveDetailDraft`/`publishDetailDraft`.
+- **UI** (`detail-form.tsx`): pill-uri (același stil vizual ca toggle-ul upload/desenează existent);
+  la „Altă locație" secțiunea Context tehnic dispare complet din DOM (nu doar ascunsă). Afișare:
+  `detail-workspace.tsx` arată un badge de locație doar când ≠ România (fără zgomot pe cazul normal).
+- **Migrație DB:** `ALTER TABLE details ADD COLUMN location text NOT NULL DEFAULT 'România'` — rulată
+  manual de Liviu pe Neon dev și production, confirmată cu query direct pe `information_schema`.
+
+**Bug găsit la `/code-review` (medium, 3 unghiuri paralele) și fixat înainte de a considera task-ul
+gata:** `LOCATION_REQUIRED` rula necondiționat, inclusiv pe CIORNĂ (`strict:false`) — un user care
+alegea pillul „Altă locație" fără să apuce să scrie textul nu mai putea salva ciorna deloc, deși
+ciorna tolerează totul în afară de titlu. Fix: verificarea e acum condiționată de `strict`; la ciornă,
+locație goală explicit → cade pe „România" implicit, nu blochează salvarea. Adăugat și guard ieftin
+(`location` gol → eroare) în `createDetailAction`/`updateDetailAction`, înainte de reprocesarea
+imaginii — evită upload/reencodare irosite când oricum urma să pice la validare.
+
+**Testat:** `server/domain/detail.test.ts` (+6 teste — omis→România, explicit România, non-România
+forțează context tehnic neutru, gol explicit strict→`LOCATION_REQUIRED`, peste `LOCATION_MAX_LENGTH`,
+regresie gol explicit la ciornă→NU blochează) + `e2e/detail-edit.spec.ts` (+3 teste browser — toggle
+pill ascunde/arată Context tehnic, salvare cu locație afișată pe pagina publică, validare server pe
+text gol, revenire la România). `tsc --noEmit`, `lint`, `next build`, `vitest` (181/181) — toate verzi.
+
+---
+
 ## 2026-07-16 — Feature: „ridic mâna" — Furnizorul semnalează că poate oferta materiale
 
 **Cerere Edi** (propunerile din handoff, pct. 3): Furnizorii n-aveau nicio pârghie comercială pe un
@@ -35,10 +144,20 @@ vizibilă public, ca la validare), `app/(app)/details/[id]/supplier-offer-panel.
 **Migrație DB:** `ALTER TYPE notification_type ADD VALUE 'SUPPLIER_OFFERED'` + `CREATE TABLE
 supplier_offers` — rulate manual de Liviu pe Neon dev și production, confirmate cu query-uri directe.
 
-**Testat:** `server/services/supplierOfferService.test.ts` (nou, 7 teste — gating rol, SEC-11 id
-malformat, `CANNOT_OFFER_OWN`, toggle reversibil, notificare doar la primul click). `tsc --noEmit`,
-`lint`, `next build`, `vitest` (175/175) — toate verzi. Deploy verificat live pe `detalia.ro`
-(merge pe `main` prin PR #162, CI verde, Vercel production Ready).
+**Testat:** `server/services/supplierOfferService.test.ts` (unit, 7 teste — gating rol, SEC-11 id
+malformat, `CANNOT_OFFER_OWN`, toggle reversibil, notificare doar la primul click) +
+`e2e/supplier-offer.spec.ts` (integrare reală pe DB, 3 teste, înregistrat în `playwright.config.ts`
+proiectul `security`). `tsc --noEmit`, `lint`, `next build`, `vitest` (175/175) — toate verzi. Deploy
+verificat live pe `detalia.ro` (merge pe `main` prin PR #162, CI verde, Vercel production Ready).
+
+**Două bug-uri de test găsite și fixate la rulare (nu bug-uri de aplicație):**
+1. Cleanup-ul notificării de test rula DUPĂ ultima asertare — dacă asertarea pica, rândul rămânea
+   orfan și contamina rulările următoare. Fix: cleanup necondiționat în `finally`, idempotent și la
+   pornirea testului (șterge orice gunoi anterior).
+2. Race condition la `npm run e2e` (fullyParallel): testele mutau rolul aceluiași user seedat
+   (`testerUserId`) fără izolare — testul „toggle" seta rolul la FURNIZOR chiar în timp ce „gating"
+   verifica PROIECTANT, pe alt worker. Fix: `test.describe.serial(...)` — testele din fișier rulează
+   secvențial între ele, nu în paralel.
 
 ---
 
