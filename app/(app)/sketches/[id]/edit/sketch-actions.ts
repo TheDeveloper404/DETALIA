@@ -18,6 +18,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_STATE: "Schița a fost deja publicată.",
   EMPTY_STROKES: "Desenează ceva înainte de a trimite.",
   INVALID_STROKES: "Desenul nu a putut fi salvat.",
+  NOTE_TOO_LONG: "Explicația e prea lungă.",
   NO_ROLE: "Ai nevoie de un rol declarat.",
   RATE_LIMITED: "Prea multe trimiteri. Așteaptă un moment.",
 };
@@ -37,6 +38,7 @@ function parseStrokes(raw: string): unknown {
 export async function saveStrokesAction(
   sketchId: string,
   strokesJson: string,
+  note?: string,
 ): Promise<SketchActionResult> {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -50,6 +52,7 @@ export async function saveStrokesAction(
     sketchId,
     authorId: session.user.id,
     strokes: parseStrokes(strokesJson),
+    note,
   });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut salva." };
   return { ok: true };
@@ -68,6 +71,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
   const sketchId = String(formData.get("sketchId") ?? "");
   const detailId = String(formData.get("detailId") ?? "");
   const strokes = parseStrokes(String(formData.get("strokes") ?? ""));
+  const note = formData.get("note");
 
   // Thumbnail-ul e best-effort: dacă lipsește sau uploadul eșuează, publicăm fără el.
   let thumbnailUrl: string | null = null;
@@ -77,7 +81,13 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     if (upload.ok) thumbnailUrl = upload.url;
   }
 
-  const res = await publish({ sketchId, authorId: userId, strokes, thumbnailUrl });
+  const res = await publish({
+    sketchId,
+    authorId: userId,
+    strokes,
+    note: note === null ? undefined : String(note),
+    thumbnailUrl,
+  });
   if (!res.ok) {
     // Thumbnail-ul s-a urcat ÎNAINTE de verificările din publish (autor/stare/strokes) — dacă publicarea
     // a picat, îl ștergem, altfel rămâne blob orfan (risipă de storage la fiecare eșec).

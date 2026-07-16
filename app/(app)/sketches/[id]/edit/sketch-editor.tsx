@@ -1,13 +1,14 @@
 "use client";
 
-import { Pencil, Save, Send, X } from "lucide-react";
+import { NotebookPen, Pencil, Save, Send, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
 import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
-import type { Stroke } from "@/server/domain/sketch";
+import { cn } from "@/lib/utils";
+import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 
 import { saveStrokesAction, sendSketchAction } from "./sketch-actions";
 
@@ -18,6 +19,7 @@ export function SketchEditor({
   detailId,
   imageUrl,
   initialStrokes,
+  initialNote,
   detailTitle,
   authorId,
   authorName,
@@ -29,6 +31,7 @@ export function SketchEditor({
   detailId: string;
   imageUrl: string;
   initialStrokes: Stroke[];
+  initialNote: string | null;
   detailTitle: string;
   authorId: string;
   authorName: string | null;
@@ -41,6 +44,10 @@ export function SketchEditor({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [count, setCount] = useState(initialStrokes.length);
+  // Notă separată de desen (2026-07-16) — panou colapsabil, NICIODATĂ suprapus peste canvas (împinge
+  // layout-ul, nu flotează peste el). Deschis implicit dacă exista deja o notă (reluare ciornă).
+  const [note, setNote] = useState(initialNote ?? "");
+  const [noteOpen, setNoteOpen] = useState(!!initialNote);
 
   const disabled = pending || count === 0;
 
@@ -48,7 +55,7 @@ export function SketchEditor({
     if (!canvasRef.current) return;
     setPending(true);
     setError(null);
-    const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()));
+    const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()), note);
     if (!res.ok) {
       setPending(false);
       setError(res.error ?? "Nu am putut salva.");
@@ -67,6 +74,7 @@ export function SketchEditor({
     fd.set("sketchId", sketchId);
     fd.set("detailId", detailId);
     fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
+    fd.set("note", note);
     if (thumbnail) fd.set("thumbnail", thumbnail, "thumbnail.png");
     const res = await sendSketchAction(fd); // pe succes redirecționează (nu mai revine)
     setPending(false);
@@ -109,6 +117,19 @@ export function SketchEditor({
 
         <button
           type="button"
+          onClick={() => setNoteOpen((v) => !v)}
+          aria-pressed={noteOpen}
+          title="Explică desenul în cuvinte (opțional)"
+          className={cn(
+            "inline-flex flex-none items-center gap-2 rounded-[9px] border px-2.5 py-2.5 font-heading text-sm font-semibold transition-colors hover:border-primary sm:px-4",
+            noteOpen ? "border-primary bg-[#f6ede4] text-primary" : "border-[#d8cfc0] bg-card",
+          )}
+        >
+          <NotebookPen className="size-[15px]" strokeWidth={1.9} />
+          <span className="hidden sm:inline">Explicație</span>
+        </button>
+        <button
+          type="button"
           onClick={handleSaveDraft}
           disabled={disabled}
           aria-label="Salvează ciornă"
@@ -136,6 +157,25 @@ export function SketchEditor({
         >
           {error}
         </p>
+      )}
+
+      {/* Explicație în cuvinte — panou colapsabil, ÎMPINGE layout-ul (nu flotează peste canvas). Separat
+          de desen intenționat (2026-07-16): tool-ul de Text pe canvas arăta prost când era folosit ca
+          explicație generală; asta e locul dedicat pt „ce am vrut să zic prin desen". */}
+      {noteOpen && (
+        <div className="z-20 flex-none border-b border-border bg-card px-[18px] py-3">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value.slice(0, MAX_SKETCH_NOTE_LENGTH))}
+            maxLength={MAX_SKETCH_NOTE_LENGTH}
+            rows={2}
+            placeholder="Explică aici ce ai vrut să arăți prin desen (opțional) — apare sub schiță, pt cine citește…"
+            className="w-full resize-none rounded-[10px] border border-input bg-background px-3.5 py-2.5 font-sans text-sm text-foreground outline-none focus:border-ring"
+          />
+          <p className="mt-1 text-right font-mono text-[11px] text-muted-foreground">
+            {note.length} / {MAX_SKETCH_NOTE_LENGTH}
+          </p>
+        </div>
       )}
 
       {/* SUPRAFAȚA DE DESEN */}

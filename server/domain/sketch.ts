@@ -14,17 +14,25 @@ export const SKETCH_STATUS = {
 } as const;
 export type SketchStatus = (typeof SKETCH_STATUS)[keyof typeof SKETCH_STATUS];
 
+// Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie Liviu după ce
+// tool-ul de Text cu ancoră în margine a arătat prost în practică — un câmp dedicat e mai clar decât text
+// liber plasat pe canvas). Opțională; goală → nu se afișează la citire.
+export const MAX_SKETCH_NOTE_LENGTH = 500;
+export type SketchNoteError = "TOO_LONG";
+export function validateSketchNote(input: unknown): { ok: true; value: string | null } | { ok: false; error: SketchNoteError } {
+  if (input == null) return { ok: true, value: null };
+  if (typeof input !== "string") return { ok: false, error: "TOO_LONG" };
+  const trimmed = input.trim();
+  if (trimmed.length === 0) return { ok: true, value: null };
+  if (trimmed.length > MAX_SKETCH_NOTE_LENGTH) return { ok: false, error: "TOO_LONG" };
+  return { ok: true, value: trimmed };
+}
+
 // Paletă de schiță: culori stridente dar aliniate la brandul cald DETALIA (teracotă/ocru/cărămiziu),
 // condusă de grafit (adnotare tehnică) — toate pop bine peste detaliul-mamă estompat. Single source: schimbă aici.
 // Grosimile sunt px la o lățime de referință de 1000 (vezi REFERENCE_WIDTH în randare) — scalate la randare.
 export const STROKE_COLORS = ["#211d18", "#b0463c", "#d97a1e", "#caa12e", "#2f8f5f", "#2f6fb0"] as const;
 export const STROKE_WIDTHS = [8, 16, 28] as const;
-
-// Marginea din jurul foii unde poate sta DOAR text (2026-07-16, cerere Edi): restul uneltelor (creion,
-// forme) trebuie să rămână pe desen (0..1 strict) — n-are sens o linie/formă desenată în gol, dar o
-// notă explicativă lângă desen (nu peste el) e utilă. Valoare = fracțiune din lățimea/înălțimea foii,
-// IDENTICĂ cu cea din editor (sketch-canvas.tsx) — o singură sursă de adevăr pt bound.
-export const TEXT_MARGIN = 0.22;
 
 // Un punct = [x, y] normalizat 0..1 față de imaginea-mamă (rezoluție-agnostic).
 export type Point = [number, number];
@@ -60,10 +68,8 @@ export type StrokesValidationResult =
   | { ok: true; value: Stroke[] }
   | { ok: false; error: "TOO_MANY_STROKES" | "INVALID_STROKE" | "EMPTY" | "TOO_LARGE" };
 
-// „text" poate ieși în marginea foii (TEXT_MARGIN) — restul uneltelor rămân strict pe imagine (0..1).
-function isInStrokeBounds(n: unknown, kind: StrokeKind): n is number {
-  if (typeof n !== "number" || !Number.isFinite(n)) return false;
-  return kind === "text" ? n >= -TEXT_MARGIN && n <= 1 + TEXT_MARGIN : n >= 0 && n <= 1;
+function isNormalized(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
 }
 
 // Validează + normalizează structural lista de stroke-uri (server = sursa de adevăr).
@@ -117,12 +123,7 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 
     const points: Point[] = [];
     for (const p of s.points) {
-      if (
-        !Array.isArray(p) ||
-        p.length !== 2 ||
-        !isInStrokeBounds(p[0], kind) ||
-        !isInStrokeBounds(p[1], kind)
-      ) {
+      if (!Array.isArray(p) || p.length !== 2 || !isNormalized(p[0]) || !isNormalized(p[1])) {
         return { ok: false, error: "INVALID_STROKE" };
       }
       points.push([p[0], p[1]]);

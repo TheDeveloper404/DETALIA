@@ -41,7 +41,6 @@ import {
   MAX_TEXT_LENGTH,
   STROKE_COLORS,
   STROKE_WIDTHS,
-  TEXT_MARGIN,
   type Point,
   type Stroke,
 } from "@/server/domain/sketch";
@@ -57,15 +56,6 @@ function isShapeTool(t: Tool | null): t is (typeof SHAPE_TOOLS)[number] {
 const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 3;
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
-
-const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
-// Restul uneltelor (creion/forme/radieră) rămân pe foaie; textul poate ieși în margine (TEXT_MARGIN,
-// IDENTIC cu bound-ul server din server/domain/sketch.ts — nu are rost să accepți client ce respinge server).
-const clampSheet = (p: number[]): number[] => [clamp(p[0], 0, 1), clamp(p[1], 0, 1)];
-const clampText = (p: number[]): number[] => [
-  clamp(p[0], -TEXT_MARGIN, 1 + TEXT_MARGIN),
-  clamp(p[1], -TEXT_MARGIN, 1 + TEXT_MARGIN),
-];
 
 // Uneltele de desen din rail (ordine + iconițe). Radiera și undo/redo stau separat.
 const TOOL_ITEMS: { value: Tool; label: string; Icon: typeof Pencil }[] = [
@@ -234,11 +224,6 @@ export const SketchCanvas = forwardRef<
   // automat după ce fixezi un text: vrei să revii la cursor, nu să rămâi pe o unealtă de desen.
   const [tool, setTool] = useState<Tool | null>("pen");
   const [dims, setDims] = useState({ w: 0, h: 0 });
-  // Marginea din jurul foii (px), unde poți scrie text fără să te suprapui peste desen — vezi TEXT_MARGIN.
-  const marginX = Math.round(dims.w * TEXT_MARGIN);
-  const marginY = Math.round(dims.h * TEXT_MARGIN);
-  const canvasW = dims.w + marginX * 2;
-  const canvasH = dims.h + marginY * 2;
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   // Caseta de text în curs de tastare (poziție normalizată 0..1 + valoare + unghi la editare). null = niciuna.
@@ -383,33 +368,24 @@ export const SketchCanvas = forwardRef<
       // „iasă" schița în evidență, fiindcă grila din spate răzbătea prin el (nenatural). În loc, punem o
       // FOAIE semitransparentă peste el (mai jos) — ca în realitate: schița stă pe o coală translucidă
       // așezată peste detaliul opac, nu invers.
-      ctx.drawImage(img, marginX, marginY, dims.w, dims.h);
-      // Foaia semitransparentă a schiței, strict pe zona desenului — nu lasă nimic din grilă/margine să
-      // răzbată, doar estompează detaliul de dedesubt ca schița nouă să iasă în evidență.
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      // Foaia semitransparentă a schiței — doar estompează detaliul de dedesubt ca schița nouă să iasă
+      // în evidență.
       ctx.fillStyle = "rgba(250,247,241,0.55)";
-      ctx.fillRect(marginX, marginY, dims.w, dims.h);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    // Conturul foii — separă vizual „pe desen" (strict, restul uneltelor) de „margine" (doar text).
-    ctx.strokeStyle = "rgba(120,105,80,0.22)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(marginX + 0.5, marginY + 0.5, dims.w - 1, dims.h - 1);
 
-    // Stroke-urile sunt normalizate FAȚĂ DE IMAGINE (dims.w/h) — translatăm ctx cu marginea ca să cadă
-    // corect pe canvas (care e mai mare decât imaginea). Textul poate ieși din 0..1 → cade în margine.
-    ctx.save();
-    ctx.translate(marginX, marginY);
-    renderStrokes(ctx, strokes, dims.w, dims.h);
-    if (temp) renderStrokes(ctx, [temp], dims.w, dims.h);
-    ctx.restore();
+    renderStrokes(ctx, strokes, canvas.width, canvas.height);
+    if (temp) renderStrokes(ctx, [temp], canvas.width, canvas.height);
 
     // Contur de selecție pentru textul ales (casetă punctată, rotită ca textul).
     if (selIndex != null) {
       const s = strokes[selIndex];
       if (s && s.kind === "text") {
-        const box = measureTextBox(ctx, s, dims.w, dims.h);
+        const box = measureTextBox(ctx, s, canvas.width, canvas.height);
         const pad = 5;
         ctx.save();
-        ctx.translate(marginX + box.x, marginY + box.y);
+        ctx.translate(box.x, box.y);
         ctx.rotate(s.angle ?? 0);
         ctx.setLineDash([6, 4]);
         ctx.strokeStyle = "rgba(33,29,24,0.55)";
@@ -419,7 +395,7 @@ export const SketchCanvas = forwardRef<
         ctx.setLineDash([]);
       }
     }
-  }, [dims, marginX, marginY]);
+  }, []);
 
   // Zoom cu rotița mouse-ului, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există
   // pagină dedesubt de scrollat, deci nu se pierde nimic (2026-07-06, decizie Liviu). Listener non-passive
@@ -448,16 +424,11 @@ export const SketchCanvas = forwardRef<
   }, []);
 
   // ── Desen ──────────────────────────────────────────────────────────────────
-  // Coordonate normalizate 0..1 FAȚĂ DE IMAGINE (nu de tot elementul canvas, care acum include marginea
-  // de text) — NEscalate aici: pot ieși din 0..1 (în margine). Fiecare unealtă își aplică bound-ul propriu
-  // (clampSheet pt creion/forme/radieră, clampText pt text) la punctul de utilizare.
   function normPoint(e: React.PointerEvent): number[] {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const fracX = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
-    const fracY = rect.height > 0 ? (e.clientY - rect.top) / rect.height : 0;
-    const x = dims.w > 0 ? (fracX * canvasW - marginX) / dims.w : 0;
-    const y = dims.h > 0 ? (fracY * canvasH - marginY) / dims.h : 0;
+    const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
     return [x, y];
   }
 
@@ -580,31 +551,26 @@ export const SketchCanvas = forwardRef<
           }
         }
       }
-      // Click pe gol: tool Text → deschide o casetă nouă (poate fi în margine); neutru → doar deselectează.
+      // Click pe gol: tool Text → deschide o casetă nouă; neutru → doar deselectează.
       setSelected(null);
-      if (tool === "text") {
-        const [tx, ty] = clampText(p);
-        setTextDraft({ x: tx, y: ty, value: "" });
-      }
+      if (tool === "text") setTextDraft({ x: p[0], y: p[1], value: "" });
       return;
     }
     canvasRef.current?.setPointerCapture(e.pointerId);
-    // Creion/forme/radieră rămân STRICT pe foaie (marginea e doar pt text) — clamp la 0..1.
-    const sp = clampSheet(p);
     if (tool === "eraser") {
       drawingRef.current = { drawing: true, points: [] };
       eraseRef.current = { base: present, removed: new Set() };
-      applyErase(sp);
+      applyErase(p);
       return;
     }
     if (isShapeTool(tool)) {
       // Formele țin capătul de start + capătul curent (index 1, actualizat la move).
-      drawingRef.current = { drawing: true, points: [sp, sp] };
-      redraw(present, makeStroke([sp, sp], tool));
+      drawingRef.current = { drawing: true, points: [p, p] };
+      redraw(present, makeStroke([p, p], tool));
       return;
     }
-    drawingRef.current = { drawing: true, points: [sp] };
-    redraw(present, makeStroke([sp], "free"));
+    drawingRef.current = { drawing: true, points: [p] };
+    redraw(present, makeStroke([p], "free"));
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -625,12 +591,12 @@ export const SketchCanvas = forwardRef<
       setPan({ x: d.origX + (e.clientX - d.startX), y: d.origY + (e.clientY - d.startY) });
       return;
     }
-    // Mutarea textului selectat (drag) — independentă de desen. Poate ajunge în margine (clampText),
-    // NU doar pe foaie — asta e chiar rostul marginii (notă lângă desen, nu peste el).
+    // Mutarea textului selectat (drag) — independentă de desen.
     if (dragRef.current) {
       const d = dragRef.current;
       const p = normPoint(e);
-      const [nx, ny] = clampText([d.origX + (p[0] - d.startX), d.origY + (p[1] - d.startY)]);
+      const nx = Math.min(1, Math.max(0, d.origX + (p[0] - d.startX)));
+      const ny = Math.min(1, Math.max(0, d.origY + (p[1] - d.startY)));
       if (Math.abs(p[0] - d.startX) > 0.002 || Math.abs(p[1] - d.startY) > 0.002) d.moved = true;
       const next = present.map((s, i) =>
         i === d.index ? { ...s, points: [[nx, ny]] as Point[] } : s,
@@ -640,7 +606,7 @@ export const SketchCanvas = forwardRef<
       return;
     }
     if (!drawingRef.current.drawing) return;
-    const p = clampSheet(normPoint(e)); // creion/forme/radieră rămân pe foaie, chiar dacă pointerul iese
+    const p = normPoint(e);
     if (tool === "eraser") {
       applyErase(p);
       return;
@@ -865,21 +831,20 @@ export const SketchCanvas = forwardRef<
           </button>
         </div>
 
-        {/* Wrapper la dimensiunea canvas-ului (foaie + margine de text, scalat de zoom) → ancorează
-            input-ul flotant de text, inclusiv în margine. */}
+        {/* Wrapper la dimensiunea exactă a foii (scalat de zoom) → ancorează input-ul flotant de text. */}
         <div
           className="relative z-[4]"
           style={{
-            width: canvasW,
-            height: canvasH,
+            width: dims.w,
+            height: dims.h,
             transform: `translate(${pan.x}px, ${pan.y}px)${zoom !== 1 ? ` scale(${zoom})` : ""}`,
             transformOrigin: "center center",
           }}
         >
           <canvas
             ref={canvasRef}
-            width={canvasW}
-            height={canvasH}
+            width={dims.w}
+            height={dims.h}
             // Previne focus-steal-ul nativ (mousedown mută focusul pe body) care altfel ar închide instant
             // caseta de text abia deschisă (onBlur → commit gol). Desenul merge pe pointer events, neafectat.
             onMouseDown={(e) => e.preventDefault()}
@@ -889,8 +854,8 @@ export const SketchCanvas = forwardRef<
             onPointerLeave={onPointerUp}
             className="block touch-none rounded-lg bg-[#faf7f1] shadow-sm ring-1 ring-foreground/10"
             style={{
-              width: canvasW,
-              height: canvasH,
+              width: dims.w,
+              height: dims.h,
               cursor: !tool
                 ? "default"
                 : tool === "pan"
@@ -933,8 +898,8 @@ export const SketchCanvas = forwardRef<
               placeholder="scrie…"
               className="absolute z-[6] resize-none overflow-hidden whitespace-pre rounded-[2px] p-0 outline-none placeholder:text-foreground/25"
               style={{
-                left: textDraft.x * dims.w + marginX,
-                top: textDraft.y * dims.h + marginY,
+                left: textDraft.x * dims.w,
+                top: textDraft.y * dims.h,
                 color,
                 caretColor: color,
                 // Fundal-hârtie subtil DOAR cât tastezi (lizibilitate) — fără bordură; la fixare devine text cu halou.
@@ -944,7 +909,7 @@ export const SketchCanvas = forwardRef<
                 fontSize: textFontPx,
                 lineHeight: 1.3,
                 minWidth: 40,
-                maxWidth: canvasW - (textDraft.x * dims.w + marginX),
+                maxWidth: dims.w - textDraft.x * dims.w,
               }}
             />
           )}
@@ -954,8 +919,8 @@ export const SketchCanvas = forwardRef<
             <div
               className="absolute z-[7] flex -translate-y-full items-center gap-0.5 rounded-lg border border-[#e6dccd] bg-white/95 p-1 shadow-md"
               style={{
-                left: (present[selected].points[0]?.[0] ?? 0) * dims.w + marginX,
-                top: (present[selected].points[0]?.[1] ?? 0) * dims.h + marginY - 8,
+                left: (present[selected].points[0]?.[0] ?? 0) * dims.w,
+                top: (present[selected].points[0]?.[1] ?? 0) * dims.h - 8,
               }}
               // Nu lăsa click-urile pe bară să ajungă la canvas (ar deselecta / crea text).
               onPointerDown={(e) => e.stopPropagation()}
