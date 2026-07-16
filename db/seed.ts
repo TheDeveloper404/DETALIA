@@ -6,12 +6,13 @@
 // Rulează cu: `npm run db:seed`. Cere DATABASE_URL (Neon).
 import { config } from "dotenv";
 
-// Taxonomia finală (Edi, `lista_categorii.md`, actualizată 2026-07-06 — ordine document + „Scări" +
-// ierarhie reală pe 3 niveluri). Secțiuni = grupare vizuală (părinte, neselectabilă în UI). Unele
-// „capitole" (Fundație, Acoperiș, Instalații, Fațadă) se împart la rândul lor în sub-categorii — capitolul
-// însuși NU e bifabil, doar copiii lui (Edi: „Instalații este denumirea capitolului. Instalațiile se
-// împart în cele patru [Electrice/Sanitare/Termice/HVAC]"). Restul frunzelor sunt bifabile direct
-// (Edi: „bifezi oricâte", stil tag Pinterest) prin tabelul many-to-many `detail_categories`.
+// Taxonomia finală (Edi, `lista_categorii.md`, actualizată 2026-07-16 — redenumiri + Amenajări exterioare
+// / Scări devenite capitole + categoria Mobilier). Secțiuni = grupare vizuală (părinte, neselectabilă în UI).
+// Unele „capitole" (Fundație, Acoperiș, Instalații, Fațadă, Amenajări exterioare, Scări) se împart la
+// rândul lor în sub-categorii — capitolul însuși NU e bifabil, doar copiii lui. Frunzele au numele
+// PĂRINTELUI copiat în etichetă (ex. „Fundație beton", nu doar „Beton") — modelul e IDENTIC cu Rol/Subrol:
+// capitolul e doar organizare admin, categoria (frunza) e ce apare ca badge lângă detaliu (Edi, 2026-07-16).
+// Restul frunzelor fără copii sunt bifabile direct (stil tag Pinterest) prin many-to-many `detail_categories`.
 // ORDINEA contează — NU se mai sortează alfabetic, ci după `position` (vezi categoriesRepo.ts).
 type Leaf = { slug: string; name: string; children?: { slug: string; name: string }[] };
 const SECTIONS: { slug: string; name: string; leaves: Leaf[] }[] = [
@@ -23,8 +24,8 @@ const SECTIONS: { slug: string; name: string; leaves: Leaf[] }[] = [
         slug: "fundatie",
         name: "Fundație",
         children: [
-          { slug: "beton", name: "Beton" },
-          { slug: "micropiloti-insurubati", name: "Micropiloți înșurubați" },
+          { slug: "beton", name: "Fundație beton" },
+          { slug: "micropiloti-insurubati", name: "Fundație micropiloți" },
         ],
       },
       { slug: "perete", name: "Perete" },
@@ -33,8 +34,9 @@ const SECTIONS: { slug: string; name: string; leaves: Leaf[] }[] = [
         slug: "acoperis",
         name: "Acoperiș",
         children: [
-          { slug: "sarpanta", name: "Șarpantă" },
-          { slug: "tip-terasa", name: "Tip terasă" },
+          { slug: "sarpanta", name: "Acoperiș tip șarpantă" },
+          { slug: "tip-terasa", name: "Acoperiș tip terasă" },
+          { slug: "cos-de-fum", name: "Coș de fum" },
         ],
       },
       { slug: "tamplarie", name: "Tâmplărie" },
@@ -42,24 +44,40 @@ const SECTIONS: { slug: string; name: string; leaves: Leaf[] }[] = [
         slug: "instalatii",
         name: "Instalații",
         children: [
-          { slug: "electrice", name: "Electrice" },
-          { slug: "sanitare", name: "Sanitare" },
-          { slug: "termice", name: "Termice" },
-          { slug: "hvac", name: "HVAC" },
+          { slug: "electrice", name: "Instalații electrice" },
+          { slug: "sanitare", name: "Instalații sanitare" },
+          { slug: "termice", name: "Instalații termice" },
+          { slug: "hvac", name: "Instalații HVAC" },
         ],
       },
       {
         slug: "fatada",
         name: "Fațadă",
         children: [
-          { slug: "termosistem-clasic", name: "Termosistem clasic (vată/polistiren)" },
+          { slug: "termosistem-clasic", name: "Fațadă termosistem" },
           { slug: "fatada-ventilata", name: "Fațadă ventilată" },
           { slug: "fatada-cortina", name: "Fațadă cortină" },
         ],
       },
       { slug: "amenajari-interioare", name: "Amenajări interioare" },
-      { slug: "amenajari-exterioare", name: "Amenajări exterioare" },
-      { slug: "scari", name: "Scări" },
+      {
+        slug: "amenajari-exterioare",
+        name: "Amenajări exterioare",
+        children: [
+          { slug: "imprejmuiri", name: "Împrejmuiri" },
+          { slug: "alei", name: "Alei" },
+        ],
+      },
+      {
+        slug: "scari",
+        name: "Scări",
+        children: [
+          { slug: "scari-beton", name: "Scări beton" },
+          { slug: "scari-lemn", name: "Scări lemn" },
+          { slug: "scari-metalice", name: "Scări metalice" },
+        ],
+      },
+      { slug: "mobilier", name: "Mobilier" },
     ],
   },
   {
