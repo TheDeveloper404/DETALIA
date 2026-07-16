@@ -264,7 +264,16 @@ export async function setCoverPosition(userId: string, position: number): Promis
 
 export type UpdateDetailsResult =
   | { ok: true }
-  | { ok: false; reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" };
+  | { ok: false; reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" | "INVALID_PHONE" };
+
+// SEC-03: telefonul ajunge direct într-un `href="tel:..."` (profile-view.tsx) — allowlist la INPUT,
+// ca la website (normalizeWebsite), nu doar text liber netrecut prin nimic. Cifre, spații, +, -, (, ).
+const PHONE_ALLOWED = /^[0-9 +().-]+$/;
+function normalizePhone(raw: string | null): { ok: true; value: string | null } | { ok: false } {
+  if (raw === null) return { ok: true, value: null };
+  if (!PHONE_ALLOWED.test(raw)) return { ok: false };
+  return { ok: true, value: raw };
+}
 
 // Editează câmpurile de text ale profilului (NU rolul, definitiv). Numele obligatoriu; restul opțional.
 // SEC-03: website cu allowlist http/https la INPUT (nu doar la randare). Primește string-uri brute din action.
@@ -289,6 +298,9 @@ export async function updateProfileDetails(
   const websiteRes = normalizeWebsite(clip(input.website, WEBSITE_MAX));
   if (!websiteRes.ok) return { ok: false, reason: "INVALID_WEBSITE" };
 
+  const phoneRes = normalizePhone(clip(input.phone, PHONE_MAX));
+  if (!phoneRes.ok) return { ok: false, reason: "INVALID_PHONE" };
+
   await updateUserDetails(userId, {
     name,
     headline: clip(input.headline, HEADLINE_MAX),
@@ -296,7 +308,7 @@ export async function updateProfileDetails(
     location: clip(input.location, LOCATION_MAX),
     website: websiteRes.value,
     company: clip(input.company, COMPANY_MAX),
-    phone: clip(input.phone, PHONE_MAX),
+    phone: phoneRes.value,
     phoneVisible: input.phoneVisible,
     emailVisible: input.emailVisible,
   });

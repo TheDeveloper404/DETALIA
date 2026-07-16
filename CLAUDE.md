@@ -250,6 +250,15 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   verifică efectiv (accessible name poate concatena text+counter, ex. „Șarpantă 1" nu „Șarpantă"; un ordinal
   citit ÎNAINTE ca a doua entitate să existe poate să nu fie încă setat). `tsc`/`lint` prind erori de tip, NU
   erori de logică de test — nu sunt suficiente pt „gata" pe cod de test.
+- **`ref={...}` pe un element din interiorul unui bloc randat condiționat `{stateTogglabil && (...)}`**
+  (bug CRITIC găsit 2026-07-16, `detail-actions-menu.tsx`): dacă starea condiției e un toggle real
+  (`useState` cu setter, ex. `open`/`setOpen`), elementul (și ref-ul lui) se demontează când condiția
+  devine false — orice cod care apelează `ref.current` mai târziu (ex. dintr-un dialog de confirmare
+  deschis separat, într-un alt render) găsește `null` și eșuează silențios (fără eroare vizibilă, doar
+  acțiunea nu se mai întâmplă). Elementele cu `ref` folosit AFARA momentului randării condiționate
+  trebuie montate PERMANENT (props stabile ca `isAuthor`/`canDeleteActiveSketch` sunt OK în bloc
+  condiționat — nu comută niciodată; state togglabil NU e OK). Hook automat: `warn-conditional-ref.js`
+  (heuristică, nu infailibil — verific manual dacă hook-ul tace, nu presupun automat că e sigur).
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul
@@ -257,7 +266,13 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 - **`SCHEMA.md` / `API.md` = design docs; sursa de adevăr e CODUL.** La divergență câștigă codul; actualizează
   docul sau marchează „verifică în cod".
 - **CI** (`.github/workflows/ci.yml`): type-check + lint + build pe fiecare PR (dev/main). Build verde ≠ teste verzi.
-- **Hooks locale** (`.claude/`, NU în repo — opțiunea A): `block-pii-log`, `block-secrets`, `block-push-main`, `lint-web`.
+- **Hooks locale** (`.claude/`, NU în repo — opțiunea A): `block-pii-log`, `block-secrets`, `block-push-main`,
+  `lint-web`, `warn-conditional-ref` (semnalează `ref` în bloc condiționat pe state togglabil — vezi
+  capcana de mai sus), `review-checkpoint` (contor mecanic: peste 12 modificări de cod de producție de la
+  ultimul `/code-review` real → blochează, cere explicit review-ul; reset la invocarea skill-ului
+  `code-review`). **De ce mecanic, nu doar memorie** (2026-07-16): regula de proces „nu înlănțui feature
+  după feature fără verificare" era deja notată explicit în memorie și tot a fost sărită de mai multe ori
+  în aceeași sesiune — un contor care blochează efectiv nu se poate „uita".
 
 ---
 

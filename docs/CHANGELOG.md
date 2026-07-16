@@ -4,6 +4,145 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — 2 eșecuri e2e din `npm run e2e` (91/93 → 93/93) — flakiness de test-infra, NU bug de produs
+
+Liviu a rulat suita completă (97 teste) și a raportat 2 eșecuri + alerte Slack PostHog false pe signup-uri noi.
+
+**PostHog — alerte false „useri noi înregistrați".** Root-cause confirmat direct din DB (`execute-sql`):
+evenimente `onboarding_completed` cu `$lib: posthog-node`, la timestamp-uri ce coincid exact cu rulările
+e2e — testele de onboarding ating mediul real (preview), nu un mock. `test_account_filters` era doar un
+cohort static, nu excludea dinamic conturile efemere `@detalia.test`. Fix (aplicat cu confirmare explicită
+Liviu): adăugat `{key:"email", operator:"not_icontains", value:"@detalia.test"}` la filtrul de test
+accounts al proiectului PostHog.
+
+**`profile-contact.spec.ts` — race pe user shared.** Confirmat direct din DB: `phone` rămânea `null` deși
+testul îl seta. Cauză: `profile-edit.spec.ts` retrimite ÎNTREG formularul de profil (headline) pe ACELAȘI
+`testerUserId`, concurent (worker diferit) — submisia lui suprascria telefonul abia salvat de testul meu.
+Fix: testul de „proprietar completează telefon" folosește acum un user DEDICAT, izolat (JWT `encode()`
+propriu + rol inserat direct în DB), exact pattern-ul din `suspended.spec.ts`/`onboarding.spec.ts`, nu mai
+atinge `testerUserId` shared. Reverificat: 6/6 teste trec.
+
+**`sketch.spec.ts:74` — flaky, NU bug.** Trace Playwright arată request-ul de delete cu răspuns 200 +
+`x-action-revalidated: 1` (server action a rulat corect, schița chiar s-a șters), dar
+`net::ERR_ABORTED` pe client — răspunsul a fost abandonat de o navigare RSC concurentă înainte ca UI-ul
+să aplice noile date, deci tab-ul a rămas vizual stale. Cauză de concurență pe preview (multe spec-uri
+rulează în paralel pe aceeași sesiune), nu bug de logică — rulat izolat de 2 ori, trece constant. Niciun
+cod atins.
+
+---
+
+## 2026-07-16 — Code review complet (`/code-review high`) pe toată sesiunea — 3 bug-uri reale găsite și reparate
+
+La cererea lui Liviu (prea multe bug-uri ieșite azi la rulare) — review complet, 4 unghiuri paralele,
+scope `git diff a98dbec...HEAD` + uncommitted (~1800 linii/40 fișiere, tot ce s-a schimbat azi).
+
+**1. BUG CRITIC — introdus chiar de fix-ul de azi pentru dialogul de ștergere.** Formularele
+`deleteSketchAction`/`deleteDetailAction` (cu `ref`) stăteau în interiorul `{open && (...)}` din
+`detail-actions-menu.tsx`. Butonul de ștergere făcea `setOpen(false)` ȘI deschidea `ConfirmDialog` în
+același click → meniul se închidea, formularul se demonta, ref-ul devenea `null`. La „Șterge" din
+dialog (randat într-un pas ulterior), `formRef.current?.requestSubmit()` era no-op silențios —
+**ștergerea nu se mai executa deloc**, doar dialogul se închidea. Fix: formularele mutate în afara
+condiției `open &&`, montate permanent; meniul conține doar butoanele-declanșator.
+
+**2. Bug real — race condition la „ridic mâna" Furnizor.** `toggleSupplierOffer` decidea
+notificarea pe baza unei citiri separate (`isSupplierOfferedByUser`) ÎNAINTE de scriere — dublu-click
+sau tab dublu puteau ambele citi „nu oferta încă" înainte ca vreuna să scrie, trimițând 2 notificări
+pentru un singur eveniment real. Fix: tranziție atomică — `insertSupplierOfferIfAbsent` (returnează
+dacă insertul chiar a avut loc, via `.returning()` pe `onConflictDoNothing`) decide notificarea, nu o
+citire prealabilă. Același tipar ca `upsertDisapprovalIfTransition` de la validări.
+
+**3. Bug real — telefon fără validare de format înainte de `href="tel:..."`.** Spre deosebire de
+website (`normalizeWebsite`/allowlist http/https), telefonul trecea doar prin `clip()` (trim + tăiere),
+fără allowlist de caractere, deși ajunge direct într-un atribut `href`. Fix: `normalizePhone` — doar
+cifre, spații, `+ - ( )`, cu eroare `INVALID_PHONE` altfel.
+
+**Fix-uri suplimentare de consistență/accesibilitate găsite la aceeași trecere:**
+- `ConfirmDialog` + modalul „Date de contact" nu se închideau la tasta Escape (doar lightbox-ul de
+  imagine o făcea) — adăugat handler consecvent pe toate 3 modalele.
+- Query-uri neparalelizate pe `app/(app)/details/[id]/page.tsx` (isDetailSaved/getUserRole/
+  getSupplierOffers/isOfferingSupplier parțial secvențiale) — grupate într-un singur `Promise.all`,
+  elimină latență evitabilă pe fiecare încărcare de pagină detaliu.
+
+**Găsit și documentat, nefăcut (decizie: cost/beneficiu, nu e bug):** 3 implementări separate de modal
+(`confirm-dialog.tsx`, `resource-image.tsx` lightbox, `send-to-canvas-modal.tsx` existent) — cauza
+directă a bug-ului de coliziune `aria-pressed` din sesiunea de azi. Un `PillToggle` comun ar fi
+prevenit acea clasă de bug, dar extragerea acum ar fi scope creep neautorizat — de propus separat.
+
+**Testat:** `server/services/supplierOfferService.test.ts` (mock-uri + test de regresie actualizate pt
+tranziția atomică). `tsc --noEmit`, `lint`, `next build`, `vitest` (191/191) — toate verzi.
+**IMPORTANT:** bug-ul critic #1 (ștergere complet ruptă) NU a fost prins de nicio verificare automată
+rulată până acum azi (tsc/lint/build/vitest nu-l detectează — e runtime, doar în browser) — abia
+`e2e/sketch.spec.ts` (deja scris azi, neîncă rulat cu acest fix) îl exercită real.
+
+---
+
+## 2026-07-16 — Fix: 3 bug-uri de test E2E găsite la rularea reală (nu bug-uri de aplicație)
+
+Descoperite prin rulare efectivă (`npx playwright test e2e/detail-edit.spec.ts`), nu presupuse:
+
+1. **`golirea tuturor categoriilor`** — selectorul global `button[aria-pressed="true"]` (fără scop)
+   prindea acum și pill-urile noi de Locație (au `aria-pressed` la fel). Fix: `data-testid=
+   "category-dropdown-panel"` adăugat pe panoul dropdown (`detail-form.tsx`) + selector scopat în test.
+2. **Același test, al doilea eșec după fix #1** — `.count()` e sincron, citea DOM-ul înainte ca panoul
+   să apuce să se monteze (re-render React după click) → 0 fals, categoriile rămâneau nebifate. Fix:
+   `await expect(panel).toBeVisible()` explicit înainte de `.count()`.
+3. **„Altă locație” fără text completat`** — testul nu golea explicit câmpul; starea rămasă de la
+   testul anterior din același bloc (locație deja „Italia, Roma") făcea submisia validă, nu goală.
+   Fix: `fill("")` explicit înainte de submit.
+
+**Testat:** `npx playwright test e2e/detail-edit.spec.ts` local — 8/8 verzi după fix-uri.
+
+**Alte 2 bug-uri găsite la rularea suitei complete (`npm run e2e`, 97 teste):**
+
+4. **BUG REAL DE APLICAȚIE** — meniul „Acțiuni detaliu" (`detail-actions-menu.tsx`) NU se închidea
+   când se deschidea dialogul de confirmare la ștergere (butoanele Șterge schiță/detaliu apelau doar
+   `setConfirmDelete(...)`, spre deosebire de toate celelalte iteme din meniu care fac `setOpen(false)`).
+   Meniul + backdrop-ul lui full-viewport rămâneau montate sub dialog → după „Anulează", backdrop-ul
+   bloca orice click ulterior (deadlock — inclusiv re-deschiderea meniului). Fix: `setOpen(false)`
+   adăugat pe ambele butoane de ștergere, la fel ca restul meniului. Găsit prin rularea reală a
+   `e2e/sketch.spec.ts` (testul actualizat mai devreme azi pentru noul dialog).
+5. **Race condition de test** (`e2e/onboarding.spec.ts`) — testul nou de restructurare roluri refolosea
+   din greșeală EMAIL-ul fix al testului existent (`ensureRoleLessUser`, fără `describe.serial` între
+   ele) → cele două teste rulau în paralel pe ACELAȘI user din DB, unul termina onboarding-ul primul,
+   celălalt lovea „Ai deja un rol declarat" și rămânea blocat pe `/onboarding`. Fix: helper generalizat
+   să accepte email/nume ca parametri, testul nou primește un user complet separat.
+
+**Testat:** `tsc --noEmit`, `lint`, `next build`, `vitest` (190/190) — verzi după ambele fix-uri.
+
+---
+
+## 2026-07-16 — Fix: confirmare ștergere stil platformă (nu window.confirm nativ)
+
+**Cerere Edi:** „Șterge schița"/„Șterge detaliul" arătau popup-ul nativ al browserului, inconsecvent
+vizual cu restul platformei. Clasificare: SMALL (UI, fără schimbare de business logic).
+
+- **`components/confirm-dialog.tsx`** (nou) — dialog reutilizabil (Anulează/Șterge), stil platformă.
+- **`detail-actions-menu.tsx`**: butoanele de ștergere devin `type="button"` (deschid dialogul, nu mai
+  trimit formularul direct); confirmarea reală trimite formularul prin `requestSubmit()` pe un `ref`.
+- **Test existent actualizat, nu doar unul nou adăugat** (`e2e/sketch.spec.ts`): testul de ștergere
+  schiță se baza pe `page.once("dialog", ...)` (evenimentul nativ al browserului) — cu fix-ul, acel
+  eveniment nu mai apare deloc, testul ar fi rămas blocat. Actualizat să interacționeze cu dialogul nou
+  + adăugat un pas de „Anulează" (verifică explicit că nu șterge) înainte de confirmarea reală.
+
+**Testat:** `e2e/sketch.spec.ts` (actualizat) + `tsc --noEmit`, `lint`, `next build` — verzi.
+
+---
+
+## 2026-07-16 — Fix: „Date de contact" grupate într-un modal (nu mai împing „Editează profil")
+
+**Cerere Edi:** bifarea vizibilității telefon/email pe profil adăuga chip-uri în antet, care împingeau
+butonul „Editează profil". Clasificare: SMALL (UI, fără schimbare de date).
+
+- Locație/Firmă/Website/Telefon/Email scoase din rândul de antet → grupate într-un buton „Date de
+  contact" (apare doar dacă există cel puțin un câmp completat) → deschide un modal cu toate.
+- Antetul rămâne stabil (doar rolul + butonul de contact), indiferent câte câmpuri de contact are userul.
+
+**Testat:** `e2e/profile-contact.spec.ts` (3 din cele 5 teste existente actualizate — datele acum stau
+în modal, nu direct în DOM vizibil, trebuiau să deschidă „Date de contact" întâi). `tsc --noEmit`,
+`lint`, `next build` — verzi.
+
+---
+
 ## 2026-07-16 — Feature: telefon + email opțional pe profil, vizibilitate opt-in per câmp
 
 **Cerere Edi:** dacă doi useri vor să comunice, user1 poate vedea telefonul/emailul lui user2 —

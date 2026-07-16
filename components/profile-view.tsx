@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 
@@ -78,6 +78,17 @@ type Tab = "detalii" | "schite" | "activitate";
 
 export function ProfileView({ data }: { data: ProfileViewData }) {
   const [tab, setTab] = useState<Tab>("detalii");
+  const [contactOpen, setContactOpen] = useState(false);
+  const hasContactInfo = !!(data.location || data.company || data.website || data.phone || data.email);
+
+  useEffect(() => {
+    if (!contactOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setContactOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [contactOpen]);
 
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
@@ -133,41 +144,14 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
               <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
-              {data.location && (
-                <span className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground">
-                  <Pin /> {data.location}
-                </span>
-              )}
-              {data.company && (
-                <span className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground">
-                  <Building /> {data.company}
-                </span>
-              )}
-              {data.website && (
-                <a
-                  href={data.website.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[13.5px] text-primary underline-offset-2 hover:underline"
+              {hasContactInfo && (
+                <button
+                  type="button"
+                  onClick={() => setContactOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[13px] font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
                 >
-                  {data.website.label}
-                </a>
-              )}
-              {data.phone && (
-                <a
-                  href={`tel:${data.phone}`}
-                  className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground hover:text-primary"
-                >
-                  <PhoneIcon /> {data.phone}
-                </a>
-              )}
-              {data.email && (
-                <a
-                  href={`mailto:${data.email}`}
-                  className="inline-flex items-center gap-1.5 text-[13.5px] text-muted-foreground hover:text-primary"
-                >
-                  <MailIcon /> {data.email}
-                </a>
+                  <Contact /> Date de contact
+                </button>
               )}
             </div>
           </div>
@@ -181,6 +165,73 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             </a>
           )}
         </div>
+
+        {/* Modal „Date de contact" — locație/firmă/website/telefon/email grupate, ca să nu aglomereze
+            antetul (2026-07-16: chip-urile inline împingeau butonul „Editează profil" la fiecare câmp
+            nou activat). Telefon/email vin deja redactate din server. */}
+        {contactOpen && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+            onClick={() => setContactOpen(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-xl border border-border bg-card p-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Date de contact</h3>
+                <button
+                  type="button"
+                  onClick={() => setContactOpen(false)}
+                  aria-label="Închide"
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <Close />
+                </button>
+              </div>
+              <div className="flex flex-col gap-2.5">
+                {data.location && (
+                  <span className="inline-flex items-center gap-2 text-[13.5px] text-muted-foreground">
+                    <Pin /> {data.location}
+                  </span>
+                )}
+                {data.company && (
+                  <span className="inline-flex items-center gap-2 text-[13.5px] text-muted-foreground">
+                    <Building /> {data.company}
+                  </span>
+                )}
+                {data.website && (
+                  <a
+                    href={data.website.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-[13.5px] text-primary underline-offset-2 hover:underline"
+                  >
+                    {data.website.label}
+                  </a>
+                )}
+                {data.phone && (
+                  <a
+                    href={`tel:${data.phone}`}
+                    className="inline-flex items-center gap-2 text-[13.5px] text-muted-foreground hover:text-primary"
+                  >
+                    <PhoneIcon /> {data.phone}
+                  </a>
+                )}
+                {data.email && (
+                  <a
+                    href={`mailto:${data.email}`}
+                    className="inline-flex items-center gap-2 text-[13.5px] text-muted-foreground hover:text-primary"
+                  >
+                    <MailIcon /> {data.email}
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {data.bio && (
           <p className="mt-[18px] max-w-[64ch] leading-relaxed text-muted-foreground">{data.bio}</p>
@@ -503,6 +554,24 @@ function Star({ className, size = 12 }: { className?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
       <path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z" />
+    </svg>
+  );
+}
+
+function Contact() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="3" width="16" height="18" rx="2" />
+      <circle cx="12" cy="10" r="2.5" />
+      <path d="M8 17c0-2.2 1.8-3 4-3s4 .8 4 3" />
+    </svg>
+  );
+}
+
+function Close() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   );
 }

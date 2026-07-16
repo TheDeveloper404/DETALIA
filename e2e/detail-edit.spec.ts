@@ -74,8 +74,14 @@ test.describe.serial("Editare detaliu existent", () => {
     await page.goto(`/details/${detailId}/edit`);
 
     // Deschide dropdown-ul și debifează tot ce e bifat (click pe fiecare buton aria-pressed=true).
+    // SCOPAT strict la panoul de categorii (2026-07-16) — un selector global pe pagină ar prinde și
+    // alte pill-uri cu aria-pressed (ex. locație, upload/desenează), nu doar categoriile.
     await page.getByTestId("category-dropdown-trigger").click();
-    const pressedButtons = page.locator('button[aria-pressed="true"]');
+    const panel = page.getByTestId("category-dropdown-panel");
+    // `.count()` e sincron — fără așteptarea asta, poate citi DOM-ul ÎNAINTE ca panoul să se monteze
+    // (re-render React după click), returnând 0 fals și lăsând categoriile nebifate (race, nu bug UI).
+    await expect(panel).toBeVisible();
+    const pressedButtons = panel.locator('button[aria-pressed="true"]');
     const count = await pressedButtons.count();
     for (let i = 0; i < count; i++) {
       await pressedButtons.first().click();
@@ -141,7 +147,9 @@ test.describe.serial("Editare detaliu — locație / context tehnic", () => {
   test("„Altă locație” fără text completat → eroare de validare, rămâne pe formular", async ({ page }) => {
     await page.goto(`/details/${detailId}/edit`);
     await page.getByRole("button", { name: "Altă locație" }).click();
-    // Textul rămâne gol — nu completăm nimic.
+    // Golit EXPLICIT — testul anterior din același bloc a lăsat deja „Italia, Roma" salvat, deci
+    // pillul „Altă locație" pornește cu textul precompletat; fără fill(""), am testa un caz valid.
+    await page.getByPlaceholder("Țară, oraș").fill("");
     await page.getByRole("button", { name: "Salvează modificările" }).click();
 
     await expect(page.locator('p[role="alert"]')).toBeVisible();

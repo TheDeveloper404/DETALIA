@@ -81,9 +81,19 @@ test.describe.serial("Schiță — publish & delete", () => {
 
     // „Șterge schița mea" e într-un dropdown (role="menu"), deschis de „Acțiuni detaliu" — nu e vizibil direct.
     await page.getByRole("button", { name: "Acțiuni detaliu" }).click();
-    page.once("dialog", (dialog) => dialog.accept());
     // role="menuitem" explicit pe buton (detail-actions-menu.tsx) suprascrie rolul implicit "button".
     await page.getByRole("menuitem", { name: "Șterge schița mea" }).click();
+
+    // Confirmare stil platformă (2026-07-16) — NU mai e window.confirm nativ, e un dialog propriu.
+    // „Anulează" ÎNTÂI: dialogul se închide, schița NU se șterge (verificăm înainte de confirmarea reală).
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Anulează" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toBeVisible();
+
+    await page.getByRole("button", { name: "Acțiuni detaliu" }).click();
+    await page.getByRole("menuitem", { name: "Șterge schița mea" }).click();
+    await page.getByRole("button", { name: "Șterge" }).click();
 
     // După ștergere: tab-ul dispare din strip, revenim efectiv pe „Detaliul de bază".
     await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toHaveCount(0);
