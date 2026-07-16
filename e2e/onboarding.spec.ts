@@ -92,3 +92,68 @@ test("onboarding: fără rol → formular → declară rolul → /feed; revizita
     await db.delete(users).where(eq(users.id, userId));
   }
 });
+
+// Restructurare roluri (2026-07-16, cerere Edi): subrolurile noi de Execuție sunt selectabile, cele
+// mutate la Rol adițional nu mai apar la Execuție.
+test("onboarding: subrol nou de Execuție (Tâmplar mobilă) e selectabil și se salvează", async ({
+  browser,
+  baseURL,
+}) => {
+  const userId = await ensureRoleLessUser();
+
+  const url = new URL(baseURL ?? "http://localhost:3000");
+  const secure = url.protocol === "https:";
+  const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
+  const maxAgeSeconds = 30 * 86_400;
+
+  const sessionToken = await encode({
+    secret: process.env.AUTH_SECRET!,
+    salt: cookieName,
+    maxAge: maxAgeSeconds,
+    token: { sub: userId, id: userId, status: "ACTIVE", name: NAME, email: EMAIL },
+  });
+
+  const context = await browser.newContext({
+    storageState: {
+      cookies: [
+        {
+          name: cookieName,
+          value: sessionToken,
+          domain: url.hostname,
+          path: "/",
+          expires: Math.floor((Date.now() + maxAgeSeconds * 1000) / 1000),
+          httpOnly: true,
+          secure,
+          sameSite: "Lax",
+        },
+      ],
+      origins: [],
+    },
+  });
+
+  try {
+    const page = await context.newPage();
+    await page.goto("/onboarding");
+
+    await page.locator("#dt-first").fill("E2E");
+    await page.locator("#dt-last").fill("Roluri");
+    await page.locator("#dt-rol").selectOption("EXECUTANT");
+
+    // Subrolurile mutate la Rol adițional NU mai trebuie să apară la Execuție.
+    const subrolOptions = await page.locator("#dt-subrol option").allTextContents();
+    expect(subrolOptions).not.toContain("Diriginte de șantier");
+    expect(subrolOptions).not.toContain("RTE");
+    expect(subrolOptions).toContain("Tâmplar mobilă");
+
+    await page.locator("#dt-subrol").selectOption("Tâmplar mobilă");
+    await page.getByRole("button", { name: "Continuă în feed" }).click();
+    await expect(page).toHaveURL(/\/feed/, { timeout: 15_000 });
+
+    const [role] = await db.select().from(roles).where(eq(roles.userId, userId));
+    expect(role?.roleMain).toBe("EXECUTANT");
+    expect(role?.subRole).toBe("Tâmplar mobilă");
+  } finally {
+    await context.close();
+    await db.delete(users).where(eq(users.id, userId));
+  }
+});

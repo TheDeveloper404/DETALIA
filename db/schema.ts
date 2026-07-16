@@ -86,6 +86,13 @@ export const users = pgTable("users", {
   website: text(),
   // Firma pe care o reprezintă userul (opțional, auto-declarat — ca locația/website-ul).
   company: text(),
+  // Contact opțional (2026-07-16, cerere Edi) — ajută doi useri să se conecteze direct. PRIVAT implicit:
+  // vizibil altor useri DOAR dacă userul bifează explicit vizibilitatea (opt-in, nu opt-out). Emailul
+  // (coloana `email` de mai sus, deja folosită la login) capătă propriul flag separat — până acum nu era
+  // afișat nicăieri public; rămâne privat implicit și după acest flag, dacă userul nu-l activează.
+  phone: text(),
+  phoneVisible: boolean().notNull().default(false),
+  emailVisible: boolean().notNull().default(false),
   coverImage: text(),
   // Poziția verticală a imaginii de cover (object-position Y, 0..100). Permite mutarea sus/jos a benzii.
   coverPosition: integer().notNull().default(50),
@@ -192,6 +199,11 @@ export const details = pgTable(
     authorId: uuid()
       .notNull()
       .references(() => users.id),
+    // Locație (2026-07-16, cerere Edi): „România" (implicit) = context tehnic RO complet valabil.
+    // Orice altă valoare (text liber „Țară, oraș", introdus de user la pill-ul „Altă locație") =
+    // context tehnic RO INVALID pt acel detaliu (enforce în validateDetailInput, nu doar UI) — nu
+    // afișăm/acceptăm clasificări românești pe un detaliu din afara României.
+    location: text().notNull().default("România"),
     // Zona climatică n-are variantă neutră în lista Edi (Zona I..IV) → nullable, fără default.
     climateZone: text(),
     // Ceilalți parametri tehnici au „General" ca variantă neutră în listă (lista_categorii.md).

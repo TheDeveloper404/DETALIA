@@ -13,6 +13,7 @@ import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplie
 import { getTargetValidationView } from "@/server/services/validationService";
 
 import { DetailWorkspace, type WorkspaceSketch } from "./detail-workspace";
+import { ResourceImage } from "./resource-image";
 
 type SketchRow = {
   id: string;
@@ -123,6 +124,10 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
                 Resurse
               </span>
               {detail.resources.map((r) => {
+                // IMAGE: thumbnail + lightbox (imaginea propriu-zisă), NU chip cu link ca restul tipurilor.
+                if (r.type === "IMAGE" && r.url) {
+                  return <ResourceImage key={r.id} url={r.url} alt={detail.title} />;
+                }
                 const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
                 const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
                 const chip = (
@@ -158,6 +163,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
               description: detail.description,
               createdAt: detail.createdAt,
               categories: detail.categories,
+              location: detail.location,
               climateZone: detail.climateZone,
               seismicAg: detail.seismicAg,
               seismicTc: detail.seismicTc,
