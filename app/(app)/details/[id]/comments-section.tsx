@@ -77,6 +77,25 @@ export function CommentsSection({
   // Set-ul id-urilor de schiță care există ACUM (pt randare: mențiunile către schițe șterse → text simplu).
   const validSketchIds = useMemo(() => new Set(mentionSketches.map((s) => s.id)), [mentionSketches]);
 
+  // Etichetă „Nume — schița N" per schiță, pt badge-ul „pe schița N" de pe justificările de dezaprobare
+  // scrise de pe tabul unei schițe (sketchContextId) — IDENTIC cu eticheta din taburi/mențiuni, ca
+  // cititorul să le poată corela. Ordinal STABIL după data creării (nu ordinea taburilor).
+  const sketchLabelById = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of mentionSketches) counts.set(s.authorName ?? "", (counts.get(s.authorName ?? "") ?? 0) + 1);
+    const byAuthorAsc = [...mentionSketches].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const seen = new Map<string, number>();
+    const labels = new Map<string, string>();
+    for (const s of byAuthorAsc) {
+      const key = s.authorName ?? "";
+      const n = (seen.get(key) ?? 0) + 1;
+      seen.set(key, n);
+      const baseName = s.authorName ?? "Anonim";
+      labels.set(s.id, (counts.get(key) ?? 1) > 1 ? `${baseName} — schița ${n}` : baseName);
+    }
+    return labels;
+  }, [mentionSketches]);
+
   // Reply pe UN SINGUR nivel: rădăcinile în ordine cronologică, cu reply-urile lor grupate dedesubt
   // (tot cronologic). Un reply nu poate avea reply — dacă apare cu parentCommentId inexistent printre
   // rădăcini (caz imposibil azi, dar defensiv), cade la rădăcină ca să nu dispară din UI.
@@ -146,6 +165,7 @@ export function CommentsSection({
                 detailId={detailId}
                 isOwner={Boolean(currentUserId && c.authorId === currentUserId)}
                 validSketchIds={validSketchIds}
+                sketchLabel={c.sketchContextId ? sketchLabelById.get(c.sketchContextId) : undefined}
                 onSelectSketch={onSelectSketch}
                 targetType={targetType}
                 targetId={targetId}
@@ -162,6 +182,7 @@ export function CommentsSection({
                         detailId={detailId}
                         isOwner={Boolean(currentUserId && r.authorId === currentUserId)}
                         validSketchIds={validSketchIds}
+                        sketchLabel={r.sketchContextId ? sketchLabelById.get(r.sketchContextId) : undefined}
                         onSelectSketch={onSelectSketch}
                         isReply
                       />
@@ -436,6 +457,7 @@ function CommentItem({
   detailId,
   isOwner,
   validSketchIds,
+  sketchLabel,
   onSelectSketch,
   targetType,
   targetId,
@@ -448,6 +470,9 @@ function CommentItem({
   detailId: string;
   isOwner: boolean;
   validSketchIds: Set<string>;
+  // Eticheta „Nume — schița N" a schiței de origine, DOAR pt justificări de dezaprobare scrise de pe
+  // tabul unei schițe (comment.sketchContextId). undefined = comentariu obișnuit / dezaprobare pe DETAIL.
+  sketchLabel?: string;
   onSelectSketch?: (sketchId: string) => void;
   // Reply — UN SINGUR nivel: doar comentariile RĂDĂCINĂ primesc buton „Răspunde" (isReply=false).
   targetType?: TargetType;
@@ -544,6 +569,15 @@ function CommentItem({
               <X className="size-3" strokeWidth={2.6} />
               dezaprobare
             </span>
+          )}
+          {isDisapproval && c.sketchContextId && sketchLabel && onSelectSketch && (
+            <button
+              type="button"
+              onClick={() => onSelectSketch(c.sketchContextId!)}
+              className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/60 px-2 py-0.5 font-mono text-[10.5px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              pe {sketchLabel}
+            </button>
           )}
           {isRetractedDisapproval && (
             <span
