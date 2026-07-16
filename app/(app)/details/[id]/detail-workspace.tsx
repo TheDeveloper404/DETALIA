@@ -15,12 +15,14 @@ import { cn } from "@/lib/utils";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
+import type { SupplierOfferRow } from "@/server/repos/supplierOffersRepo";
 import type { TargetPosition } from "@/server/repos/validationsRepo";
 
 
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
 import { startSketchAction } from "./sketch-review-actions";
+import { SupplierOfferPanel } from "./supplier-offer-panel";
 import { ValidationPanel } from "./validation-panel";
 
 // Antetul detaliului (titlu/autor/params/descriere) — mutat în capul cardului workspace (model 3.jpeg).
@@ -82,6 +84,9 @@ export function DetailWorkspace({
   currentUserId,
   currentUserName,
   currentUserImage,
+  isCurrentUserFurnizor = false,
+  isOfferingSupplier = false,
+  supplierOffers,
 }: {
   detailId: string;
   imageUrl: string;
@@ -94,6 +99,9 @@ export function DetailWorkspace({
   currentUserId?: string | null;
   currentUserName?: string | null;
   currentUserImage?: string | null;
+  isCurrentUserFurnizor?: boolean; // doar afișare condiționată — gating real e pe server
+  isOfferingSupplier?: boolean;
+  supplierOffers: SupplierOfferRow[];
 }) {
   // 0 = detaliul de bază; 1..N = schițele (index i → sketches[i-1]). După o ștergere lista se scurtează
   // → clamp pe un tab valid. `?sketch=<id>` din URL (dacă e prezent) deschide direct pe tab-ul acela.
@@ -429,6 +437,14 @@ export function DetailWorkspace({
             positions={activeValidation.positions}
             embedded
           />
+          {isBase && (
+            <SupplierOfferPanel
+              detailId={detailId}
+              isFurnizor={!isDetailAuthor && isCurrentUserFurnizor}
+              isOffering={isOfferingSupplier}
+              offers={supplierOffers}
+            />
+          )}
         </div>
       </section>
 

@@ -155,6 +155,21 @@ export function sketchDeletedEmailText(detailTitle: string, url: string): string
   return `Schița ta a fost eliminată\n\nSchița ta de la detaliul „${detailTitle}" a fost eliminată de autorul detaliului.\n\nVezi detaliul:\n${url}`;
 }
 
+// Notificare: un Furnizor a „ridicat mâna" (poate oferta materiale) pe detaliul destinatarului.
+export function supplierOfferedEmailHtml(who: string, detailTitle: string, url: string): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Un furnizor poate oferta materiale</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      ${esc(who)} a semnalat că poate oferta materiale pentru detaliul tău <strong style="color:${BRAND.text};">${esc(detailTitle)}</strong>.
+    </p>
+    ${emailButton(url, "Vezi detaliul")}
+  `);
+}
+
+export function supplierOfferedEmailText(who: string, detailTitle: string, url: string): string {
+  return `Un furnizor poate oferta materiale\n\n${who} a semnalat că poate oferta materiale pentru detaliul tău „${detailTitle}".\n\nVezi detaliul:\n${url}`;
+}
+
 export async function sendEmail(input: {
   to: string;
   subject: string;

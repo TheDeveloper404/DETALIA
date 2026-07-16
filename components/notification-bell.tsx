@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bell, Check, CheckCheck, Pencil, Trash2, X } from "lucide-react";
+import { ArrowRight, Bell, Check, CheckCheck, HandMetal, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,7 @@ import { RolePill } from "./role-pill";
 
 export type NotificationView = {
   id: string;
-  type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED" | "SKETCH_DELETED";
+  type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED" | "SKETCH_DELETED" | "SUPPLIER_OFFERED";
   actorName: string | null;
   actorRole: string | null;
   actorSubRole: string | null;
@@ -45,6 +45,11 @@ const TYPE_STYLE = {
     sqBorder: "#ecd6d2",
     icon: <Trash2 className="size-4 text-destructive" strokeWidth={2} />,
   },
+  SUPPLIER_OFFERED: {
+    sqBg: "#e9f2ea",
+    sqBorder: "#cfe3d2",
+    icon: <HandMetal className="size-4 text-[#2f6b3f]" strokeWidth={2} />,
+  },
 } as const;
 
 // Textul notificării pe datele reale din payload (fără a inventa rol/identitate lipsă).
@@ -68,6 +73,14 @@ function NotificationText({ n }: { n: NotificationView }) {
   }
   if (n.type === "SKETCH_DELETED") {
     return <>Schița ta la {ref} a fost eliminată de autorul detaliului.</>;
+  }
+  if (n.type === "SUPPLIER_OFFERED") {
+    return (
+      <>
+        <b className="font-bold text-foreground">{n.actorName ?? "Un furnizor"}</b> poate oferta
+        materiale pentru {ref}.
+      </>
+    );
   }
   // Tipuri moștenite din fluxul vechi cu acceptare (nemaiproduse, dar pot exista în istoric).
   if (n.type === "SKETCH_ACCEPTED") {
