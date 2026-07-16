@@ -235,7 +235,7 @@ test.describe("Concurență — dublu-submit dezaprobare (upsert atomic)", () =>
     try {
       const results = await Promise.all(
         Array.from({ length: 5 }, () =>
-          disapprove({ userId: testerUserId, targetType: "DETAIL", targetId: detailId, justification: JUSTIF, detailId }),
+          disapprove({ userId: testerUserId, targetType: "DETAIL", targetId: detailId, justification: JUSTIF }),
         ),
       );
       // Fix 2026-07-14: doar UNA din cele 5 cereri paralele câștigă tranziția (ok:true); restul

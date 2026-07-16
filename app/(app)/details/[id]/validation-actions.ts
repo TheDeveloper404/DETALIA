@@ -103,7 +103,7 @@ export async function disapproveAction(
 
   // Ramura TEXT: justificare obligatorie → DISAPPROVE + comentariu (originValidationId).
   const justification = String(formData.get("justification") ?? "");
-  const res = await disapprove({ userId, targetType, targetId, justification, detailId });
+  const res = await disapprove({ userId, targetType, targetId, justification });
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
