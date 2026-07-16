@@ -91,6 +91,22 @@ export function DetailActionsMenu({
         <MoreVertical className="size-[18px]" strokeWidth={2} />
       </button>
 
+      {/* Formularele de ștergere stau ÎNTOTDEAUNA montate (nu doar cât meniul e deschis) — refs stabile.
+          BUG găsit 2026-07-16: erau în interiorul `{open && ...}`; `setOpen(false)` la click pe „Șterge…”
+          demonta formularul ÎNAINTE ca userul să confirme în ConfirmDialog → ref-ul devenea null →
+          `requestSubmit()` no-op silențios, ștergerea nu se mai executa deloc. */}
+      {canDeleteActiveSketch && (
+        <form action={deleteSketchAction} ref={deleteSketchFormRef} className="hidden" aria-hidden>
+          <input type="hidden" name="sketchId" value={activeSketchPublicId ?? ""} />
+          <input type="hidden" name="detailId" value={detailId} />
+        </form>
+      )}
+      {isAuthor && (
+        <form action={deleteDetailAction} ref={deleteDetailFormRef} className="hidden" aria-hidden>
+          <input type="hidden" name="detailId" value={detailId} />
+        </form>
+      )}
+
       {open && (
         <>
           {/* Backdrop transparent — închide la click în afară. */}
@@ -173,36 +189,36 @@ export function DetailActionsMenu({
             {/* Ștergere — ULTIMA, separată + roșie. Confirmare explicită (ireversibil). */}
             {(canDeleteActiveSketch || isAuthor) && <div className="my-1 border-t border-border" aria-hidden />}
 
-            {/* Șterge schița activă — autorul detaliului (moderare) SAU autorul schiței. */}
+            {/* Șterge schița activă — autorul detaliului (moderare) SAU autorul schiței.
+                Formularul real (cu ref) e montat permanent mai sus — aici doar declanșatorul vizual. */}
             {canDeleteActiveSketch && (
-              <form action={deleteSketchAction} ref={deleteSketchFormRef}>
-                <input type="hidden" name="sketchId" value={activeSketchPublicId ?? ""} />
-                <input type="hidden" name="detailId" value={detailId} />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setConfirmDelete("sketch")}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
-                >
-                  <Trash2 className="size-4" strokeWidth={2} />
-                  {deleteSketchLabel ?? "Șterge schița mea"}
-                </button>
-              </form>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  setConfirmDelete("sketch");
+                }}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <Trash2 className="size-4" strokeWidth={2} />
+                {deleteSketchLabel ?? "Șterge schița mea"}
+              </button>
             )}
 
             {isAuthor && (
-              <form action={deleteDetailAction} ref={deleteDetailFormRef}>
-                <input type="hidden" name="detailId" value={detailId} />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => setConfirmDelete("detail")}
-                  className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
-                >
-                  <Trash2 className="size-4" strokeWidth={2} />
-                  Șterge detaliul
-                </button>
-              </form>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  setConfirmDelete("detail");
+                }}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <Trash2 className="size-4" strokeWidth={2} />
+                Șterge detaliul
+              </button>
             )}
           </div>
         </>

@@ -7,7 +7,7 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSupplierOffer,
-  insertSupplierOffer,
+  insertSupplierOfferIfAbsent,
   isSupplierOfferedByUser,
   listSupplierOffersForDetail,
 } from "@/server/repos/supplierOffersRepo";
@@ -34,13 +34,18 @@ export async function toggleSupplierOffer(input: {
   if (!detail) return { ok: false, error: "TARGET_NOT_FOUND" };
   if (detail.authorId === input.userId) return { ok: false, error: "CANNOT_OFFER_OWN" };
 
-  const already = await isSupplierOfferedByUser(input.userId, input.detailId);
-  if (already) {
+  // Tranziție ATOMICĂ (bug găsit 2026-07-16): decizia „a fost primul click?" o ia inserarea din DB
+  // (`onConflictDoNothing().returning()`), NU o citire prealabilă — altfel dublu-click/tab dublu putea
+  // trimite 2 notificări pentru un singur eveniment real (aceeași clasă de bug ca la validări, deja
+  // rezolvată acolo prin `upsertDisapprovalIfTransition`).
+  const insertedNow = await insertSupplierOfferIfAbsent(input.userId, input.detailId);
+  if (!insertedNow) {
+    // Exista deja → acest click e o retragere (sau a pierdut cursa de inserare — oricum, rezultatul
+    // corect e retragerea, nu o a doua notificare).
     await deleteSupplierOffer(input.userId, input.detailId);
     return { ok: true, offering: false };
   }
 
-  await insertSupplierOffer(input.userId, input.detailId);
   const actor = await getNotificationActor(input.userId);
   await notifySupplierOffered({
     recipientUserId: detail.authorId,

@@ -84,6 +84,7 @@ const DETAILS_ERRORS: Record<string, string> = {
   EMPTY_NAME: "Numele nu poate fi gol.",
   NAME_TOO_LONG: "Numele e prea lung (max 100).",
   INVALID_WEBSITE: "Website-ul trebuie să înceapă cu http:// sau https://.",
+  INVALID_PHONE: "Telefonul poate conține doar cifre, spații și + - ( ).",
 };
 
 // Editează câmpurile de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
