@@ -15,6 +15,7 @@ vi.mock("@/server/repos/validationsRepo", () => ({
 import { insertComment } from "@/server/repos/commentsRepo";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { getSketchById } from "@/server/repos/sketchesRepo";
 import { upsertDisapprovalIfTransition, upsertPosition } from "@/server/repos/validationsRepo";
 
 import { approve, disapprove, recordSketchDisapproval } from "./validationService";
@@ -24,7 +25,6 @@ const target = {
   userId: "u-1",
   targetType: "DETAIL" as const,
   targetId: "22222222-2222-4222-8222-222222222222",
-  detailId: "22222222-2222-4222-8222-222222222222",
 };
 
 beforeEach(() => {
@@ -79,6 +79,34 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
     const r = await disapprove({ ...target, justification: "iar nu merge" });
     expect(r).toEqual({ ok: false, error: "ALREADY_DISAPPROVED" });
     expect(insertComment).not.toHaveBeenCalled();
+  });
+
+  // SECURITATE (2026-07-16): detailId NU vine din input (client-controlled) — se derivă server-side din
+  // schiță. Altfel un user ar putea trimite un targetId de SCHIȚĂ valid dar (teoretic, dacă API-ul ar mai
+  // accepta detailId) un detailId ARBITRAR, plantând comentariul-justificare pe un detaliu care n-are
+  // nicio legătură cu schița. API-ul de azi nici nu mai acceptă detailId ca input — testul confirmă că
+  // targetId-ul comentariului e cel real (din schiță), nu ceva trimis de apelant.
+  it("disapprove pe SCHIȚĂ → comentariul merge pe detailId-ul REAL al schiței (derivat server-side)", async () => {
+    const sketchId = "33333333-3333-4333-8333-333333333333";
+    const realDetailId = "44444444-4444-4444-8444-444444444444";
+    vi.mocked(getSketchById).mockResolvedValue({
+      id: sketchId,
+      detailId: realDetailId,
+      authorId: "altcineva",
+      status: "PUBLISHED",
+    } as never);
+    const r = await disapprove({
+      userId: "u-1",
+      targetType: "SKETCH",
+      targetId: sketchId,
+      justification: "motiv valid",
+    });
+    expect(r).toEqual({ ok: true });
+    expect(vi.mocked(insertComment).mock.calls[0][0]).toMatchObject({
+      targetType: "DETAIL",
+      targetId: realDetailId,
+      sketchContextId: sketchId,
+    });
   });
 });
 

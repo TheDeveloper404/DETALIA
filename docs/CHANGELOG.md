@@ -4,6 +4,83 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Sesiune mare: dezaprobare pe schiță, foaie semitransparentă, notă schiță, upload imagine resurse, restructurare categorii
+
+Șase modificări separate, discutate și aprobate pe rând cu Liviu. Punctele 1-2 rezolvă bug-uri raportate
+de Edi; punctul 3 e o extensie încercată și DATĂ ÎNAPOI după feedback vizual; punctele 4-6 sunt cereri
+de produs de la Edi.
+
+### 1. Justificarea de dezaprobare pe o SCHIȚĂ nu apărea nicăieri (bug real, fixat)
+**Ce era greșit:** dacă dezaprobai o schiță (nu detaliul de bază) cu justificare text, comentariul se
+scria pe `targetType: SKETCH`, dar pagina citește dezbaterea DOAR pe `targetType: DETAIL` (dezbatere
+unificată) → justificarea dispărea vizual, deși userul primea „succes".
+**Fix:** `disapprove()` scrie comentariul ÎNTOTDEAUNA pe DETAIL; poziția de validare rămâne pe SKETCH
+(contorul corect pe tab). Comentariul păstrează o referință spre schița de origine (`sketch_context_id`,
+coloană nouă) → UI arată un badge clicabil „pe {Nume — schița N}" lângă tag-ul „dezaprobare", care sare
+la tabul schiței.
+**Fix de securitate găsit ulterior (audit propriu, nu raportat de nimeni):** `detailId`-ul folosit la
+scriere venea inițial dintr-un câmp trimis de client (hidden input, modificabil din devtools) — un user
+ar fi putut plasa comentariul-justificare pe un detaliu ARBITRAR, nu părintele real al schiței. Reparat:
+`detailId` se derivă acum STRICT server-side din rândul schiței (`getRealDetailId`), API-ul nici nu mai
+acceptă `detailId` ca input extern. Test dedicat adăugat.
+- `server/services/validationService.ts`, `server/repos/commentsRepo.ts`, `db/schema.ts` (+coloană
+  `comments.sketch_context_id`), `app/(app)/details/[id]/comments-section.tsx`,
+  `app/(app)/details/[id]/validation-actions.ts`.
+
+### 2. Rail „Cele mai dezbătute" din feed nu scrola cu pagina (bug real, fixat)
+`position: sticky` pe containerul din dreapta îl „prindea" în viewport — dacă conținutul era mai înalt
+decât ecranul, partea de jos rămânea netăiabilă din scroll. Scos sticky-ul — scrolează normal cu feed-ul.
+- `components/feed-rail.tsx`.
+
+### 3. Text „în marginea foii" la schițare — ÎNCERCAT, apoi DAT ÎNAPOI
+Edi voia să poată scrie o explicație lângă desen, nu doar pe el. Am extins tool-ul de Text să iasă din
+foaie într-o margine (22% din dimensiune), cu validare de bound diferită per unealtă. Liviu a testat
+(vezi 1.png/2.png) — textul plasat în margine arăta ca un bloc plat, nenatural, „lipit" sub schiță. **Dat
+înapoi complet**: textul e din nou strict pe foaie (0..1), ca înainte. Nu a ajuns niciodată să fie folosit
+în producție (revert în aceeași sesiune, înainte de al doilea commit).
+
+### 4. Notă separată pentru schiță — înlocuiește ideea de la punctul 3
+Nevoia reală („vreau să explic în cuvinte ce am vrut să zic prin desen") rezolvată corect: câmp de text
+DEDICAT, separat de canvas, NU un stroke desenat.
+- Coloană nouă `sketches.note` (text, opțional, max 500 caractere, `validateSketchNote`).
+- Editor: buton „Explicație" în bara de sus → panou colapsabil care ÎMPINGE canvasul (nu se suprapune
+  niciodată peste desen, indiferent ce se scrie).
+- Citire: bloc „Explicația autorului" sub imaginea schiței, doar pe tab de schiță, doar dacă există text.
+- `server/domain/sketch.ts`, `server/repos/sketchesRepo.ts`, `server/services/sketchService.ts`,
+  `app/(app)/sketches/[id]/edit/*`, `app/(app)/details/[id]/detail-workspace.tsx`, `db/schema.ts`.
+
+### 5. Foaie semitransparentă la schițare (nu detaliul de bază transparent) — cerere Edi
+Editorul dimensiona detaliul-mamă la 30% opacitate cât schițai, ca schița nouă să iasă în evidență — dar
+grila de fundal (pătrățelele) răzbătea prin el, nenatural. Model corect (ca în realitate, cerut de Edi):
+detaliul rămâne OPAC; peste el se pune o foaie semitransparentă (fill uniform), iar schița se desenează
+pe ea. Aplicat identic în editor, în thumbnail-ul din liste și în vizualizarea de citire.
+- `components/sketch/sketch-canvas.tsx`, `components/sketch/sketch-viewer.tsx`,
+  `app/(app)/details/[id]/detail-workspace.tsx`.
+
+### 6. Upload real de imagine la „Resurse suplimentare" — cerere Edi
+Tipul de resursă „Imagine" era doar un câmp de link (userul trebuia să aibă deja imaginea găzduită extern)
+— practic nefolosit. Adăugat upload real (JPEG/PNG/WebP/AVIF, cu detectare HEIC), la fel ca la PDF/CAD deja
+existente — reutilizează endpoint-ul `/api/blob/upload` existent (nicio schimbare server, allowlist-ul de
+„image" exista deja ca fallback implicit).
+- `app/(app)/details/new/detail-form.tsx`.
+
+### 7. Restructurare categorii — „Categorii + Capitole" (nu categorii/subcategorii) — cerere Edi
+Modelul de arbore (`categories`, self-FK, `isGroup`) exista deja identic cu Rol/Subrol — nu a fost nevoie
+de schimbare de arhitectură, doar de conținut:
+- Redenumiri ca frunza să poarte contextul părintelui în etichetă: Beton→„Fundație beton",
+  Șarpantă→„Acoperiș tip șarpantă", Electrice→„Instalații electrice", etc.
+- „Amenajări exterioare" și „Scări" (frunze bifabile) → devenite capitole cu subcategorii reale
+  (Împrejmuiri/Alei; Scări beton/lemn/metalice). Categorie nouă: „Coș de fum", „Mobilier".
+- 2 detalii reale legate de „Amenajări exterioare" au fost realocate manual (unul la Împrejmuiri; celălalt,
+  „Piscina", nu se potrivea nicăieri → lăsat fără categorie din acest capitol, decizie Liviu).
+- `db/seed.ts` (sursă de adevăr) + SQL manual rulat pe Neon dev+production (fără migrare de schemă nouă,
+  doar date — `categories`/`detail_categories` existau deja).
+
+**Verificat:** `tsc --noEmit`, `lint`, `next build`, `vitest` (toate suitele atinse) — verzi la fiecare pas.
+Migrații DB rulate manual de Liviu pe Neon (dev apoi production), confirmate cu query-uri directe.
+
+---
+
 ## 2026-07-15 (cont.) — Feed: sortare strict cronologică + „În dezbatere acum" devine query globală
 
 **Motiv:** feed-ul principal avea un mod de sortare „debated" (după interacțiuni) care nu era expus în
