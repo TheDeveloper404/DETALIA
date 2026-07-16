@@ -254,6 +254,10 @@ export const sketches = pgTable(
       .notNull()
       .references(() => users.id),
     strokesJson: jsonb(),
+    // Explicație a autorului în cuvinte, SEPARATĂ de desen (2026-07-16) — vezi MAX_SKETCH_NOTE_LENGTH.
+    // Nu e un stroke pe canvas: userul dorea să scrie „ce a vrut să zică prin desen", nu o etichetă
+    // plasată pe/lângă foaie (tool-ul de Text cu ancoră în margine arăta prost în practică).
+    note: text(),
     thumbnailUrl: text(),
     status: sketchStatus().notNull().default("DRAFT"),
     // Schiță pornită din „Dezaprob → fac o schiță": la publicare materializează automat o poziție
