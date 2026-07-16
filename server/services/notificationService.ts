@@ -8,6 +8,8 @@ import {
   sketchDeletedEmailText,
   sketchProposedEmailHtml,
   sketchProposedEmailText,
+  supplierOfferedEmailHtml,
+  supplierOfferedEmailText,
 } from "@/lib/email";
 import {
   deleteReadNotificationsOlderThan,
@@ -118,6 +120,29 @@ export async function notifySketchDeleted(input: {
     emailSubject: plainSubject(`Schița ta la „${input.detailTitle}" a fost eliminată`),
     emailHtml: sketchDeletedEmailHtml(input.detailTitle, url),
     emailText: sketchDeletedEmailText(input.detailTitle, url),
+  });
+}
+
+// Către autorul detaliului: un Furnizor a ridicat mâna (doar la primul click — vezi supplierOfferService).
+export async function notifySupplierOffered(input: {
+  recipientUserId: string;
+  detailId: string;
+  detailTitle: string;
+  supplierName: string | null;
+}) {
+  const who = input.supplierName ?? "Un furnizor";
+  const url = detailUrl(input.detailId);
+  await notify({
+    recipientUserId: input.recipientUserId,
+    type: "SUPPLIER_OFFERED",
+    payloadJson: {
+      detailId: input.detailId,
+      detailTitle: input.detailTitle,
+      supplierName: input.supplierName,
+    },
+    emailSubject: plainSubject(`${who} poate oferta materiale pentru „${input.detailTitle}"`),
+    emailHtml: supplierOfferedEmailHtml(who, input.detailTitle, url),
+    emailText: supplierOfferedEmailText(who, input.detailTitle, url),
   });
 }
 
