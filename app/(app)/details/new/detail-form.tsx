@@ -73,16 +73,22 @@ function resourcePlaceholder(type: ResourceType): string {
   if (type === "LINK") return "https://… link către normativ sau articol";
   if (type === "PDF") return "https://… link (sau încarcă fișierul PDF)";
   if (type === "CAD") return "https://… link (sau încarcă fișierul DWG/DXF)";
-  return "https://… link către imagine";
+  return "https://… link (sau încarcă imaginea)";
 }
 
-// PDF/CAD pot fi și încărcate direct (nu doar link) — restul tipurilor rămân doar link/text.
-const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["PDF", "CAD"]);
+// IMAGE/PDF/CAD pot fi și încărcate direct (nu doar link) — LINK rămâne doar link.
+// „Imagine" fără upload real nu se folosea aproape deloc (userul trebuia să aibă deja un link extern
+// către o imagine găzduită) — 2026-07-16, cerere Edi, verificat cu Liviu.
+const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["IMAGE", "PDF", "CAD"]);
 function resourceFileAccept(type: ResourceType): string {
-  return type === "CAD" ? ".dwg,.dxf" : "application/pdf";
+  if (type === "CAD") return ".dwg,.dxf";
+  if (type === "PDF") return "application/pdf";
+  return (ALLOWED_IMAGE_TYPES as readonly string[]).join(",");
 }
 function resourceUploadLimitLabel(type: ResourceType): string {
-  return type === "CAD" ? `max ${MAX_CAD_MB}MB` : `max ${MAX_DOC_MB}MB`;
+  if (type === "CAD") return `max ${MAX_CAD_MB}MB`;
+  if (type === "PDF") return `max ${MAX_DOC_MB}MB`;
+  return `max ${MAX_IMAGE_MB}MB`;
 }
 
 const labelClass =
@@ -476,8 +482,16 @@ export function DetailForm({
   const [resourceUploadingIndex, setResourceUploadingIndex] = useState<number | null>(null);
   const [resourceUploadError, setResourceUploadError] = useState<Record<number, string>>({});
   async function handleResourceFile(i: number, type: ResourceType, file: File) {
-    const maxBytes = type === "CAD" ? MAX_CAD_BYTES : MAX_DOC_BYTES;
+    const maxBytes = type === "CAD" ? MAX_CAD_BYTES : type === "PDF" ? MAX_DOC_BYTES : MAX_IMAGE_BYTES;
     const limitLabel = resourceUploadLimitLabel(type);
+    if (type === "IMAGE" && isHeicFile(file)) {
+      setResourceUploadError((e) => ({ ...e, [i]: HEIC_ERROR_MESSAGE }));
+      return;
+    }
+    if (type === "IMAGE" && !(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      setResourceUploadError((e) => ({ ...e, [i]: "Imaginea trebuie să fie PNG, JPG, WebP sau AVIF." }));
+      return;
+    }
     if (file.size > maxBytes) {
       setResourceUploadError((e) => ({ ...e, [i]: `Fișier prea mare (${limitLabel}).` }));
       return;
@@ -485,10 +499,18 @@ export function DetailForm({
     setResourceUploadingIndex(i);
     setResourceUploadError((e) => ({ ...e, [i]: "" }));
     try {
-      const url = await uploadDocToBlob("resources", file, type === "CAD" ? "cad" : "pdf");
+      const url =
+        type === "IMAGE"
+          ? await uploadImageToBlob("resources", file, "image")
+          : await uploadDocToBlob("resources", file, type === "CAD" ? "cad" : "pdf");
       updateResource(i, { value: url });
-    } catch {
-      const message = (await isSessionAlive()) ? "Încărcarea a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE;
+    } catch (err) {
+      const message =
+        err instanceof HeicUnsupportedError
+          ? HEIC_ERROR_MESSAGE
+          : (await isSessionAlive())
+            ? "Încărcarea a eșuat. Încearcă din nou."
+            : SESSION_EXPIRED_MESSAGE;
       setResourceUploadError((e) => ({ ...e, [i]: message }));
     } finally {
       setResourceUploadingIndex(null);
