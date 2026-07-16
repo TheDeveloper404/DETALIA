@@ -190,7 +190,10 @@ function CategoryDropdown({
       />
 
       {open && (
-        <div className="absolute z-10 mt-1.5 max-h-80 w-full overflow-y-auto rounded-[10px] border border-input bg-background p-2.5 shadow-[0_18px_44px_-24px_rgba(33,29,24,0.4)]">
+        <div
+          data-testid="category-dropdown-panel"
+          className="absolute z-10 mt-1.5 max-h-80 w-full overflow-y-auto rounded-[10px] border border-input bg-background p-2.5 shadow-[0_18px_44px_-24px_rgba(33,29,24,0.4)]"
+        >
           <div className="flex flex-col gap-3">
             {sections.map((section) => (
               <div key={section.id}>
