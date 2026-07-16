@@ -4,12 +4,18 @@ import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { roles, supplierOffers, users } from "@/db/schema";
 
-// Idempotent: dacă a ridicat deja mâna, nu face nimic (PK compus) — evită notificare dublă la dublu-click.
-export async function insertSupplierOffer(userId: string, detailId: string) {
-  await db
+// Inserare ATOMICĂ: `.returning()` întoarce rândul DOAR dacă insertul chiar a avut loc (PK compus, deci
+// un conflict = deja exista → array gol). Decizia „a fost primul click cu adevărat?" se ia AICI, în DB,
+// nu prin read-then-write în service (bug găsit 2026-07-16: read-then-write lăsa loc la 2 notificări
+// pentru un dublu-click/tab dublu — vezi `upsertDisapprovalIfTransition`, același tipar, deja rezolvat
+// acolo pt validări).
+export async function insertSupplierOfferIfAbsent(userId: string, detailId: string): Promise<boolean> {
+  const inserted = await db
     .insert(supplierOffers)
     .values({ userId, detailId })
-    .onConflictDoNothing({ target: [supplierOffers.userId, supplierOffers.detailId] });
+    .onConflictDoNothing({ target: [supplierOffers.userId, supplierOffers.detailId] })
+    .returning({ userId: supplierOffers.userId });
+  return inserted.length > 0;
 }
 
 export async function deleteSupplierOffer(userId: string, detailId: string) {

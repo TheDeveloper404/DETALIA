@@ -13,13 +13,17 @@ import { roles, users } from "../db/schema";
 const EMAIL = "e2e-onboarding@detalia.test";
 const NAME = "E2E Onboarding";
 
-async function ensureRoleLessUser(): Promise<string> {
-  let user = (await db.select({ id: users.id }).from(users).where(eq(users.email, EMAIL)).limit(1))[0];
+// Email/user PROPRIU per test (nu shared) — testele din acest fișier NU sunt `describe.serial` (rulează
+// în paralel, pe workeri diferiți). Două teste pe ACELAȘI user ar risca o race reală: ambele apelează
+// `ensureRoleLessUser`, unul termină onboarding-ul primul, celălalt lovește „Ai deja un rol declarat"
+// (bug găsit 2026-07-16 — testul nou de restructurare roluri refolosea greșit EMAIL-ul primului test).
+async function ensureRoleLessUser(email: string, name: string): Promise<string> {
+  let user = (await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1))[0];
   if (!user) {
     user = (
       await db
         .insert(users)
-        .values({ email: EMAIL, name: NAME, status: "ACTIVE", emailVerified: new Date() })
+        .values({ email, name, status: "ACTIVE", emailVerified: new Date() })
         .returning({ id: users.id })
     )[0];
   } else {
@@ -33,7 +37,7 @@ test("onboarding: fără rol → formular → declară rolul → /feed; revizita
   browser,
   baseURL,
 }) => {
-  const userId = await ensureRoleLessUser();
+  const userId = await ensureRoleLessUser(EMAIL, NAME);
 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
@@ -99,7 +103,9 @@ test("onboarding: subrol nou de Execuție (Tâmplar mobilă) e selectabil și se
   browser,
   baseURL,
 }) => {
-  const userId = await ensureRoleLessUser();
+  const email = "e2e-onboarding-roluri@detalia.test";
+  const name = "E2E Roluri";
+  const userId = await ensureRoleLessUser(email, name);
 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
@@ -110,7 +116,7 @@ test("onboarding: subrol nou de Execuție (Tâmplar mobilă) e selectabil și se
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name: NAME, email: EMAIL },
+    token: { sub: userId, id: userId, status: "ACTIVE", name, email },
   });
 
   const context = await browser.newContext({
