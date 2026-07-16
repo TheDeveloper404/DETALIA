@@ -6,7 +6,7 @@
 
 import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
-import { SKETCH_STATUS, type Stroke, validateStrokes } from "@/server/domain/sketch";
+import { SKETCH_STATUS, type Stroke, validateSketchNote, validateStrokes } from "@/server/domain/sketch";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
@@ -31,7 +31,8 @@ export type SketchError =
   | "FORBIDDEN"
   | "INVALID_STATE"
   | "EMPTY_STROKES"
-  | "INVALID_STROKES";
+  | "INVALID_STROKES"
+  | "NOTE_TOO_LONG";
 
 export type SketchResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; value: T })
@@ -59,11 +60,13 @@ export async function createDraft(input: {
   return { ok: true, value: { sketchId: sketch.id } };
 }
 
-// Salvează stroke-urile (autosave) — doar autorul, doar cât e DRAFT.
+// Salvează stroke-urile (autosave) — doar autorul, doar cât e DRAFT. `note` opțional (undefined = nu se
+// atinge) — explicația autorului, SEPARATĂ de desen (2026-07-16).
 export async function saveStrokes(input: {
   sketchId: string;
   authorId: string;
   strokes: unknown;
+  note?: unknown;
 }): Promise<SketchResult> {
   if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(input.sketchId);
@@ -75,7 +78,13 @@ export async function saveStrokes(input: {
   if (!validation.ok) {
     return { ok: false, error: validation.error === "EMPTY" ? "EMPTY_STROKES" : "INVALID_STROKES" };
   }
-  await updateStrokes(input.sketchId, validation.value);
+  let note: string | null | undefined;
+  if (input.note !== undefined) {
+    const noteValidation = validateSketchNote(input.note);
+    if (!noteValidation.ok) return { ok: false, error: "NOTE_TOO_LONG" };
+    note = noteValidation.value;
+  }
+  await updateStrokes(input.sketchId, validation.value, note);
   return { ok: true };
 }
 
@@ -87,6 +96,7 @@ export async function publish(input: {
   sketchId: string;
   authorId: string;
   strokes?: unknown;
+  note?: unknown;
   thumbnailUrl?: string | null;
 }): Promise<SketchResult> {
   if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
@@ -94,6 +104,13 @@ export async function publish(input: {
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
   if (sketch.authorId !== input.authorId) return { ok: false, error: "FORBIDDEN" };
   if (sketch.status !== SKETCH_STATUS.DRAFT) return { ok: false, error: "INVALID_STATE" };
+
+  let note: string | null | undefined;
+  if (input.note !== undefined) {
+    const noteValidation = validateSketchNote(input.note);
+    if (!noteValidation.ok) return { ok: false, error: "NOTE_TOO_LONG" };
+    note = noteValidation.value;
+  }
 
   // Stroke-urile pot veni odată cu PUBLISH (salvare finală) sau să fie deja persistate.
   let strokes = sketch.strokesJson as Stroke[] | null;
@@ -103,7 +120,9 @@ export async function publish(input: {
       return { ok: false, error: validation.error === "EMPTY" ? "EMPTY_STROKES" : "INVALID_STROKES" };
     }
     strokes = validation.value;
-    await updateStrokes(input.sketchId, strokes);
+    await updateStrokes(input.sketchId, strokes, note);
+  } else if (note !== undefined && strokes) {
+    await updateStrokes(input.sketchId, strokes, note);
   }
   if (!strokes || strokes.length === 0) return { ok: false, error: "EMPTY_STROKES" };
 
@@ -198,7 +217,7 @@ export function deleteDraft(input: { sketchId: string; authorId: string }): Prom
 export async function getDraftForEdit(
   sketchId: string,
   authorId: string,
-): Promise<SketchResult<{ detailId: string; strokes: Stroke[] }>> {
+): Promise<SketchResult<{ detailId: string; strokes: Stroke[]; note: string | null }>> {
   if (!isUuid(sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
@@ -206,6 +225,10 @@ export async function getDraftForEdit(
   if (sketch.status !== SKETCH_STATUS.DRAFT) return { ok: false, error: "INVALID_STATE" };
   return {
     ok: true,
-    value: { detailId: sketch.detailId, strokes: (sketch.strokesJson as Stroke[] | null) ?? [] },
+    value: {
+      detailId: sketch.detailId,
+      strokes: (sketch.strokesJson as Stroke[] | null) ?? [],
+      note: sketch.note,
+    },
   };
 }

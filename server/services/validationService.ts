@@ -62,6 +62,16 @@ async function getTargetAuthorId(
   return sketch !== null && sketch.status === "PUBLISHED" ? sketch.authorId : null;
 }
 
+// Detaliul-părinte REAL al unei ținte — NU se are încredere în `detailId` trimis de client (hidden input,
+// modificabil din devtools/POST direct). Pentru SKETCH, îl derivăm din rândul schiței; pentru DETAIL,
+// detailId e chiar targetId. Fără asta, un user ar putea plasa comentariul-justificare pe un detaliu
+// ARBITRAR (nu părintele real al schiței) — găsit la audit intern 2026-07-16, fixat înainte de a fi folosit.
+async function getRealDetailId(targetType: TargetType, targetId: string): Promise<string | null> {
+  if (targetType === "DETAIL") return targetId;
+  const sketch = await getSketchById(targetId);
+  return sketch?.detailId ?? null;
+}
+
 function snapshotFromRole(role: {
   roleMain: string;
   subRole: string | null;
@@ -102,9 +112,6 @@ export async function disapprove(input: {
   targetType: TargetType;
   targetId: string;
   justification: string;
-  // Detaliul-părinte — comentariul-justificare se scrie ÎNTOTDEAUNA aici (dezbaterea e unificată pe
-  // DETAIL, vezi detail-workspace.tsx). Pentru targetType DETAIL, detailId === targetId.
-  detailId: string;
 }): Promise<ValidationResult> {
   const role = await getRoleByUserId(input.userId);
   if (!role) return { ok: false, error: "NO_ROLE" };
@@ -120,6 +127,11 @@ export async function disapprove(input: {
   const authorId = await getTargetAuthorId(input.targetType, input.targetId);
   if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
   if (authorId === input.userId) return { ok: false, error: "CANNOT_VALIDATE_OWN" };
+
+  // NU avem încredere în input.detailId (vine din client) — îl derivăm server-side din țintă, altfel un
+  // user ar putea plasa comentariul-justificare pe un detaliu ARBITRAR (nu părintele real al schiței).
+  const realDetailId = await getRealDetailId(input.targetType, input.targetId);
+  if (!realDetailId) return { ok: false, error: "TARGET_NOT_FOUND" };
 
   // O poziție DISAPPROVE deja existentă → un singur comentariu-justificare. Tranziția se decide ATOMIC în DB
   // (nu read-then-write) — altfel dublu-submit-ul paralel ar crea comentarii duplicate.
@@ -139,7 +151,7 @@ export async function disapprove(input: {
 
   await insertComment({
     targetType: "DETAIL",
-    targetId: input.detailId,
+    targetId: realDetailId,
     authorId: input.userId,
     body: j.value,
     originValidationId: transition.id,
