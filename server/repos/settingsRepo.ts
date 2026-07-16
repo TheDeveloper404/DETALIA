@@ -1,17 +1,20 @@
 // Repo platform_settings — singura zonă cu acces Drizzle pe tabelul SINGLE-ROW de config global.
 // Modelul: există cel mult un rând. Citirea întoarce rândul sau null (defaults în service).
 // Scrierea face upsert pe rândul existent (sau inserează primul).
-import * as Sentry from "@sentry/nextjs";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { platformSettings } from "@/db/schema";
+import { reportServerException } from "@/lib/posthog-report";
 
 export type PlatformSettingsRow = typeof platformSettings.$inferSelect;
 
 // Citire TOLERANTĂ la erori: tabelul de config e citit pe căi critice (landing, gate-ul de lockdown din
 // proxy) → o problemă de DB (drift de schemă, tabel lipsă, outage) NU trebuie să dărâme paginile.
 // La eroare logăm și întoarcem null → service-ul cade pe default (mentenanță OFF), site-ul rămâne funcțional.
+// Raportarea către PostHog folosește `reportServerException` (fetch brut), NU `getPostHogClient()`
+// (posthog-node) — acest repo e importat de `proxy.ts`, care rulează pe Edge; SDK-ul Node ar sparge
+// gate-ul de mentenanță pentru TOT traficul (bug găsit 2026-07-16, code review).
 export async function getSettingsRow(): Promise<PlatformSettingsRow | null> {
   try {
     const [row] = await db.select().from(platformSettings).limit(1);
@@ -26,7 +29,7 @@ export async function getSettingsRow(): Promise<PlatformSettingsRow | null> {
       err instanceof Error ? err.message : String(err),
       cause ? `cause: ${cause}` : "",
     );
-    Sentry.captureException(err, { tags: { area: "platform_settings" } });
+    reportServerException(err, { area: "platform_settings" });
     return null;
   }
 }

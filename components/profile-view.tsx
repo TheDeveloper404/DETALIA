@@ -92,8 +92,12 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
+      {/* Card unic pt banner + antet (avatar/nume/badge/bio) — coerent cu bara de statistici de mai
+          jos, care are deja propriul chenar (cerință Liviu, 2026-07-16: „le-aș pune și pe astea într-un
+          container"). */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
       {/* Banner — imaginea de cover dacă există, altfel grilă blueprint mascată radial. */}
-      <div className="relative h-[180px] overflow-hidden rounded-b-lg bg-[#ece1d3]">
+      <div className="relative h-[180px] overflow-hidden bg-[#ece1d3]">
         {data.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -120,7 +124,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
       {/* Header de profil. Avatarul iese peste banner; numele/rolul stau SUB banner, pe fundal —
           așa un cover închis sau aglomerat nu mai acoperă numele. */}
-      <div className="relative px-2">
+      <div className="relative px-5 pb-5">
         <span className="-mt-[46px] flex size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-[#d9cab6] font-mono text-[30px] text-muted-foreground">
           {data.image ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -236,6 +240,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         {data.bio && (
           <p className="mt-[18px] max-w-[64ch] leading-relaxed text-muted-foreground">{data.bio}</p>
         )}
+      </div>
       </div>
 
       {/* Bara de statistici. */}

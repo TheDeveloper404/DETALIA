@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// Smoke check PRODUCȚIE — verifică integrări third-party (PostHog, Sentry) chiar pe `detalia.ro`,
+// Smoke check PRODUCȚIE — verifică integrări third-party (PostHog) chiar pe `detalia.ro`,
 // nu pe preview. Motivat de incidentul 2026-07-15: migrarea PostHog a trecut build+unit+e2e (toate pe
 // preview/cod) dar a rămas SILENT BROKEN în producție ~ore (env vars lipsă din Vercel + `/ingest`
 // blocat de auth middleware) — nimic din suita normală de teste nu verifică integrarea LIVE, pe
@@ -35,15 +35,6 @@ test.describe("Smoke producție — PostHog", () => {
     const body = await res.json();
     // Dacă middleware-ul de auth blochează /ingest din nou, răspunsul e HTML (pagina de login), nu JSON.
     expect(body.status).toBeDefined();
-  });
-});
-
-test.describe("Smoke producție — Sentry", () => {
-  test("tunnel-ul e accesibil (nu 404/blocat)", async ({ request }) => {
-    // Tunnel-ul așteaptă un payload specific Sentry — verificăm doar că ruta EXISTĂ (nu 404), nu că
-    // trimitem un event valid (ar polua Sentry cu zgomot sintetic).
-    const res = await request.post("/sentry-tunnel", { data: "" });
-    expect(res.status()).not.toBe(404);
   });
 });
 
