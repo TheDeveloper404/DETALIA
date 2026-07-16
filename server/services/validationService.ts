@@ -102,6 +102,9 @@ export async function disapprove(input: {
   targetType: TargetType;
   targetId: string;
   justification: string;
+  // Detaliul-părinte — comentariul-justificare se scrie ÎNTOTDEAUNA aici (dezbaterea e unificată pe
+  // DETAIL, vezi detail-workspace.tsx). Pentru targetType DETAIL, detailId === targetId.
+  detailId: string;
 }): Promise<ValidationResult> {
   const role = await getRoleByUserId(input.userId);
   if (!role) return { ok: false, error: "NO_ROLE" };
@@ -135,11 +138,14 @@ export async function disapprove(input: {
   }
 
   await insertComment({
-    targetType: input.targetType,
-    targetId: input.targetId,
+    targetType: "DETAIL",
+    targetId: input.detailId,
     authorId: input.userId,
     body: j.value,
     originValidationId: transition.id,
+    // Justificarea unei dezaprobări pe SCHIȚĂ păstrează referința spre schița de origine — UI-ul
+    // etichetează comentariul „pe schița N" (vezi comments-section.tsx) deși stă pe targetType DETAIL.
+    sketchContextId: input.targetType === "SKETCH" ? input.targetId : null,
   });
 
   return { ok: true };
