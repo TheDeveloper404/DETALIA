@@ -3,8 +3,9 @@
 import { Bookmark, BookmarkCheck, Check, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SendToCanvasModal } from "@/components/send-to-canvas-modal";
 
 import { deleteDetailAction } from "./delete-actions";
@@ -50,6 +51,11 @@ export function DetailActionsMenu({
   const [sendToCanvasOpen, setSendToCanvasOpen] = useState(false);
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
+
+  // Confirmare ștergere (stil platformă, nu window.confirm) — "sketch" | "detail" | null.
+  const [confirmDelete, setConfirmDelete] = useState<"sketch" | "detail" | null>(null);
+  const deleteSketchFormRef = useRef<HTMLFormElement>(null);
+  const deleteDetailFormRef = useRef<HTMLFormElement>(null);
 
   // Închide meniul la schimbarea rutei (ajustare de state în render — pattern React recomandat).
   if (pathname !== prevPathname) {
@@ -169,23 +175,13 @@ export function DetailActionsMenu({
 
             {/* Șterge schița activă — autorul detaliului (moderare) SAU autorul schiței. */}
             {canDeleteActiveSketch && (
-              <form
-                action={deleteSketchAction}
-                onSubmit={(e) => {
-                  if (
-                    !window.confirm(
-                      "Sigur ștergi această schiță? Validările și comentariile ei se șterg definitiv.",
-                    )
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-              >
+              <form action={deleteSketchAction} ref={deleteSketchFormRef}>
                 <input type="hidden" name="sketchId" value={activeSketchPublicId ?? ""} />
                 <input type="hidden" name="detailId" value={detailId} />
                 <button
-                  type="submit"
+                  type="button"
                   role="menuitem"
+                  onClick={() => setConfirmDelete("sketch")}
                   className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
                 >
                   <Trash2 className="size-4" strokeWidth={2} />
@@ -195,22 +191,12 @@ export function DetailActionsMenu({
             )}
 
             {isAuthor && (
-              <form
-                action={deleteDetailAction}
-                onSubmit={(e) => {
-                  if (
-                    !window.confirm(
-                      "Sigur ștergi acest detaliu? Schițele, validările și comentariile lui se șterg definitiv.",
-                    )
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-              >
+              <form action={deleteDetailAction} ref={deleteDetailFormRef}>
                 <input type="hidden" name="detailId" value={detailId} />
                 <button
-                  type="submit"
+                  type="button"
                   role="menuitem"
+                  onClick={() => setConfirmDelete("detail")}
                   className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
                 >
                   <Trash2 className="size-4" strokeWidth={2} />
@@ -221,6 +207,27 @@ export function DetailActionsMenu({
           </div>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete === "sketch"}
+        title="Ștergi această schiță?"
+        message="Validările și comentariile ei se șterg definitiv. Nu se poate reveni."
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          setConfirmDelete(null);
+          deleteSketchFormRef.current?.requestSubmit();
+        }}
+      />
+      <ConfirmDialog
+        open={confirmDelete === "detail"}
+        title="Ștergi acest detaliu?"
+        message="Schițele, validările și comentariile lui se șterg definitiv. Nu se poate reveni."
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={() => {
+          setConfirmDelete(null);
+          deleteDetailFormRef.current?.requestSubmit();
+        }}
+      />
 
       {sendToCanvasOpen && (
         <SendToCanvasModal

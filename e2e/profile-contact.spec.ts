@@ -26,7 +26,10 @@ test.describe.serial("Profil — telefon/email opțional, vizibilitate opt-in", 
     await page.getByRole("button", { name: "Salvează profilul" }).click();
     await expect(page.getByRole("status")).toHaveText("Profilul a fost actualizat.");
 
+    // Telefon/email nu mai stau direct în antet (2026-07-16) — grupate în modalul „Date de contact",
+    // ca să nu împingă butonul „Editează profil" la fiecare câmp activat.
     await page.goto(`/profile/${testerUserId}`);
+    await page.getByRole("button", { name: "Date de contact" }).click();
     await expect(page.getByRole("link", { name: new RegExp(phone) })).toBeVisible();
   });
 
@@ -49,6 +52,7 @@ test.describe.serial("Profil — telefon/email opțional, vizibilitate opt-in", 
       .where(eq(users.id, authorUserId));
 
     await page.goto(`/profile/${authorUserId}`);
+    await page.getByRole("button", { name: "Date de contact" }).click();
     await expect(page.getByRole("link", { name: /0722999888/ })).toBeVisible();
   });
 
@@ -69,6 +73,7 @@ test.describe.serial("Profil — telefon/email opțional, vizibilitate opt-in", 
     await db.update(users).set({ emailVisible: true }).where(eq(users.id, authorUserId));
 
     await page.goto(`/profile/${authorUserId}`);
+    await page.getByRole("button", { name: "Date de contact" }).click();
     await expect(page.getByRole("link", { name: new RegExp(author.email) })).toBeVisible();
   });
 });

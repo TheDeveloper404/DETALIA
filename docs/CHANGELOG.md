@@ -4,6 +4,38 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Fix: confirmare ștergere stil platformă (nu window.confirm nativ)
+
+**Cerere Edi:** „Șterge schița"/„Șterge detaliul" arătau popup-ul nativ al browserului, inconsecvent
+vizual cu restul platformei. Clasificare: SMALL (UI, fără schimbare de business logic).
+
+- **`components/confirm-dialog.tsx`** (nou) — dialog reutilizabil (Anulează/Șterge), stil platformă.
+- **`detail-actions-menu.tsx`**: butoanele de ștergere devin `type="button"` (deschid dialogul, nu mai
+  trimit formularul direct); confirmarea reală trimite formularul prin `requestSubmit()` pe un `ref`.
+- **Test existent actualizat, nu doar unul nou adăugat** (`e2e/sketch.spec.ts`): testul de ștergere
+  schiță se baza pe `page.once("dialog", ...)` (evenimentul nativ al browserului) — cu fix-ul, acel
+  eveniment nu mai apare deloc, testul ar fi rămas blocat. Actualizat să interacționeze cu dialogul nou
+  + adăugat un pas de „Anulează" (verifică explicit că nu șterge) înainte de confirmarea reală.
+
+**Testat:** `e2e/sketch.spec.ts` (actualizat) + `tsc --noEmit`, `lint`, `next build` — verzi.
+
+---
+
+## 2026-07-16 — Fix: „Date de contact" grupate într-un modal (nu mai împing „Editează profil")
+
+**Cerere Edi:** bifarea vizibilității telefon/email pe profil adăuga chip-uri în antet, care împingeau
+butonul „Editează profil". Clasificare: SMALL (UI, fără schimbare de date).
+
+- Locație/Firmă/Website/Telefon/Email scoase din rândul de antet → grupate într-un buton „Date de
+  contact" (apare doar dacă există cel puțin un câmp completat) → deschide un modal cu toate.
+- Antetul rămâne stabil (doar rolul + butonul de contact), indiferent câte câmpuri de contact are userul.
+
+**Testat:** `e2e/profile-contact.spec.ts` (3 din cele 5 teste existente actualizate — datele acum stau
+în modal, nu direct în DOM vizibil, trebuiau să deschidă „Date de contact" întâi). `tsc --noEmit`,
+`lint`, `next build` — verzi.
+
+---
+
 ## 2026-07-16 — Feature: telefon + email opțional pe profil, vizibilitate opt-in per câmp
 
 **Cerere Edi:** dacă doi useri vor să comunice, user1 poate vedea telefonul/emailul lui user2 —
