@@ -97,6 +97,7 @@ export default defineConfig({
         /integration\.spec\.ts/,
         /admin-auth\.spec\.ts/,
         /notifications\.spec\.ts/,
+        /supplier-offer\.spec\.ts/,
       ],
       dependencies: ["setup"],
     },
