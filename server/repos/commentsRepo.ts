@@ -38,6 +38,7 @@ export async function insertComment(input: {
   body: string;
   originValidationId?: string | null;
   parentCommentId?: string | null;
+  sketchContextId?: string | null;
 }) {
   const [row] = await db
     .insert(comments)
@@ -49,6 +50,7 @@ export async function insertComment(input: {
       originValidationId: input.originValidationId ?? null,
       wasDisapproval: input.originValidationId != null,
       parentCommentId: input.parentCommentId ?? null,
+      sketchContextId: input.sketchContextId ?? null,
     })
     .returning();
   return row;
@@ -92,6 +94,7 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       originValidationId: comments.originValidationId,
       wasDisapproval: comments.wasDisapproval,
       parentCommentId: comments.parentCommentId,
+      sketchContextId: comments.sketchContextId,
       authorId: comments.authorId,
       authorName: users.name,
       authorImage: users.image,
