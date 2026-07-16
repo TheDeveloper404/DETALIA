@@ -315,6 +315,11 @@ export const comments = pgTable(
     // ca UI-ul să poată eticheta un comentariu drept „fostă dezaprobare, retrasă" în loc să dispară orice
     // urmă și să pară un comentariu obișnuit (2026-07-06, clarificare cerută de Liviu).
     wasDisapproval: boolean().notNull().default(false),
+    // Schița de origine a unei justificări de dezaprobare scrise de pe tabul unei schițe (2026-07-16).
+    // Comentariul însuși stă mereu pe targetType DETAIL (dezbatere unificată) — coloana asta e DOAR ca
+    // UI-ul să poată eticheta „pe schița N" și să sară la tab. null = comentariu obișnuit / dezaprobare
+    // pe detaliul de bază. Schița ștearsă → set null (nu pierdem comentariul, doar eticheta).
+    sketchContextId: uuid().references(() => sketches.id, { onDelete: "set null" }),
     // Reply (2026-07-06, idee Edi) — UN SINGUR nivel: un reply nu poate avea el însuși reply-uri
     // (enforce în commentService, nu doar aici). null = comentariu rădăcină. Cascade: comentariul-părinte
     // șters → reply-urile lui dispar odată cu el (nu rămân orfane).
@@ -326,6 +331,7 @@ export const comments = pgTable(
     index("comments_author_id_idx").on(t.authorId),
     index("comments_origin_validation_id_idx").on(t.originValidationId),
     index("comments_parent_comment_id_idx").on(t.parentCommentId),
+    index("comments_sketch_context_id_idx").on(t.sketchContextId),
   ],
 );
 

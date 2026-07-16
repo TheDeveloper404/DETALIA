@@ -20,7 +20,12 @@ import { upsertDisapprovalIfTransition, upsertPosition } from "@/server/repos/va
 import { approve, disapprove, recordSketchDisapproval } from "./validationService";
 
 const ROLE = { roleMain: "EXECUTANT", subRole: null, verificationStatus: "UNVERIFIED" };
-const target = { userId: "u-1", targetType: "DETAIL" as const, targetId: "22222222-2222-4222-8222-222222222222" };
+const target = {
+  userId: "u-1",
+  targetType: "DETAIL" as const,
+  targetId: "22222222-2222-4222-8222-222222222222",
+  detailId: "22222222-2222-4222-8222-222222222222",
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
