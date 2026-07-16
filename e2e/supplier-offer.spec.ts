@@ -10,11 +10,16 @@ import { getSeed } from "./seed";
 // seed (tester/author) au rol PROIECTANT din auth.setup.ts, deci schimbăm temporar rolul la FURNIZOR
 // pt durata testului și restaurăm PROIECTANT în `finally` — altfel stricăm alte spec-uri care rulează
 // pe același user seedat.
+//
+// `describe.serial` OBLIGATORIU aici: testele mută rolul lui `testerUserId` (shared state pe DB),
+// deci nu pot rula în paralel unele cu altele — `npm run e2e` (fullyParallel) a prins exact asta:
+// testul "toggle" seta rolul la FURNIZOR chiar în timp ce "gating" verifica PROIECTANT, pe alt worker.
 
 async function setRole(userId: string, roleMain: "FURNIZOR" | "PROIECTANT") {
   await db.update(roles).set({ roleMain }).where(eq(roles.userId, userId));
 }
 
+test.describe.serial("supplier offer", () => {
 test("toggle: primul click → oferă + notificare reală; al doilea → retrage, fără notificare nouă", async () => {
   const { detailId, testerUserId, authorUserId } = getSeed();
 
@@ -105,4 +110,6 @@ test("nu poți oferta pe propriul detaliu — CANNOT_OFFER_OWN", async () => {
   } finally {
     await setRole(authorUserId, "PROIECTANT");
   }
+});
+
 });
