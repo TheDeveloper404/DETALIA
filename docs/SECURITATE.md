@@ -9,6 +9,10 @@ paralele (foste `AUDIT-SECURITATE-2026-07-09.md` și `detalia-security-audit-202
 > verdict BLOCAT — depășit, categoriile lui erau deja rezolvate). Conținutul de mai jos e auditul CRITICAL
 > complet rulat pe codul live, actualizat cu follow-up-urile din aceeași zi (JWT + fix suspendare).
 
+> **2026-07-16 — Sentry SCOS din proiect** (decommission asumat, PostHog acoperă error tracking-ul).
+> Mențiunile de mai jos care descriu Sentry ca „live"/activ sunt istoricul auditului la data lui — nu mai
+> reflectă starea curentă. Vezi `docs/CHANGELOG.md` 2026-07-16 pentru detaliu.
+
 **Ultima verificare:** 2026-07-09 (audit extern black-box + fixuri + recalibrare notă) · anterior 2026-07-04
 (audit pe scenarii, SEC-S1…S5) · **Tip:** re-audit static complet (13 categorii, skill `security-audit`) pe
 toată suprafața (auth, authz, mutații, API, business logic, infra) + `npm audit` + **audit extern independent
