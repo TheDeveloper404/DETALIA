@@ -89,13 +89,15 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
   );
 
   const isAuthor = detail.authorId === userId;
-  const saved = await isDetailSaved(userId, detail.id);
-  const role = await getUserRole(userId);
-  const isFurnizor = role?.roleMain === "FURNIZOR";
-  const [supplierOffers, offeringSupplier] = await Promise.all([
+  // 4 citiri independente (doar userId/detail.id) — paralelizate, nu secvențiale (eficiență găsită la
+  // code-review 2026-07-16: doar ultimele 2 erau în Promise.all, restul adăugau latență evitabilă).
+  const [saved, role, supplierOffers, offeringSupplier] = await Promise.all([
+    isDetailSaved(userId, detail.id),
+    getUserRole(userId),
     getSupplierOffers(detail.id),
     isOfferingSupplier(userId, detail.id),
   ]);
+  const isFurnizor = role?.roleMain === "FURNIZOR";
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">

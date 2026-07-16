@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 // Confirmare de acțiune ireversibilă — stil platformă, NU popup-ul nativ al browserului (window.confirm).
 // 2026-07-16, cerere Edi: „Șterge schița"/„Șterge detaliul" arătau confirmarea browser-ului, inconsecvent
 // vizual cu restul platformei.
@@ -18,6 +20,15 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onCancel();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onCancel]);
+
   if (!open) return null;
 
   return (

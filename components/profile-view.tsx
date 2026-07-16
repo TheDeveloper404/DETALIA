@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 
@@ -80,6 +80,15 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
   const [tab, setTab] = useState<Tab>("detalii");
   const [contactOpen, setContactOpen] = useState(false);
   const hasContactInfo = !!(data.location || data.company || data.website || data.phone || data.email);
+
+  useEffect(() => {
+    if (!contactOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setContactOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [contactOpen]);
 
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
