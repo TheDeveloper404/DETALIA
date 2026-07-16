@@ -141,10 +141,15 @@ lib/        auth, email, storage, utils
   2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau o librărie,
   treci prin dashboard-ul de erori (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
   ce nu se mai poate reproduce, cu un comentariu scurt de ce. Nu se auto-curăță la refactor.
-- **Reminder săptămânal Sentry** (rutină cloud `/schedule`, luni 09:00 RO) — doar notificare push, fără
-  verificare automată de Claude; **de re-orientat spre PostHog** după decommission-ul Sentry (~2026-07-22).
-- **Migrare PostHog → decommission Sentry, ~2026-07-22**: dacă rularea paralelă confirmă paritate (fără
-  gap-uri de erori reale), scos SDK+env+dependențe Sentry — vezi `.remember/remember.md` „URMEAZĂ".
+- **Reminder săptămânal observabilitate** (rutină cloud `/schedule`, luni 09:00 RO) — doar notificare push,
+  fără verificare automată de Claude; **PostHog e sursa unică** (Sentry decommission FĂCUT 2026-07-16, mai
+  devreme decât planul ~07-22 — vezi CHANGELOG).
+- **Liste de pe profil (Detalii/Schițe/Activitate) — fără paginare reală la scară** *(decizie de business,
+  2026-07-16)*: UI-ul arată primele 4 + „Vezi încă N" (client-side, `components/profile-view.tsx`), dar
+  `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`) NU au `LIMIT` — se aduc din DB
+  TOATE rândurile userului la fiecare încărcare de profil, indiferent câte se afișează. La 2026-07-16,
+  maximul real per user era 6 detalii → neglijabil. **Reminder**: dacă vreun user ajunge la zeci de
+  detalii/schițe reale, adaugă `LIMIT` + fetch separat la expand (paginare reală) — nu de făcut preventiv acum.
 - (Candidat, neconfirmat ca obligație recurentă: test periodic de restore pe backup-ul DB — există doar
   backup automat, nu verificare că restore-ul chiar funcționează.)
 
