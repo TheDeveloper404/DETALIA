@@ -379,9 +379,9 @@ Tratăm ca **CRITICAL** (auth, roluri, permisiuni):
   (re-check DB + `signOut()` real) pe toate mutațiile care produc conținut (`lib/require-active-user.ts`).
 - **Rate-limit** (Upstash, fail-closed în prod) pe login/mutații/upload + **Cloudflare Turnstile** pe
   login+signup (anti-bot).
-- **Audit trail structurat** (`lib/audit.ts`) + **Sentry** (erori + Alerts pe evenimente de securitate:
-  rate-limit, acces respins pe cont suspendat, login-admin eșuat).
-- Fără secrete în cod; toate cheile (Resend, DB, Auth, Upstash, Turnstile, Sentry) în env management (Vercel env).
+- **Audit trail structurat** (`lib/audit.ts`) + **PostHog** (erori + evenimente de securitate: rate-limit,
+  acces respins pe cont suspendat, login-admin eșuat — Sentry scos 2026-07-16, PostHog e sursa unică).
+- Fără secrete în cod; toate cheile (Resend, DB, Auth, Upstash, Turnstile, PostHog) în env management (Vercel env).
 - PII (emailuri, tokenuri magic link, dovezi rol) **nu se loghează** — doar metadate. (Hook care blochează
   asta — vezi §11.)
 - **Audit formal CRITICAL (13 categorii) — APROBAT** (2026-07-02, vezi `docs/SECURITATE.md`), 0 constatări

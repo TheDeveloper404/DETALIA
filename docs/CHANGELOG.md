@@ -4,6 +4,73 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Audit de securitate strict, țintit (3 zone), toate APROBATE
+
+La cererea lui Liviu, după decommission-ul Sentry: audit `security-engineer` (nivel CRITICAL), 3 agenți
+în paralel, pe exact suprafețele noi/atinse azi — nu re-audit complet (ultimul complet, APROBAT, e din
+2026-07-13/14, nimic din auth/sesiune/plăți nu s-a schimbat de atunci).
+
+1. **Telefon/email opt-in pe profil** — APROBAT, 0 critical/high/medium. Redactare pe server (nu client),
+   `viewerIsOwner` derivat din sesiune (nu din URL), `phone`/`email` redactate nu ajung niciodată brute în
+   payload RSC, `normalizePhone` allowlist strict (fără vector XSS/injectare în `href="tel:"`), update
+   confinat la propriul cont (`userId` din sesiune, nu din formData). 2 note LOW neblocante: `normalizePhone`
+   acceptă șiruri fără cifre (ex. `"()"`) — calitate date, nu securitate; fără rate-limit dedicat pe toggle
+   vizibilitate (risc redus, cont propriu).
+2. **Ștergere schiță/detaliu (după fix-ul ConfirmDialog)** — APROBAT, 0 findings. Server re-derivă ownership
+   din DB (nu din hidden inputs — manipularea `sketchId`/`detailId` din DevTools duce la FORBIDDEN, nu la
+   bypass). Cascada de ștergere (validări/comentarii) nu lasă referințe orfane (`onDelete: "set null"` pe
+   `originValidationId`/`sketchContextId`). Recomandare opțională, neblocantă: test IDOR simetric pt
+   `deleteDetail` publicat (există deja pt `updateDetail`/`deleteDetailDraft`).
+3. **Validare rol/onboarding (după restructurarea de azi)** — APROBAT, 0 findings. `userId` mereu din
+   sesiune (nu din formData), `isValidSubRole` verifică DOAR contra listei rolului validat (imposibil
+   `FURNIZOR`+`"Arhitect"`), migrarea „Beneficiar documentat"→„Beneficiar" n-are nicio comparație hardcodată
+   în cod de producție (doar în test, care respinge corect valoarea veche). Notă de design (nu bug): rolul
+   auto-declarat nu e verificat — asumat deja de produs; de revenit cu check `verificationStatus==="VERIFIED"`
+   dacă vreun feature viitor pune miză reală (bani/contact) pe rol.
+
+Concluzie: niciun fix de cod necesar din acest audit.
+
+---
+
+## 2026-07-16 — Decommission Sentry (decizie asumată, PostHog e sursa unică de error tracking)
+
+SDK, config-uri și toate integrările Sentry scoase din cod: `sentry.edge.config.ts`/`sentry.server.config.ts`
+șterse; `instrumentation.ts`/`instrumentation-client.ts` rescrise pe PostHog; `next.config.ts` fără
+`withSentryConfig`; `proxy.ts` fără `/sentry-tunnel`; `@sentry/nextjs` dezinstalat (`package.json`/lock).
+
+**Fiecare loc care apela `Sentry.captureException`** (`app/error.tsx`, `app/global-error.tsx`,
+`server/repos/settingsRepo.ts`, `lib/audit.ts`) mutat pe PostHog. Creat **`lib/posthog-report.ts`** —
+helper edge-safe (fetch brut spre PostHog, NU SDK) folosit uniform de `lib/audit.ts`, `instrumentation.ts`
+(`onRequestError`) și `settingsRepo.ts`.
+
+**Bug CRITIC găsit + reparat la `/code-review high` rulat pe acest diff:** prima variantă a
+`settingsRepo.ts` folosea `getPostHogClient()` (`posthog-node`, SDK Node-only) — dar `settingsRepo` e
+importat de `proxy.ts`, care rulează pe **Edge** (Next 16, fără `nodeMiddleware`). Ar fi spart gate-ul de
+mentenanță pentru TOT traficul la prima eroare de citire DB. Fix: `settingsRepo.ts` folosește acum
+`reportServerException` din `lib/posthog-report.ts` (fetch brut, edge-safe), nu SDK-ul Node.
+
+**Alte 4 găsiri reale din review, reparate:** (1) evenimentele `$exception`/`audit_event` nu aveau tag de
+`environment` (regresie de triaj față de Sentry) — adăugat în helper; (2) `$exception` construit manual
+nu avea `mechanism`/`$exception_level` (risc de grupare greșită în PostHog Error Tracking) — adăugat;
+(3) `onRequestError` nu atașa `path`/`method`/`routePath`/`routeType` — adăugat; (4) comentariul de la
+`NEXT_PUBLIC_VERCEL_ENV` din `next.config.ts` atribuia greșit mapping-ul lui Sentry/PostHog — de fapt e
+folosit de Turnstile (`auth-form.tsx`, admin `login-form.tsx`) — corectat.
+
+**Verificat cu context7 înainte de implementare** (nu ghicit): semnătura `posthog-js`/`posthog-node`
+`captureException(error, distinctId?, properties?)`, forma standard `$exception_list`
+(`type`/`value`/`mechanism`), semnătura exactă `onRequestError(error, request, context)` din Next.js
+16.2.9 (confirmat că Next AȘTEAPTĂ hook-ul — nu era nevoie de fix acolo), și comportamentul de no-op sigur
+al `posthog-js` când SDK-ul nu e încărcat (fără guard suplimentar necesar în `app/error.tsx`/`global-error.tsx`).
+
+**Rest, NU cod** — de făcut manual în Vercel (env vars, nu se pot șterge din repo): elimină
+`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` din Production + Preview.
+
+Verificat: `tsc --noEmit`, `lint`, `vitest run` (191/191), `next build` (Proxy/Edge bundle compilează
+curat, confirmă fix-ul critic) — toate verzi. Docs actualizate: `SECURITATE.md`, `DEPLOY.md`,
+`ARHITECTURA.md`.
+
+---
+
 ## 2026-07-16 — 2 eșecuri e2e din `npm run e2e` (91/93 → 93/93) — flakiness de test-infra, NU bug de produs
 
 Liviu a rulat suita completă (97 teste) și a raportat 2 eșecuri + alerte Slack PostHog false pe signup-uri noi.

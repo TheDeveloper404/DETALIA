@@ -1,7 +1,7 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
 import Link from "next/link";
+import posthog from "posthog-js";
 import { useEffect } from "react";
 
 // Error boundary la nivel de aplicație (sub AppHeader). Prinde excepțiile din Server/Client Components
@@ -16,7 +16,7 @@ export default function Error({
   useEffect(() => {
     // Logăm doar mesajul/digest-ul — fără PII. Detaliile reale sunt în logul de server.
     console.error("Eroare neașteptată:", error.digest ?? error.message);
-    Sentry.captureException(error);
+    posthog.captureException(error);
   }, [error]);
 
   return (

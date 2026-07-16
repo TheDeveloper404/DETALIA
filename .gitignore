@@ -10,10 +10,6 @@ dist/
 *.tsbuildinfo
 next-env.d.ts
 
-# === Sentry (CLI auto-generat, poate conține token) ===
-.sentryclirc
-.env.sentry-build-plugin
-
 # === Variabile de mediu / secrete (NICIODATĂ în git) ===
 .env
 .env.local

@@ -1,13 +1,13 @@
 "use client";
 
-import * as Sentry from "@sentry/nextjs";
+import posthog from "posthog-js";
 import { useEffect } from "react";
 
 // Ultima plasă de siguranță: prinde erorile din ROOT layout (unde `app/error.tsx` nu mai ajunge).
 // Înlocuiește layout-ul → trebuie să randeze propriul <html>/<body>, fără a depinde de fonturi/header.
 export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    posthog.captureException(error);
   }, [error]);
 
   return (

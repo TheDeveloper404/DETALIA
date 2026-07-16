@@ -20,8 +20,7 @@
 | **Cloudflare** | DNS host (DNS-only în fața Vercel, fără proxy/WAF — decis 2026-07-02) | ✅ Active |
 | **Cloudflare Turnstile** | Anti-bot pe login+signup (widget, verificare server-side) | ✅ Configurat 2026-07-02 |
 | **Upstash Redis** | Rate-limit (login, mutații, upload) — fail-closed în prod la outage | ✅ Configurat |
-| **Sentry** | Erori server/client/edge, tunnel prin `/sentry-tunnel` + Alerts pe `audit_event` | ✅ Configurat 2026-07-02/03 |
-| **PostHog** | Analytics + error tracking (migrare din Sentry în curs) — regiune EU | ✅ Live din 2026-07-15 |
+| **PostHog** | Analytics + error tracking — regiune EU | ✅ Live din 2026-07-15 (Sentry scos 2026-07-16) |
 
 **Acces MCP Claude (2026-07-15):** pe lângă Vercel CLI (deja existent), Claude are acum acces direct și
 la **Neon** (branch-uri, SQL read-only prin `run_sql`) și **PostHog** (query erori/evenimente) prin MCP —
@@ -43,8 +42,10 @@ poate verifica direct starea reală în ambele, fără să ceară screenshot-uri
   `ADMIN_EMAILS`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `MAGIC_LINK_TTL_MINUTES`, `ADMIN_SESSION_TTL_HOURS`,
   `ADMIN_LOGIN_TOKEN_TTL_MINUTES` + **Upstash** (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
   opțional `RATE_LIMIT_FAIL_OPEN`) + **Turnstile** (`TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`)
-  + **Sentry** (`NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`).
+  + **PostHog** (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_ENV_ID`).
   *(`INVITATION_TTL_HOURS` eliminat 2026-06-28 odată cu logica de invitații — nu mai există în `.env.example`.)*
+  *(Sentry scos 2026-07-16 — `NEXT_PUBLIC_SENTRY_DSN`/`SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN`
+  rămân de șters manual din Vercel — env vars, nu se pot elimina din cod.)*
 
 ---
 
@@ -136,7 +137,7 @@ redeploy → verifică → (dacă aplicabil) revocă valoarea veche la sursă":
 | `UPSTASH_REDIS_REST_TOKEN` | Upstash → Database → regenerează tokenul → Vercel | Fără impact pe useri; rate-limit-ul continuă normal după redeploy. |
 | `AUTH_RESEND_KEY` | Resend → API Keys → creezi una nouă, ștergi cea veche → Vercel | Fără impact — magic link-urile în curs de livrare la momentul schimbării pot eșua (rar, tranzitoriu). |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile → widget → regenerează secretul → Vercel | Fără impact pe useri — verificarea anti-bot continuă după redeploy. |
-| `SENTRY_AUTH_TOKEN` | Sentry → Settings → Auth Tokens → regenerezi → Vercel | Afectează doar upload-ul de source maps la build, nu runtime-ul. |
+| `POSTHOG_PERSONAL_API_KEY` | PostHog → Settings → Personal API Keys → regenerezi → Vercel | Afectează doar upload-ul de source maps la build, nu runtime-ul. |
 | `CRON_SECRET` | Generezi tu (ex. `openssl rand -base64 32`) → Vercel | Fără impact pe useri — doar cron-ul de retenție trebuie să folosească noua valoare (automat, citește din env). |
 
 **Regulă:** schimbi UN secret o dată, redeploy, verifici (login funcțional, feed se încarcă, o mutație merge),

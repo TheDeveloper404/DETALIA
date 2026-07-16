@@ -31,7 +31,6 @@ const PUBLIC_PATHS = [
   "/s", // teaser PUBLIC read-only al unei schițe (decizie 2026-07-05) — vezi app/s/[id]/page.tsx
   "/termeni", // Termeni și condiții — public, linkuit din footer
   "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
-  "/sentry-tunnel", // proxy Sentry (evită ad-blockere) — trebuie accesibil și pt erori pre-auth (/login etc.)
   "/ingest", // proxy PostHog (evită ad-blockere) — trebuie accesibil pre-auth (pageview pe landing/login/signup)
   "/.well-known/security.txt", // canal RFC 9116 de raportare responsabilă — public prin natura lui
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
