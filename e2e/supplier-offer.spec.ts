@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { notifications, roles, supplierOffers } from "../db/schema";
@@ -17,6 +17,20 @@ async function setRole(userId: string, roleMain: "FURNIZOR" | "PROIECTANT") {
 
 test("toggle: primul click → oferă + notificare reală; al doilea → retrage, fără notificare nouă", async () => {
   const { detailId, testerUserId, authorUserId } = getSeed();
+
+  // Curăță ORICE gunoi rămas din rulări anterioare întrerupte (test idempotent la pornire) — altfel un
+  // eșec anterior (asertare picată înainte de cleanup) contaminează permanent rulările următoare.
+  async function cleanup() {
+    await db.delete(supplierOffers).where(and(eq(supplierOffers.userId, testerUserId), eq(supplierOffers.detailId, detailId)));
+    await db.delete(notifications).where(
+      and(
+        eq(notifications.recipientUserId, authorUserId),
+        eq(notifications.type, "SUPPLIER_OFFERED"),
+        sql`payload_json->>'detailId' = ${detailId}`,
+      ),
+    );
+  }
+  await cleanup();
 
   await setRole(testerUserId, "FURNIZOR");
   try {
@@ -54,10 +68,10 @@ test("toggle: primul click → oferă + notificare reală; al doilea → retrage
       (n) => (n.payloadJson as { detailId?: string })?.detailId === detailId,
     );
     expect(matchesAfter.length).toBe(1); // tot doar cea de la primul click
-
-    if (match) await db.delete(notifications).where(eq(notifications.id, match.id));
   } finally {
-    await db.delete(supplierOffers).where(and(eq(supplierOffers.userId, testerUserId), eq(supplierOffers.detailId, detailId)));
+    // NECONDIȚIONAT — rulează chiar dacă o asertare de mai sus a picat, altfel rândurile rămân
+    // orfane și contaminează următoarea rulare (bug găsit 2026-07-16: exact asta s-a întâmplat).
+    await cleanup();
     await setRole(testerUserId, "PROIECTANT");
   }
 });
