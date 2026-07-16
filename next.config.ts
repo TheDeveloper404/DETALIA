@@ -1,5 +1,4 @@
 import { withPostHogConfig } from "@posthog/nextjs-config";
-import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from "next";
 
 // SEC-08 — Headere de securitate statice (aceleași pe toate rutele). CSP-ul NU mai e aici: are nonce per
@@ -50,9 +49,10 @@ const nextConfig: NextConfig = {
     ];
   },
   skipTrailingSlashRedirect: true,
-  // VERCEL_ENV nu ajunge niciodată în bundle-ul de CLIENT (nu e prefixat NEXT_PUBLIC_) — fără mapping-ul
-  // ăsta, Sentry de pe browser nu poate ști dacă rulează pe preview sau production (vezi sentry-config
-  // pt detaliul complet: fără el, evenimentele client cădeau invizibile sub orice filtru de environment).
+  // VERCEL_ENV nu ajunge niciodată în bundle-ul de CLIENT (nu e prefixat NEXT_PUBLIC_) — folosit de
+  // Turnstile (components/auth-form.tsx, app/admin-page/login/login-form.tsx) ca să distingă preview de
+  // production (chei de test vs. chei reale). NU mai are legătură cu Sentry (scos 2026-07-16) — comentariul
+  // vechi atribuia greșit acest mapping la Sentry client-side.
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV,
   },
@@ -63,29 +63,12 @@ const nextConfig: NextConfig = {
 // Host-ul de API/release e cel de APLICAȚIE (eu.posthog.com), NU cel de ingest (eu.i.posthog.com,
 // folosit de SDK în instrumentation-client.ts/posthog-server.ts) — cheia personală nu e recunoscută
 // pe host-ul de ingest (authentication_failed dacă le confunzi).
-const configWithPostHog = withPostHogConfig(nextConfig, {
+export default withPostHogConfig(nextConfig, {
   personalApiKey: process.env.POSTHOG_PERSONAL_API_KEY ?? "",
   envId: process.env.POSTHOG_ENV_ID ?? "",
   host: "https://eu.posthog.com",
   sourcemaps: {
     enabled: !!process.env.POSTHOG_PERSONAL_API_KEY,
     deleteAfterUpload: true,
-  },
-});
-
-// Sentry — no-op complet dacă lipsesc env-urile (build local fără cont Sentry nu se strică).
-// `tunnelRoute`: erorile trec prin propriul domeniu (`/sentry-tunnel`), nu direct spre *.sentry.io —
-// evită ad-blockere ȘI ne scutește de allowlist nou în CSP (`lib/csp.ts` rămâne neatins).
-export default withSentryConfig(configWithPostHog, {
-  org: process.env.SENTRY_ORG,
-  project: process.env.SENTRY_PROJECT,
-  authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: true,
-  tunnelRoute: "/sentry-tunnel",
-  widenClientFileUpload: true,
-  webpack: {
-    treeshake: {
-      removeDebugLogging: true,
-    },
   },
 });
