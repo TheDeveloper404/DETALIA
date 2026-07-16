@@ -4,6 +4,34 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Audit de securitate strict, țintit (3 zone), toate APROBATE
+
+La cererea lui Liviu, după decommission-ul Sentry: audit `security-engineer` (nivel CRITICAL), 3 agenți
+în paralel, pe exact suprafețele noi/atinse azi — nu re-audit complet (ultimul complet, APROBAT, e din
+2026-07-13/14, nimic din auth/sesiune/plăți nu s-a schimbat de atunci).
+
+1. **Telefon/email opt-in pe profil** — APROBAT, 0 critical/high/medium. Redactare pe server (nu client),
+   `viewerIsOwner` derivat din sesiune (nu din URL), `phone`/`email` redactate nu ajung niciodată brute în
+   payload RSC, `normalizePhone` allowlist strict (fără vector XSS/injectare în `href="tel:"`), update
+   confinat la propriul cont (`userId` din sesiune, nu din formData). 2 note LOW neblocante: `normalizePhone`
+   acceptă șiruri fără cifre (ex. `"()"`) — calitate date, nu securitate; fără rate-limit dedicat pe toggle
+   vizibilitate (risc redus, cont propriu).
+2. **Ștergere schiță/detaliu (după fix-ul ConfirmDialog)** — APROBAT, 0 findings. Server re-derivă ownership
+   din DB (nu din hidden inputs — manipularea `sketchId`/`detailId` din DevTools duce la FORBIDDEN, nu la
+   bypass). Cascada de ștergere (validări/comentarii) nu lasă referințe orfane (`onDelete: "set null"` pe
+   `originValidationId`/`sketchContextId`). Recomandare opțională, neblocantă: test IDOR simetric pt
+   `deleteDetail` publicat (există deja pt `updateDetail`/`deleteDetailDraft`).
+3. **Validare rol/onboarding (după restructurarea de azi)** — APROBAT, 0 findings. `userId` mereu din
+   sesiune (nu din formData), `isValidSubRole` verifică DOAR contra listei rolului validat (imposibil
+   `FURNIZOR`+`"Arhitect"`), migrarea „Beneficiar documentat"→„Beneficiar" n-are nicio comparație hardcodată
+   în cod de producție (doar în test, care respinge corect valoarea veche). Notă de design (nu bug): rolul
+   auto-declarat nu e verificat — asumat deja de produs; de revenit cu check `verificationStatus==="VERIFIED"`
+   dacă vreun feature viitor pune miză reală (bani/contact) pe rol.
+
+Concluzie: niciun fix de cod necesar din acest audit.
+
+---
+
 ## 2026-07-16 — Decommission Sentry (decizie asumată, PostHog e sursa unică de error tracking)
 
 SDK, config-uri și toate integrările Sentry scoase din cod: `sentry.edge.config.ts`/`sentry.server.config.ts`
