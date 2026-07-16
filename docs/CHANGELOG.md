@@ -4,6 +4,44 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — Feature: „ridic mâna" — Furnizorul semnalează că poate oferta materiale
+
+**Cerere Edi** (propunerile din handoff, pct. 3): Furnizorii n-aveau nicio pârghie comercială pe un
+detaliu — nu pot schița, nu au context să valideze tehnic, dar pot oferi materiale. Buton 1-click,
+proporțional cu miza (vizibilitate comercială, nu validare tehnică). Clasificare: NORMAL.
+
+**Model de date — entitate NOUĂ, separată de `validations`:** `supplier_offers` (`userId`, `detailId`
+compus PK, FK cascade), ca să nu stric semantica de aprobare/dezaprobare (contoare, justificare
+obligatorie). Enum `notification_type` + valoare nouă `SUPPLIER_OFFERED`.
+
+**Reguli enforce pe server (nu doar UI):**
+- Doar rol `FURNIZOR`, verificat din DB (`getRoleByUserId`), nu din client.
+- Reversibil — al doilea click retrage (`toggleSupplierOffer`, model identic bookmark-ului
+  `savedDetails`: o poziție per user per țintă).
+- Nu poți oferta pe propriul detaliu (`CANNOT_OFFER_OWN`).
+- Scope DOAR pe DETALIU (nu per-schiță din tab — materialele țin de detaliul de bază).
+- Notificare in-app către autor DOAR la primul click (nu la retragere/reofertare).
+- Vizibil PUBLIC pe pagina detaliului — listă nume+rol+avatar a tuturor Furnizorilor care au ridicat
+  mâna, nu doar contor la autor.
+
+**Fișiere:** `db/schema.ts` (tabelă + enum), `server/repos/supplierOffersRepo.ts`,
+`server/services/supplierOfferService.ts`, `server/services/notificationService.ts` + `lib/email.ts`
+(template `SUPPLIER_OFFERED`, email dezactivat global ca restul — doar in-app activ),
+`app/(app)/details/[id]/supplier-offer-actions.ts` (server action, `requireActiveUserId` — mutație
+vizibilă public, ca la validare), `app/(app)/details/[id]/supplier-offer-panel.tsx` (UI nou),
+`detail-workspace.tsx` + `page.tsx` (plugat doar pe tab-ul de bază), `components/notification-bell.tsx`
++ `components/app-header.tsx` (tip nou de notificare în clopoțel).
+
+**Migrație DB:** `ALTER TYPE notification_type ADD VALUE 'SUPPLIER_OFFERED'` + `CREATE TABLE
+supplier_offers` — rulate manual de Liviu pe Neon dev și production, confirmate cu query-uri directe.
+
+**Testat:** `server/services/supplierOfferService.test.ts` (nou, 7 teste — gating rol, SEC-11 id
+malformat, `CANNOT_OFFER_OWN`, toggle reversibil, notificare doar la primul click). `tsc --noEmit`,
+`lint`, `next build`, `vitest` (175/175) — toate verzi. Deploy verificat live pe `detalia.ro`
+(merge pe `main` prin PR #162, CI verde, Vercel production Ready).
+
+---
+
 ## 2026-07-16 — PostHog: suprimare erori false-pozitive `NEXT_REDIRECT`
 
 Cele două erori active raportate în PostHog (`/sketches/.../edit` și `/details/.../edit`) nu erau
