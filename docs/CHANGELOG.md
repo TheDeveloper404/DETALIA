@@ -4,6 +4,33 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — 2 eșecuri e2e din `npm run e2e` (91/93 → 93/93) — flakiness de test-infra, NU bug de produs
+
+Liviu a rulat suita completă (97 teste) și a raportat 2 eșecuri + alerte Slack PostHog false pe signup-uri noi.
+
+**PostHog — alerte false „useri noi înregistrați".** Root-cause confirmat direct din DB (`execute-sql`):
+evenimente `onboarding_completed` cu `$lib: posthog-node`, la timestamp-uri ce coincid exact cu rulările
+e2e — testele de onboarding ating mediul real (preview), nu un mock. `test_account_filters` era doar un
+cohort static, nu excludea dinamic conturile efemere `@detalia.test`. Fix (aplicat cu confirmare explicită
+Liviu): adăugat `{key:"email", operator:"not_icontains", value:"@detalia.test"}` la filtrul de test
+accounts al proiectului PostHog.
+
+**`profile-contact.spec.ts` — race pe user shared.** Confirmat direct din DB: `phone` rămânea `null` deși
+testul îl seta. Cauză: `profile-edit.spec.ts` retrimite ÎNTREG formularul de profil (headline) pe ACELAȘI
+`testerUserId`, concurent (worker diferit) — submisia lui suprascria telefonul abia salvat de testul meu.
+Fix: testul de „proprietar completează telefon" folosește acum un user DEDICAT, izolat (JWT `encode()`
+propriu + rol inserat direct în DB), exact pattern-ul din `suspended.spec.ts`/`onboarding.spec.ts`, nu mai
+atinge `testerUserId` shared. Reverificat: 6/6 teste trec.
+
+**`sketch.spec.ts:74` — flaky, NU bug.** Trace Playwright arată request-ul de delete cu răspuns 200 +
+`x-action-revalidated: 1` (server action a rulat corect, schița chiar s-a șters), dar
+`net::ERR_ABORTED` pe client — răspunsul a fost abandonat de o navigare RSC concurentă înainte ca UI-ul
+să aplice noile date, deci tab-ul a rămas vizual stale. Cauză de concurență pe preview (multe spec-uri
+rulează în paralel pe aceeași sesiune), nu bug de logică — rulat izolat de 2 ori, trece constant. Niciun
+cod atins.
+
+---
+
 ## 2026-07-16 — Code review complet (`/code-review high`) pe toată sesiunea — 3 bug-uri reale găsite și reparate
 
 La cererea lui Liviu (prea multe bug-uri ieșite azi la rulare) — review complet, 4 unghiuri paralele,
