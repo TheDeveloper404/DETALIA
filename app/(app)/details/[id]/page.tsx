@@ -7,7 +7,9 @@ import { auth } from "@/lib/auth";
 import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
 import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/detailService";
+import { getUserRole } from "@/server/services/roleService";
 import { getTeanc } from "@/server/services/sketchService";
+import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
 import { getTargetValidationView } from "@/server/services/validationService";
 
 import { DetailWorkspace, type WorkspaceSketch } from "./detail-workspace";
@@ -87,6 +89,12 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
 
   const isAuthor = detail.authorId === userId;
   const saved = await isDetailSaved(userId, detail.id);
+  const role = await getUserRole(userId);
+  const isFurnizor = role?.roleMain === "FURNIZOR";
+  const [supplierOffers, offeringSupplier] = await Promise.all([
+    getSupplierOffers(detail.id),
+    isOfferingSupplier(userId, detail.id),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
@@ -172,6 +180,9 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             currentUserId={session.user.id}
             currentUserName={session.user.name}
             currentUserImage={session.user.image}
+            isCurrentUserFurnizor={isFurnizor}
+            isOfferingSupplier={offeringSupplier}
+            supplierOffers={supplierOffers}
           />
       </div>
 

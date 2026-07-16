@@ -60,6 +60,8 @@ export const notificationType = pgEnum("notification_type", [
   "SKETCH_REJECTED",
   // Autorul detaliului a șters o schiță de pe detaliul lui (moderare post-publicare).
   "SKETCH_DELETED",
+  // Un FURNIZOR a „ridicat mâna" (poate oferta materiale) pe detaliul autorului — doar la primul click.
+  "SUPPLIER_OFFERED",
 ]);
 
 // ════════════════════ (A) Tabele Auth.js (adapter Drizzle) ════════════════════
@@ -376,6 +378,28 @@ export const savedDetails = pgTable(
   (t) => [
     primaryKey({ columns: [t.userId, t.detailId] }),
     index("saved_details_detail_id_idx").on(t.detailId),
+  ],
+);
+
+// „Ridic mâna" — un FURNIZOR semnalează public că poate oferta materiale pt acest detaliu (2026-07-16,
+// cerere Edi). Entitate SEPARATĂ de `validations` (deliberat): semantica de aprobare/dezaprobare
+// (contoare, justificare obligatorie) n-are legătură cu asta — e doar vizibilitate comercială.
+// Compus (userId, detailId) = PK, identic modelul „o poziție per user per țintă, reversibilă" ca la
+// bookmark (savedDetails): al doilea click = retragere (DELETE), nu o a doua ramură de stare.
+export const supplierOffers = pgTable(
+  "supplier_offers",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    detailId: uuid()
+      .notNull()
+      .references(() => details.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.detailId] }),
+    index("supplier_offers_detail_id_idx").on(t.detailId),
   ],
 );
 

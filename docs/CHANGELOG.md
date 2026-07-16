@@ -4,6 +4,22 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-16 — PostHog: suprimare erori false-pozitive `NEXT_REDIRECT`
+
+Cele două erori active raportate în PostHog (`/sketches/.../edit` și `/details/.../edit`) nu erau
+bug-uri: `NEXT_REDIRECT` e excepția internă pe care Next.js o aruncă la fiecare `redirect()`
+server-side, prinsă normal de framework — dar necunoscută ca atare de PostHog error tracking,
+care o înregistra ca eroare reală.
+
+**Fix:** regulă de suprimare la ingestion (Project settings → Error tracking → Suppression rules,
+id `019f6998-1520-0000-5b9d-abb36fad591f`) — `$exception_types exact "Error"` AND
+`$exception_values exact "NEXT_REDIRECT"`, `sampling_rate: 1` (suprimare completă, fără ambiguitate
+posibilă pe acest mesaj). Dry-run confirmat: filtrul prindea DOAR cele 2 issue-uri NEXT_REDIRECT
+(3 ocurențe, 2 useri), nimic altceva. Cele 2 issue-uri existente rămân în istoric; doar evenimentele
+noi sunt aruncate.
+
+---
+
 ## 2026-07-16 — Sesiune mare: dezaprobare pe schiță, foaie semitransparentă, notă schiță, upload imagine resurse, restructurare categorii
 
 Șase modificări separate, discutate și aprobate pe rând cu Liviu. Punctele 1-2 rezolvă bug-uri raportate
