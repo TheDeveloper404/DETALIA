@@ -162,7 +162,10 @@ export function DetailWorkspace({
   return (
     <div className="flex flex-col gap-7">
       {/* id=schiteaza — ținta scurtăturii „Schițează peste" din cardul de feed. */}
-      <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
+      {/* FĂRĂ overflow-hidden (2026-07-16): textul din marginea unei schițe (kind: "text", poate ieși din
+          0..1) trebuie să rămână vizibil la citire, nu doar în editor — un card care taie orice iese din
+          chenar ar ascunde exact adnotările pe care userul le-a scris intenționat lângă desen. */}
+      <section id="schiteaza" className="scroll-mt-24 rounded-xl border border-border bg-card">
         {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
         <div className="border-b border-[#eee6da] px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
@@ -349,7 +352,9 @@ export function DetailWorkspace({
             erau deja afișate în antet (tab bază) / lângă tab-ul activ (tab schiță, RolePill de mai sus);
             singura info netă din panou era rolul, mutat acolo. Imaginea folosește acum toată lățimea. */}
         <div className="mt-3 border-t border-[#eee6da]">
-          <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6">
+          {/* rounded-b-xl direct aici (nu mai vine gratis din overflow-hidden pe <section>) — altfel fundalul
+              crem ar arăta cu colțuri pătrate ieșind din chenarul rotunjit al cardului. */}
+          <div className="relative flex min-h-[420px] items-center justify-center rounded-b-xl bg-[#faf7f1] p-6">
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
             <div className="absolute bottom-3 right-3 z-[3]">{startSketchBtn}</div>
             {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
@@ -372,18 +377,16 @@ export function DetailWorkspace({
             )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
-                  altfel reîncărca async și „pocnea"); schița e doar un overlay cu stroke-uri peste ea.
-                  Efect lin la comutare: overlay-ul re-face fade-in (opacity, FĂRĂ animație de layout —
-                  nu redeschide problema tremurului) cheiat pe tab. Pe tab de schiță, imaginea-mamă se
-                  estompează (aceeași convenție ca fill slab-ul din modul de desenare) ca stroke-urile
-                  schiței să iasă în evidență. */}
+                  altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16, cerere Edi — detaliul
+                  de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
+                  SketchViewer peste el, ca în realitate). Doar overlay-ul de schiță face fade-in la
+                  comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
               <Image
                 src={imageUrl}
                 alt={header.title}
                 fill
                 sizes="(max-width: 1024px) 100vw, 768px"
-                className="object-contain transition-opacity duration-200"
-                style={{ opacity: isBase ? 1 : 0.3 }}
+                className="object-contain"
                 priority
               />
               {!isBase && (

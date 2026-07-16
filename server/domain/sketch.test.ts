@@ -6,6 +6,7 @@ import {
   MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
+  TEXT_MARGIN,
   validateStrokes,
 } from "./sketch";
 
@@ -91,5 +92,35 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
     const r = validateStrokes([{ color: "#b0463c", size: 16, points: [[0, 0], [1, 1]] }]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value[0].kind).toBe("free");
+  });
+
+  describe("TEXT_MARGIN — DOAR textul poate ieși din 0..1 (2026-07-16, notă lângă desen)", () => {
+    const textStroke = (x: number, y: number) => ({
+      color: "#211d18",
+      size: 8,
+      kind: "text",
+      text: "notă",
+      points: [[x, y]],
+    });
+
+    it("acceptă text chiar la limita marginii (ambele capete)", () => {
+      expect(validateStrokes([textStroke(-TEXT_MARGIN, 0.5)]).ok).toBe(true);
+      expect(validateStrokes([textStroke(1 + TEXT_MARGIN, 0.5)]).ok).toBe(true);
+    });
+
+    it("respinge text dincolo de margine", () => {
+      expect(validateStrokes([textStroke(-TEXT_MARGIN - 0.01, 0.5)]).ok).toBe(false);
+      expect(validateStrokes([textStroke(1 + TEXT_MARGIN + 0.01, 0.5)]).ok).toBe(false);
+    });
+
+    it("respinge orice altă unealtă (free/line/etc.) în afara 0..1, chiar dacă e sub bound-ul de text", () => {
+      // -0.1 e sub TEXT_MARGIN (0.22), deci ar trece pt text, dar NU pt free — creionul rămâne strict pe foaie.
+      expect(validateStrokes([freeStroke({ points: [[-0.1, 0.5]] })]).ok).toBe(false);
+      expect(
+        validateStrokes([
+          { color: "#211d18", size: 8, kind: "line", points: [[-0.1, 0.5], [0.5, 0.5]] },
+        ]).ok,
+      ).toBe(false);
+    });
   });
 });
