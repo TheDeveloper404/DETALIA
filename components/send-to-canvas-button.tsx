@@ -3,14 +3,26 @@
 // „Trimite în Planșă" — popover ancorat pe cardul de feed / pagina detaliului. NU navighează afară (cerința
 // UX §2.3): adaugă detaliul într-o planșă (existentă sau nou-creată inline) și rămâi unde ești; confirmare
 // discretă cu link opțional „Deschide planșa". Lista planșelor se încarcă lazy la deschidere.
+//
+// Poziționare orizontală CALCULATĂ (nu doar `right-0` static) — decizie Liviu 2026-07-17: popover-ul
+// trebuie să rămână IDENTIC ca stil pe desktop (nu modal centrat cu backdrop) și să funcționeze corect
+// și pe mobil, nu înlocuit cu alt shell de UI. Bug-ul original (popover tăiat pe ecrane mobile) venea din
+// ancorarea fixă `right-0` — acum poziția se calculează la deschidere (`getBoundingClientRect` + lățimea
+// ferestrei) și se clampează să rămână mereu complet vizibil, indiferent unde e butonul pe card. Pe
+// desktop rezultatul calculului coincide cu vechiul `right-0` (spațiu suficient → fără clamping).
 import { LayoutDashboard, Loader2, Plus } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { useSendToCanvas } from "@/components/use-send-to-canvas";
 
+const POPOVER_WIDTH = 256; // w-64
+const VIEWPORT_MARGIN = 8;
+
 export function SendToCanvasButton({ detailId }: { detailId: string }) {
   const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [offsetLeft, setOffsetLeft] = useState<number | null>(null);
   const {
     loading,
     canvases,
@@ -27,6 +39,27 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
     reset,
   } = useSendToCanvas(detailId);
 
+  // Recalculează poziția la fiecare deschidere (+ la resize cât timp e deschis, ex. rotire mobil).
+  // useLayoutEffect (nu useEffect) — rulează înainte de vopsire, deci fără flash de poziție greșită.
+  useLayoutEffect(() => {
+    if (!open || !wrapperRef.current) return;
+
+    function reposition() {
+      const rect = wrapperRef.current!.getBoundingClientRect();
+      const desiredViewportLeft = rect.right - POPOVER_WIDTH; // implicit: aliniat la dreapta butonului
+      // Math.max aici (nu doar scăderea directă) — pe un viewport mai îngust decât
+      // POPOVER_WIDTH + 2*VIEWPORT_MARGIN, limita superioară ar cădea SUB cea inferioară și ar inversa
+      // clampul (Math.min ar întoarce mereu limita superioară, ignorând marginea din stânga).
+      const maxViewportLeft = Math.max(window.innerWidth - POPOVER_WIDTH - VIEWPORT_MARGIN, VIEWPORT_MARGIN);
+      const clampedViewportLeft = Math.min(Math.max(desiredViewportLeft, VIEWPORT_MARGIN), maxViewportLeft);
+      setOffsetLeft(clampedViewportLeft - rect.left);
+    }
+
+    reposition();
+    window.addEventListener("resize", reposition);
+    return () => window.removeEventListener("resize", reposition);
+  }, [open]);
+
   const openPopover = async () => {
     setOpen(true);
     await load();
@@ -38,7 +71,7 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
   };
 
   return (
-    <div className="group/canvas relative inline-flex">
+    <div ref={wrapperRef} className="group/canvas relative inline-flex">
       <button
         type="button"
         aria-haspopup="dialog"
@@ -60,7 +93,8 @@ export function SendToCanvasButton({ detailId }: { detailId: string }) {
           <div
             role="dialog"
             aria-label="Trimite în Planșă"
-            className="absolute right-0 top-full z-40 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+            style={offsetLeft !== null ? { left: offsetLeft } : undefined}
+            className="absolute top-full z-40 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-card shadow-lg"
           >
             {added ? (
               <div className="p-3 text-[13px]">

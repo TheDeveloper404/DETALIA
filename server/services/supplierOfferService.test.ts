@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
+vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn(), insertSavedDetail: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/supplierOffersRepo", () => ({
   deleteSupplierOffer: vi.fn(),
@@ -11,7 +11,7 @@ vi.mock("@/server/repos/supplierOffersRepo", () => ({
 vi.mock("@/server/repos/usersRepo", () => ({ getNotificationActor: vi.fn() }));
 vi.mock("@/server/services/notificationService", () => ({ notifySupplierOffered: vi.fn() }));
 
-import { getDetailById } from "@/server/repos/detailsRepo";
+import { getDetailById, insertSavedDetail } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSupplierOffer,
@@ -87,10 +87,11 @@ describe("nu poți oferta pe propriul detaliu — CANNOT_OFFER_OWN", () => {
 });
 
 describe("toggle reversibil + notificare DOAR la primul click", () => {
-  it("primul click (nu oferta încă) → insert + notifică autorul, offering: true", async () => {
+  it("primul click (nu oferta încă) → insert + auto-save + notifică autorul, offering: true", async () => {
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: true });
     expect(insertSupplierOfferIfAbsent).toHaveBeenCalledWith("u-1", DETAIL_ID);
+    expect(insertSavedDetail).toHaveBeenCalledWith("u-1", DETAIL_ID);
     expect(notifySupplierOffered).toHaveBeenCalledTimes(1);
     expect(vi.mocked(notifySupplierOffered).mock.calls[0][0]).toMatchObject({
       recipientUserId: "owner-x",
@@ -99,13 +100,14 @@ describe("toggle reversibil + notificare DOAR la primul click", () => {
     });
   });
 
-  it("al doilea click (deja ofertează, insert respinge conflictul) → retrage (delete), FĂRĂ notificare nouă, offering: false", async () => {
+  it("al doilea click (deja ofertează, insert respinge conflictul) → retrage (delete), FĂRĂ notificare nouă, FĂRĂ auto-save, offering: false", async () => {
     vi.mocked(insertSupplierOfferIfAbsent).mockResolvedValue(false);
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: false });
     expect(insertSupplierOfferIfAbsent).toHaveBeenCalledWith("u-1", DETAIL_ID);
     expect(deleteSupplierOffer).toHaveBeenCalledWith("u-1", DETAIL_ID);
     expect(notifySupplierOffered).not.toHaveBeenCalled();
+    expect(insertSavedDetail).not.toHaveBeenCalled();
   });
 
   // Regresie (bug găsit la code-review 2026-07-16): decizia de notificare trebuie să vină STRICT din
@@ -117,5 +119,21 @@ describe("toggle reversibil + notificare DOAR la primul click", () => {
     await toggleSupplierOffer(input);
     expect(notifySupplierOffered).toHaveBeenCalledTimes(1);
     expect(deleteSupplierOffer).not.toHaveBeenCalled();
+  });
+});
+
+describe("efectele secundare (auto-save, notificare) sunt izolate — un eșec acolo NU trebuie să strice rezultatul întors userului", () => {
+  it("insertSavedDetail aruncă → toggleSupplierOffer tot întoarce succes (fără să propage eroarea)", async () => {
+    vi.mocked(insertSavedDetail).mockRejectedValue(new Error("DB tranzitoriu"));
+    const r = await toggleSupplierOffer(input);
+    expect(r).toEqual({ ok: true, offering: true });
+    expect(notifySupplierOffered).toHaveBeenCalledTimes(1);
+  });
+
+  it("notifySupplierOffered aruncă → toggleSupplierOffer tot întoarce succes (oferta rămâne validă)", async () => {
+    vi.mocked(notifySupplierOffered).mockRejectedValue(new Error("email/notificare picată"));
+    const r = await toggleSupplierOffer(input);
+    expect(r).toEqual({ ok: true, offering: true });
+    expect(insertSavedDetail).toHaveBeenCalledWith("u-1", DETAIL_ID);
   });
 });

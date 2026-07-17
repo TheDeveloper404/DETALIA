@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bell, Check, CheckCheck, HandMetal, Pencil, Trash2, X } from "lucide-react";
+import { ArrowRight, Bell, Check, CheckCheck, Hand, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -48,7 +48,7 @@ const TYPE_STYLE = {
   SUPPLIER_OFFERED: {
     sqBg: "#e9f2ea",
     sqBorder: "#cfe3d2",
-    icon: <HandMetal className="size-4 text-[#2f6b3f]" strokeWidth={2} />,
+    icon: <Hand className="size-4 text-[#2f6b3f]" strokeWidth={2} />,
   },
 } as const;
 
@@ -150,11 +150,11 @@ export function NotificationBell({
         className={cn(
           // Cerc ghost, identic cu „Ciornele" și avatarul (consistență header). Starea „necitite" o semnalează
           // DOAR bulina roșie, nu o bordură/fundal — altfel butonul arăta ca o cutie între două cercuri.
-          "relative inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors",
+          "relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
           open ? "bg-muted text-primary" : "text-muted-foreground hover:bg-muted",
         )}
       >
-        <Bell className="size-[18px]" strokeWidth={1.9} />
+        <Bell className="size-5" strokeWidth={1.9} />
         {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-background bg-primary px-1 font-mono text-[10px] text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
@@ -163,7 +163,7 @@ export function NotificationBell({
       </button>
 
       {open && (
-        <div className="fixed inset-x-3 top-[84px] z-50 overflow-hidden rounded-xl border border-border bg-card shadow-lg sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px]">
+        <div className="fixed inset-x-3 top-[96px] z-50 overflow-hidden rounded-xl border border-border bg-card shadow-lg sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-[380px]">
           {/* header */}
           <div className="flex items-center justify-between gap-3 border-b border-[#eee6da] px-4 py-3">
             <div>
