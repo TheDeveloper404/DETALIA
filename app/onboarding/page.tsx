@@ -33,7 +33,7 @@ export default async function OnboardingPage() {
       {/* HEADER */}
       <header
         style={{
-          height: 76,
+          height: 88,
           flex: "none",
           display: "flex",
           alignItems: "center",
@@ -54,7 +54,7 @@ export default async function OnboardingPage() {
             justifyContent: "space-between",
           }}
         >
-          <BrandLogo size={32} />
+          <BrandLogo size={38} />
           {email && (
             <span
               style={{

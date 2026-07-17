@@ -813,7 +813,7 @@ export function DetailForm({
         <div className="border-t border-[#eee6da] pt-6">
           <div className="mb-3 flex items-baseline justify-between gap-3">
             <label className={cn(labelClass, "mb-0")}>
-              Resurse suplimentare <Opt />
+              Alte resurse <Opt />
             </label>
             <span
               className={cn(
