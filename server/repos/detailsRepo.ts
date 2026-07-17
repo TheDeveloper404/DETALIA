@@ -12,6 +12,7 @@ import {
   roles,
   savedDetails,
   sketches,
+  supplierOffers,
   users,
   validations,
 } from "@/db/schema";
@@ -473,6 +474,27 @@ export async function listSavedDetails(userId: string) {
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(and(eq(savedDetails.userId, userId), eq(details.status, DETAIL_STATUS.PUBLISHED)))
     .orderBy(desc(savedDetails.createdAt));
+}
+
+// Detaliile pe care userul (Furnizor) a ridicat mâna — pagina PRIVATĂ „Ofertele mele". Aceeași formă de
+// card ca la /saved, dar sursa e `supplier_offers`, nu `saved_details` — sunt entități separate (auto-save-ul
+// din toggleSupplierOffer NU înseamnă că userul e listat aici prin bookmark, ci prin oferta reală).
+export async function listOfferedDetails(userId: string) {
+  return db
+    .select({
+      ...detailWithAuthorColumns,
+      validationCount,
+      commentCount,
+      sketchCount,
+      validatorAvatars,
+      interactionCount: interactionScore,
+    })
+    .from(supplierOffers)
+    .innerJoin(details, eq(details.id, supplierOffers.detailId))
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(and(eq(supplierOffers.userId, userId), eq(details.status, DETAIL_STATUS.PUBLISHED)))
+    .orderBy(desc(supplierOffers.createdAt));
 }
 
 export type FeedItem = Awaited<ReturnType<typeof listFeed>>[number];

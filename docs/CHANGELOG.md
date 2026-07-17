@@ -4,7 +4,30 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
-## 2026-07-17 — Fix-uri UI + auto-save la ofertare Furnizor + header mărit
+## 2026-07-17 — Fix-uri UI + auto-save la ofertare Furnizor + header mărit + „Ofertele mele"
+
+**Header — corecție înălțime.** 88px lăsa gol vizibil sub logo/iconițe (feedback Liviu cu screenshot) →
+redus la 80px pe toate cele 5 fișiere cu header propriu (`app-header.tsx`, `auth-shell.tsx`, `app/page.tsx`,
+`app/onboarding/page.tsx`, `app/s/[id]/page.tsx`), rămâne totuși mai mare ca originalul de 76px. Offset-urile
+sticky recalculate încă o dată (sidebar profil `top-[94px]`, dropdown notificări `top-[88px]`).
+
+**Feature nou — „Ofertele mele" (PRIVATĂ, doar Furnizor).** Cerere Liviu: Furnizorul trebuie să vadă
+undeva, doar el, toate detaliile pe care a ridicat mâna (nu doar amestecat cu bookmark-urile din
+„Detalii salvate"). Clasificare: NORMAL.
+- Pagină nouă `/my-offers` — listă tip card (aceleași `DetailCard` ca `/saved`), cu `isSaved` calculat
+  corect (detaliile ofertate sunt auto-salvate, altfel bookmark-ul din card arăta greșit „nesalvat").
+- Gating pe rol **enforce pe server** în pagină (`getUserRole`, nu doar UI ascuns) — un non-Furnizor care
+  accesează URL-ul direct primește stare goală „Disponibil doar pentru Furnizori", nu date reale.
+  Consistent cu restul codebase-ului: gatează pe rol DECLARAT (`roleMain`), nu pe verificare (aceeași
+  regulă ca în `toggleSupplierOffer`).
+- Query nou `listOfferedDetails` în `detailsRepo.ts` (lângă `listSavedDetails`, aceeași formă de date,
+  sursă `supplier_offers` în loc de `saved_details` — entități separate, fără migrare de schemă).
+- Link nou în dropdown-ul din header (poza de profil), sub „Detalii salvate" — vizibil DOAR dacă
+  `roleMain === "FURNIZOR"`; `AppHeader` aduce acum și rolul (înainte doar notificări+media).
+- Testat: `e2e/supplier-offer.spec.ts` extins (detaliul ofertat apare/dispare corect din listă).
+  `tsc --noEmit` + `vitest run` (199/199) verzi.
+- Code-review (2 unghiuri): confirmat fără IDOR, fără prop lipsă la `DetailCard`, consistent cu Poarta 1
+  vs Poarta 2 din glosar. Singurul finding real — CHANGELOG lipsă, reparat aici.
 
 **Icon nepotrivit („ridic mâna").** `HandMetal` (gest rock/metal) → `Hand` (mână ridicată simplă), în
 `supplier-offer-panel.tsx` și `notification-bell.tsx` — feedback Liviu, glifa veche nu se potrivea
