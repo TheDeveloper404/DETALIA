@@ -7,7 +7,15 @@ import { useEffect, useRef, useState } from "react";
 import { signOutAction } from "@/app/(app)/profile/actions";
 
 // Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
-export function UserMenu({ name, image }: { name: string | null; image: string | null }) {
+export function UserMenu({
+  name,
+  image,
+  isFurnizor,
+}: {
+  name: string | null;
+  image: string | null;
+  isFurnizor: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -85,6 +93,16 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
             >
               Detalii salvate
             </Link>
+            {isFurnizor && (
+              <Link
+                href="/my-offers"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
+              >
+                Ofertele mele
+              </Link>
+            )}
             <Link
               href="/sketches/drafts"
               role="menuitem"

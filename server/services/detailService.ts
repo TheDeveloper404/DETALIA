@@ -30,6 +30,7 @@ import {
   listTopDebated,
   listRelatedDetails,
   listSavedDetailIds,
+  listOfferedDetails,
   listSavedDetails,
   publishDetailRow,
   replaceDetailCategories,
@@ -471,6 +472,13 @@ export async function toggleSavedDetail(input: {
 // Detaliile salvate de user (forma de card pentru pagina /saved).
 export function getSavedDetails(userId: string) {
   return listSavedDetails(userId);
+}
+
+// Pagina PRIVATĂ „Ofertele mele" (doar Furnizor). Ownership implicit prin userId din sesiune — gating-ul
+// de ROL (doar FURNIZOR poate accesa pagina) se face în pagină, nu aici (aceeași separare ca la restul
+// serviciilor: acesta doar citește datele userului, nu decide cine are voie să le ceară).
+export function getOfferedDetails(userId: string) {
+  return listOfferedDetails(userId);
 }
 
 // Autori activi pentru rail-ul din feed (top după detalii publicate).

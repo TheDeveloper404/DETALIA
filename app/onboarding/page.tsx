@@ -33,7 +33,7 @@ export default async function OnboardingPage() {
       {/* HEADER */}
       <header
         style={{
-          height: 88,
+          height: 80,
           flex: "none",
           display: "flex",
           alignItems: "center",
