@@ -68,7 +68,7 @@ export async function AppHeader() {
           </Link>
           <NotificationBell notifications={notifications} count={unread} />
           <UserMenu
-            name={session.user.name ?? null}
+            name={media?.name ?? session.user.name ?? null}
             image={media?.image ?? null}
             isFurnizor={role?.roleMain === "FURNIZOR"}
           />
