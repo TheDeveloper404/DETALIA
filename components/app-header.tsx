@@ -4,6 +4,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { getNotifications } from "@/server/services/notificationService";
 import { getUserMedia } from "@/server/repos/usersRepo";
+import { getUserRole } from "@/server/services/roleService";
 
 import { BrandLogo } from "./brand-logo";
 import { NotificationBell, type NotificationView } from "./notification-bell";
@@ -27,9 +28,10 @@ export async function AppHeader() {
 
   // Poza de profil vine din DB, nu din sesiune (JWT-ul cache-uiește `image` doar la login →
   // stale după onboarding/schimbare poză, până la re-login).
-  const [rows, media] = await Promise.all([
+  const [rows, media, role] = await Promise.all([
     getNotifications(session.user.id),
     getUserMedia(session.user.id),
+    getUserRole(session.user.id),
   ]);
   const notifications: NotificationView[] = rows.map((n) => {
     const p = (n.payloadJson ?? {}) as NotificationPayload;
@@ -51,7 +53,7 @@ export async function AppHeader() {
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-50 flex h-[88px] items-center border-b border-border bg-secondary/90 backdrop-blur">
+    <header className="sticky top-0 z-50 flex h-[80px] items-center border-b border-border bg-secondary/90 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
         <BrandLogo href="/feed" size={38} />
 
@@ -65,7 +67,11 @@ export async function AppHeader() {
             <House className="size-5" strokeWidth={2} />
           </Link>
           <NotificationBell notifications={notifications} count={unread} />
-          <UserMenu name={session.user.name ?? null} image={media?.image ?? null} />
+          <UserMenu
+            name={session.user.name ?? null}
+            image={media?.image ?? null}
+            isFurnizor={role?.roleMain === "FURNIZOR"}
+          />
         </div>
       </div>
     </header>

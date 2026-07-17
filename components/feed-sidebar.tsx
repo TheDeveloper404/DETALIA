@@ -49,7 +49,7 @@ export function FeedSidebar({
   return (
     // mt-2: aliniază cu containerul „Detalii în dezbatere" din main (are mt-2 propriu) și cu rail-ul
     // din dreapta — feedback Liviu, 2026-07-06.
-    <aside className="mt-2 hidden flex-col gap-[18px] lg:sticky lg:top-[102px] lg:flex">
+    <aside className="mt-2 hidden flex-col gap-[18px] lg:sticky lg:top-[94px] lg:flex">
       {/* Card mini de profil. */}
       <Link
         href="/profile"
