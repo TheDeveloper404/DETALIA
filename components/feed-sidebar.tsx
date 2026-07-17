@@ -13,12 +13,24 @@ export type SidebarProfile = {
   location: string | null;
   roleLabel: string | null;
   verified: boolean;
+  about: string | null;
 };
 
 function initials(name: string | null): string {
   if (!name) return "?";
   const parts = name.trim().split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+// Doar un preview scurt din „Despre" (nu tot textul) — cardul de sidebar rămâne compact, detaliul
+// complet se citește pe /profile.
+const ABOUT_PREVIEW_WORDS = 14;
+export function aboutPreview(about: string | null): string | null {
+  const trimmed = about?.trim();
+  if (!trimmed) return null;
+  const words = trimmed.split(/\s+/);
+  if (words.length <= ABOUT_PREVIEW_WORDS) return words.join(" ");
+  return words.slice(0, ABOUT_PREVIEW_WORDS).join(" ") + "…";
 }
 
 export function FeedSidebar({
@@ -37,7 +49,7 @@ export function FeedSidebar({
   return (
     // mt-2: aliniază cu containerul „Detalii în dezbatere" din main (are mt-2 propriu) și cu rail-ul
     // din dreapta — feedback Liviu, 2026-07-06.
-    <aside className="mt-2 hidden flex-col gap-[18px] lg:sticky lg:top-[90px] lg:flex">
+    <aside className="mt-2 hidden flex-col gap-[18px] lg:sticky lg:top-[102px] lg:flex">
       {/* Card mini de profil. */}
       <Link
         href="/profile"
@@ -77,6 +89,11 @@ export function FeedSidebar({
               {profile.roleLabel && profile.location && " · "}
               {profile.location}
             </div>
+          )}
+          {aboutPreview(profile.about) && (
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              {aboutPreview(profile.about)}
+            </p>
           )}
         </div>
       </Link>

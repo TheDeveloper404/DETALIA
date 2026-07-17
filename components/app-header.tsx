@@ -51,18 +51,18 @@ export async function AppHeader() {
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-50 flex h-[76px] items-center border-b border-border bg-secondary/90 backdrop-blur">
+    <header className="sticky top-0 z-50 flex h-[88px] items-center border-b border-border bg-secondary/90 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
-        <BrandLogo href="/feed" size={32} />
+        <BrandLogo href="/feed" size={38} />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <Link
             href="/feed"
             aria-label="Acasă"
             title="Acasă"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
           >
-            <House className="size-[18px]" strokeWidth={2} />
+            <House className="size-5" strokeWidth={2} />
           </Link>
           <NotificationBell notifications={notifications} count={unread} />
           <UserMenu name={session.user.name ?? null} image={media?.image ?? null} />

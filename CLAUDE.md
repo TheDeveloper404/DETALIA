@@ -289,9 +289,6 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 - **Taxonomia de categorii + meseriile** — finalizate și implementate 2026-07-02 (vezi CHANGELOG).
 - **Zone climatice/seismice + încărcare zăpadă/vânt** — liste fixe, implementate 2026-07-02 (vezi CHANGELOG).
 - **Resurse suplimentare** — rămân IMAGE/LINK/PDF/TEXT (nu doar imagini).
-- **Seed 50–100 detalii** (~2 per categorie, proporțional cu nr. categoriilor), prin **conturi reale** (echipa +
-  useri aduși din toate categoriile principale) — ca platforma să nu fie goală la start. *(Decis, neexecutat —
-  vezi `.remember/remember.md`.)*
 - **Schiță asincronă GitHub-style** (o foaie = un autor, NU real-time) — confirmat. Schițarea = **feature obligatoriu în MVP**.
 - **Un singur rol per user** (nu roluri multiple), plus **rol adițional opțional** (Administrativ/Educație), aditiv.
 - **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin).

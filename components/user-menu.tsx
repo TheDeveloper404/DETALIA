@@ -47,13 +47,13 @@ export function UserMenu({ name, image }: { name: string | null; image: string |
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Meniul tău"
-        className="inline-flex h-9 w-9 items-center justify-center overflow-hidden rounded-full text-muted-foreground transition-colors hover:bg-muted"
+        className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-muted-foreground transition-colors hover:bg-muted"
       >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="h-7 w-7 rounded-full object-cover" />
+          <img src={image} alt="" className="h-8 w-8 rounded-full object-cover" />
         ) : (
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
             {initial}
           </span>
         )}

@@ -4,6 +4,92 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-17 — Fix-uri UI + auto-save la ofertare Furnizor + header mărit
+
+**Icon nepotrivit („ridic mâna").** `HandMetal` (gest rock/metal) → `Hand` (mână ridicată simplă), în
+`supplier-offer-panel.tsx` și `notification-bell.tsx` — feedback Liviu, glifa veche nu se potrivea
+semantic cu acțiunea.
+
+**Redenumire label.** „Resurse suplimentare" → „Alte resurse" în formularul de adăugare detaliu
+(`detail-form.tsx`).
+
+**Auto-save la „ridic mâna".** Furnizorul care ofertează materiale pe un detaliu nu-l regăsea ușor mai
+târziu (doar prin căutare în Feed). `toggleSupplierOffer` (`supplierOfferService.ts`) acum salvează
+automat detaliul (`insertSavedDetail`, idempotent) DOAR la ridicare, nu la retragere — detaliul apare în
+`/saved` fără efort suplimentar. Teste unit actualizate (8/8 verzi) + `e2e/supplier-offer.spec.ts`
+cleanup extins să șteargă și rândul din `saved_details`, altfel contamina rulările următoare.
+
+**Bug mobil — popover „Trimite în Planșă" tăiat.** Popover-ul ancorat static (`right-0`, `w-64`) de pe
+cardul de detaliu depășea marginea stângă a ecranului pe mobil. Fix cerut explicit de Liviu: popover-ul
+rămâne IDENTIC ca stil pe desktop (nu modal centrat cu backdrop — variantă încercată inițial și respinsă,
+schimba interacția și pe desktop unde nu era nicio problemă). Poziția orizontală se calculează acum la
+deschidere (`getBoundingClientRect` + lățimea ferestrei, `useLayoutEffect` — fără flash) și se clampează
+să rămână mereu complet vizibilă; pe desktop rezultatul coincide cu vechiul `right-0` (spațiu suficient →
+fără clamping), pe mobil nu mai iese din ecran. Toggle-ul de deschidere/închidere pe click repetat al
+iconiței, păstrat.
+
+**Efecte secundare izolate la „ridic mâna".** `insertSavedDetail` și `notifySupplierOffered` acum în
+`try/catch` separate în `toggleSupplierOffer` — dacă oricare pică tranzitoriu, userul tot primește
+succes (oferta e deja confirmată în DB). Fără izolare, un eșec acolo făcea userul să vadă eroare și să
+reîncerce, iar al doilea click era interpretat drept RETRAGERE (citea oferta deja existentă), anulând
+silențios oferta abia pusă, fără nicio notificare. 2 teste noi de regresie (10/10 verzi).
+
+**Preview „Despre" în cardul de profil din Feed.** `feed-sidebar.tsx` — cardul mini de profil din
+sidebar-ul feed-ului afișează acum și un extras scurt (14 cuvinte) din câmpul „Despre" al userului,
+sub rol/locație (`getUserMedia` extins cu coloana `about`, deja existentă în schemă — fără migrație).
+Helper `aboutPreview()` testat unitar (`feed-sidebar.test.ts`, 6 teste — null/gol, sub/exact/peste prag,
+spații multiple); `vitest.config.ts` extins să acopere și `components/**/*.test.ts` (prima suită de
+teste din acel folder).
+
+**Header mărit — TOATE paginile.** Logo (32→38px) + iconițele Acasă/Notificări/Profil (36→40px,
+glife 18→20px) + avatar (28→32px), înălțime header 76→88px. Aplicat peste tot unde există header propriu:
+`app-header.tsx` (feed/detalii/profil/etc., toate paginile autentificate), `auth-shell.tsx`
+(login/signup), `app/page.tsx` (landing), `app/onboarding/page.tsx`, `app/s/[id]/page.tsx` (schiță
+publică). Offset-urile sticky dependente de înălțimea headerului actualizate în consecință (+12px):
+sidebar-ul de profil din feed (`top-[90px]`→`102px`) și dropdown-ul de notificări pe mobil
+(`top-[84px]`→`96px`) — găsite la code-review, altfel rămâneau suprapuse peste noul header.
+
+**Code-review (2 treceri, multi-agent):** primul pas — găsit și reparat `about` lipsă în props-ul trimis
+către `FeedSidebar` (rupea `tsc`/build), cele două offset-uri sticky stale, toggle-ul pierdut la butonul
+de trimitere în planșă. Al doilea pas (după fix-urile de mai sus la efecte secundare + popover) — găsit
+și reparat un bug de clamp în calculul poziției popover-ului: pe viewport sub 272px lățime (nu apare pe
+telefoane reale ≥320px, doar preset-uri foarte înguste din DevTools) limita superioară a clampului putea
+cădea sub cea inferioară, împingând popover-ul înapoi în afara ecranului — exact bug-ul pe care calculul
+trebuia să-l prevină. `tsc --noEmit` + `vitest run` (199/199) verzi la final.
+
+---
+
+## 2026-07-17 — Vercel Firewall: Bot Management (log) + 2 reguli custom (rate-limit auth + exploit probes)
+
+Config infra, nu cod (0 fișiere din repo atinse) — via `vercel firewall` CLI, direct în producție (Hobby plan).
+
+1. **Bot Management** setat pe **Log** la ambele (nu enforcement încă, urmează monitorizare):
+   - `Bot Protection` → Log (challenge non-browser traffic, excl. bots verificați).
+   - `AI Bots` → Log (GPTBot/ClaudeBot/PerplexityBot) — decizie amânată: DETALIA e în faza de validare de
+     piață, vizibilitatea în AI search poate conta mai mult decât protecția conținutului deocamdată; Log
+     arată volumul real înainte de decizia Deny vs Allow.
+2. **Regulă custom „Block exploit probes"** (mode **Log**): path în `/wp-admin`, `/.env`, `/.git/config`,
+   `/phpmyadmin`, `/xmlrpc.php`, `/wp-login.php` — trafic 100% zgomot/probe pt un Next.js, zero risc de
+   fals-pozitiv, doar de monitorizat înainte de a trece pe `deny`.
+3. **Regulă custom „Rate limit magic link request"** (mode **Log**): `POST /api/auth/signin/resend`
+   (endpoint-ul Auth.js de trimitere magic link, provider `resend`), 20 cereri/IP/60s. Scopat STRICT la acest
+   path, nu la tot `/api/auth/*` — `/api/auth/session` e verificat la fiecare load de pagină de fiecare user
+   activ, un rate-limit acolo ar fi delogat useri din greșeală.
+
+**De ce Log peste tot, nu enforcement direct**: rollout în trepte recomandat de Vercel (log → review trafic
+în dashboard → preview → production deny) — nu se trece la blocare fără să confirmi întâi că nu prinde
+trafic legitim. **Toate 4 sunt LIVE (publicate), dar toate în Log** — nu blochează nimic încă.
+
+**Motiv (context, nu în cod)**: Vercel Log Drains (loguri runtime complete, dincolo de fereastra de 30 min
+de pe Hobby) cer plan Pro — investigat, nu s-a activat (decizie: nu justifică $20/lună la traficul actual).
+Cloudflare ca reverse-proxy respins ca soluție de protecție — reduce acuratețea firewall-ului nativ Vercel
+(IP real devine opac); Cloudflare rămâne DNS-only + Turnstile, cum era deja.
+
+**URMEAZĂ**: peste câteva zile, review în Firewall → Traffic pe toate 4 → decizie per-regulă: tighten la
+enforcement (`challenge`/`deny`/`rate_limit`) sau ajustare threshold, dacă apare trafic legitim prins.
+
+---
+
 ## 2026-07-16 — Profil: pill-uri pe rândul numelui, icon website, „Despre" sub headline, liste trunchiate
 
 `components/profile-view.tsx`, cerut de Liviu din poze (`1.png`/`2.png`):

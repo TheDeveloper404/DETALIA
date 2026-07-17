@@ -3,7 +3,7 @@
 // in-app către autor DOAR la primul click (nu la fiecare retragere/reofertare).
 
 import { isUuid } from "@/server/domain/ids";
-import { getDetailById } from "@/server/repos/detailsRepo";
+import { getDetailById, insertSavedDetail } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSupplierOffer,
@@ -46,13 +46,38 @@ export async function toggleSupplierOffer(input: {
     return { ok: true, offering: false };
   }
 
-  const actor = await getNotificationActor(input.userId);
-  await notifySupplierOffered({
-    recipientUserId: detail.authorId,
-    detailId: input.detailId,
-    detailTitle: detail.title,
-    supplierName: actor?.name ?? null,
-  });
+  // Oferta e deja confirmată în DB (insertedNow === true) — restul e strict auxiliar (auto-save +
+  // notificare). Un eșec aici NU trebuie să-l facă pe user să vadă o eroare și să reîncerce: al doilea
+  // click ar citi oferta deja existentă și ar interpreta-o drept RETRAGERE (vezi comentariul de mai sus),
+  // anulând silențios oferta abia pusă. De-cuplat deliberat de rezultatul întors userului.
+  try {
+    // Auto-save: ca oferta să nu se piardă în Feed — userul o regăsește în /saved fără căutare.
+    // Doar la ridicare, nu la retragere (n-are sens să-i ștergem un bookmark pus manual din alt motiv).
+    await insertSavedDetail(input.userId, input.detailId);
+  } catch (err) {
+    console.error("[supplierOfferService] insertSavedDetail eșuat (non-fatal)", {
+      userId: input.userId,
+      detailId: input.detailId,
+      err,
+    });
+  }
+
+  try {
+    const actor = await getNotificationActor(input.userId);
+    await notifySupplierOffered({
+      recipientUserId: detail.authorId,
+      detailId: input.detailId,
+      detailTitle: detail.title,
+      supplierName: actor?.name ?? null,
+    });
+  } catch (err) {
+    console.error("[supplierOfferService] notifySupplierOffered eșuat (non-fatal)", {
+      userId: input.userId,
+      detailId: input.detailId,
+      err,
+    });
+  }
+
   return { ok: true, offering: true };
 }
 

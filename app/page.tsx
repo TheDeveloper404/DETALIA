@@ -218,7 +218,7 @@ export default function Home() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          height: 76,
+          height: 88,
           display: "flex",
           alignItems: "center",
           background: "var(--header-bg-translucent)",
@@ -238,7 +238,7 @@ export default function Home() {
             justifyContent: "space-between",
           }}
         >
-          <BrandLogo size={32} />
+          <BrandLogo size={38} />
           <div className="dc-header-cta" style={{ display: "flex", alignItems: "center", gap: 24 }}>
             <Link href="/login" className="dc-link dc-header-login" style={{ fontSize: 16, color: "var(--foreground)", textDecoration: "none", fontWeight: 500, transition: "color .15s" }}>
               Autentificare

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
-import { notifications, roles, supplierOffers } from "../db/schema";
+import { notifications, roles, savedDetails, supplierOffers } from "../db/schema";
 import { toggleSupplierOffer } from "../server/services/supplierOfferService";
 import { getSeed } from "./seed";
 
@@ -27,6 +27,9 @@ test("toggle: primul click → oferă + notificare reală; al doilea → retrage
   // eșec anterior (asertare picată înainte de cleanup) contaminează permanent rulările următoare.
   async function cleanup() {
     await db.delete(supplierOffers).where(and(eq(supplierOffers.userId, testerUserId), eq(supplierOffers.detailId, detailId)));
+    // toggleSupplierOffer salvează automat detaliul la ofertare (auto-save 2026-07-17) — cleanup trebuie
+    // să șteargă și acest rând, altfel rămâne „salvat" permanent pentru userul seedat.
+    await db.delete(savedDetails).where(and(eq(savedDetails.userId, testerUserId), eq(savedDetails.detailId, detailId)));
     await db.delete(notifications).where(
       and(
         eq(notifications.recipientUserId, authorUserId),
