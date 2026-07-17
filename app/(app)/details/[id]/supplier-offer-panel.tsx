@@ -1,6 +1,6 @@
 "use client";
 
-import { HandMetal } from "lucide-react";
+import { Hand } from "lucide-react";
 import { useActionState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -43,7 +43,7 @@ export function SupplierOfferPanel({
               state.offering && "border-primary bg-primary text-primary-foreground",
             )}
           >
-            <HandMetal className="size-4" strokeWidth={2} />
+            <Hand className="size-4" strokeWidth={2} />
             {state.offering ? "Nu mai pot oferta" : "Pot să ofertez materiale"}
           </Button>
           {state.error && (

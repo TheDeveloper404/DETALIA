@@ -80,6 +80,7 @@ export default async function FeedPage({
           location: media?.location ?? null,
           roleLabel,
           verified: role?.verificationStatus === "VERIFIED",
+          about: media?.about ?? null,
         }}
         categories={categories}
         activeId={activeId}

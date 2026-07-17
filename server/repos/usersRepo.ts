@@ -182,6 +182,7 @@ export async function getUserMedia(userId: string) {
       coverPosition: users.coverPosition,
       name: users.name,
       location: users.location,
+      about: users.about,
     })
     .from(users)
     .where(eq(users.id, userId))
