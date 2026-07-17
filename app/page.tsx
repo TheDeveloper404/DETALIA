@@ -218,7 +218,7 @@ export default function Home() {
           position: "sticky",
           top: 0,
           zIndex: 50,
-          height: 88,
+          height: 80,
           display: "flex",
           alignItems: "center",
           background: "var(--header-bg-translucent)",
