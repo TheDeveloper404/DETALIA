@@ -4,6 +4,17 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-17 — Fix header: inițiala din meniul de avatar citea numele din JWT stale
+
+**Bug raportat de user real (Raul):** fără poză de profil, butonul de meniu din header afișa „?" în loc de
+inițiala numelui, deși numele exista în DB. Cauza (confirmată cu DB + PostHog): `app-header.tsx` pasa
+`session.user.name` (JWT, cache-uit la login când numele era încă null — user nou, fără re-login după
+onboarding). Poza avea deja fix-ul ăsta (citită din DB via `getUserMedia`, care întorcea deja și `name`).
+Fix: `name={media?.name ?? session.user.name ?? null}`. Poza lipsă la același user NU era bug — nu o
+încărcase (verificat în PostHog: zero erori, onboarding finalizat în ~2 min).
+
+---
+
 ## 2026-07-17 — Fix-uri UI + auto-save la ofertare Furnizor + header mărit + „Ofertele mele"
 
 **Header — corecție înălțime.** 88px lăsa gol vizibil sub logo/iconițe (feedback Liviu cu screenshot) →
