@@ -4,6 +4,44 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-18 — Fix rageclick „Date de contact" + Ciornele mele restilizate + avatar cu siluetă + lățime edit profil + redirect ciornă
+
+Set de fix-uri UI/UX cerute de Liviu (pornit de la feedback user real Raul). Clasificare: SMALL–NORMAL per item.
+
+**1. Fix rageclick pe „Închide" din dialogul „Date de contact" (/profile).** Dovadă PostHog: `$rageclick`
+2026-07-17 13:26, userul Raul, pe `/profile`. Cauza: butonul de închidere era doar SVG-ul de 16px, fără
+padding — țintă de click minusculă; click-urile pe lângă aterizau pe cardul modalului (stopPropagation) și
+nu făceau nimic. Fix: zonă de click 44×44px (`size-11` + margin negativ, vizual neschimbat)
+(`components/profile-view.tsx`).
+
+**2. „Ciornele mele" restilizată ca „Detalii salvate".** Rândurile compacte înlocuite cu carduri în limbajul
+`DetailCard` (imagine 4/3 la stânga 260px, badge „Ciornă de schiță/detaliu" peste imagine, conținut la
+dreapta, „Continuă" ca buton + ștergere). Empty state aliniat la structura din `/saved` (icon + titlu + CTA
+„Explorează feed-ul"). Ștergerea optimistă păstrată (`app/(app)/sketches/drafts/drafts-list.tsx`).
+E2e adaptate: locatori `li`→`article` + `.first()`/scope pe card unde href-ul apare acum de 3 ori pe card
+(`e2e/sketch-draft.spec.ts`, `e2e/detail-draft.spec.ts` — găsite de /code-review înainte de rulare).
+
+**3. Avatar fără poză: siluetă generică în loc de inițiale (peste tot).** `PersonSilhouette` (SVG inline,
+`currentColor` — NU hotlink la flaticon: CSP + licență) exportat din `components/avatar-initials.tsx` și
+folosit în toate fallback-urile: `AvatarInitials` (7 consumatori), `user-menu.tsx` (header), `detail-card.tsx`
+(stiva de validatori + autor), `feed-sidebar.tsx`, `profile-view.tsx`. Funcțiile locale `initials()` șterse;
+prop-ul `name` din `AvatarInitials` rămâne în contract (call site-urile îl pasează deja).
+
+**4. /profile/edit lărgit la containerul din /profile.** `max-w-3xl` (768px) → `max-w-[1080px]` — tranziția
+vizualizare↔editare nu mai sare între două lățimi (`app/(app)/profile/edit/page.tsx`).
+
+**5. Discoverability ciorne: după „Salvează ciornă" din editorul de schiță → redirect la `/sketches/drafts`**
+(înainte: pagina detaliului, fără nicio confirmare — userul nu avea niciun semnal unde a aterizat ciorna;
+singurul link era în dropdown-ul din avatar). Lista „Ciornele mele" e confirmarea: ciorna e sus, cu „Continuă". Ideea alternativă
+(secțiune „Ciorne" pe pagina de profil) respinsă — ciornele sunt private, profilul e public
+(`app/(app)/sketches/[id]/edit/sketch-editor.tsx`; e2e actualizat în `sketch-draft.spec.ts`).
+
+Verificare: `tsc --noEmit` ✅ · `npm run lint` ✅ (0 erori) · `vitest run` 199/199 ✅ · 2×`/code-review`
+(2 probleme reale găsite în e2e, reparate pe loc). E2e de rulat de Liviu: `sketch-draft.spec.ts`,
+`detail-draft.spec.ts`, `profile-contact.spec.ts`.
+
+---
+
 ## 2026-07-17 — Fix header: inițiala din meniul de avatar citea numele din JWT stale
 
 **Bug raportat de user real (Raul):** fără poză de profil, butonul de meniu din header afișa „?" în loc de

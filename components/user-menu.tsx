@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { signOutAction } from "@/app/(app)/profile/actions";
 
+import { PersonSilhouette } from "./avatar-initials";
+
 // Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
 export function UserMenu({
   name,
@@ -20,7 +22,6 @@ export function UserMenu({
   const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
-  const initial = (name?.trim()?.[0] ?? "?").toUpperCase();
 
   // Header-ul persistă între navigări (layout) → închide meniul la schimbarea rutei.
   // Ajustare de state în timpul render-ului (nu efect) — pattern-ul recomandat de React pentru asta.
@@ -61,8 +62,8 @@ export function UserMenu({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="" className="h-8 w-8 rounded-full object-cover" />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
-            {initial}
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <PersonSilhouette className="size-4" />
           </span>
         )}
       </button>

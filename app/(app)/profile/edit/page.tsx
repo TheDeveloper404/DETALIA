@@ -36,7 +36,9 @@ export default async function ProfileEditPage() {
   const roleLabel = role.subRole ?? role.roleMain;
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-6 pb-16 pt-5">
+    // Aceeași lățime ca vizualizarea de profil (ProfileView: max-w-[1080px]) — tranziția
+    // /profile ↔ /profile/edit nu mai „sare" între două containere diferite.
+    <main className="mx-auto w-full max-w-[1080px] flex-1 px-6 pb-16 pt-5">
       <Link
         href="/profile"
         className="mb-4 inline-flex items-center gap-1.5 font-mono text-xs text-muted-foreground hover:text-foreground"
