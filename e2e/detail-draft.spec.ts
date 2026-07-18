@@ -53,10 +53,11 @@ test.describe.serial("Ciornă de detaliu — salvează fără categorie/imagine,
 
   test("ciorna apare în lista unificată și se reia", async ({ page }) => {
     await page.goto("/sketches/drafts");
-    const draftLink = page.locator(`a[href="/details/${detailId}/edit"]`);
-    await expect(draftLink).toBeVisible();
-    await expect(draftLink.getByText(title)).toBeVisible();
-    await draftLink.click();
+    // Cardul are 3 linkuri cu același href (imagine, titlu, „Continuă") → scope pe card + titlu explicit.
+    const card = page.locator("article", { has: page.locator(`a[href="/details/${detailId}/edit"]`) });
+    await expect(card).toBeVisible();
+    await expect(card.getByRole("heading", { name: title })).toBeVisible();
+    await card.getByRole("link", { name: title }).click();
 
     await expect(page).toHaveURL(`/details/${detailId}/edit`);
   });
@@ -107,7 +108,7 @@ test("Ciornă de detaliu se șterge din lista de ciorne", async ({ page }) => {
     detailId = page.url().match(/\/details\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
 
     await page.goto("/sketches/drafts");
-    const row = page.locator("li", { has: page.locator(`a[href="/details/${detailId}/edit"]`) });
+    const row = page.locator("article", { has: page.locator(`a[href="/details/${detailId}/edit"]`) });
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "Șterge ciorna" }).click();
 

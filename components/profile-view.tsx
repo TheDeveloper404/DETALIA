@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { PersonSilhouette } from "./avatar-initials";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 
 // Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven, alimentată
@@ -69,11 +70,6 @@ export type ProfileViewData = {
   contributionsTotal: number;
 };
 
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
-}
-
 type Tab = "detalii" | "schite" | "activitate";
 
 export function ProfileView({ data }: { data: ProfileViewData }) {
@@ -130,7 +126,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.image} alt="" className="size-full object-cover" />
           ) : (
-            initials(data.name)
+            <PersonSilhouette className="size-14" />
           )}
         </span>
 
@@ -188,7 +184,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                   type="button"
                   onClick={() => setContactOpen(false)}
                   aria-label="Închide"
-                  className="text-muted-foreground hover:text-foreground"
+                  className="-m-2.5 inline-flex size-11 items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
                 >
                   <Close />
                 </button>

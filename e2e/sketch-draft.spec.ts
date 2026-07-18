@@ -42,7 +42,7 @@ test.describe.serial("Schiță — draft: salvează, reia, șterge", () => {
     if (sketchId) await db.delete(sketches).where(eq(sketches.id, sketchId));
   });
 
-  test("pornește schița, desenează, Salvează ciornă → rămâne DRAFT, redirect la detaliu", async ({ page }) => {
+  test("pornește schița, desenează, Salvează ciornă → rămâne DRAFT, redirect la Ciornele mele", async ({ page }) => {
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
@@ -59,7 +59,8 @@ test.describe.serial("Schiță — draft: salvează, reia, șterge", () => {
     await expect(saveDraftBtn).toBeEnabled();
     await saveDraftBtn.click();
 
-    await expect(page).toHaveURL(new RegExp(`${detailUrl()}$`));
+    // Redirect la „Ciornele mele" (nu la detaliu) — decizie discoverability 2026-07-18.
+    await expect(page).toHaveURL("/sketches/drafts");
 
     const [row] = await db.select({ status: sketches.status }).from(sketches).where(eq(sketches.id, sketchId!));
     expect(row?.status).toBe("DRAFT");
@@ -67,7 +68,8 @@ test.describe.serial("Schiță — draft: salvează, reia, șterge", () => {
 
   test("ciorna apare în lista de ciorne și se reia cu stroke-ul păstrat", async ({ page }) => {
     await page.goto("/sketches/drafts");
-    const draftLink = page.locator(`a[href="/sketches/${sketchId}/edit"]`);
+    // Cardul are 3 linkuri cu același href (imagine, titlu, „Continuă") → .first(), altfel strict mode.
+    const draftLink = page.locator(`a[href="/sketches/${sketchId}/edit"]`).first();
     await expect(draftLink).toBeVisible();
     await draftLink.click();
 
@@ -78,7 +80,7 @@ test.describe.serial("Schiță — draft: salvează, reia, șterge", () => {
 
   test("ciorna se șterge din listă", async ({ page }) => {
     await page.goto("/sketches/drafts");
-    const row = page.locator("li", { has: page.locator(`a[href="/sketches/${sketchId}/edit"]`) });
+    const row = page.locator("article", { has: page.locator(`a[href="/sketches/${sketchId}/edit"]`) });
     await expect(row).toBeVisible();
     await row.getByRole("button", { name: "Șterge ciorna" }).click();
 

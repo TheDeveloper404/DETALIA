@@ -11,15 +11,10 @@ import type { ValidationPosition } from "@/server/domain/validation";
 import type { FeedItem } from "@/server/repos/detailsRepo";
 
 import { FeedSaveButton } from "./feed-save-button";
+import { PersonSilhouette } from "./avatar-initials";
 import { FeedValidationActions } from "./feed-validation-actions";
 import { RolePill } from "./role-pill";
 import { SendToCanvasButton } from "./send-to-canvas-button";
-
-function initials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
-}
 
 // Stivă de avatare ale validatorilor — cercuri suprapuse (cine a luat poziție pe detaliu).
 // Aducem max 5 avatare din DB; dacă sunt mai mulți validatori, ultimul cerc devine „+N".
@@ -47,7 +42,7 @@ function ValidatorStack({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={v.image} alt="" className="size-full object-cover" />
           ) : (
-            initials(v.name)
+            <PersonSilhouette className="size-3.5" />
           )}
         </span>
       ))}
@@ -120,7 +115,7 @@ export function DetailCard({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={detail.authorImage} alt="" className="size-full object-cover" />
               ) : (
-                initials(detail.authorName)
+                <PersonSilhouette className="size-4" />
               )}
             </span>
             <span className="text-sm font-semibold text-foreground hover:underline">
