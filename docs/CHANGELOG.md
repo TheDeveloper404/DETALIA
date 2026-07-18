@@ -37,8 +37,9 @@ singurul link era în dropdown-ul din avatar). Lista „Ciornele mele" e confirm
 (`app/(app)/sketches/[id]/edit/sketch-editor.tsx`; e2e actualizat în `sketch-draft.spec.ts`).
 
 Verificare: `tsc --noEmit` ✅ · `npm run lint` ✅ (0 erori) · `vitest run` 199/199 ✅ · 2×`/code-review`
-(2 probleme reale găsite în e2e, reparate pe loc). E2e de rulat de Liviu: `sketch-draft.spec.ts`,
-`detail-draft.spec.ts`, `profile-contact.spec.ts`.
+(2 probleme reale găsite în e2e, reparate pe loc) · e2e rulate de Liviu: 13/13 ✅ (`sketch-draft`,
+`detail-draft`, `profile-contact`). Notă: prima rulare e2e a picat fals — preview-ul Vercel din
+`E2E_BASE_URL` rula încă codul vechi (modificările nu erau comise); pe mediul corect totul verde.
 
 ---
 
