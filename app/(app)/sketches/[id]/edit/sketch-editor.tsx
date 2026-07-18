@@ -13,7 +13,7 @@ import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 import { saveStrokesAction, sendSketchAction } from "./sketch-actions";
 
 // Shell full-screen al editorului: bară de context (titlu detaliu-mamă + autor + acțiuni) + suprafața de
-// desen (SketchCanvas) + toast „ciornă salvată". Acțiunile citesc strokes/thumbnail din canvas prin ref.
+// desen (SketchCanvas). Acțiunile citesc strokes/thumbnail din canvas prin ref.
 export function SketchEditor({
   sketchId,
   detailId,
@@ -61,8 +61,10 @@ export function SketchEditor({
       setError(res.error ?? "Nu am putut salva.");
       return;
     }
-    // Ciorna salvată → înapoi în detaliu (o reiei oricând din teanc). Nu mai stingem pending (navigăm).
-    router.push(`/details/${detailId}`);
+    // Ciorna salvată → direct în „Ciornele mele" (2026-07-18, discoverability: userii nu găseau unde
+    // aterizează ciorna — ex. ghicit URL-uri manual). Lista e cea mai clară confirmare: ciorna e sus,
+    // cu „Continuă". Nu mai stingem pending (navigăm).
+    router.push("/sketches/drafts");
   }
 
   async function handleSend() {

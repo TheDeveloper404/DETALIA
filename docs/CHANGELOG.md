@@ -4,6 +4,66 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-18 — Fix rageclick „Date de contact" + Ciornele mele restilizate + avatar cu siluetă + lățime edit profil + redirect ciornă
+
+Set de fix-uri UI/UX cerute de Liviu (pornit de la feedback user real Raul). Clasificare: SMALL–NORMAL per item.
+
+**1. Fix rageclick pe „Închide" din dialogul „Date de contact" (/profile).** Dovadă PostHog: `$rageclick`
+2026-07-17 13:26, userul Raul, pe `/profile`. Cauza: butonul de închidere era doar SVG-ul de 16px, fără
+padding — țintă de click minusculă; click-urile pe lângă aterizau pe cardul modalului (stopPropagation) și
+nu făceau nimic. Fix: zonă de click 44×44px (`size-11` + margin negativ, vizual neschimbat)
+(`components/profile-view.tsx`).
+
+**2. „Ciornele mele" restilizată ca „Detalii salvate".** Rândurile compacte înlocuite cu carduri în limbajul
+`DetailCard` (imagine 4/3 la stânga 260px, badge „Ciornă de schiță/detaliu" peste imagine, conținut la
+dreapta, „Continuă" ca buton + ștergere). Empty state aliniat la structura din `/saved` (icon + titlu + CTA
+„Explorează feed-ul"). Ștergerea optimistă păstrată (`app/(app)/sketches/drafts/drafts-list.tsx`).
+E2e adaptate: locatori `li`→`article` + `.first()`/scope pe card unde href-ul apare acum de 3 ori pe card
+(`e2e/sketch-draft.spec.ts`, `e2e/detail-draft.spec.ts` — găsite de /code-review înainte de rulare).
+
+**3. Avatar fără poză: siluetă generică în loc de inițiale (peste tot).** `PersonSilhouette` (SVG inline,
+`currentColor` — NU hotlink la flaticon: CSP + licență) exportat din `components/avatar-initials.tsx` și
+folosit în toate fallback-urile: `AvatarInitials` (7 consumatori), `user-menu.tsx` (header), `detail-card.tsx`
+(stiva de validatori + autor), `feed-sidebar.tsx`, `profile-view.tsx`. Funcțiile locale `initials()` șterse;
+prop-ul `name` din `AvatarInitials` rămâne în contract (call site-urile îl pasează deja).
+
+**4. /profile/edit lărgit la containerul din /profile.** `max-w-3xl` (768px) → `max-w-[1080px]` — tranziția
+vizualizare↔editare nu mai sare între două lățimi (`app/(app)/profile/edit/page.tsx`).
+
+**5. Discoverability ciorne: după „Salvează ciornă" din editorul de schiță → redirect la `/sketches/drafts`**
+(înainte: pagina detaliului, fără nicio confirmare — userul nu avea niciun semnal unde a aterizat ciorna;
+singurul link era în dropdown-ul din avatar). Lista „Ciornele mele" e confirmarea: ciorna e sus, cu „Continuă". Ideea alternativă
+(secțiune „Ciorne" pe pagina de profil) respinsă — ciornele sunt private, profilul e public
+(`app/(app)/sketches/[id]/edit/sketch-editor.tsx`; e2e actualizat în `sketch-draft.spec.ts`).
+
+**6. Observabilitate: `reportServerException` trimite acum și `error.cause` către PostHog** (proprietatea
+`cause` pe eveniment, NU în `value` — value intră în fingerprint și ar fi spart gruparea issue-urilor).
+Motiv: recurența `platform_settings` (5 apariții și azi, 08:53–08:54 RO, server, handled, fallback OK) apare
+în PostHog doar cu wrapper-ul Drizzle „Failed query: ...", fără cauza reală (timeout? conexiune?) — de la
+următoarea apariție, cauza va fi vizibilă pe eveniment. SMALL, fără test nou (îmbogățire de logging, fără
+schimbare de comportament — skip explicit).
+
+**7. Investigație `platform_settings` ÎNCHISĂ (cu dovezi) + cache pe gate-ul de lockdown.** Concluzii
+(PostHog SQL + Neon API): în toată fereastra de capturare PostHog, **zero apariții din producție/preview** —
+toate cele 5 din 2026-07-18 au `environment: development` (= `next dev` local pe branch-ul Neon de dev),
+în rafală în timpul e2e (4 eșecuri în ~200ms = cei 4 workeri Playwright concurenți; compute-ul pornit la
+05:49 UTC, deci NU cold-start — suspect blip de autoscaling sau rețea locală, va confirma proprietatea
+`cause` de la pct. 6). Povestea „intermitent în producție" era din era Sentry, neverificabilă. Fix
+structural (NORMAL): `lib/cached-settings-reader.ts` — cache in-memory cu TTL (`SETTINGS_CACHE_TTL_MS`,
+default 30s) + „ultima valoare bună" la eroare + deduplicarea cererilor concurente, folosit DOAR de gate-ul
+de lockdown din `proxy.ts` (adminul/restul căilor citesc în continuare proaspăt). Efect: un SELECT la cel
+mult un TTL în loc de unul per request de pagină; un blip de DB nu mai flip-uiește gate-ul; lockdown-ul se
+propagă în ≤30s (acceptabil pt buton de mentenanță). 5 teste unit noi pe contract (TTL, dedup, blip,
+tabel gol) — `lib/cached-settings-reader.test.ts`. Memoria de proiect actualizată: escaladare doar la
+apariții cu `environment: production`.
+
+Verificare: `tsc --noEmit` ✅ · `npm run lint` ✅ (0 erori) · `vitest run` 204/204 ✅ · 2×`/code-review`
+(2 probleme reale găsite în e2e, reparate pe loc) · e2e rulate de Liviu: 13/13 ✅ (`sketch-draft`,
+`detail-draft`, `profile-contact`). Notă: prima rulare e2e a picat fals — preview-ul Vercel din
+`E2E_BASE_URL` rula încă codul vechi (modificările nu erau comise); pe mediul corect totul verde.
+
+---
+
 ## 2026-07-17 — Fix header: inițiala din meniul de avatar citea numele din JWT stale
 
 **Bug raportat de user real (Raul):** fără poză de profil, butonul de meniu din header afișa „?" în loc de
