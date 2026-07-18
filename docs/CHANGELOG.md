@@ -36,7 +36,28 @@ singurul link era în dropdown-ul din avatar). Lista „Ciornele mele" e confirm
 (secțiune „Ciorne" pe pagina de profil) respinsă — ciornele sunt private, profilul e public
 (`app/(app)/sketches/[id]/edit/sketch-editor.tsx`; e2e actualizat în `sketch-draft.spec.ts`).
 
-Verificare: `tsc --noEmit` ✅ · `npm run lint` ✅ (0 erori) · `vitest run` 199/199 ✅ · 2×`/code-review`
+**6. Observabilitate: `reportServerException` trimite acum și `error.cause` către PostHog** (proprietatea
+`cause` pe eveniment, NU în `value` — value intră în fingerprint și ar fi spart gruparea issue-urilor).
+Motiv: recurența `platform_settings` (5 apariții și azi, 08:53–08:54 RO, server, handled, fallback OK) apare
+în PostHog doar cu wrapper-ul Drizzle „Failed query: ...", fără cauza reală (timeout? conexiune?) — de la
+următoarea apariție, cauza va fi vizibilă pe eveniment. SMALL, fără test nou (îmbogățire de logging, fără
+schimbare de comportament — skip explicit).
+
+**7. Investigație `platform_settings` ÎNCHISĂ (cu dovezi) + cache pe gate-ul de lockdown.** Concluzii
+(PostHog SQL + Neon API): în toată fereastra de capturare PostHog, **zero apariții din producție/preview** —
+toate cele 5 din 2026-07-18 au `environment: development` (= `next dev` local pe branch-ul Neon de dev),
+în rafală în timpul e2e (4 eșecuri în ~200ms = cei 4 workeri Playwright concurenți; compute-ul pornit la
+05:49 UTC, deci NU cold-start — suspect blip de autoscaling sau rețea locală, va confirma proprietatea
+`cause` de la pct. 6). Povestea „intermitent în producție" era din era Sentry, neverificabilă. Fix
+structural (NORMAL): `lib/cached-settings-reader.ts` — cache in-memory cu TTL (`SETTINGS_CACHE_TTL_MS`,
+default 30s) + „ultima valoare bună" la eroare + deduplicarea cererilor concurente, folosit DOAR de gate-ul
+de lockdown din `proxy.ts` (adminul/restul căilor citesc în continuare proaspăt). Efect: un SELECT la cel
+mult un TTL în loc de unul per request de pagină; un blip de DB nu mai flip-uiește gate-ul; lockdown-ul se
+propagă în ≤30s (acceptabil pt buton de mentenanță). 5 teste unit noi pe contract (TTL, dedup, blip,
+tabel gol) — `lib/cached-settings-reader.test.ts`. Memoria de proiect actualizată: escaladare doar la
+apariții cu `environment: production`.
+
+Verificare: `tsc --noEmit` ✅ · `npm run lint` ✅ (0 erori) · `vitest run` 204/204 ✅ · 2×`/code-review`
 (2 probleme reale găsite în e2e, reparate pe loc) · e2e rulate de Liviu: 13/13 ✅ (`sketch-draft`,
 `detail-draft`, `profile-contact`). Notă: prima rulare e2e a picat fals — preview-ul Vercel din
 `E2E_BASE_URL` rula încă codul vechi (modificările nu erau comise); pe mediul corect totul verde.

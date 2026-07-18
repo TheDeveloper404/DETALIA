@@ -34,6 +34,15 @@ export function reportServerEvent(event: string, properties: Record<string, unkn
 // ARCHITECTURE.md din posthog-js. Fără stacktrace (nu avem acces la el din acest fetch brut, spre
 // deosebire de SDK-ul complet) — degradare asumată față de Sentry, acceptabilă pt MVP.
 export function reportServerException(error: unknown, tags: Record<string, unknown> = {}): void {
+  // Cauza reală a erorilor-wrapper (ex. Drizzle: `message` = doar "Failed query: ...") stă pe `.cause`.
+  // O trimitem ca proprietate separată (`cause`), NU concatenată în `value` — value intră în fingerprint
+  // și ar sparge gruparea issue-urilor în PostHog la fiecare cauză diferită.
+  const cause =
+    error instanceof Error && error.cause !== undefined
+      ? error.cause instanceof Error
+        ? error.cause.message
+        : String(error.cause)
+      : undefined;
   reportServerEvent("$exception", {
     $exception_list: [
       {
@@ -43,6 +52,7 @@ export function reportServerException(error: unknown, tags: Record<string, unkno
       },
     ],
     $exception_level: "error",
+    ...(cause !== undefined ? { cause } : {}),
     ...tags,
   });
 }

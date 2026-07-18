@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { isAdminEmail } from "@/lib/admin-allowlist";
 import { audit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
+import { createCachedSettingsReader } from "@/lib/cached-settings-reader";
 import { buildCspHeader } from "@/lib/csp";
 import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
@@ -41,6 +42,13 @@ const PUBLIC_PATHS = [
 
 const isCronPath = (pathname: string) => CRON_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
+// Gate-ul de lockdown citea din DB la FIECARE request de pagină (cost + un eșec tranzitoriu de DB îl
+// flip-uia pe fallback). Cache per-instanță cu TTL scurt + ultima valoare bună (2026-07-18) — lockdown-ul
+// pornit/oprit de admin se propagă în cel mult TTL, acceptabil pt un buton de mentenanță. DOAR aici, pe
+// calea fierbinte: adminul (upsert) și restul căilor citesc în continuare direct din repo, proaspăt.
+const SETTINGS_CACHE_TTL_MS = Number(process.env.SETTINGS_CACHE_TTL_MS ?? 30_000);
+const getSettingsForGate = createCachedSettingsReader(getSettingsRow, SETTINGS_CACHE_TTL_MS);
+
 export default auth(async (req) => {
   const { pathname, origin } = req.nextUrl;
   const isLoggedIn = !!req.auth;
@@ -71,9 +79,9 @@ export default auth(async (req) => {
 
   // LOCKDOWN global (mentenanță totală). Tot ce nu e /admin-page* și nu e deja ecranul de mentenanță →
   // rewrite la /maintenance (URL-ul rămâne neschimbat). Adminul intră pe /admin-page ca să-l oprească.
-  // Cost: un SELECT (single-row) per request de pagină — acceptabil MVP; mentenanța e rară.
+  // Cost: un SELECT la cel mult un TTL (cache-ul de mai sus), nu per request.
   if (!pathname.startsWith("/admin-page") && !isCronPath(pathname) && pathname !== "/maintenance") {
-    const settings = await getSettingsRow();
+    const settings = await getSettingsForGate();
     if (settings?.lockdownEnabled) {
       return NextResponse.rewrite(new URL("/maintenance", origin));
     }

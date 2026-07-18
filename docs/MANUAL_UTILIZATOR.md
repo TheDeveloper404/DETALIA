@@ -175,7 +175,7 @@ măsură de siguranță:
 | Publicare de detalii noi | max. 10 pe oră |
 | Aprobări / dezaprobări / comentarii / acțiuni pe schițe | max. 40 pe minut |
 | Încărcare de imagini | max. 30 pe oră |
-| Cerere de link de acces (login) | max. 5 pe oră (pe email), max. 20 pe oră (pe rețea) |
+| Cerere de link de acces (login) | max. 5 pe oră (pe email)
 
 Dacă vezi un mesaj de tipul „Prea multe [acțiuni] într-un timp scurt", nu e un bug — pur și simplu ai
 atins una din limitele de mai sus. Mai încerci peste puțin timp.
