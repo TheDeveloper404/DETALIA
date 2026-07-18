@@ -24,7 +24,8 @@ Gândește-te la platformă ca la un loc unde:
 4. La primul login, completezi profilul:
    - **numele**
    - **rolul principal** (Proiectant / Executant / Furnizor / Beneficiar) + un subrol (ex. arhitect, inginer)
-   - opțional o poză de profil
+   - opțional o poză de profil (dacă nu pui una, apare o siluetă generică de persoană în locul ei —
+     o poți adăuga oricând mai târziu, din editarea profilului)
 5. Odată completat rolul, ai acces imediat la tot conținutul — nu aștepți aprobare de la nimeni.
 
 **De ce contează rolul:** apare mereu lângă numele tău, pe orice comentariu sau poziție de
@@ -62,7 +63,8 @@ active/discutate la momentul respectiv. Poți:
    - o imagine (obligatorie la publicare)
    - categoria (obligatorie la publicare)
    - opțional: zonă climatică/seismică, resurse suplimentare (link, PDF, text, altă imagine)
-3. Poți salva ca **ciornă** (fără categorie/imagine încă) și reveni mai târziu s-o completezi.
+3. Poți salva ca **ciornă** (fără categorie/imagine încă) și reveni mai târziu s-o completezi — o
+   regăsești în **„Ciornele mele"** (vezi secțiunea 8).
 4. Când apeși **„Publică detaliul"**, devine vizibil public imediat — nu există coadă de aprobare.
 
 **Moderare:** dacă un detaliu e problematic, poate fi șters ulterior (de tine, ca autor, sau de un admin) —
@@ -98,7 +100,10 @@ o completare.
 1. Pe pagina unui detaliu, apeși **„Schițează peste detaliu"**.
 2. Se deschide un editor de desen: culori, 3 grosimi de creion, radieră, undo/redo.
 3. Desenezi ce vrei să adaugi/corectezi.
-4. Apeși **„Publică schița"** — intră direct în „teanc" (lista de schițe ale acelui detaliu), vizibilă tuturor.
+4. Ai două opțiuni de final:
+   - **„Publică schița"** — intră direct în „teanc" (lista de schițe ale acelui detaliu), vizibilă tuturor;
+   - **„Salvează ciornă"** — desenul se păstrează doar pentru tine, nepublicat. Ești dus automat în pagina
+     **„Ciornele mele"**, unde ciorna ta apare prima în listă — o reiei oricând de acolo (vezi secțiunea 8).
 
 **Important:**
 - fiecare schiță are **un singur autor** — nu se desenează în timp real împreună cu altcineva (fiecare
@@ -109,21 +114,35 @@ o completare.
 
 ---
 
-## 8. Comentarii și dezbatere
+## 8. Ciornele mele (lucrări neterminate)
+
+Orice detaliu sau schiță pe care l-ai început dar **nu l-ai publicat încă** se numește **ciornă**.
+Ciornele sunt **vizibile doar pentru tine** — nimeni altcineva nu le vede.
+
+- Le găsești pe toate într-un singur loc: apeși pe **poza ta din colțul din dreapta sus** și alegi
+  **„Ciornele mele"** din meniu.
+- Fiecare ciornă apare ca un card cu imagine (la fel ca detaliile din „Detalii salvate"), cu eticheta
+  „Ciornă de detaliu" sau „Ciornă de schiță".
+- Apeși **„Continuă"** pe card ca să reiei lucrul exact de unde ai rămas.
+- Poți șterge o ciornă oricând, cu iconița de coș de gunoi de pe card — **ștergerea e definitivă**.
+
+---
+
+## 9. Comentarii și dezbatere
 
 Sub fiecare detaliu/schiță există o secțiune de dezbatere unde oricine poate comenta liber (rolul apare
 lângă nume, ca peste tot). Comentariile provenite dintr-o dezaprobare argumentată sunt marcate ca atare.
 
 ---
 
-## 9. Salvarea detaliilor (bookmark)
+## 10. Salvarea detaliilor (bookmark)
 
 Apeși iconița de marcaj (colțul cardului, în feed) ca să salvezi un detaliu pentru mai târziu. Le găsești
 pe toate în pagina **„Detalii salvate"**.
 
 ---
 
-## 10. Planșele ("Canvas")
+## 11. Planșele ("Canvas")
 
 Un spațiu **privat**, doar al tău, unde poți aduna mai multe detalii/schițe la un loc (ex. toate detaliile
 relevante pentru un proiect anume) și le poți organiza vizual.
@@ -136,7 +155,7 @@ Nimeni altcineva nu vede planșele tale — sunt strict personale.
 
 ---
 
-## 11. Notificări
+## 12. Notificări
 
 Primești o notificare **în platformă** (nu pe email) când:
 - cineva schițează peste un detaliu al tău;
@@ -145,7 +164,7 @@ Primești o notificare **în platformă** (nu pe email) când:
 
 ---
 
-## 12. Reguli și limite (ca să prevenim abuzul)
+## 13. Reguli și limite (ca să prevenim abuzul)
 
 Ca să ținem platforma sănătoasă și rapidă pentru toată lumea, există limite de utilizare rezonabile.
 Dacă le atingi, primești un mesaj clar și poți încerca din nou după un timp scurt — nu e o eroare, e o
@@ -171,10 +190,11 @@ atins una din limitele de mai sus. Mai încerci peste puțin timp.
 
 ---
 
-## 13. Editarea profilului
+## 14. Editarea profilului
 
 Din meniul de profil poți schimba oricând: numele, rolul/subrolul, poza, descrierea, locația, un link către
-site propriu.
+site propriu. Pagina de editare arată acum la fel de lată ca profilul — treci dintr-una în alta fără ca
+aspectul să se schimbe brusc.
 
 ---
 
