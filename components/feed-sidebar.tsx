@@ -2,6 +2,7 @@
 // Prezentațional (props-driven): feed-ul real îi dă date din sesiune/DB, preview-ul din mock.
 import Link from "next/link";
 
+import { PersonSilhouette } from "./avatar-initials";
 import { CategoryFilterList, type SidebarCategory } from "./category-filter-list";
 
 export type { SidebarCategory };
@@ -15,12 +16,6 @@ export type SidebarProfile = {
   verified: boolean;
   about: string | null;
 };
-
-function initials(name: string | null): string {
-  if (!name) return "?";
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? "").join("") || "?";
-}
 
 // Doar un preview scurt din „Despre" (nu tot textul) — cardul de sidebar rămâne compact, detaliul
 // complet se citește pe /profile.
@@ -72,7 +67,7 @@ export function FeedSidebar({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={profile.image} alt="" className="size-full object-cover" />
             ) : (
-              initials(profile.name)
+              <PersonSilhouette className="size-7" />
             )}
           </span>
           <div className="mt-2.5 flex items-center gap-1.5">
