@@ -10,7 +10,7 @@ import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/d
 import { getUserRole } from "@/server/services/roleService";
 import { getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
-import { getTargetValidationView } from "@/server/services/validationService";
+import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
 
 import { DetailWorkspace, type WorkspaceSketch } from "./detail-workspace";
 import { ResourceImage } from "./resource-image";
@@ -77,10 +77,14 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
   // Schițele publicate (teancul), fiecare cu validarea ei per-țintă (per-SKETCH RĂMÂNE). Dezbaterea NU mai
   // e per-schiță → nu mai fetchăm comentarii pe SKETCH (câștig de perf: elimină N query-uri).
   const teancRows = await getTeanc(detail.id);
-  const sketches = await Promise.all(
-    teancRows.map(async (r) =>
-      toWorkspaceSketch(r, await getTargetValidationView("SKETCH", r.id, userId)),
-    ),
+  const sketchValidations = await getTargetValidationViews(
+    "SKETCH",
+    teancRows.map((r) => r.id),
+    userId,
+  );
+  const emptyValidationView = { positions: [], counts: { approve: 0, disapprove: 0 }, myPosition: null };
+  const sketches = teancRows.map((r) =>
+    toWorkspaceSketch(r, sketchValidations.get(r.id) ?? emptyValidationView),
   );
   const related = await getRelatedDetails(
     detail.id,

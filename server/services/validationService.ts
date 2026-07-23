@@ -20,6 +20,7 @@ import { getSketchById } from "@/server/repos/sketchesRepo";
 import {
   deletePosition,
   listPositionsForTarget,
+  listPositionsForTargets,
   listUserPositionsForTargets,
   upsertDisapprovalIfTransition,
   upsertPosition,
@@ -238,4 +239,32 @@ export async function getTargetValidationView(
     counts: { approve, disapprove: positions.length - approve },
     myPosition,
   };
+}
+
+export type TargetValidationView = Awaited<ReturnType<typeof getTargetValidationView>>;
+
+// Vedere batch pe MAI MULTE ținte (teancul de schițe al unui detaliu) — un singur query, fără N+1.
+// Vezi getTargetValidationView pentru varianta single-target (folosită pe DETAIL, o singură țintă).
+export async function getTargetValidationViews(
+  targetType: TargetType,
+  targetIds: string[],
+  currentUserId: string,
+): Promise<Map<string, TargetValidationView>> {
+  const ids = targetIds.filter(isUuid);
+  const views = new Map<string, TargetValidationView>();
+  if (ids.length === 0) return views;
+
+  const rows = await listPositionsForTargets(targetType, ids);
+  for (const id of ids) {
+    views.set(id, { positions: [], counts: { approve: 0, disapprove: 0 }, myPosition: null });
+  }
+  for (const row of rows) {
+    views.get(row.targetId)?.positions.push(row);
+  }
+  for (const view of views.values()) {
+    const approve = view.positions.filter((p) => p.position === "APPROVE").length;
+    view.counts = { approve, disapprove: view.positions.length - approve };
+    view.myPosition = view.positions.find((p) => p.userId === currentUserId)?.position ?? null;
+  }
+  return views;
 }

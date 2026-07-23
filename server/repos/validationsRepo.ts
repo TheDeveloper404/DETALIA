@@ -134,3 +134,42 @@ export async function listPositionsForTarget(targetType: TargetType, targetId: s
 }
 
 export type TargetPosition = Awaited<ReturnType<typeof listPositionsForTarget>>[number];
+
+// Pozițiile pe MAI MULTE ținte deodată (batch, teancul de schițe al unui detaliu) — fără N+1.
+// Aceeași formă de rând ca listPositionsForTarget, plus targetId ca să poți regrupa rezultatul.
+export async function listPositionsForTargets(targetType: TargetType, targetIds: string[]) {
+  if (targetIds.length === 0) return [];
+  const rows = await db
+    .select({
+      targetId: validations.targetId,
+      userId: validations.userId,
+      position: validations.position,
+      createdAt: validations.createdAt,
+      userName: users.name,
+      userImage: users.image,
+      roleSnapshot: validations.roleSnapshot,
+      currentRoleMain: roles.roleMain,
+      currentSubRole: roles.subRole,
+      currentVerification: roles.verificationStatus,
+    })
+    .from(validations)
+    .leftJoin(users, eq(users.id, validations.userId))
+    .leftJoin(roles, eq(roles.userId, validations.userId))
+    .where(and(eq(validations.targetType, targetType), inArray(validations.targetId, targetIds)))
+    .orderBy(desc(validations.createdAt));
+
+  return rows.map((r) => {
+    const snap = r.roleSnapshot as RoleSnapshot | null;
+    return {
+      targetId: r.targetId,
+      userId: r.userId,
+      position: r.position,
+      createdAt: r.createdAt,
+      userName: r.userName,
+      userImage: r.userImage,
+      roleMain: snap?.roleMain ?? r.currentRoleMain,
+      subRole: snap?.subRole ?? r.currentSubRole,
+      verification: snap?.verificationStatus ?? r.currentVerification,
+    };
+  });
+}

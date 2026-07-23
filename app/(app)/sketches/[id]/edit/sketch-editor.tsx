@@ -1,16 +1,24 @@
 "use client";
 
 import { NotebookPen, Pencil, Save, Send, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
-import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
+import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { cn } from "@/lib/utils";
 import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 
 import { saveStrokesAction, sendSketchAction } from "./sketch-actions";
+
+// Editorul de schiță (perfect-freehand + engine propriu) nu are nevoie de SSR — pagina e mereu o
+// navigare client pe /sketches/[id]/edit. Scos din bundle-ul global ca să nu-l plătească restul site-ului.
+const SketchCanvas = dynamic(
+  () => import("@/components/sketch/sketch-canvas").then((m) => m.SketchCanvas),
+  { ssr: false, loading: () => <div className="flex-1 bg-muted/30" /> },
+);
 
 // Shell full-screen al editorului: bară de context (titlu detaliu-mamă + autor + acțiuni) + suprafața de
 // desen (SketchCanvas). Acțiunile citesc strokes/thumbnail din canvas prin ref.

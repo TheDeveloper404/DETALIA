@@ -170,10 +170,18 @@ type HistoryAction =
   | { type: "undo" }
   | { type: "redo" };
 
+// Cap pe adâncimea istoricului — fără el, fiecare commit clonează tot array-ul de stroke-uri și
+// o sesiune lungă de desen acumulează sute de snapshot-uri complete în memorie (risc de OOM în tab).
+const MAX_HISTORY_DEPTH = 50;
+
 function historyReducer(state: History, action: HistoryAction): History {
   switch (action.type) {
     case "commit":
-      return { past: [...state.past, state.present], present: action.present, future: [] };
+      return {
+        past: [...state.past, state.present].slice(-MAX_HISTORY_DEPTH),
+        present: action.present,
+        future: [],
+      };
     case "undo": {
       if (state.past.length === 0) return state;
       const prev = state.past[state.past.length - 1];
@@ -220,6 +228,9 @@ export const SketchCanvas = forwardRef<
   });
   const [color, setColor] = useState<string>(STROKE_COLORS[0]);
   const [size, setSize] = useState<number>(STROKE_WIDTHS[1]);
+  // Mărimea textului e independentă de grosimea creionului — altfel schimbarea uneia o „scurgea"
+  // silențios pe cealaltă (aceeași stare `size` era folosită și de makeStroke, și de commitText).
+  const [textSize, setTextSize] = useState<number>(STROKE_WIDTHS[1]);
   // `null` = niciun tool selectat (mouse neutru — canvas-ul nu desenează). Stare în care intri
   // automat după ce fixezi un text: vrei să revii la cursor, nu să rămâi pe o unealtă de desen.
   const [tool, setTool] = useState<Tool | null>("pen");
@@ -441,7 +452,7 @@ export const SketchCanvas = forwardRef<
     if (textDraft && textDraft.value.trim()) {
       const stroke: Stroke = {
         color,
-        size,
+        size: textSize,
         kind: "text",
         text: textDraft.value.trim().slice(0, MAX_TEXT_LENGTH),
         points: [[textDraft.x, textDraft.y]],
@@ -464,7 +475,7 @@ export const SketchCanvas = forwardRef<
     const s = present[selected];
     if (!s || s.kind !== "text") return;
     setColor(s.color);
-    setSize(s.size);
+    setTextSize(s.size);
     setTextDraft({ x: s.points[0][0], y: s.points[0][1], value: s.text ?? "", angle: s.angle });
     dispatch({ type: "commit", present: present.filter((_, i) => i !== selected) });
     setSelected(null);
@@ -666,7 +677,7 @@ export const SketchCanvas = forwardRef<
   }
 
   const drawActive = tool !== "eraser" && tool !== "pan";
-  const textFontPx = size * (dims.w / REFERENCE_WIDTH) * TEXT_FONT_SCALE;
+  const textFontPx = textSize * (dims.w / REFERENCE_WIDTH) * TEXT_FONT_SCALE;
   const railBtn =
     "flex items-center justify-center rounded-[10px] border-[1.5px] bg-card transition-colors hover:border-primary disabled:cursor-default disabled:hover:border-border";
 
@@ -723,18 +734,20 @@ export const SketchCanvas = forwardRef<
 
         <RailDivider />
 
-        <RailLabel>Grosime</RailLabel>
+        <RailLabel>{tool === "text" ? "Mărime text" : "Grosime"}</RailLabel>
         <div
           className="flex w-full flex-col items-center gap-3 transition-opacity"
           style={{ opacity: drawActive ? 1 : 0.5 }}
         >
-          {/* Punct de previzualizare a grosimii curente (scalat pentru rail, nu afectează desenul). */}
+          {/* Punct de previzualizare a grosimii/mărimii curente (scalat pentru rail, nu afectează desenul).
+              Grosimea creionului și mărimea textului sunt stări INDEPENDENTE (size vs textSize) — controlul
+              din rail comută pe care din ele o citește/scrie, în funcție de tool-ul activ. */}
           <span
             aria-hidden
             className="block rounded-full"
             style={{
-              width: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
-              height: 4 + Math.round(((size - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
+              width: 4 + Math.round((((tool === "text" ? textSize : size) - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
+              height: 4 + Math.round((((tool === "text" ? textSize : size) - MIN_PEN_SIZE) / (MAX_PEN_SIZE - MIN_PEN_SIZE)) * 18),
               backgroundColor: drawActive ? color : "var(--muted-foreground)",
             }}
           />
@@ -743,11 +756,16 @@ export const SketchCanvas = forwardRef<
             min={MIN_PEN_SIZE}
             max={MAX_PEN_SIZE}
             step={1}
-            value={Math.min(MAX_PEN_SIZE, Math.max(MIN_PEN_SIZE, size))}
-            aria-label="Grosimea creionului"
+            value={Math.min(MAX_PEN_SIZE, Math.max(MIN_PEN_SIZE, tool === "text" ? textSize : size))}
+            aria-label={tool === "text" ? "Mărimea textului" : "Grosimea creionului"}
             onChange={(e) => {
-              setSize(Number(e.target.value));
-              if (tool === "eraser") setTool("pen");
+              const next = Number(e.target.value);
+              if (tool === "text") {
+                setTextSize(next);
+              } else {
+                setSize(next);
+                if (tool === "eraser") setTool("pen");
+              }
             }}
             className="h-[120px] cursor-pointer [accent-color:var(--primary)]"
             style={{ writingMode: "vertical-lr", direction: "rtl" }}
