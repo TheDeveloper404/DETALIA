@@ -4,6 +4,84 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-23 — Audit multi-agent (security/code-review/performance/claude-security) + 10 fix-uri + 2 bug-uri din feedback direct
+
+Sesiune declanșată de instalarea plugin-ului `claude-security` (Claude Plugins marketplace). Rulat în
+paralel: `claude-security` (scan complet repo, degradat — a rulat ca sub-agent fără acces la
+`Workflow`/`Agent`, deci fără verificare de panel, doar trecere manuală single-analyst), `code-reviewer`,
+`security-engineer`, `performance-engineer` — fiecare pe tot repo-ul `dev`. Sinteză + ordine de fix stabilită
+cu Liviu, aplicată punct cu punct, fiecare cu `tsc`/`lint` verde înainte de următorul.
+
+**1. PII/token leak în PostHog (MEDIU, `claude-security`).** `/verify` și `/admin-page/verify` sunt pagini
+publice al căror URL conține token-ul de magic-link (și emailul, în callback-ul Auth.js) — PostHog captura
+`$current_url` fără nicio redactare, la fiecare login. Fix: `mask_personal_data_properties: true` +
+`custom_personal_data_properties: ["token", "u", "email", "callbackUrl"]` (`instrumentation-client.ts`) —
+API nativ PostHog (verificat cu context7; `sanitize_properties` era varianta ghicită inițial, dar e
+deprecated).
+
+**2. SEC-001 — token-uri admin în clar în DB (HIGH, `security-engineer`).** `admin_login_tokens` /
+`admin_sessions` stocau tokenul brut ca PK. Fix: `sha256(token)` la scriere ȘI la citire, în toate cele 5
+puncte (`createAdminLoginUrl`, `verifyAdminLoginToken`, `createAdminSession`, `getAdminSession`,
+`destroyAdminSession` — `lib/admin-auth.ts`). Fără migrare de schemă (coloana rămâne `text()`, lungime
+identică); sesiunile/link-urile active la deploy expiră natural (TTL scurte).
+
+**3. PERF-002 — undo history nelimitat (P1, `performance-engineer`).** Fiecare commit clona tot array-ul
+de stroke-uri în `past`, fără cap — sesiune lungă de desen = risc de OOM în tab. Fix: `.slice(-50)`
+(`components/sketch/sketch-canvas.tsx`).
+
+**4. PERF-001 — N+1 pe pagina de detaliu (P1, `performance-engineer`).** Validările per schiță din teanc
+se citeau cu un query Neon separat per schiță. Fix: funcție de batch nouă —
+`listPositionsForTargets` (`server/repos/validationsRepo.ts`) + `getTargetValidationViews`
+(`server/services/validationService.ts`) — 1 query în loc de N (`app/(app)/details/[id]/page.tsx`).
+
+**5. Feed cronologic vs. „după interacțiuni" (semnalat independent de `code-reviewer` ȘI
+`performance-engineer`).** Comentariul din cod și CLAUDE.md ziceau „sortat după interacțiuni", dar
+`listFeed` a fost dintotdeauna strict cronologic. Decizie Liviu: rămâne cronologic — corectat doar
+comentariul (`server/repos/detailsRepo.ts`) + `CLAUDE.md` §Discovery. Zero schimbare de comportament.
+
+**6. CR-002 — onboarding sărea peste service layer (MEDIUM, `code-reviewer`).**
+`app/onboarding/actions.ts` apela `usersRepo` direct. Fix: logica (profil text, procesare imagini paralelă
+cu rollback pe eșec parțial, declarare rol) mutată în `server/services/onboardingService.ts` (nou);
+action-ul rămâne subțire (extrage FormData → deleagă → mapează eroarea).
+
+**7. SEC-003 — `RATE_LIMIT_FAIL_OPEN` fără alertă (MEDIUM, `security-engineer`).** Escape hatch-ul care
+dezactivează toate rate-limiterele în producție avea doar un `console.error` la boot. Fix: eveniment nou de
+audit `rate_limit_disabled_in_prod` (severitate `error`, deci ajunge și în PostHog) — `lib/audit.ts` +
+`lib/rate-limit.ts`.
+
+**8. SEC-002 — enumerare cont login/signup.** Nicio schimbare de cod — decizie de produs deja existentă
+(2026-07-03), doar reconfirmată ca fiind de revizuit explicit înainte de lansarea publică.
+
+**9. PERF-003/004 — indexuri lipsă (`performance-engineer`).** `details_published_created_idx` (index
+parțial, `WHERE status='PUBLISHED'`, acoperă `listFeed`) + `sketches_detail_status_idx` (compus,
+`detailId, status`, acoperă `sketchCount` din feed/related/top-debated) — adăugate în `db/schema.ts` +
+aplicate manual pe Neon (dev întâi, apoi production — confirmat de Liviu).
+
+**10. PERF-005 — `next/dynamic` pentru `SketchCanvas` (`performance-engineer`).** Motorul de desen
+(perfect-freehand + engine propriu) ieșea din bundle-ul global doar la nevoie —
+`app/(app)/details/new/detail-form.tsx` + `app/(app)/sketches/[id]/edit/sketch-editor.tsx`. Risc cunoscut
+și nereverificat în browser: `SketchCanvas` expune `getStrokes()`/`exportThumbnail()` prin `ref`
+(imperative handle) — ref-forwarding prin `React.lazy` (intern lui `next/dynamic`) ar trebui să funcționeze,
+dar necesită confirmare manuală (Liviu) pe fluxul complet: desen → salvare/trimitere → verificare că datele
+chiar ajung în DB, nu doar că se afișează canvas-ul.
+
+**Bug găsit din feedback direct (Liviu, nu din audit): profilul nu arăta numărul de comentarii pe
+detaliile proprii** (doar „X validări · Y schițe", spre deosebire de feed care arată și comentariile).
+Verificat direct în Neon producție (SQL) că datele din DB erau corecte — lipsea complet din query +
+UI. Fix: `detailCommentCount` adăugat în `listAuthorDetails` (`server/repos/profileRepo.ts`),
+`commentCount` adăugat în `ProfileDetailItem` + afișat în card (`components/profile-view.tsx`).
+
+**Comportament modificat din feedback direct (Liviu): mărimea textului pe canvas era legată de grosimea
+creionului.** Ambele foloseau aceeași stare `size` (`makeStroke` pentru pen, `commitText` pentru text) —
+schimbarea uneia o „scurgea" pe cealaltă. Fix: stare nouă independentă `textSize`; slider-ul „Grosime" din
+rail devine „Mărime text" când tool-ul activ e text și scrie/citește `textSize` în loc de `size`
+(`components/sketch/sketch-canvas.tsx`).
+
+Verificat: `tsc --noEmit` ✅ `lint` ✅ pe fiecare fișier atins, la fiecare pas. Nimic comis — rămâne la Liviu,
+din VS Code, după testarea manuală a punctului 10.
+
+---
+
 ## 2026-07-18 — Fix rageclick „Date de contact" + Ciornele mele restilizate + avatar cu siluetă + lățime edit profil + redirect ciornă
 
 Set de fix-uri UI/UX cerute de Liviu (pornit de la feedback user real Raul). Clasificare: SMALL–NORMAL per item.
