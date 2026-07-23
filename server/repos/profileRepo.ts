@@ -113,6 +113,8 @@ export async function getProfileStats(userId: string) {
 // ── Tab Detalii — detaliile PUBLISHED ale userului, cu contoare. ─────────────
 const detailValidationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`;
+const detailCommentCount = sql<number>`(select count(*)::int from ${comments}
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`;
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED')`;
 
@@ -135,6 +137,7 @@ export function listAuthorDetails(userId: string) {
       imageUrl: details.imageUrl,
       categoryName: firstCategoryName,
       validationCount: detailValidationCount,
+      commentCount: detailCommentCount,
       sketchCount: detailSketchCount,
     })
     .from(details)

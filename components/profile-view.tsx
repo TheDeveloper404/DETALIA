@@ -23,6 +23,7 @@ export type ProfileDetailItem = {
   imageUrl: string;
   categoryName: string | null;
   validationCount: number;
+  commentCount: number;
   sketchCount: number;
 };
 
@@ -408,7 +409,7 @@ function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; view
             <div className="px-4 py-3.5">
               <h3 className="mb-1.5 font-semibold text-foreground">{d.title}</h3>
               <div className="font-mono text-[11px] text-muted-foreground">
-                {d.validationCount} validări · {d.sketchCount} schițe
+                {d.validationCount} validări · {d.commentCount} comentarii · {d.sketchCount} schițe
               </div>
             </div>
           </Link>

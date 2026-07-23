@@ -221,7 +221,14 @@ export const details = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date()),
   },
-  (t) => [index("details_author_id_idx").on(t.authorId)],
+  (t) => [
+    index("details_author_id_idx").on(t.authorId),
+    // Index parțial: acoperă direct feed-ul (listFeed, cronologic pe PUBLISHED) — scan pe index, nu
+    // pe tot tabelul, și mai mic decât un index complet (exclude rândurile DRAFT).
+    index("details_published_created_idx")
+      .on(t.createdAt.desc())
+      .where(sql`${t.status} = 'PUBLISHED'`),
+  ],
 );
 
 // Categorii bifate pe un detaliu — many-to-many (Edi: „bifezi oricâte", stil tag Pinterest).
@@ -289,6 +296,9 @@ export const sketches = pgTable(
   (t) => [
     index("sketches_detail_id_idx").on(t.detailId),
     index("sketches_author_id_idx").on(t.authorId),
+    // Acoperă sketchCount din listFeed/listTopDebated/listRelatedDetails: WHERE detailId = ? AND
+    // status = 'PUBLISHED' — indexul single-column pe detailId nu include filtrul de status.
+    index("sketches_detail_status_idx").on(t.detailId, t.status),
   ],
 );
 
