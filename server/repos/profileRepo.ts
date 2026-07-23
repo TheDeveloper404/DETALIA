@@ -111,12 +111,21 @@ export async function getProfileStats(userId: string) {
 }
 
 // ── Tab Detalii — detaliile PUBLISHED ale userului, cu contoare. ─────────────
+// BUG găsit 2026-07-23: fără JOIN în query-ul exterior, Drizzle NU calificiază `${details.id}` cu
+// numele tabelului ("id" simplu, nu "details"."id") — în subquery-uri care au ELE ÎNSELE o coloană
+// `id` (validations.id, comments.id, categories.id...), Postgres rezolvă referința ambiguă la coloana
+// PROPRIE a subquery-ului, nu la details.id din exterior. Rezultat: corelarea se rupe silențios, count-ul
+// iese aproape mereu 0 (sau categoria mereu null). Cu JOIN prezent (ex. detailsRepo.ts — join pe
+// users/roles), Drizzle calificiază corect — de-aia feed-ul era corect și profilul nu. Fix: calificăm
+// EXPLICIT outer-ul cu sql.identifier (nu string brut), indiferent dacă query-ul are join sau nu.
+const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
+
 const detailValidationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`;
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
 const detailCommentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`;
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
-   where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED')`;
+   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED')`;
 
 // Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (Edi: „bifezi oricâte",
 // dar cardul de profil arată doar un rezumat, nu toate categoriile).
@@ -124,7 +133,7 @@ const firstCategoryName = sql<string | null>`(
   select ${categories.name}
   from ${detailCategories}
   join ${categories} on ${categories.id} = ${detailCategories.categoryId}
-  where ${detailCategories.detailId} = ${details.id}
+  where ${detailCategories.detailId} = ${detailsId}
   order by ${categories.name}
   limit 1
 )`;

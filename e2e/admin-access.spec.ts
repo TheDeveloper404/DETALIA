@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { adminLoginTokens, adminSessions } from "../db/schema";
+import { hashToken } from "../lib/admin-auth";
 
 // E2E — accesul la /admin-page: sesiune SEPARATĂ de useri (cookie propriu, allowlist ADMIN_EMAILS).
 // NU folosim un email admin real (secret de mediu, necunoscut aici) — testăm doar căile care sunt
@@ -25,7 +26,8 @@ test("sesiune validă în DB dar emailul NU e (mai) în allowlist → tratată c
 }) => {
   const token = `e2e-admin-session-${Date.now()}`;
   const expires = new Date(Date.now() + 60 * 60 * 1000);
-  await db.insert(adminSessions).values({ token, email: NOT_ADMIN_EMAIL, expires });
+  // DB stochează hash-ul (SEC-01); cookie-ul/URL-ul poartă tokenul brut — vezi lib/admin-auth.ts.
+  await db.insert(adminSessions).values({ token: hashToken(token), email: NOT_ADMIN_EMAIL, expires });
 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
@@ -53,14 +55,14 @@ test("sesiune validă în DB dar emailul NU e (mai) în allowlist → tratată c
     await expect(page).toHaveURL(/\/admin-page\/login$/);
   } finally {
     await context.close();
-    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+    await db.delete(adminSessions).where(eq(adminSessions.token, hashToken(token)));
   }
 });
 
 test("sesiune expirată în DB → redirect la login", async ({ browser, baseURL }) => {
   const token = `e2e-admin-session-expired-${Date.now()}`;
   const expired = new Date(Date.now() - 60 * 1000);
-  await db.insert(adminSessions).values({ token, email: NOT_ADMIN_EMAIL, expires: expired });
+  await db.insert(adminSessions).values({ token: hashToken(token), email: NOT_ADMIN_EMAIL, expires: expired });
 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
@@ -88,7 +90,7 @@ test("sesiune expirată în DB → redirect la login", async ({ browser, baseURL
     await expect(page).toHaveURL(/\/admin-page\/login$/);
   } finally {
     await context.close();
-    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+    await db.delete(adminSessions).where(eq(adminSessions.token, hashToken(token)));
   }
 });
 
@@ -103,13 +105,16 @@ test("magic-link pentru email NEadmin → consumă tokenul dar nu creează sesiu
 }) => {
   const token = `e2e-admin-token-notadmin-${Date.now()}`;
   const expires = new Date(Date.now() + 10 * 60 * 1000);
-  await db.insert(adminLoginTokens).values({ token, email: NOT_ADMIN_EMAIL, expires });
+  await db.insert(adminLoginTokens).values({ token: hashToken(token), email: NOT_ADMIN_EMAIL, expires });
 
   await page.goto(`/admin-page/verify/confirm?token=${token}`);
   await expect(page).toHaveURL(/\/admin-page\/login\?error=link$/);
 
   // Tokenul e one-time — chiar dacă a eșuat (email neadmin), a fost consumat (șters), nu reutilizabil.
-  const remaining = await db.select().from(adminLoginTokens).where(eq(adminLoginTokens.token, token));
+  const remaining = await db
+    .select()
+    .from(adminLoginTokens)
+    .where(eq(adminLoginTokens.token, hashToken(token)));
   expect(remaining).toHaveLength(0);
 });
 
