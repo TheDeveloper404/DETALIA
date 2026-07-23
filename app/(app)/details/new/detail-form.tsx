@@ -1,10 +1,11 @@
 "use client";
 
 import { Check, ChevronDown, Info, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
-import { SketchCanvas, type SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
+import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import {
   HEIC_ERROR_MESSAGE,
   HeicUnsupportedError,
@@ -38,6 +39,13 @@ import {
 } from "@/server/domain/detail";
 
 import { createDetailAction } from "./actions";
+
+// Editorul de schiță (perfect-freehand + engine propriu) nu are nevoie de SSR — apare doar în pasul
+// opțional de desen al formularului. Scos din bundle-ul global ca să nu-l plătească restul site-ului.
+const SketchCanvas = dynamic(
+  () => import("@/components/sketch/sketch-canvas").then((m) => m.SketchCanvas),
+  { ssr: false, loading: () => <div className="flex-1 bg-muted/30" /> },
+);
 
 type FormState = { error: string | null };
 const initialState: FormState = { error: null };

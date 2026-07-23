@@ -4,17 +4,8 @@ import { redirect } from "next/navigation";
 
 import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { reprocessBlobImage } from "@/lib/image-processing";
-import { isOwnBlobUrl } from "@/lib/blob-url";
-import { deleteBlobs } from "@/lib/storage";
 import { normalizeWebsite } from "@/lib/url";
-import {
-  updateUserCoverImage,
-  updateUserCoverPosition,
-  updateUserImage,
-  updateUserProfile,
-} from "@/server/repos/usersRepo";
-import { declareRole } from "@/server/services/roleService";
+import { completeOnboarding } from "@/server/services/onboardingService";
 
 export type OnboardingState = { error: string | null };
 
@@ -86,63 +77,32 @@ export async function onboardingAction(
   if (!websiteRes.ok) return { error: ERROR_MESSAGES.INVALID_WEBSITE };
   const website = websiteRes.value;
 
-  // ── Imagini (opționale) — urcate CLIENT direct în Blob; aici primim doar URL-urile ────
-  // Acceptăm DOAR URL-uri de Blob ale store-ului nostru (tipul/mărimea impuse la emiterea tokenului).
+  // ── Imagini (opționale) — urcate CLIENT direct în Blob; aici primim doar URL-urile.
+  // Validarea (own-blob, tip, reprocesare) e enforce în completeOnboarding.
   const avatarUrl = clean(formData.get("avatarUrl"));
   const coverUrl = clean(formData.get("coverUrl"));
-  if (avatarUrl && !isOwnBlobUrl(avatarUrl)) {
-    return { error: ERROR_MESSAGES.INVALID_TYPE };
-  }
-  if (coverUrl && !isOwnBlobUrl(coverUrl)) {
-    return { error: ERROR_MESSAGES.INVALID_TYPE };
-  }
 
-  // ── Profil text PRIMUL ────
-  await updateUserProfile(userId, {
+  // Poziția verticală a cover-ului (0..100); clamp server-side (frontend nu e sursa de adevăr).
+  const coverPosition = Math.min(
+    100,
+    Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)),
+  );
+
+  const result = await completeOnboarding({
+    userId,
     firstName,
     lastName,
-    name: `${firstName} ${lastName}`,
+    roleMain,
+    subRole,
+    secondaryRole,
     headline,
     location,
-    website,
     company,
+    website,
+    avatarUrl: avatarUrl || null,
+    coverUrl: coverUrl || null,
+    coverPosition,
   });
-
-  // ── URL-urile imaginilor (opționale, deja în Blob) ────
-  // SEC-02: validează + re-encodează (strip metadata) + plafonează; salvăm DOAR URL-ul curat. Eșec → respinge.
-  // Avatar + cover se procesează ÎN PARALEL (fiecare = fetch+sharp+reupload+delete, secvențial ar dubla
-  // latența la onboarding, unde de regulă ambele sunt setate deodată).
-  const [avatarResult, coverResult] = await Promise.all([
-    avatarUrl ? reprocessBlobImage(avatarUrl, "avatars") : null,
-    coverUrl ? reprocessBlobImage(coverUrl, "covers") : null,
-  ]);
-  // Eșec parțial (una din cele două reușește, cealaltă nu) → blob-ul deja reprocesat/urcat cu succes
-  // ar rămâne orfan (urcat, dar niciodată referit în DB) dacă doar am respinge fără cleanup.
-  if (avatarResult && !avatarResult.ok) {
-    if (coverResult?.ok) await deleteBlobs([coverResult.url]);
-    return { error: ERROR_MESSAGES.INVALID_TYPE };
-  }
-  if (coverResult && !coverResult.ok) {
-    if (avatarResult?.ok) await deleteBlobs([avatarResult.url]);
-    return { error: ERROR_MESSAGES.INVALID_TYPE };
-  }
-  if (avatarResult?.ok) {
-    await updateUserImage(userId, avatarResult.url);
-  }
-  if (coverResult?.ok) {
-    await updateUserCoverImage(userId, coverResult.url);
-    // Poziția verticală a cover-ului (0..100); clamp server-side (frontend nu e sursa de adevăr).
-    const coverPosition = Math.min(
-      100,
-      Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)),
-    );
-    await updateUserCoverPosition(userId, coverPosition);
-  }
-
-  // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există rol).
-  // Dacă orice scriere de mai sus eșuează, rolul NU se creează → următoarea accesare reia onboardingul,
-  // nu lasă un profil parțial permanent (rol fără nume). Regulile de business trăiesc în service.
-  const result = await declareRole({ userId, roleMain, subRole, secondaryRole });
   if (!result.ok) {
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }

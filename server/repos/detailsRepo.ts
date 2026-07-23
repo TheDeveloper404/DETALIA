@@ -330,7 +330,9 @@ const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
 )`;
 
 // Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
-// Sortare după interacțiuni (caracter de comunitate), tie-break după dată descrescătoare.
+// Sortare strict cronologică (cele mai noi primele) — interacțiunile sunt afișate per card
+// (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
+// (listTopDebated) e cel care sortează pe scor de interacțiune, global, independent de acest feed.
 export async function listFeed(input: { categoryId?: string | null; q?: string | null; limit: number }) {
   const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED)];
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));

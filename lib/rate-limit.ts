@@ -36,6 +36,14 @@ if (!redis && process.env.NODE_ENV === "production") {
   );
 }
 
+// SEC-03 (audit): escape hatch-ul RATE_LIMIT_FAIL_OPEN=true în producție dezactivează TOATE limiterele
+// (auth, admin-login, upload, creare detaliu) fără alt semnal decât console.error la boot — ușor de uitat
+// pornit după un debug. Un singur eveniment per cold start, severitate error → ajunge și în PostHog (nu doar
+// Vercel Logs), ca alertele reale să-l poată prinde.
+if (process.env.RATE_LIMIT_FAIL_OPEN === "true" && process.env.NODE_ENV === "production") {
+  audit("rate_limit_disabled_in_prod", { hasRedis: !!redis }, "error");
+}
+
 type Window = Parameters<typeof Ratelimit.slidingWindow>[1];
 
 // Namespace pe mediu: același Redis poate fi partajat de local/preview/prod fără ca testele dintr-un

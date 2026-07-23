@@ -49,7 +49,11 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
   Noi doar afișăm rolul corect și transparent. (Scoring = backlog, decizie de produs separată.)
 
 ### Discovery (feed & căutare)
-- Feed **finit, ~20 detalii** sortate după interacțiuni — **FĂRĂ scroll infinit** (caracter de comunitate, nu social media).
+- Feed **finit, ~20 detalii**, sortare **strict cronologică** (cele mai noi primele) — **FĂRĂ scroll infinit**
+  (caracter de comunitate, nu social media). *(Corectat 2026-07-23: comentariul din cod zicea „sortat
+  după interacțiuni", dar `listFeed` a fost dintotdeauna cronologic; decizie explicită — rămâne cronologic,
+  interacțiunile se văd per card. Sortarea după scor există separat, în rail-ul „cele mai dezbătute"
+  — `listTopDebated`.)*
 - La început doar **filtre** + căutare simplă; căutarea liberă „cu vorbele tale" vine mai târziu.
 
 ### Schița — state machine (enforce în `SketchService`)
