@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { adminSessions, roles, users } from "../db/schema";
+import { hashToken } from "../lib/admin-auth";
 
 // E2E — suspendare/reactivare de admin (SEC-001, moderare reversibilă adăugată 2026-07-13).
 // Sesiunea de admin e injectată direct în DB + cookie (ca în admin-access.spec.ts) cu emailul REAL
@@ -53,7 +54,7 @@ test("admin suspendă și reactivează un cont din /admin-page", async ({ browse
 
   const token = `e2e-admin-suspend-${Date.now()}`;
   const expires = new Date(Date.now() + 60 * 60 * 1000);
-  await db.insert(adminSessions).values({ token, email: ADMIN_EMAIL!, expires });
+  await db.insert(adminSessions).values({ token: hashToken(token), email: ADMIN_EMAIL!, expires });
 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
@@ -105,7 +106,7 @@ test("admin suspendă și reactivează un cont din /admin-page", async ({ browse
     expect(dbStatus).toBe("ACTIVE");
   } finally {
     await context.close();
-    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+    await db.delete(adminSessions).where(eq(adminSessions.token, hashToken(token)));
     await db.delete(users).where(eq(users.id, targetUserId));
   }
 });

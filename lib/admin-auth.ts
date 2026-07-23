@@ -26,7 +26,7 @@ const LINK_TTL_MS = (Number(process.env.ADMIN_LOGIN_TOKEN_TTL_MINUTES) || 15) * 
 // Token-urile brute circulă doar în link-ul de email / cookie-ul HttpOnly. În DB se stochează
 // exclusiv hash-ul (SHA-256) — un read neautorizat al tabelelor admin_login_tokens/admin_sessions
 // (backup exfiltrat, query mis-scopat) nu mai produce direct un token replay-abil.
-function hashToken(token: string): string {
+export function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
 

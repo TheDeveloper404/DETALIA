@@ -4,6 +4,42 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-23 (partea 2) — Bug real în producție: contoare 0 pe profil + CI rupt (dependențe + test admin)
+
+Continuare a sesiunii de mai jos, după ce Liviu a semnalat cu poze din producție (`detalia.ro/profile`)
+că "Atic terasa" arăta 0 validări/0 comentarii/0 schițe, deși feed-ul arăta corect 1/2/1 pentru același
+detaliu.
+
+**Cauza reală (nu cache, nu deploy întârziat — verificat cu dovezi):** bug de scoping SQL în Drizzle.
+Când un query nu are niciun `join` (cazul `listAuthorDetails`, tab-ul „Detalii" de pe profil), Drizzle NU
+calificiază `${details.id}` cu numele tabelului — se randează `"id"` simplu, nu `"details"."id"`. În
+subquery-urile de numărare (`validations`/`comments`/`sketches`), care au ele însele o coloană proprie
+`id`, Postgres rezolvă acel `"id"` neambiguu la coloana PROPRIE a subquery-ului, nu la `details.id` din
+exterior — corelarea se rupe silențios, count-ul iese aproape mereu 0. Feed-ul mergea corect din
+întâmplare: `detailsRepo.ts` face mereu `leftJoin` pe `users`/`roles`, iar prezența a 2+ tabele forțează
+Drizzle să calificieze corect. **Bonus găsit cu aceeași cauză:** `categoryName` pe profil avea exact
+același bug (categoria bifată nu se afișa niciodată). Fix: calificare explicită cu `sql.identifier("details")`
++ `sql.identifier("id")` (nu string brut), pe toate cele 4 subquery-uri afectate
+(`server/repos/profileRepo.ts`). Verificat direct pe producție (SELECT read-only, Neon MCP): valorile
+corecte după fix (1/2/1 + categorie corectă).
+
+**CI picat pe `dev` (push + PR), nelegat de fix-urile de mai sus:**
+1. **Gate de audit dependențe** (`scripts/audit-check.mjs`) bloca la 9 CVE-uri HIGH nou apărute pe
+   Next.js 16.2.10 (SSRF în Server Actions, DoS, disclosure neautentificat de Server Functions) — toate
+   rezolvate în **16.2.11** (patch, nu breaking). Bump `next`/`eslint-config-next` → 16.2.11 +
+   `npm audit fix` (brace-expansion/fast-uri/js-yaml, dev tooling) + override nou `sharp: ^0.35.3` în
+   `package.json` (Next.js bundlează intern o versiune veche de sharp cu CVE-uri libvips — override-ul
+   forțează patch-ul și acolo). Verificat: gate local OK, `tsc`/`next build`/`eslint .` verzi.
+2. **Test e2e admin picat ca urmare directă a fix-ului SEC-001** (hash token-uri admin, sesiunea
+   anterioară): 3 fixture-uri (`e2e/admin-access.spec.ts` ×2, `e2e/admin-suspend.spec.ts` ×1) inserau
+   token BRUT direct în DB ca precondiție, dar codul acum caută după hash — precondiția nu mai era găsită.
+   Fix: `hashToken()` exportat din `lib/admin-auth.ts`, fixture-urile actualizate să insereze/interogheze
+   hash-ul în DB, păstrând tokenul brut în cookie/URL (exact comportamentul real).
+
+Verificat: `tsc` ✅ `lint` ✅ pe fiecare fișier atins.
+
+---
+
 ## 2026-07-23 — Audit multi-agent (security/code-review/performance/claude-security) + 10 fix-uri + 2 bug-uri din feedback direct
 
 Sesiune declanșată de instalarea plugin-ului `claude-security` (Claude Plugins marketplace). Rulat în
