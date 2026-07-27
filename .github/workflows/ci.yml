@@ -41,7 +41,7 @@ jobs:
 
       - name: Setup Node
         if: steps.detect.outputs.ready == 'true'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v6.4.0
         with:
           node-version: 24
           cache: npm
