@@ -108,13 +108,8 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 ---
 
 ## Arhitectură pe straturi (clean architecture — regula de aur: zero business în handlers/componente)
-```
-app/        UI (RSC) + route handlers (API) + server actions — SUBȚIRI: validează input, deleagă la service
-server/     domain/ (entități, roluri, state machines) · services/ (business) · repos/ (Drizzle)
-db/         schema Drizzle + migrații
-components/ UI (inclusiv canvas-ul de schițare)
-lib/        auth, email, storage, utils
-```
+- `app/` (UI + route handlers + server actions) rămâne **SUBȚIRE**: validează input, deleagă la service.
+- Business-ul stă în `server/`: `domain/` (entități, roluri, state machines) → `services/` → `repos/` (Drizzle).
 - Mutațiile trec prin **services**, nu direct din UI în DB.
 - Deny-by-default: tot ce e sub zona protejată cere sesiune; rolul se verifică pe server.
 
@@ -286,19 +281,14 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 ---
 
 ## Decizii de produs confirmate
-- **Login passwordless: magic link (Resend)** — confirmat. **Fără parolă.** *(Google OAuth a fost scos pentru MVP — vezi CHANGELOG 2026-06-23; schela de re-adăugare rămâne documentată în `lib/auth.ts`.)*
-- **Acces PUBLIC** (înregistrare deschisă, fără invitație) — confirmat. Flux: landing → creare cont → email
-  magic link → onboarding profil (rol, subrol, poză) → feed.
-- **Upload de detalii DESCHIS** oricărui user cu rol declarat (nu doar admin/seed) — confirmat. Moderare post-publicare.
+> Accesul public, uploadul deschis, rolul auto-declarat, verificarea „pull nu push", magic link-ul
+> passwordless, schița asincronă și notificările doar in-app sunt descrise o singură dată, mai sus
+> (§„Reguli de business", §„Acces & roluri", §„Schița"). Aici stau doar deciziile care nu apar acolo:
+
 - **Taxonomia de categorii + meseriile** — finalizate și implementate 2026-07-02 (vezi CHANGELOG).
 - **Zone climatice/seismice + încărcare zăpadă/vânt** — liste fixe, implementate 2026-07-02 (vezi CHANGELOG).
 - **Resurse suplimentare** — rămân IMAGE/LINK/PDF/TEXT (nu doar imagini).
-- **Schiță asincronă GitHub-style** (o foaie = un autor, NU real-time) — confirmat. Schițarea = **feature obligatoriu în MVP**.
 - **Un singur rol per user** (nu roluri multiple), plus **rol adițional opțional** (Administrativ/Educație), aditiv.
-- **Rol auto-declarat** la signup + verificare în platformă cu badge (NU atribuit de admin).
-- **Verificarea rolului = „pull, nu push"** — opțională, fără blocare, rol neverificat funcțional 100%, nudge
-  blând; userii vin singuri să se verifice, motivați de credibilitate. Fără scoring numeric.
-- Notificări **doar in-app** (email oprit 2026-07-03, repornibil din env — vezi mai sus).
 
 ## Decizii deschise
 - **Surse de verificare automată a rolului** (OAR/CUI confirmate?), dincolo de manual-admin: **pe HOLD**.
