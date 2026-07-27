@@ -16,6 +16,14 @@ updates:
     groups:
       minor-and-patch:
         update-types: ["minor", "patch"]
+      auth-js:
+        # next-auth/@auth/core/@auth/drizzle-adapter trebuie bump-uite ÎMPREUNĂ — release-urile lor
+        # sunt cuplate (versiuni exacte, nu range), altfel rămâne un pachet în urmă cu fix-ul de
+        # securitate al altuia (găsit 2026-07-27: @auth/drizzle-adapter a rămas pe @auth/core vulnerabil
+        # când next-auth a fost bump-uit singur).
+        patterns:
+          - "next-auth"
+          - "@auth/*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
