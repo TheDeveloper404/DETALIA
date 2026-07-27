@@ -19,6 +19,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
+  // Fail-fast pe CI: când mediul-țintă e mort (preview șters, DB indisponibil, secret de bypass
+  // expirat), FIECARE din cele ~100 de teste ar aștepta timeout-ul întreg × 3 încercări, serial
+  // (1 worker) → jobul moare abia la limita lui de 30 min fără nicio informație în plus.
+  // 10 eșecuri consecutive = mediul e problema, nu testele; oprește suita în ~2-3 min.
+  maxFailures: process.env.CI ? 10 : 0,
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   // Timeout GLOBAL pt. `expect()`, nu implicitul de 5s — suita rulează contra unui deploy Vercel
   // preview REAL, nu localhost, iar rularea locală (6 workers auto-detectați) lovește simultan
