@@ -1,9 +1,10 @@
-# E2E (Playwright) pe preview-ul Vercel — rulează automat după fiecare deploy de PREVIEW reușit.
+# E2E (Playwright) pe preview-ul Vercel — rulează automat după fiecare deploy de preview al lui `dev`.
 #
 # Cum funcționează: integrarea Vercel↔GitHub trimite `repository_dispatch` cu tipul
 # `vercel.deployment.success`; payload-ul conține `url` (preview-ul) și `environment`.
-# Producția e EXCLUSĂ explicit (if-ul de mai jos) — e2e-ul seedează date de test în DB și nu
-# are ce căuta pe production.
+# Producția e EXCLUSĂ explicit (if-ul din job-ul `gate`) — e2e-ul seedează date de test în DB și nu
+# are ce căuta pe production. Preview-urile de PR sunt și ele excluse, dar din alt motiv (perechea
+# preview↔bază de date) — vezi comentariul de la job-ul `gate`.
 #
 # ⚠️ repository_dispatch declanșează DOAR workflow-uri de pe branch-ul default (`main`) —
 # devine activ abia după merge-ul acestui fișier în main. Până atunci se poate testa manual
@@ -39,9 +40,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  e2e:
-    # Doar preview (sau rulare manuală). NICIODATĂ pe production.
+  # Poartă preview↔DB. E2E are O SINGURĂ bază de test (`E2E_DATABASE_URL` = ramura Neon
+  # `preview/dev`), dar integrarea Vercel↔Neon creează o bază PROPRIE, forkuită din producție,
+  # pentru fiecare preview de PR. Rulat pe alt preview decât cel al lui `dev`, harnessul seedează
+  # într-o bază iar aplicația citește din alta → suită roșie garantat, fără nicio legătură cu codul
+  # (constatat 2026-07-27: pe preview-ul unui PR Dependabot, userul+detaliul seedate existau în
+  # `preview/dev` și lipseau din baza preview-ului; au trecut doar testele care nu depind de
+  # perechea app↔DB). Deci rulăm doar pentru deploy-urile lui `dev`.
+  #
+  # Comparăm SHA-ul deploy-ului cu vârful lui `dev` (semnal determinist, fără presupuneri despre
+  # forma internă a `client_payload` — docs Vercel nu o specifică dincolo de `url`/`git.sha`).
+  # Efect secundar dorit: un dispatch întârziat, al cărui SHA nu mai e vârful lui `dev`, se sare —
+  # aceeași logică „doar cel mai recent" pe care o are deja `concurrency`.
+  gate:
     if: github.event_name == 'workflow_dispatch' || github.event.client_payload.environment == 'preview'
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - name: Deploy-ul e de pe `dev`?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_SHA: ${{ github.event.client_payload.git.sha }}
+        run: |
+          set -euo pipefail
+          # Rularea manuală dă ținta explicit (`base_url`) → responsabilitatea perechii e a celui care o pornește.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          dev_sha="$(gh api "repos/$GITHUB_REPOSITORY/commits/dev" --jq .sha)"
+          if [ "$dev_sha" = "$DEPLOY_SHA" ]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Deploy care nu e vârful lui \`dev\` (${DEPLOY_SHA:0:7}) — E2E sărit: baza de test e legată de ramura Neon \`preview/dev\`, iar acest preview are baza lui."
+          fi
+
+  e2e:
+    needs: gate
+    if: needs.gate.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
