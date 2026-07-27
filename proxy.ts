@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 
 import { isAdminEmail } from "@/lib/admin-allowlist";
+import { hashToken } from "@/lib/admin-token-hash";
 import { audit } from "@/lib/audit";
 import { auth } from "@/lib/auth";
 import { createCachedSettingsReader } from "@/lib/cached-settings-reader";
@@ -68,7 +69,10 @@ export default auth(async (req) => {
       pathname === "/admin-page/verify/confirm"; // consumul real al tokenului (declanșat din JS de pagina de mai sus)
     if (!adminPublic) {
       const token = req.cookies.get("detalia-admin-session")?.value;
-      const email = token ? await getValidAdminSessionEmail(token) : null;
+      // Cookie-ul poartă tokenul BRUT, coloana stochează hash-ul (SEC-01) → căutarea trebuie hash-uită.
+      // Fără `hashToken` aici, poarta nu recunoștea nicio sesiune validă și redirecta la login, iar
+      // pagina de login (care hash-uia corect) redirecta înapoi → buclă infinită, panou inaccesibil.
+      const email = token ? await getValidAdminSessionEmail(hashToken(token)) : null;
       if (!email || !isAdminEmail(email)) {
         return Response.redirect(new URL("/admin-page/login", origin));
       }
