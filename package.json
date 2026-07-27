@@ -22,7 +22,7 @@
     "smoke:prod": "cross-env SMOKE_PROD=1 playwright test --project=smoke-prod"
   },
   "dependencies": {
-    "@auth/drizzle-adapter": "^1.11.2",
+    "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.1.0",
     "@posthog/nextjs-config": "^1.9.68",
     "@upstash/ratelimit": "^2.0.8",
@@ -34,7 +34,7 @@
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.23.0",
     "next": "16.2.11",
-    "next-auth": "^5.0.0-beta.31",
+    "next-auth": "^5.0.0-beta.32",
     "nextjs-toploader": "^3.9.17",
     "perfect-freehand": "^1.2.3",
     "posthog-js": "^1.400.1",
