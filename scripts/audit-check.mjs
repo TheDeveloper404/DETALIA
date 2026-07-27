@@ -7,7 +7,20 @@
 import { execFileSync } from "node:child_process";
 
 // Advisory-uri HIGH acceptate explicit (GHSA). Fiecare intrare = risk-acceptance cu motiv.
-const ALLOWLIST = new Map([]);
+const ALLOWLIST = new Map([
+  [
+    "GHSA-mh99-v99m-4gvg",
+    "brace-expansion (ReDoS): doar via minimatch în eslint/typescript-eslint/ts-morph, procesează " +
+      "pattern-uri de fișiere din repo la lint/build time, fără input extern. Fix necesită bump major " +
+      "eslint (breaking). Zero cale spre runtime-ul de producție.",
+  ],
+  [
+    "GHSA-r28c-9q8g-f849",
+    "postcss (path traversal via sourceMappingURL): vine din @tailwindcss/postcss/next/shadcn/vite, " +
+      "procesează doar CSS-ul propriu din repo la build time, fără sourcemap-uri de la utilizatori. " +
+      "Fără fix disponibil upstream. Zero cale spre runtime-ul de producție.",
+  ],
+]);
 
 const BLOCKING = new Set(["high", "critical"]);
 const ghsaFromUrl = (url) => (typeof url === "string" ? url.split("/advisories/")[1] ?? url : "");
