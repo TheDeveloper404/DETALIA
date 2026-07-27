@@ -22,7 +22,7 @@
     "smoke:prod": "cross-env SMOKE_PROD=1 playwright test --project=smoke-prod"
   },
   "dependencies": {
-    "@auth/drizzle-adapter": "^1.11.2",
+    "@auth/drizzle-adapter": "^1.11.3",
     "@neondatabase/serverless": "^1.1.0",
     "@posthog/nextjs-config": "^1.9.68",
     "@upstash/ratelimit": "^2.0.8",
