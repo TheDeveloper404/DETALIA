@@ -4,6 +4,76 @@ Jurnal detaliat al modificărilor, cu dată. Cel mai recent sus.
 
 ---
 
+## 2026-07-27 — CVE-uri Auth.js patch-uite, bug real în producție (panoul de admin) și E2E reparat la rădăcină
+
+Sesiune pornită de la „ce a picat în GitHub Actions" și terminată cu un bug de producție găsit de un test
+care pica de 4 zile. Trei fire distincte, toate închise.
+
+**1. Trei CVE-uri Auth.js, dintre care două CRITICAL, patch-uite în producție.** Dependabot semnala
+`GHSA-7rqj-j65f-68wh` (CRITICAL — normalizatorul de email validează adresa ÎNAINTE de normalizarea Unicode,
+permițând bypass prin `@` homoglif), `GHSA-8fpg-xm3f-6cx3` (CRITICAL — erorile de configurare pot face
+verificările de auth bazate pe existență să eșueze „deschis") și `GHSA-xmf8-cvqr-rfgj` (HIGH — `getToken()`
+aruncă excepție necaptată pe headere `Bearer` malformate). **De ce PR-ul automat nu le rezolva:** bump-uia
+doar `next-auth` la `5.0.0-beta.32`, dar `@auth/drizzle-adapter@1.11.2` ținea pinuit `@auth/core@0.41.2`
+vulnerabil ca dependență tranzitivă — `npm audit` continua să le raporteze corect. Fix real: `next-auth`
+`5.0.0-beta.32` **+** `@auth/drizzle-adapter` `1.11.3` (aduce `@auth/core@0.41.3`). Prevenție: `next-auth`
+și `@auth/*` sunt acum grupate explicit în `.github/dependabot.yml` — release-urile Auth.js sunt cuplate pe
+versiuni exacte, deci trebuie bump-uite împreună, altfel recidivează exact același bump parțial.
+
+**2. Bug REAL în producție — panoul de admin inaccesibil din 23 iulie (buclă de redirect).** Găsit prin
+`admin-suspend.spec.ts`, care pica și cu un singur worker. Poarta centralizată de admin din `proxy.ts`
+(scrisă 30 iunie, `0033574`) căuta sesiunea în `admin_sessions` cu tokenul **brut** din cookie, dar coloana
+stochează hash-ul de când SEC-001 a migrat la token-uri hash-uite — iar acel commit (`5b542fc`) atinsese
+**doar** `lib/admin-auth.ts`, o singură linie. Rezultat: poarta nu recunoștea nicio sesiune și redirecta la
+login (302), pagina de login (care hash-uia corect) redirecta înapoi la panou (307), buclă infinită.
+Confirmat în trace-ul Playwright, prin alternanța 302/307. Fix: `proxy.ts` hash-uiește acum înainte de
+căutare, iar `hashToken()` a fost extras în modulul propriu `lib/admin-token-hash.ts` — `proxy.ts` nu poate
+importa `admin-auth.ts` (trage `next/headers`), iar duplicarea funcției e fix ce a produs divergența;
+`admin-auth.ts` îl re-exportă, deci importurile existente și fixture-urile e2e rămân valabile. Detaliu
+complet + lecția de proces: `docs/INCIDENTS.md` (prima intrare din jurnal).
+
+**3. Suita E2E — cauza reală a suitei roșii, nu simptomele.** Trei probleme suprapuse, rezolvate pe rând:
+- **Secretul de bypass expirat.** `VERCEL_AUTOMATION_BYPASS_SECRET` nu mai era valid, deci cererile loveau
+  zidul de Deployment Protection înainte să ajungă la aplicație — zero request-uri în logurile Vercel în
+  toată fereastra rulării. Actualizat de Liviu în GitHub Secrets.
+- **Perechea preview↔bază de date (cauza celor 37 de teste picate).** Integrarea Vercel↔Neon creează o bază
+  **proprie, forkuită din producție**, pentru fiecare preview de PR, dar harnessul E2E are o singură bază,
+  fixată prin `E2E_DATABASE_URL` (ramura Neon `preview/dev`). Rulat pe orice alt preview, harnessul seedează
+  într-o bază iar aplicația citește din alta. Dovedit prin numărare directă în ambele ramuri: userul și
+  detaliul seedate existau în `preview/dev` (1/1, 6 useri) și lipseau din baza preview-ului (0/0, 15 useri —
+  adică userii reali din producție). Treceau exact testele care nu depind de perechea app↔DB: paginile
+  publice și tot proiectul `security` (vorbește direct cu DB-ul, nu prin aplicație). Fix: job `gate` nou în
+  `.github/workflows/e2e.yml`, care lasă suita să pornească doar când SHA-ul deploy-ului e vârful lui `dev`
+  — singurul preview legat de `preview/dev`. Comparația se face prin API-ul GitHub, nu printr-un câmp ghicit
+  din `client_payload` (docs Vercel nu specifică unul de branch). După fix, local: 95/98, apoi 97/98.
+- **Fail-fast la mediu mort.** `maxFailures: 10` pe CI: cu 1 worker, ~100 de teste × 30s timeout × 3
+  încercări duceau jobul la limita de 30 de minute fără nicio informație în plus. Acum se oprește în 2-3
+  minute când mediul e problema, nu testele.
+
+**4. Igienă de securitate — alerte închise, nu ignorate.** `scripts/audit-check.mjs` primește în ALLOWLIST
+două advisory-uri preexistente și nelegate de restul: `brace-expansion` (ReDoS via `minimatch`, doar
+eslint/typescript-eslint/ts-morph, lint-time, fix upstream doar prin bump major de eslint) și `postcss`
+(path traversal via `sourceMappingURL`, din `@tailwindcss/postcss`/next/shadcn/vite, build-time, fără fix
+disponibil). Ambele sunt unelte de build, fără cale spre runtime-ul de producție. Alertele Dependabot
+corespunzătoare (plus `@hono/node-server`, tranzitiv prin `shadcn` CLI) au fost **închise ca
+`tolerable_risk`, cu motivul scris pe fiecare** — o alertă lăsată deschisă face Dependabot să reîncerce la
+nesfârșit PR-uri imposibile și umple Actions de roșu. Plasa de siguranță rămâne: allowlist-ul e per-advisory,
+nu per-pachet, deci orice CVE NOU pe aceleași pachete blochează în continuare CI-ul. Revizuire lunară trecută
+în `docs/BACKLOG.md`.
+
+**5. Restul.** Comise cele două fișiere netrackuite rămase din sesiunea de pentest (workflow-ul CodeQL —
+scanare statică pe push/PR + cron săptămânal — și raportul de testare). `docs/BACKLOG.md` creat și populat
+(Acum/Următor/Blocat/Idei), inclusiv itemele de hardening din raportul de pentest; `.remember/remember.md`
+curățat de arhivă și redus la context viu, ce e de făcut trăiește de acum în backlog. `.env.e2e` a primit
+`BLOB_READ_WRITE_TOKEN`, altfel fiecare rulare locală lăsa fișiere orfane în Blob store (același store ca
+producția — Blob-ul nu se ramifică pe preview cum face Neon).
+
+Verificat: `tsc` ✅ `lint` ✅ `next build` ✅ (proxy-ul se bundle-uiește corect cu `node:crypto`).
+E2E local pe preview-ul `dev`: 97/98, singurul rămas fiind chiar `admin-suspend` — de re-rulat după deploy-ul
+fix-ului, ca dovadă finală.
+
+---
+
 ## 2026-07-23 (partea 2) — Bug real în producție: contoare 0 pe profil + CI rupt (dependențe + test admin)
 
 Continuare a sesiunii de mai jos, după ce Liviu a semnalat cu poze din producție (`detalia.ro/profile`)

@@ -2,11 +2,12 @@
 // CINE e admin = allowlist `ADMIN_EMAILS` (env). Login = MAGIC LINK propriu pe email (token one-time în DB),
 // sesiune proprie (cookie HttpOnly dedicat, token opac validat în admin_sessions — revocabil, expiră).
 // Rulează DOAR în runtime Node (server actions / RSC / route handlers).
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 
 import { cookies } from "next/headers";
 
 import { isAdminEmail } from "@/lib/admin-allowlist";
+import { hashToken } from "@/lib/admin-token-hash";
 import {
   consumeAdminLoginToken,
   deleteAdminSession,
@@ -23,12 +24,10 @@ const COOKIE = "detalia-admin-session";
 const SESSION_TTL_MS = (Number(process.env.ADMIN_SESSION_TTL_HOURS) || 8) * 60 * 60 * 1000;
 const LINK_TTL_MS = (Number(process.env.ADMIN_LOGIN_TOKEN_TTL_MINUTES) || 15) * 60 * 1000;
 
-// Token-urile brute circulă doar în link-ul de email / cookie-ul HttpOnly. În DB se stochează
-// exclusiv hash-ul (SHA-256) — un read neautorizat al tabelelor admin_login_tokens/admin_sessions
-// (backup exfiltrat, query mis-scopat) nu mai produce direct un token replay-abil.
-export function hashToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
+// Hash-ul trăiește în `lib/admin-token-hash.ts` — îl folosește și poarta de admin din `proxy.ts`,
+// care nu poate importa fișierul ăsta (trage `next/headers`). Re-exportat aici ca importurile
+// existente (inclusiv e2e) să rămână valabile. Vezi motivația completă în modulul respectiv.
+export { hashToken };
 
 // ── Magic link ──
 // Emite un token one-time pentru un email de admin și întoarce URL-ul de verificare absolut.
