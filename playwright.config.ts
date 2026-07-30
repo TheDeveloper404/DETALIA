@@ -48,10 +48,13 @@ export default defineConfig({
       : {}),
   },
   projects: [
-    // Fluxuri PUBLICE — anonim (fără storageState), nicio dependență de DB.
+    // Fluxuri PUBLICE — anonim (fără storageState). Depinde de "setup" DOAR pentru describe-ul
+    // "Anti-enumerare" din public.spec.ts (are nevoie de userul seedat e2e-tester@detalia.test deja
+    // existent în DB — altfel /signup cu emailul lui ar lua ramura de cont nou și ar trimite email real).
     {
       name: "public",
       testMatch: [/(^|[\\/])public\.spec\.ts$/, /verify-and-maintenance\.spec\.ts/],
+      dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"] },
     },
     // Teaser public de schiță (/s/[id]) — anonim, fără storageState, dar are nevoie de seed.json
