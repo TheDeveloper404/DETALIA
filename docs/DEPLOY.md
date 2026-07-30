@@ -223,10 +223,12 @@ Automat = pornește singur. Manual = tu declanșezi.
   + audit dependențe. Rulează pe push ȘI pe orice PR către `dev`/`main`.
 - **GitHub Actions `e2e.yml`** — **ATENȚIE, rulează AUTOMAT**, nu doar când tu tastezi `npm run e2e`
   local: după ce Preview-ul de mai sus devine Ready, Vercel trimite un webhook
-  (`vercel.deployment.success`) → declanșează suita completă de 84 teste E2E contra acelui Preview,
+  (`vercel.deployment.success`) → declanșează suita completă de 98 teste E2E contra acelui Preview,
   în GitHub Actions. Rezultatul e vizibil în **GitHub → Actions tab**, NU în terminalul tău local —
   dacă rulezi și tu manual în paralel, sunt DOUĂ rulări separate, posibil cu rezultate ușor diferite
-  (load diferit). Explică parțial confuzia „de unde vine rezultatul ăsta".
+  (load diferit). Explică parțial confuzia „de unde vine rezultatul ăsta". **De la 2026-07-27**, suita
+  pornește DOAR pe preview-ul lui `dev` (job `gate`, vezi `docs/TOOLING.md`) — orice alt preview (PR
+  Dependabot etc.) are propria bază Neon, nelegată de `E2E_DATABASE_URL`, deci se sare curat.
 
 **3. Deschizi PR `dev → main`** — PR-ul doar AFIȘEAZĂ rezultatul CI de la pasul 2 (verde/roșu). Branch
 protection cere CI verde + branch la zi înainte să apară butonul Merge.

@@ -14,7 +14,7 @@ import {
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import { notifySupplierOffered } from "@/server/services/notificationService";
 
-export type SupplierOfferError = "NO_ROLE" | "NOT_FURNIZOR" | "TARGET_NOT_FOUND" | "CANNOT_OFFER_OWN";
+type SupplierOfferError = "NO_ROLE" | "NOT_FURNIZOR" | "TARGET_NOT_FOUND" | "CANNOT_OFFER_OWN";
 export type SupplierOfferResult =
   | { ok: true; offering: boolean }
   | { ok: false; error: SupplierOfferError };

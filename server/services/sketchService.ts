@@ -24,7 +24,7 @@ import { getNotificationActor } from "@/server/repos/usersRepo";
 import { notifySketchDeleted, notifySketchProposed } from "@/server/services/notificationService";
 import { recordSketchDisapproval } from "@/server/services/validationService";
 
-export type SketchError =
+type SketchError =
   | "NO_ROLE"
   | "DETAIL_NOT_FOUND"
   | "SKETCH_NOT_FOUND"

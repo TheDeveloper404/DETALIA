@@ -26,7 +26,7 @@ import {
   upsertPosition,
 } from "@/server/repos/validationsRepo";
 
-export type ValidationError =
+type ValidationError =
   | "NO_ROLE"
   | "TARGET_NOT_FOUND"
   | "CANNOT_VALIDATE_OWN"

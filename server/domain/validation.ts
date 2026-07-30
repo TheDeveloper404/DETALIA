@@ -4,10 +4,10 @@
 //  - O singură poziție per user per țintă, reversibilă (constrângere unică în DB).
 //  - FĂRĂ scoring/ponderare — greutatea o dă rolul, judecat de cititor.
 
-export const TARGET_TYPES = ["DETAIL", "SKETCH"] as const;
+const TARGET_TYPES = ["DETAIL", "SKETCH"] as const;
 export type TargetType = (typeof TARGET_TYPES)[number];
 
-export const VALIDATION_POSITIONS = ["APPROVE", "DISAPPROVE"] as const;
+const VALIDATION_POSITIONS = ["APPROVE", "DISAPPROVE"] as const;
 export type ValidationPosition = (typeof VALIDATION_POSITIONS)[number];
 
 // Justificarea (dezaprobare) și comentariile împart aceeași limită.

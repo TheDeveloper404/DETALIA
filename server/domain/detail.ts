@@ -10,7 +10,7 @@ export const DETAIL_STATUS = {
   PUBLISHED: "PUBLISHED",
   REMOVED: "REMOVED",
 } as const;
-export type DetailStatus = (typeof DETAIL_STATUS)[keyof typeof DETAIL_STATUS];
+type DetailStatus = (typeof DETAIL_STATUS)[keyof typeof DETAIL_STATUS];
 
 // Limite de conținut (produs, nu securitate). Mărimea feed-ului e un knob de produs.
 export const TITLE_MAX_LENGTH = 200;
@@ -47,7 +47,7 @@ function isOneOf<T extends readonly string[]>(list: T, value: string): value is 
 }
 
 // Tipuri de resurse opționale (oglindesc enum-ul DB detail_resource_type).
-export const RESOURCE_TYPES = ["IMAGE", "LINK", "TEXT", "PDF", "CAD"] as const;
+const RESOURCE_TYPES = ["IMAGE", "LINK", "TEXT", "PDF", "CAD"] as const;
 export type ResourceType = (typeof RESOURCE_TYPES)[number];
 
 export type DetailResourceInput = {
@@ -75,7 +75,7 @@ export function isHttpUrl(value: string): boolean {
 
 // Input normalizat după validare (gata de inserare). imageUrl e null doar pt ciorne (DRAFT) — o
 // ciornă poate fi salvată înainte ca userul să ajungă la upload.
-export type NormalizedDetailInput = {
+type NormalizedDetailInput = {
   title: string;
   description: string | null;
   categoryIds: string[];

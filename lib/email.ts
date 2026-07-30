@@ -16,7 +16,7 @@ const BRAND = {
 // `accent` opțional = suprascrie culoarea de brand (teracotă) doar pt acest email — folosit de
 // emailul de admin, ca să se diferențieze vizual instant de emailurile normale (buton + badge).
 // `badge` opțional = etichetă mică lângă wordmark (ex. „PANOU ADMIN").
-export function emailLayout(
+function emailLayout(
   contentHtml: string,
   options?: { accent?: string; badge?: string },
 ): string {
