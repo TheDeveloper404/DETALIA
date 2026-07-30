@@ -8,7 +8,7 @@ import { processAndUploadImage } from "@/lib/image-processing";
 // Limitele de upload trăiesc în `lib/upload-limits.ts` (partajate client+server, fără SDK Blob).
 import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
-export type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE" | "UPLOAD_FAILED";
+type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE" | "UPLOAD_FAILED";
 export type UploadImageResult = { ok: true; url: string } | { ok: false; error: ImageValidationError };
 
 // NOTĂ: upload-urile de imagini (avatar, cover, imagine detaliu) se fac acum CLIENT direct în Blob

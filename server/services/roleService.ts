@@ -66,7 +66,7 @@ export function getUserRole(userId: string) {
   return getRoleByUserId(userId);
 }
 
-export type UpdateRoleResult =
+type UpdateRoleResult =
   | { ok: true }
   | { ok: false; error: "NO_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" | "INVALID_SECONDARY_ROLE" };
 
@@ -115,7 +115,7 @@ export async function updateRole(input: {
   return { ok: true };
 }
 
-export type RequestVerificationResult =
+type RequestVerificationResult =
   | { ok: true }
   | { ok: false; error: "NO_ROLE" | "ALREADY_VERIFIED" | "PENDING" | "EMPTY_EVIDENCE" };
 

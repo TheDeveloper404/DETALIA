@@ -10,14 +10,14 @@ import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 // Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven, alimentată
 // cu date reale. Culorile de accent (verde/amber) sunt specifice acestui ecran → inline.
 
-export type ProfileStats = {
+type ProfileStats = {
   published: number;
   sketches: number;
   validationsGiven: number;
   validationsReceived: number;
 };
 
-export type ProfileDetailItem = {
+type ProfileDetailItem = {
   id: string;
   title: string;
   imageUrl: string;
@@ -27,7 +27,7 @@ export type ProfileDetailItem = {
   sketchCount: number;
 };
 
-export type ProfileSketchItem = {
+type ProfileSketchItem = {
   id: string;
   detailId: string;
   parentTitle: string;

@@ -30,7 +30,7 @@ async function sanitizeDetailMentions(detailId: string, body: string): Promise<s
   return sanitizeMentions(body, valid);
 }
 
-export type AddCommentError =
+type AddCommentError =
   | "NO_ROLE"
   | "TARGET_NOT_FOUND"
   | "BODY_REQUIRED"
