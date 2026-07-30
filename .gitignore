@@ -73,6 +73,12 @@ code-review.md
 docs/_archive/
 plan-detaliu.md
 docs/NOTE-TEHNICE-PERSONALE.md
+docs/CHANGELOG.md
+docs/EMAILURI.md
+docs/INCIDENTS.md
+docs/PLAN-SEED.md
+docs/PLAN-TESTE.md
+docs/QA_TEST_CASES.md
 
 # === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)

@@ -91,25 +91,25 @@ describe("signInWithEmailAction", () => {
     expect(signIn).not.toHaveBeenCalled();
   });
 
-  it("anti-enumerare: /login cu email fără cont → NoAccount (nu trimite magic link)", async () => {
+  it("anti-enumerare: /login cu email fără cont → /verify-request (identic cu succesul, nu trimite magic link)", async () => {
     checkLimit.mockResolvedValue({ ok: true });
     verifyTurnstile.mockResolvedValue(true);
     userExistsByEmail.mockResolvedValueOnce(false);
 
     const url = await runExpectingRedirect(formData({ email: "nimeni@x.ro", authPath: "/login" }));
 
-    expect(url).toBe("/login?error=NoAccount");
+    expect(url).toBe("/verify-request");
     expect(signIn).not.toHaveBeenCalled();
   });
 
-  it("anti-enumerare: /signup cu email cu cont existent → AccountExists (nu trimite magic link)", async () => {
+  it("anti-enumerare: /signup cu email cu cont existent → /verify-request (identic cu succesul, nu trimite magic link)", async () => {
     checkLimit.mockResolvedValue({ ok: true });
     verifyTurnstile.mockResolvedValue(true);
     userExistsByEmail.mockResolvedValueOnce(true);
 
     const url = await runExpectingRedirect(formData({ email: "exista@x.ro", authPath: "/signup" }));
 
-    expect(url).toBe("/signup?error=AccountExists");
+    expect(url).toBe("/verify-request");
     expect(signIn).not.toHaveBeenCalled();
   });
 

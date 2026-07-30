@@ -39,8 +39,8 @@ export type Point = [number, number];
 // Unealta cu care a fost desenat stroke-ul. Toate formele cu 2 capete (line/rect/ellipse/arrow) folosesc
 // primul + ultimul punct. „free" = traseu freehand (perfect-freehand); „text" = casetă la `points[0]`
 // (`size` = mărimea fontului). Opțional → stroke-urile vechi (fără `kind`) rămân „free" implicit.
-export type StrokeKind = "free" | "line" | "text" | "rect" | "ellipse" | "arrow";
-export const STROKE_KINDS: StrokeKind[] = ["free", "line", "text", "rect", "ellipse", "arrow"];
+type StrokeKind = "free" | "line" | "text" | "rect" | "ellipse" | "arrow";
+const STROKE_KINDS: StrokeKind[] = ["free", "line", "text", "rect", "ellipse", "arrow"];
 export const MAX_TEXT_LENGTH = 200;
 export type Stroke = {
   color: string;

@@ -36,7 +36,7 @@ import {
 } from "@/server/repos/plansaRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
 
-export type CanvasError =
+type CanvasError =
   | "NOT_FOUND"
   | "INVALID_NAME"
   | "INVALID_STATE"

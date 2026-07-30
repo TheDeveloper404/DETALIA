@@ -44,12 +44,14 @@ export async function signInWithEmailAction(formData: FormData): Promise<void> {
   const captcha = String(formData.get("cf-turnstile-response") ?? "") || null;
   if (!(await verifyTurnstile(captcha, ip))) redirect(`${authPath}?error=CaptchaFailed`);
 
-  // Login/signup sunt fluxuri distincte (decizie Liviu 2026-07-03): pe /login un email fără cont
-  // arată explicit "nu există cont", pe /signup un email cu cont existent arată "există deja" —
-  // nu mai trimitem magic link în ambele cazuri gen "verifică email"-ul indiferent de existența contului.
+  // Login/signup rămân fluxuri distincte pe server (login NU creează cont automat, signup NU
+  // retrimite pe un cont existent) — dar NU mai expunem asta în răspuns (fix 2026-07-30, găsit de
+  // Liviu: mesajele distincte "NoAccount"/"AccountExists" permiteau enumerarea conturilor după
+  // email). În ambele cazuri de nepotrivire, NU trimitem email, dar redirecționăm la /verify-request
+  // — exact pagina de succes real — ca răspunsul să fie indistinguizabil extern de un trimis reușit.
   const accountExists = await userExistsByEmail(email);
-  if (authPath === "/login" && !accountExists) redirect(`${authPath}?error=NoAccount`);
-  if (authPath === "/signup" && accountExists) redirect(`${authPath}?error=AccountExists`);
+  if (authPath === "/login" && !accountExists) redirect("/verify-request");
+  if (authPath === "/signup" && accountExists) redirect("/verify-request");
 
   // redirect:false → primim URL-ul de redirect în loc ca Auth.js să sară singur pe `pages.error`
   // (care e /login). Astfel eroarea de pe /signup RĂMÂNE pe /signup (citim ?error din URL-ul întors).
