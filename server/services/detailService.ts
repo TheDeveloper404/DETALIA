@@ -41,7 +41,7 @@ import { listTopAuthors } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
 
-export type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY";
+type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY";
 
 export type CreateDetailResult =
   | { ok: true; detailId: string }
@@ -108,7 +108,7 @@ export async function createDetail(input: {
   return { ok: true, detailId: detail.id };
 }
 
-export type UpdateDetailError = DetailValidationError | "NOT_FOUND" | "FORBIDDEN" | "INVALID_CATEGORY";
+type UpdateDetailError = DetailValidationError | "NOT_FOUND" | "FORBIDDEN" | "INVALID_CATEGORY";
 
 export type UpdateDetailResult =
   | { ok: true; oldImageUrl: string | null } // oldImageUrl != null → imaginea s-a schimbat, blob-ul vechi de curățat
@@ -203,7 +203,7 @@ export type DraftDetailInput = {
   resources?: DetailResourceInput[];
 };
 
-export type DraftDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_FOUND";
+type DraftDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_FOUND";
 
 export type SaveDraftDetailResult =
   | { ok: true; detailId: string; oldImageUrl: string | null }

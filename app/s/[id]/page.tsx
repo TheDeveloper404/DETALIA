@@ -2,10 +2,11 @@ import { ImageOff } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { RolePill } from "@/components/role-pill";
+import { auth } from "@/lib/auth";
 import { getPublicSketch } from "@/server/services/sketchService";
 
 // Pagină PUBLICĂ (fără cont) pt o schiță anume — teaser READ-ONLY (decizie confirmată 2026-07-05,
@@ -36,6 +37,14 @@ export default async function PublicSketchPage({
   const { id } = await params;
   const sketch = await getPublicSketch(id);
   if (!sketch) notFound();
+
+  // BUG 2026-07-30: userii deja logați (alt tab/dispozitiv) primeau tot teaser-ul „Creează cont"
+  // pe linkul public — pagina nu verifica sesiunea deloc. Dacă e logat, îl ducem direct la workspace-ul
+  // complet al detaliului (teancul include schița), în loc să-i cerem cont pe care deja îl are.
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect(`/details/${sketch.detailId}`);
+  }
 
   return (
     <div className="flex flex-1 flex-col">

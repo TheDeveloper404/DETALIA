@@ -70,7 +70,7 @@ import {
 // deja salvate cu `height` calculat la un raport VECHI (vezi `fixAspect`, care „coace" înălțimea
 // normalizată folosind WORKSPACE_RATIO din momentul materializării) vor apărea ușor distorsionate după
 // schimbare — acceptabil acum (pre-lansare, doar date de test), NU retroactiv corect pt planșe reale.
-export const WORKSPACE_RATIO = 9 / 16;
+const WORKSPACE_RATIO = 9 / 16;
 // Rezoluția thumbnail-ului exportat (aceeași rație).
 const THUMB_W = 800;
 const THUMB_H = Math.round(THUMB_W * WORKSPACE_RATIO);

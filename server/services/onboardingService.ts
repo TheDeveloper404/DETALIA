@@ -12,7 +12,7 @@ import {
 } from "@/server/repos/usersRepo";
 import { declareRole, type DeclareRoleResult } from "@/server/services/roleService";
 
-export type CompleteOnboardingError =
+type CompleteOnboardingError =
   | "INVALID_TYPE"
   | Extract<DeclareRoleResult, { ok: false }>["error"];
 

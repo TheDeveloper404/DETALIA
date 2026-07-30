@@ -56,7 +56,7 @@ export async function verifyAdminLoginToken(token: string): Promise<boolean> {
 // ── Sesiune ──
 export type AdminSession = { email: string };
 
-export async function createAdminSession(email: string): Promise<void> {
+async function createAdminSession(email: string): Promise<void> {
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_TTL_MS);
   await insertAdminSession(hashToken(token), email.trim().toLowerCase(), expires);
