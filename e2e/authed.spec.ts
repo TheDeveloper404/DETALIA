@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { and, eq, like } from "drizzle-orm";
 
 import { db } from "../db";
-import { comments, validations } from "../db/schema";
+import { comments, sketches, validations } from "../db/schema";
 import { getSeed } from "./seed";
 
 // E2E — fluxuri AUTHED (pornesc cu sesiunea seedată de `auth.setup.ts`, via storageState). Acoperă inima
@@ -36,6 +36,27 @@ test.describe("Acces authed", () => {
     await page.goto("/profile");
     await expect(page).toHaveURL(/\/profile/);
     await expect(page.getByText("E2E Tester").first()).toBeVisible();
+  });
+
+  // BUG 2026-07-30: userul deja logat (alt tab) care accesa link-ul public al unei schițe (/s/[id])
+  // tot vedea teaser-ul "Creează cont" — pagina nu verifica sesiunea deloc. Fix: redirect la
+  // /details/{detailId} pentru userii logați, în loc de teaser-ul anonim.
+  test("link public de schiță (/s/[id]) → redirect la /details/{detailId} pentru user logat", async ({
+    page,
+  }) => {
+    const { detailId, testerUserId } = getSeed();
+    const [row] = await db
+      .insert(sketches)
+      .values({ detailId, authorId: testerUserId, status: "PUBLISHED", strokesJson: [] })
+      .returning({ id: sketches.id });
+
+    try {
+      await page.goto(`/s/${row.id}`);
+      await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`));
+      await expect(page.getByRole("link", { name: "Creează cont", exact: true })).not.toBeVisible();
+    } finally {
+      await db.delete(sketches).where(eq(sketches.id, row.id));
+    }
   });
 });
 
