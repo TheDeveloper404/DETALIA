@@ -30,10 +30,10 @@ function CategoryLink({
   return (
     <Link
       href={href}
-      className={`flex items-center justify-between rounded-lg border-l-2 px-3 py-2.5 text-[14.5px] no-underline transition-colors ${
+      className={`flex items-center justify-between rounded-lg px-3 py-2.5 text-[14.5px] no-underline transition-colors ${
         active
-          ? "border-primary font-semibold text-foreground"
-          : "border-transparent text-foreground/80 hover:bg-secondary"
+          ? "bg-primary/10 font-semibold text-foreground"
+          : "text-foreground/80 hover:bg-secondary"
       }`}
     >
       {label}
