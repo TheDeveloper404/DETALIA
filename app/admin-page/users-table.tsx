@@ -81,7 +81,7 @@ export function UsersTable({ users }: { users: AdminUser[] }) {
         </span>
       </div>
 
-      <div className="max-h-[520px] overflow-y-auto overflow-x-auto rounded-xl border border-border">
+      <div className="h-[520px] overflow-y-auto overflow-x-auto rounded-xl border border-border">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 z-10 border-b border-border bg-secondary text-[12px] uppercase tracking-wide text-muted-foreground">
             <tr>
