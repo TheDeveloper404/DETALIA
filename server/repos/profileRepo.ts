@@ -78,11 +78,19 @@ export async function getProfileStats(userId: string) {
       .select({ c: count() })
       .from(details)
       .where(and(eq(details.authorId, userId), eq(details.status, "PUBLISHED"))),
-    // „Schițe propuse" = trimise (orice în afară de DRAFT).
+    // „Schițe propuse" = trimise (orice în afară de DRAFT), pe detaliile ALTORA. Adnotarea pe
+    // propriul detaliu nu e o propunere către cineva → exclusă (mirror SQL al `isSelfAnnotation`).
     db
       .select({ c: count() })
       .from(sketches)
-      .where(and(eq(sketches.authorId, userId), ne(sketches.status, "DRAFT"))),
+      .innerJoin(details, eq(details.id, sketches.detailId))
+      .where(
+        and(
+          eq(sketches.authorId, userId),
+          ne(sketches.status, "DRAFT"),
+          ne(sketches.authorId, details.authorId),
+        ),
+      ),
     db.select({ c: count() }).from(validations).where(eq(validations.userId, userId)),
     // Validări primite = poziții luate de alții pe detaliile/schițele acestui user.
     db
@@ -119,13 +127,19 @@ export async function getProfileStats(userId: string) {
 // users/roles), Drizzle calificiază corect — de-aia feed-ul era corect și profilul nu. Fix: calificăm
 // EXPLICIT outer-ul cu sql.identifier (nu string brut), indiferent dacă query-ul are join sau nu.
 const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
+// ACEEAȘI capcană pentru `author_id`, și mai perfidă: subquery-ul de mai jos e pe `sketches`, care are
+// ȘI EL o coloană `author_id` → un `${details.authorId}` necalificat s-ar rezolva la `sketches.author_id`,
+// iar condiția ar deveni `sketches.author_id <> sketches.author_id` = mereu FALSĂ (contor mereu 0).
+const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 
 const detailValidationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
 const detailCommentCount = sql<number>`(select count(*)::int from ${comments}
    where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
+// Ca în detailsRepo: contorul arată contribuțiile ALTORA, nu adnotarea proprie a autorului.
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
-   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED')`;
+   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
+     and ${sketches.authorId} <> ${detailsAuthorId})`;
 
 // Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (Edi: „bifezi oricâte",
 // dar cardul de profil arată doar un rezumat, nu toate categoriile).
@@ -166,7 +180,14 @@ export function listAuthorSketches(userId: string) {
     })
     .from(sketches)
     .innerJoin(details, eq(details.id, sketches.detailId))
-    .where(and(eq(sketches.authorId, userId), ne(sketches.status, "DRAFT")))
+    .where(
+      and(
+        eq(sketches.authorId, userId),
+        ne(sketches.status, "DRAFT"),
+        // Adnotarea pe propriul detaliu se vede pe detaliu (tabul Detalii), nu ca schiță separată aici.
+        ne(sketches.authorId, details.authorId),
+      ),
+    )
     .orderBy(desc(sketches.createdAt));
 }
 

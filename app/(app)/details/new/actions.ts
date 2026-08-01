@@ -10,8 +10,22 @@ import { requireActiveUserId } from "@/lib/require-active-user";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail, createDetailDraft } from "@/server/services/detailService";
+import { createAnnotation } from "@/server/services/sketchService";
 
 export type CreateDetailState = { error: string | null };
+
+// Stroke-urile adnotării vin ca JSON dintr-un câmp ascuns (desenate pe client peste previzualizare).
+// Aici doar decodăm forma brută — structura o validează `validateStrokes` din domain, pe server.
+// null = fără adnotare (câmp gol/absent/malformat) → publicarea decurge normal, e un pas OPȚIONAL.
+function parseAnnotationStrokes(raw: FormDataEntryValue | null): unknown[] | null {
+  if (typeof raw !== "string" || raw.trim().length === 0) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
 
 // Resursele suplimentare vin ca JSON dintr-un câmp ascuns (repeater pe client). Parsare defensivă:
 // ignorăm orice e malformat sau cu valoare goală; validarea finală o face DetailService.
@@ -120,6 +134,20 @@ export async function createDetailAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
+  // ADNOTAREA opțională a autorului peste propria imagine (desenată în formular). Detaliul e DEJA
+  // publicat aici → o adnotare care eșuează NU trebuie să-l piardă: încercăm, și mergem mai departe
+  // fie că a mers sau nu. Serviciul face validarea + authz (doar autorul își adnotează detaliul).
+  const annotationStrokes = parseAnnotationStrokes(formData.get("annotationStrokes"));
+  let hasAnnotation = false;
+  if (annotationStrokes !== null) {
+    const annotation = await createAnnotation({
+      detailId: result.detailId,
+      authorId: userId,
+      strokes: annotationStrokes,
+    });
+    hasAnnotation = annotation.ok;
+  }
+
   const posthog = getPostHogClient();
   posthog.capture({
     distinctId: userId,
@@ -130,6 +158,7 @@ export async function createDetailAction(
       has_description: description.trim().length > 0,
       has_resources: resources.length > 0,
       resource_count: resources.length,
+      has_annotation: hasAnnotation,
     },
   });
   await posthog.flush();

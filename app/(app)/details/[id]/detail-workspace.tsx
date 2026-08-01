@@ -81,6 +81,7 @@ export function DetailWorkspace({
   detailAuthor,
   detailValidation,
   isDetailAuthor,
+  annotation,
   sketches,
   comments,
   currentUserId,
@@ -96,6 +97,9 @@ export function DetailWorkspace({
   detailAuthor: Author;
   detailValidation: ValidationView;
   isDetailAuthor: boolean;
+  // Adnotarea AUTORULUI peste propria imagine (nu e o schiță din teanc — vezi `isSelfAnnotation`).
+  // null = detaliul n-are adnotare. Se randează peste imaginea de bază, cu toggle de afișare.
+  annotation: { strokes: Stroke[]; note: string | null } | null;
   sketches: WorkspaceSketch[];
   comments: TargetComment[];
   currentUserId?: string | null;
@@ -116,6 +120,9 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === wanted);
     return idx >= 0 ? idx + 1 : 0;
   });
+  // Adnotarea autorului pornește VIZIBILĂ (autorul a desenat-o ca s-o vezi), dar e ascundibilă —
+  // uneori vrei imaginea curată dedesubt. Doar afișare, fără persistență.
+  const [showAnnotation, setShowAnnotation] = useState(true);
   const safeTab = Math.min(tab, sketches.length); // max = N (ultima schiță)
   const isBase = safeTab === 0;
   const activeSketch = isBase ? null : sketches[safeTab - 1];
@@ -392,6 +399,25 @@ export function DetailWorkspace({
                 schiță peste detaliu
               </span>
             )}
+            {/* Adnotarea autorului: UN SINGUR control, în locul badge-ului de schiță — spune ce e ȘI o
+                comută. Nu e un tab și nu e o schiță a altcuiva; e nota autorului pe imaginea lui. */}
+            {isBase && annotation && (
+              <button
+                type="button"
+                onClick={() => setShowAnnotation((v) => !v)}
+                aria-pressed={showAnnotation}
+                data-testid="annotation-toggle"
+                className={cn(
+                  "absolute left-3 top-3 z-[3] inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors",
+                  showAnnotation
+                    ? "border-[#d8bfae] bg-white/90 text-[#95492e]"
+                    : "border-[#e6dccd] bg-white/70 text-[#9c9080] hover:text-[#7c7060]",
+                )}
+              >
+                <Pencil className="size-3" strokeWidth={2} />
+                {showAnnotation ? "adnotarea autorului" : "arată adnotarea"}
+              </button>
+            )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
                   altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16, cerere Edi — detaliul
@@ -411,9 +437,29 @@ export function DetailWorkspace({
                   <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
                 </div>
               )}
+              {/* ADNOTAREA autorului — doar pe tabul de bază, fără văl (sunt notițele lui pe propria
+                  imagine, nu o foaie a altcuiva peste ea). Toggle-abilă: unii vor imaginea curată. */}
+              {isBase && annotation && showAnnotation && (
+                <div className="absolute inset-0 animate-in fade-in duration-200">
+                  <SketchViewer imageUrl={imageUrl} strokes={annotation.strokes} veil={false} />
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Nota scrisă a ADNOTĂRII (dacă autorul a lăsat una) — pe tabul de bază, legată de desenul lui.
+            Se ascunde odată cu adnotarea: e aceeași explicație, în cuvinte. */}
+        {isBase && annotation?.note && showAnnotation && (
+          <div className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6">
+            <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
+              Adnotarea autorului
+            </div>
+            <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
+              {annotation.note}
+            </p>
+          </div>
+        )}
 
         {/* Explicația autorului schiței, în cuvinte — SEPARATĂ de desen (2026-07-16). Doar pe tab de
             schiță, doar dacă autorul a scris ceva. */}

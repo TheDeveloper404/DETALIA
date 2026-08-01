@@ -6,7 +6,13 @@
 
 import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
-import { SKETCH_STATUS, type Stroke, validateSketchNote, validateStrokes } from "@/server/domain/sketch";
+import {
+  isSelfAnnotation,
+  SKETCH_STATUS,
+  type Stroke,
+  validateSketchNote,
+  validateStrokes,
+} from "@/server/domain/sketch";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
@@ -14,6 +20,7 @@ import {
   insertDraft,
   deleteDraftByAuthor,
   deleteSketchCascade,
+  getAnnotationByDetail,
   getPublicSketchTeaser,
   listDraftsByAuthor,
   listPublishedByDetail,
@@ -143,17 +150,21 @@ export async function publish(input: {
     await recordSketchDisapproval({ userId: sketch.authorId, detailId: sketch.detailId });
   }
 
-  const author = await getNotificationActor(sketch.authorId);
-  await notifySketchProposed({
-    recipientUserId: detail.authorId,
-    sketchId: sketch.id,
-    detailId: sketch.detailId,
-    detailTitle: detail.title,
-    sketchAuthorName: author?.name ?? null,
-    sketchAuthorRole: author?.roleMain ?? null,
-    sketchAuthorSubRole: author?.subRole ?? null,
-    sketchAuthorVerified: author?.verification === "VERIFIED",
-  });
+  // ADNOTARE (autorul pe propriul detaliu) → nimeni de anunțat: destinatarul ar fi chiar el. Notificarea
+  // are sens doar la o contribuție PRIMITĂ de la altcineva. Vezi `isSelfAnnotation` (domain/sketch.ts).
+  if (!isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.authorId })) {
+    const author = await getNotificationActor(sketch.authorId);
+    await notifySketchProposed({
+      recipientUserId: detail.authorId,
+      sketchId: sketch.id,
+      detailId: sketch.detailId,
+      detailTitle: detail.title,
+      sketchAuthorName: author?.name ?? null,
+      sketchAuthorRole: author?.roleMain ?? null,
+      sketchAuthorSubRole: author?.subRole ?? null,
+      sketchAuthorVerified: author?.verification === "VERIFIED",
+    });
+  }
   return { ok: true };
 }
 
@@ -187,12 +198,60 @@ export async function deleteSketch(input: {
   return { ok: true };
 }
 
+// ADNOTAREA autorului, creată ÎNTR-UN PAS la publicarea detaliului (fără ciornă intermediară vizibilă):
+// autorul a desenat peste propria imagine în formular, deci intenția e deja finală. Compune fluxul
+// existent (createDraft → publish) ca să moștenească TOATE gardurile lui — nu le duplicăm.
+//
+// Authz (server, fără IDOR): doar AUTORUL detaliului poate adnota acel detaliu. Un `detailId` străin →
+// FORBIDDEN, nu creăm nimic.
+export async function createAnnotation(input: {
+  detailId: string;
+  authorId: string;
+  strokes: unknown;
+}): Promise<SketchResult<{ sketchId: string }>> {
+  if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" }; // SEC-11
+
+  // Validăm stroke-urile ÎNAINTE de a insera ceva: altfel un payload invalid ar lăsa în urmă o ciornă
+  // goală, orfană, vizibilă userului în „Ciornele mele" pentru un pas pe care nu l-a început niciodată.
+  const validation = validateStrokes(input.strokes);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error === "EMPTY" ? "EMPTY_STROKES" : "INVALID_STROKES" };
+  }
+
+  const detail = await getDetailById(input.detailId);
+  if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
+  if (!isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.authorId })) {
+    return { ok: false, error: "FORBIDDEN" };
+  }
+
+  const created = await createDraft({ detailId: input.detailId, authorId: input.authorId });
+  if (!created.ok) return created;
+
+  // Fără thumbnail: adnotarea nu apare în liste/teanc/teaser public (singurii consumatori de
+  // `thumbnailUrl`) → n-am randa un PNG pe care nu-l vede nimeni.
+  const published = await publish({
+    sketchId: created.value.sketchId,
+    authorId: input.authorId,
+    strokes: validation.value,
+  });
+  if (!published.ok) return published;
+  return { ok: true, value: { sketchId: created.value.sketchId } };
+}
+
 // ── Citiri ──────────────────────────────────────────────────────────────────
 
-// Teancul public (schițele PUBLISHED ale unui detaliu).
+// Teancul public = schițele PUBLISHED ale ALTOR useri (model fork/PR). Adnotarea autorului pe propriul
+// detaliu e exclusă de repo — se citește separat cu `getAnnotation`.
 export function getTeanc(detailId: string) {
   if (!isUuid(detailId)) return Promise.resolve([]); // SEC-11
   return listPublishedByDetail(detailId);
+}
+
+// ADNOTAREA autorului peste propriul detaliu (sau null). Nu e un tab în teanc — se randează peste
+// imaginea de bază. Vezi `isSelfAnnotation` (server/domain/sketch.ts) pentru semantică.
+export function getAnnotation(detailId: string) {
+  if (!isUuid(detailId)) return Promise.resolve(null); // SEC-11
+  return getAnnotationByDetail(detailId);
 }
 
 // Teaser PUBLIC (fără sesiune) — DOAR schițe PUBLISHED (repo-ul filtrează; o schiță ștearsă/DRAFT

@@ -14,6 +14,22 @@ export const SKETCH_STATUS = {
 } as const;
 export type SketchStatus = (typeof SKETCH_STATUS)[keyof typeof SKETCH_STATUS];
 
+// ── Adnotarea autorului (2026-07-31) ────────────────────────────────────────────────────────────
+// O schiță făcută de AUTORUL detaliului pe PROPRIUL lui detaliu nu e un „fork/PR" (contribuția altcuiva) —
+// e autorul care se explică singur pe imaginea lui. Structural e tot un rând în `sketches` (același desen,
+// aceleași stroke-uri normalizate, același thumbnail), dar SEMANTIC e altceva → nu intră în teanc, nu se
+// numără ca „schiță primită", nu apare ca tab separat cu avatarul autorului lângă el însuși. Se afișează
+// ca adnotare peste imaginea de bază a detaliului.
+//
+// Predicat unic (mirror-uit în SQL acolo unde filtrarea se face în DB — vezi sketchesRepo/detailsRepo/
+// profileRepo: `sketches.author_id = details.author_id`). Schimbi regula aici → schimbi și SQL-ul.
+export function isSelfAnnotation(input: {
+  sketchAuthorId: string;
+  detailAuthorId: string;
+}): boolean {
+  return input.sketchAuthorId === input.detailAuthorId;
+}
+
 // Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie Liviu după ce
 // tool-ul de Text cu ancoră în margine a arătat prost în practică — un câmp dedicat e mai clar decât text
 // liber plasat pe canvas). Opțională; goală → nu se afișează la citire.
