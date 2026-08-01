@@ -7,9 +7,22 @@ import {
   MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
+  isSelfAnnotation,
   validateSketchNote,
   validateStrokes,
 } from "./sketch";
+
+// Predicatul care separă ADNOTAREA autorului (nota lui pe propria imagine) de SCHIȚA altcuiva
+// (contribuție, model fork/PR). E mirror-uit în SQL în sketchesRepo/detailsRepo/profileRepo.
+describe("isSelfAnnotation", () => {
+  it("autorul schiței == autorul detaliului → adnotare", () => {
+    expect(isSelfAnnotation({ sketchAuthorId: "u1", detailAuthorId: "u1" })).toBe(true);
+  });
+
+  it("autori diferiți → schiță din teanc, nu adnotare", () => {
+    expect(isSelfAnnotation({ sketchAuthorId: "u2", detailAuthorId: "u1" })).toBe(false);
+  });
+});
 
 // Un stroke „free" valid minim, refolosit ca bază în teste.
 function freeStroke(over: Record<string, unknown> = {}) {

@@ -8,7 +8,7 @@ import type { Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
 import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
-import { getTeanc } from "@/server/services/sketchService";
+import { getAnnotation, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
 import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
 
@@ -76,7 +76,15 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
 
   // Schițele publicate (teancul), fiecare cu validarea ei per-țintă (per-SKETCH RĂMÂNE). Dezbaterea NU mai
   // e per-schiță → nu mai fetchăm comentarii pe SKETCH (câștig de perf: elimină N query-uri).
-  const teancRows = await getTeanc(detail.id);
+  // Adnotarea autorului (schița lui pe propriul detaliu) NU e în teanc — se randează peste imaginea de
+  // bază, ca notă a autorului, nu ca propunere a altcuiva. Citire independentă → paralelă cu teancul.
+  const [teancRows, annotationRow] = await Promise.all([getTeanc(detail.id), getAnnotation(detail.id)]);
+  const annotationStrokes = (annotationRow?.strokesJson as Stroke[] | null) ?? [];
+  // Fără stroke-uri nu e nimic de suprapus → tratăm ca inexistentă (nu arătăm un toggle care nu face nimic).
+  const annotation =
+    annotationRow && annotationStrokes.length > 0
+      ? { strokes: annotationStrokes, note: annotationRow.note }
+      : null;
   const sketchValidations = await getTargetValidationViews(
     "SKETCH",
     teancRows.map((r) => r.id),
@@ -187,6 +195,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             }}
             detailValidation={validation}
             isDetailAuthor={isAuthor}
+            annotation={annotation}
             sketches={sketches}
             comments={comments}
             currentUserId={session.user.id}

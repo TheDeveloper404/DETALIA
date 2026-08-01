@@ -9,7 +9,18 @@ import type { Stroke } from "@/server/domain/sketch";
 // (<Image fill object-contain> permanent montată în cutia 4/3). Canvas-ul se poziționează exact pe
 // dreptunghiul „contain" al imaginii în cutie — imaginea nu se remontează la comutarea taburilor,
 // deci nimic nu „pocnește"/tremură; doar stroke-urile apar/dispar deasupra ei.
-export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes: Stroke[] }) {
+// `veil`: foaia semitransparentă peste detaliul-mamă. Are sens la SCHIȚA ALTCUIVA (semnal că te uiți la
+// propunerea lui peste desenul mamă). La ADNOTAREA autorului pe propria imagine e greșit — nu e o foaie
+// pusă peste altceva, sunt notițe pe propriul desen; estomparea ar face imaginea doar mai greu de citit.
+export function SketchViewer({
+  imageUrl,
+  strokes,
+  veil = true,
+}: {
+  imageUrl: string;
+  strokes: Stroke[];
+  veil?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [rect, setRect] = useState({ x: 0, y: 0, w: 0, h: 0 });
@@ -52,10 +63,12 @@ export function SketchViewer({ imageUrl, strokes }: { imageUrl: string; strokes:
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // Foaia semitransparentă a schiței peste detaliul-mamă (care rămâne opac, randat de părinte) — IDENTIC
     // cu editorul (sketch-canvas.tsx): schița stă pe o coală translucidă peste detaliu, nu invers.
-    ctx.fillStyle = "rgba(250,247,241,0.55)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    if (veil) {
+      ctx.fillStyle = "rgba(250,247,241,0.55)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     renderStrokes(ctx, strokes, canvas.width, canvas.height);
-  }, [rect, strokes]);
+  }, [rect, strokes, veil]);
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
