@@ -197,4 +197,69 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
     await expect(page.getByTestId("annotate-open")).toHaveText(/^Adnotează$/);
     await expect(page.getByText("adnotare adăugată")).toHaveCount(0);
   });
+
+  // Regresia din 2026-08-01: autorul revine să mai adauge ceva peste adnotarea lui. Editorul trebuie să
+  // pornească DIN ea (nu gol), iar publicarea s-o ÎNLOCUIASCĂ — nu să lase în urmă un rând invizibil.
+  test("Re-adnotare: „Editează adnotarea” pornește din desenul existent și îl înlocuiește", async ({
+    page,
+  }) => {
+    const [category] = await pickLeafCategories(1);
+    const title = `E2E re-adnotare ${Date.now()}`;
+    let detailId: string | null = null;
+    let imageUrl: string | null = null;
+
+    try {
+      await stripBypassHeadersForBlobUploads(page);
+      await page.goto("/details/new");
+      await page.locator("#title").fill(title);
+      await page.getByRole("button", { name: "Alege categoriile…" }).click();
+      await page.getByRole("button", { name: category.name, exact: true }).click();
+      await page.keyboard.press("Escape");
+      await page.locator("#image").setInputFiles(makeImage());
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+      await page.getByTestId("annotate-open").click();
+      await drawStroke(page);
+      await page.getByTestId("annotate-save").click();
+      await page.getByRole("button", { name: "Publică detaliul" }).click();
+      await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
+      detailId = page.url().split("/details/")[1] ?? null;
+
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId!));
+      imageUrl = row?.imageUrl ?? null;
+
+      const [first] = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+
+      // Butonul îi spune autorului ce urmează să facă (nu „Schițează peste detaliu").
+      const cta = page.getByRole("button", { name: "Editează adnotarea" });
+      await expect(cta).toBeVisible();
+      await cta.click();
+      await expect(page).toHaveURL(/\/sketches\/[0-9a-f-]+\/edit/, { timeout: 20_000 });
+
+      // Editorul pornește DIN adnotarea existentă: contorul arată deja traseul desenat mai devreme.
+      await expect(page.getByText(/\d+ trase[eu]/)).toBeVisible({ timeout: 15_000 });
+
+      await drawStroke(page);
+      await page.getByRole("button", { name: /Publică schița/ }).click();
+      await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`), { timeout: 20_000 });
+
+      // ÎNLOCUIRE: o singură adnotare rămâne, și e cea nouă. Vechea nu supraviețuiește invizibil.
+      const after = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(after).toHaveLength(1);
+      expect(after[0]?.id).not.toBe(first?.id);
+
+      await expect(page.getByTestId("annotation-toggle")).toBeVisible();
+    } finally {
+      await cleanup(detailId, imageUrl);
+    }
+  });
 });
