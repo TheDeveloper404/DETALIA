@@ -161,18 +161,23 @@ export function DetailWorkspace({
 
   // Mutat sub imagine (nu mai suprapus peste ea) + colaps la iconiță — textul apare doar la HOVER
   // (mouse peste buton), nu la click (spre deosebire de taburile de mai sus, care se extind la click).
+  // Pentru AUTOR, pe propriul detaliu, acțiunea nu e „încă o schiță" (nu-și poate face fork sieși) —
+  // e continuarea adnotării lui, pornită din stroke-urile existente (vezi `createDraft`). Butonul o
+  // spune, altfel userul crede că începe de la zero și că o pierde pe cea veche.
+  const editsOwnAnnotation = isDetailAuthor && !!annotation;
+  const startSketchLabel = editsOwnAnnotation ? "Editează adnotarea" : "Schițează peste detaliu";
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
       <Button
         type="submit"
         size="icon"
-        title="Schițează peste detaliu"
+        title={startSketchLabel}
         className="group/button !w-auto gap-0 overflow-hidden !px-2.5 shadow-md"
       >
         <Pencil className="size-4 shrink-0" strokeWidth={2} />
         <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/button:ml-2 group-hover/button:max-w-[220px] group-hover/button:opacity-100">
-          Schițează peste detaliu
+          {startSketchLabel}
         </span>
       </Button>
     </form>

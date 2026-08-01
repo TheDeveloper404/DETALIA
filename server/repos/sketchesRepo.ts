@@ -137,6 +137,28 @@ export async function getAnnotationByDetail(detailId: string) {
   return row ?? null;
 }
 
+// Adnotările PUBLISHED ale autorului pe acest detaliu, ALTELE decât cea păstrată. Un detaliu are o
+// singură adnotare vizibilă (`getAnnotationByDetail` ia doar cea mai recentă), deci restul ar fi rânduri
+// invizibile — le ștergem la publicarea uneia noi, ca „re-adnotarea" să însemne ÎNLOCUIRE, nu acumulare.
+export async function listOtherAnnotationIds(
+  detailId: string,
+  keepSketchId: string,
+): Promise<string[]> {
+  const rows = await db
+    .select({ id: sketches.id })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .where(
+      and(
+        eq(sketches.detailId, detailId),
+        eq(sketches.status, "PUBLISHED"),
+        eq(sketches.authorId, details.authorId),
+        ne(sketches.id, keepSketchId),
+      ),
+    );
+  return rows.map((r) => r.id);
+}
+
 // Filtrează, dintr-un set de id-uri candidate, doar pe cele care sunt schițe PUBLISHED ale acestui
 // detaliu. Folosit la validarea mențiunilor @schiță din comentarii (anti-IDOR: nu poți referi o schiță
 // din alt detaliu / inexistentă). Întoarce un Set pentru lookup O(1) în sanitizarea corpului.
