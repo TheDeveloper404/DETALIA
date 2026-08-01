@@ -1,0 +1,187 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
+import { expect, test, type Page } from "@playwright/test";
+import { and, eq } from "drizzle-orm";
+
+import { db } from "../db";
+import { details, sketches } from "../db/schema";
+import { deleteBlobs } from "../lib/storage";
+import { pickLeafCategories } from "./category-helpers";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
+
+// E2E — ADNOTAREA autorului peste PROPRIA imagine (2026-07-31, vezi CHANGELOG).
+// Acoperă exact ce `tsc`/`vitest` NU pot prinde: desenul real peste previzualizare, salvarea prin
+// câmpul ascuns la submit, randarea pe pagina detaliului și toggle-ul de afișare.
+//
+// De ce upload REAL de imagine (nu mock): adnotarea se desenează peste previzualizarea locală (blob:),
+// iar SketchCanvas își ia raportul din imaginea încărcată — cu o imagine falsă, canvasul n-ar căpăta
+// dimensiuni și desenul n-ar produce niciun stroke.
+
+// PNG 8x8 roșu, valid — mai mare decât 1x1 ca previzualizarea să aibă o suprafață reală de desenat.
+const SMALL_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAHUlEQVR42mP8z8BQz0AEYBxVSF+FAAOsAQlrY0QuAAAAAElFTkSuQmCC";
+
+function makeImage(): string {
+  const dir = mkdtempSync(path.join(tmpdir(), "detalia-annot-"));
+  const file = path.join(dir, "detaliu.png");
+  writeFileSync(file, Buffer.from(SMALL_PNG_BASE64, "base64"));
+  return file;
+}
+
+// Un traseu simplu în interiorul canvasului de adnotare (tool-ul „pen" e selectat implicit).
+async function drawStroke(page: Page): Promise<void> {
+  const canvas = page.locator("canvas").first();
+  await expect(canvas).toBeVisible();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("canvas de adnotare fără bounding box");
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x - 30, y - 30);
+  await page.mouse.down();
+  await page.mouse.move(x, y, { steps: 5 });
+  await page.mouse.move(x + 30, y + 30, { steps: 5 });
+  await page.mouse.up();
+}
+
+// Curățare per test (NU stare la nivel de modul): `fullyParallel: true` în playwright.config.ts →
+// testele din același fișier pot rula în workeri diferiți. try/finally, ca în detail-upload.spec.ts.
+async function cleanup(detailId: string | null, imageUrl: string | null): Promise<void> {
+  if (detailId) {
+    await db.delete(sketches).where(eq(sketches.detailId, detailId));
+    await db.delete(details).where(eq(details.id, detailId));
+  }
+  if (imageUrl) await deleteBlobs([imageUrl]);
+}
+
+test.describe("Adnotarea autorului la publicarea detaliului", () => {
+  test("Încarcă imagine → Adnotează → desenează → Gata → publică: adnotarea se salvează și se vede", async ({
+    page,
+  }) => {
+    const [category] = await pickLeafCategories(1);
+    const title = `E2E adnotare ${Date.now()}`;
+    const imagePath = makeImage();
+    let detailId: string | null = null;
+    let imageUrl: string | null = null;
+
+    try {
+      await stripBypassHeadersForBlobUploads(page);
+      await page.goto("/details/new");
+      await page.locator("#title").fill(title);
+
+      await page.getByRole("button", { name: "Alege categoriile…" }).click();
+      await page.getByRole("button", { name: category.name, exact: true }).click();
+      await page.keyboard.press("Escape");
+
+      await page.locator("#image").setInputFiles(imagePath);
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+      // Pasul e OPȚIONAL, deci userul trebuie să înțeleagă DE CE l-ar face — textul explicativ e parte
+      // din cerință (Liviu, 2026-07-31: „trebuie specificat clar de ce"), nu decor.
+      await expect(page.getByText(/Vrei să explici ceva anume din imagine/)).toBeVisible();
+
+      await page.getByTestId("annotate-open").click();
+      await drawStroke(page);
+      await page.getByTestId("annotate-save").click();
+
+      // Confirmarea vizuală că adnotarea a fost reținută (editorul s-a închis, marcajul a apărut).
+      await expect(page.getByTestId("annotate-open")).toHaveText(/Editează adnotarea/);
+      await expect(page.getByText("adnotare adăugată")).toBeVisible();
+
+      await page.getByRole("button", { name: "Publică detaliul" }).click();
+      await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
+      detailId = page.url().split("/details/")[1] ?? null;
+      expect(detailId).toBeTruthy();
+
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId!));
+      imageUrl = row?.imageUrl ?? null;
+
+      // Adnotarea există în DB ca schiță PUBLISHED a AUTORULUI însuși (predicatul `isSelfAnnotation`).
+      const annotations = await db
+        .select({ id: sketches.id, authorId: sketches.authorId, strokesJson: sketches.strokesJson })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(annotations).toHaveLength(1);
+      expect((annotations[0]?.strokesJson as unknown[] | null)?.length).toBeGreaterThan(0);
+
+      // Pe pagina detaliului apare toggle-ul de adnotare — și NU un tab de schiță cu autorul lângă
+      // el însuși (regresia pe care feature-ul o repară).
+      const toggle = page.getByTestId("annotation-toggle");
+      await expect(toggle).toBeVisible();
+      await expect(toggle).toHaveAttribute("aria-pressed", "true");
+      await expect(page.getByTestId(`sketch-tab-${annotations[0]!.id}`)).toHaveCount(0);
+
+      // Toggle-ul chiar comută (comportament interactiv — exact ce testele unitare nu acoperă).
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      await expect(toggle).toHaveText(/arată adnotarea/);
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      await cleanup(detailId, imageUrl);
+    }
+  });
+
+  test("Publicare FĂRĂ adnotare (pas opțional) → detaliu normal, fără toggle", async ({ page }) => {
+    const [category] = await pickLeafCategories(1);
+    const title = `E2E fără adnotare ${Date.now()}`;
+    const imagePath = makeImage();
+    let detailId: string | null = null;
+    let imageUrl: string | null = null;
+
+    try {
+      await stripBypassHeadersForBlobUploads(page);
+      await page.goto("/details/new");
+      await page.locator("#title").fill(title);
+      await page.getByRole("button", { name: "Alege categoriile…" }).click();
+      await page.getByRole("button", { name: category.name, exact: true }).click();
+      await page.keyboard.press("Escape");
+      await page.locator("#image").setInputFiles(imagePath);
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+      await page.getByRole("button", { name: "Publică detaliul" }).click();
+      await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
+      detailId = page.url().split("/details/")[1] ?? null;
+
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId!));
+      imageUrl = row?.imageUrl ?? null;
+
+      await expect(page.getByTestId("annotation-toggle")).toHaveCount(0);
+      const annotations = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(eq(sketches.detailId, detailId!));
+      expect(annotations).toHaveLength(0);
+    } finally {
+      await cleanup(detailId, imageUrl);
+    }
+  });
+
+  test("Înlocuirea imaginii după adnotare o aruncă (stroke-urile nu se mai potrivesc peste noua imagine)", async ({
+    page,
+  }) => {
+    await stripBypassHeadersForBlobUploads(page);
+    await page.goto("/details/new");
+    await page.locator("#title").fill(`E2E adnotare aruncată ${Date.now()}`);
+
+    await page.locator("#image").setInputFiles(makeImage());
+    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+    await page.getByTestId("annotate-open").click();
+    await drawStroke(page);
+    await page.getByTestId("annotate-save").click();
+    await expect(page.getByText("adnotare adăugată")).toBeVisible();
+
+    // Imagine NOUĂ → adnotarea trebuie să dispară, nu să rămână peste alt desen.
+    await page.locator("#image").setInputFiles(makeImage());
+    await expect(page.getByTestId("annotate-open")).toHaveText(/^Adnotează$/);
+    await expect(page.getByText("adnotare adăugată")).toHaveCount(0);
+  });
+});

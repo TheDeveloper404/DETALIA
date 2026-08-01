@@ -11,6 +11,7 @@ vi.mock("@/server/repos/sketchesRepo", () => ({
   deleteSketchCascade: vi.fn(),
   listDraftsByAuthor: vi.fn(),
   listPublishedByDetail: vi.fn(),
+  getAnnotationByDetail: vi.fn(),
   publishFromDraft: vi.fn(),
   updateStrokes: vi.fn(),
 }));
@@ -24,9 +25,11 @@ vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 
 import { deleteBlobs } from "@/lib/storage";
 import { getDetailById } from "@/server/repos/detailsRepo";
+import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSketchCascade,
   getSketchById,
+  insertDraft,
   publishFromDraft,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
@@ -36,7 +39,7 @@ import {
 } from "@/server/services/notificationService";
 import { recordSketchDisapproval } from "@/server/services/validationService";
 
-import { deleteSketch, getDraftForEdit, publish, saveStrokes } from "./sketchService";
+import { createAnnotation, deleteSketch, getDraftForEdit, publish, saveStrokes } from "./sketchService";
 
 const OWNER = "owner-1"; // autorul detaliului-mamă
 const SKETCH_AUTHOR = "sketcher-1"; // autorul schiței
@@ -130,6 +133,17 @@ describe("PUBLISH — DRAFT → PUBLISHED, atomic + notificare o singură dată"
     expect(recordSketchDisapproval).not.toHaveBeenCalled();
   });
 
+  // ADNOTARE (2026-07-31): autorul schițează pe PROPRIUL detaliu → destinatarul notificării ar fi chiar
+  // el. Nu se auto-notifică; restul publicării (tranziția) rămâne identică.
+  it("adnotare (autorul pe propriul detaliu) → publică, dar NU se auto-notifică", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    const r = await publish({ sketchId: SID, authorId: OWNER });
+    expect(r).toEqual({ ok: true });
+    expect(publishFromDraft).toHaveBeenCalledTimes(1);
+    expect(notifySketchProposed).not.toHaveBeenCalled();
+  });
+
   it("dezaprobare-prin-schiță (disapprovesParent) → materializează dezaprobarea pe detaliul-mamă", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft({ disapprovesParent: true }) as never);
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
@@ -140,6 +154,40 @@ describe("PUBLISH — DRAFT → PUBLISHED, atomic + notificare o singură dată"
       userId: SKETCH_AUTHOR,
       detailId: DID,
     });
+  });
+});
+
+// ADNOTAREA autorului creată într-un pas la publicarea detaliului (formularul /details/new).
+describe("createAnnotation — doar autorul își adnotează propriul detaliu", () => {
+  it("alt user decât autorul detaliului → FORBIDDEN, nu se creează nimic", async () => {
+    const r = await createAnnotation({ detailId: DID, authorId: ATTACKER, strokes: validStrokes });
+    expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(insertDraft).not.toHaveBeenCalled();
+  });
+
+  it("detailId care nu e uuid → DETAIL_NOT_FOUND, fără atingerea DB-ului (SEC-11)", async () => {
+    const r = await createAnnotation({ detailId: "../../etc", authorId: OWNER, strokes: validStrokes });
+    expect(r).toEqual({ ok: false, error: "DETAIL_NOT_FOUND" });
+    expect(getDetailById).not.toHaveBeenCalled();
+  });
+
+  // Ordinea contează: validăm ÎNAINTE de insert, altfel rămâne o ciornă goală orfană în „Ciornele mele".
+  it("stroke-uri invalide → respinse ÎNAINTE de a se crea ciorna", async () => {
+    const r = await createAnnotation({ detailId: DID, authorId: OWNER, strokes: "nu e listă" });
+    expect(r.ok).toBe(false);
+    expect(insertDraft).not.toHaveBeenCalled();
+  });
+
+  it("autorul detaliului → creează ciorna și o publică direct, fără auto-notificare", async () => {
+    // `createDraft` cere rol declarat (poartă de business moștenită) — fără el iese NO_ROLE.
+    vi.mocked(getRoleByUserId).mockResolvedValue({ roleMain: "PROIECTANT" } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    const r = await createAnnotation({ detailId: DID, authorId: OWNER, strokes: validStrokes });
+    expect(r).toEqual({ ok: true, value: { sketchId: SID } });
+    expect(publishFromDraft).toHaveBeenCalledTimes(1);
+    expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 });
 

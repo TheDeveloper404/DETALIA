@@ -1,5 +1,5 @@
 // Repo schițe — singurul loc cu acces Drizzle pentru tabelul `sketches`.
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
@@ -90,15 +90,51 @@ function listByDetailAndStatus(detailId: string, status: SketchStatus) {
   return db
     .select(sketchWithAuthorColumns)
     .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
     .leftJoin(users, eq(users.id, sketches.authorId))
     .leftJoin(roles, eq(roles.userId, sketches.authorId))
-    .where(and(eq(sketches.detailId, detailId), eq(sketches.status, status)))
+    .where(
+      and(
+        eq(sketches.detailId, detailId),
+        eq(sketches.status, status),
+        // Exclude ADNOTAREA autorului (schiță pe propriul detaliu) — vezi `isSelfAnnotation`
+        // (server/domain/sketch.ts). Teancul = contribuțiile ALTORA, model fork/PR.
+        ne(sketches.authorId, details.authorId),
+      ),
+    )
     .orderBy(desc(sketches.createdAt));
 }
 
-// Teancul = schițele PUBLISHED ale unui detaliu (navigabile prin taburi).
+// Teancul = schițele PUBLISHED ale unui detaliu, ALE ALTOR USERI (navigabile prin taburi).
+// Adnotarea autorului pe propriul detaliu NU e aici — vezi `getAnnotationByDetail`.
 export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
+}
+
+// ADNOTAREA autorului: schița PUBLISHED făcută de autorul detaliului pe PROPRIUL lui detaliu.
+// Se afișează peste imaginea de bază, nu ca tab în teanc. Dacă autorul a lăsat mai multe (posibil
+// pe date istorice — vezi CHANGELOG 2026-07-31), o luăm pe cea mai recentă: e „ultimul lui cuvânt".
+export async function getAnnotationByDetail(detailId: string) {
+  const [row] = await db
+    .select({
+      id: sketches.id,
+      strokesJson: sketches.strokesJson,
+      note: sketches.note,
+      createdAt: sketches.createdAt,
+      authorId: sketches.authorId,
+    })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .where(
+      and(
+        eq(sketches.detailId, detailId),
+        eq(sketches.status, "PUBLISHED"),
+        eq(sketches.authorId, details.authorId),
+      ),
+    )
+    .orderBy(desc(sketches.createdAt))
+    .limit(1);
+  return row ?? null;
 }
 
 // Filtrează, dintr-un set de id-uri candidate, doar pe cele care sunt schițe PUBLISHED ale acestui
