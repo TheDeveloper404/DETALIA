@@ -34,6 +34,11 @@ function makeImage(): string {
 async function drawStroke(page: Page): Promise<void> {
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible();
+  // Canvasul de adnotare stă JOS în formular: `boundingBox()` întoarce coordonate față de viewport,
+  // iar fără scroll centrul lui cade SUB cele 720px de înălțime → `page.mouse` ar „desena" în afara
+  // ecranului, cu zero stroke-uri și fără nicio eroare. (Nu e cazul în sketch.spec.ts, unde canvasul
+  // e prima secțiune a paginii.) Scroll ÎNTÂI, citește caseta DUPĂ.
+  await canvas.scrollIntoViewIfNeeded();
   const box = await canvas.boundingBox();
   if (!box) throw new Error("canvas de adnotare fără bounding box");
   const x = box.x + box.width / 2;
@@ -43,6 +48,10 @@ async function drawStroke(page: Page): Promise<void> {
   await page.mouse.move(x, y, { steps: 5 });
   await page.mouse.move(x + 30, y + 30, { steps: 5 });
   await page.mouse.up();
+  // Contorul din bara editorului = singura confirmare că traseul a fost ÎNREGISTRAT, nu doar că
+  // mouse-ul s-a mișcat. Fără ea, un desen ratat iese la iveală abia 30 de linii mai jos, ca un mesaj
+  // derutant despre eticheta butonului „Adnotează".
+  await expect(page.getByText(/\d+ trase[eu]/)).toBeVisible();
 }
 
 // Curățare per test (NU stare la nivel de modul): `fullyParallel: true` în playwright.config.ts →
