@@ -308,8 +308,15 @@ const validationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
    where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`;
+// „N schițe" = contribuțiile ALTORA (model fork/PR). Adnotarea autorului pe propriul detaliu nu e o
+// contribuție primită → exclusă (mirror SQL al `isSelfAnnotation`, server/domain/sketch.ts).
+// `details.author_id` calificat EXPLICIT: subquery-ul e pe `sketches`, care are ȘI EL `author_id` — o
+// referință necalificată s-ar rezolva la coloana subquery-ului → `x <> x`, mereu fals, contor mereu 0.
+// (Aceeași capcană documentată pe larg în profileRepo.ts pentru `details.id`.)
+const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
-   where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED')`;
+   where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED'
+     and ${sketches.authorId} <> ${detailsAuthorId})`;
 
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
 const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${sketchCount})`;

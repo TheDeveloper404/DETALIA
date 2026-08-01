@@ -31,6 +31,11 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
 - **Detaliu** (`Detail`) — unitatea de conținut (~repo). Titlu, autor+rol, categorie, opțional zonă
   climatică/seismică, 1 imagine 2D, opțional 2–3 resurse.
 - **Schiță** (`Sketch`) — o „foaie" desenată peste un detaliu-mamă, cu **un singur autor** (~fork+PR).
+  Termenul se referă la contribuția **altcuiva** peste detaliul tău.
+- **Adnotare** (2026-07-31) — desenul autorului peste **propriul** detaliu: notițe/săgeți/cote prin care
+  se explică singur. Structural e tot un rând în `sketches` (`sketch.authorId === detail.authorId`,
+  predicatul `isSelfAnnotation`), dar semantic NU e o contribuție primită → nu intră în teanc, nu se
+  numără la „N schițe", nu generează notificare. Se afișează peste imaginea de bază a detaliului.
 - **Validare** (`Validation`) — poziția unui user pe un detaliu SAU pe o schiță: **Aprob** / **Dezaprob**.
 - **Rol / Subrol** — PROIECTANT / EXECUTANT / FURNIZOR / BENEFICIAR + subrol (arhitect, inginer, etc.).
 - **Teanc** — totalitatea schițelor PUBLISHED ale unui detaliu (navigabile prin taburi).
