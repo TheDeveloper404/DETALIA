@@ -12,6 +12,7 @@ vi.mock("@/server/repos/sketchesRepo", () => ({
   listDraftsByAuthor: vi.fn(),
   listPublishedByDetail: vi.fn(),
   getAnnotationByDetail: vi.fn(),
+  listOtherAnnotationIds: vi.fn(),
   publishFromDraft: vi.fn(),
   updateStrokes: vi.fn(),
 }));
@@ -28,8 +29,10 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSketchCascade,
+  getAnnotationByDetail,
   getSketchById,
   insertDraft,
+  listOtherAnnotationIds,
   publishFromDraft,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
@@ -39,7 +42,14 @@ import {
 } from "@/server/services/notificationService";
 import { recordSketchDisapproval } from "@/server/services/validationService";
 
-import { createAnnotation, deleteSketch, getDraftForEdit, publish, saveStrokes } from "./sketchService";
+import {
+  createAnnotation,
+  createDraft,
+  deleteSketch,
+  getDraftForEdit,
+  publish,
+  saveStrokes,
+} from "./sketchService";
 
 const OWNER = "owner-1"; // autorul detaliului-mamă
 const SKETCH_AUTHOR = "sketcher-1"; // autorul schiței
@@ -70,6 +80,82 @@ beforeEach(() => {
     roleMain: "PROIECTANT",
     verification: "UNVERIFIED",
   } as never);
+  vi.mocked(listOtherAnnotationIds).mockResolvedValue([]);
+});
+
+// Autorul nu-și poate face fork sieși: „Schițează peste" pe PROPRIUL detaliu = continuarea adnotării,
+// iar publicarea o ÎNLOCUIEȘTE. Fără asta (bug găsit 2026-08-01), editorul pornea gol și adnotarea
+// veche rămânea un rând PUBLISHED invizibil — nici în teanc, nici în viewer.
+describe("Re-adnotare — autorul continuă adnotarea, nu începe alta", () => {
+  it("AUTORUL, cu adnotare existentă → draftul pornește din stroke-urile ei", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
+    vi.mocked(getAnnotationByDetail).mockResolvedValue({ strokesJson: validStrokes } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+
+    await createDraft({ detailId: DID, authorId: OWNER });
+
+    expect(insertDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ authorId: OWNER, strokesJson: validStrokes }),
+    );
+  });
+
+  it("AUTORUL, fără adnotare încă → draft gol (nu inventăm stroke-uri)", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
+    vi.mocked(getAnnotationByDetail).mockResolvedValue(null as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+
+    await createDraft({ detailId: DID, authorId: OWNER });
+
+    expect(insertDraft).toHaveBeenCalledWith(expect.objectContaining({ strokesJson: null }));
+  });
+
+  it("ALT user → draft GOL: nu pornește din desenul autorului (ar fi scurgere de conținut)", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
+    vi.mocked(getAnnotationByDetail).mockResolvedValue({ strokesJson: validStrokes } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+
+    await createDraft({ detailId: DID, authorId: SKETCH_AUTHOR });
+
+    expect(getAnnotationByDetail).not.toHaveBeenCalled();
+    expect(insertDraft).toHaveBeenCalledWith(expect.objectContaining({ strokesJson: null }));
+  });
+
+  it("publicarea unei adnotări noi le șterge pe cele vechi, cu tot cu thumbnail", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    vi.mocked(listOtherAnnotationIds).mockResolvedValue(["old-1", "old-2"]);
+    vi.mocked(deleteSketchCascade).mockResolvedValue("https://blob/old.png" as never);
+
+    const res = await publish({ sketchId: SID, authorId: OWNER });
+
+    expect(res.ok).toBe(true);
+    expect(listOtherAnnotationIds).toHaveBeenCalledWith(DID, SID);
+    expect(deleteSketchCascade).toHaveBeenCalledWith("old-1");
+    expect(deleteSketchCascade).toHaveBeenCalledWith("old-2");
+    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/old.png"]);
+    // Adnotarea nu e o contribuție primită → autorul nu se anunță pe sine.
+    expect(notifySketchProposed).not.toHaveBeenCalled();
+  });
+
+  it("schița ALTUIA nu atinge adnotarea autorului (teancul rămâne intact)", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft() as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+
+    await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
+
+    expect(listOtherAnnotationIds).not.toHaveBeenCalled();
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+  });
+
+  it("publicare pierdută în cursă → adnotarea veche NU se șterge (rămâne singura sursă)", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(false as never);
+
+    const res = await publish({ sketchId: SID, authorId: OWNER });
+
+    expect(res.ok).toBe(false);
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+  });
 });
 
 describe("IDOR — doar autorul schiței o poate atinge cât e DRAFT", () => {
