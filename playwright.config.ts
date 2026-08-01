@@ -78,6 +78,7 @@ export default defineConfig({
         /authed\.spec\.ts/,
         /sketch\.spec\.ts/,
         /detail-upload\.spec\.ts/,
+        /detail-annotation\.spec\.ts/,
         /sketch-draft\.spec\.ts/,
         /canvas\.spec\.ts/,
         /detail-draft\.spec\.ts/,
