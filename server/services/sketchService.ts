@@ -22,6 +22,7 @@ import {
   deleteSketchCascade,
   getAnnotationByDetail,
   getPublicSketchTeaser,
+  listOtherAnnotationIds,
   listDraftsByAuthor,
   listPublishedByDetail,
   publishFromDraft,
@@ -58,10 +59,20 @@ export async function createDraft(input: {
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
+  // AUTORUL pe PROPRIUL detaliu nu-și poate face fork sieși: „Schițează peste" înseamnă pentru el
+  // „continuă adnotarea", nu „începe una nouă". Pornim draftul din stroke-urile adnotării curente, ca
+  // să nu piardă ce a desenat deja (publicarea o ÎNLOCUIEȘTE, vezi `publish`). Fără asta, editorul se
+  // deschidea gol și adnotarea veche dispărea tăcut din UI la prima republicare.
+  let strokesJson: Stroke[] | null = null;
+  if (isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.authorId })) {
+    const existing = await getAnnotationByDetail(input.detailId);
+    strokesJson = (existing?.strokesJson as Stroke[] | null) ?? null;
+  }
+
   const sketch = await insertDraft({
     detailId: input.detailId,
     authorId: input.authorId,
-    strokesJson: null,
+    strokesJson,
     disapprovesParent: input.disapprovesParent ?? false,
   });
   return { ok: true, value: { sketchId: sketch.id } };
@@ -148,6 +159,18 @@ export async function publish(input: {
   // Dacă userul abandonase editorul, nu se ajungea aici → nicio dezaprobare „mută".
   if (sketch.disapprovesParent) {
     await recordSketchDisapproval({ userId: sketch.authorId, detailId: sketch.detailId });
+  }
+
+  if (isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.authorId })) {
+    // ÎNLOCUIRE, nu acumulare: un detaliu are o singură adnotare vizibilă (cea mai recentă). Fără
+    // curățarea celor vechi, fiecare re-adnotare ar lăsa în urmă un rând PUBLISHED invizibil — nici în
+    // teanc (exclus prin `ne(authorId, details.authorId)`), nici în viewer. Ștergem DUPĂ tranziția
+    // reușită: dacă publicarea eșua, adnotarea veche trebuie să rămână singura sursă de adevăr.
+    const stale = await listOtherAnnotationIds(sketch.detailId, sketch.id);
+    for (const id of stale) {
+      const thumbnailUrl = await deleteSketchCascade(id);
+      if (thumbnailUrl) await deleteBlobs([thumbnailUrl]);
+    }
   }
 
   // ADNOTARE (autorul pe propriul detaliu) → nimeni de anunțat: destinatarul ar fi chiar el. Notificarea

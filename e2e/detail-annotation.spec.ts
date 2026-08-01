@@ -34,8 +34,10 @@ function makeImage(): string {
   return file;
 }
 
-// Un traseu simplu în interiorul canvasului de adnotare (tool-ul „pen" e selectat implicit).
-async function drawStroke(page: Page): Promise<void> {
+// Un traseu simplu în interiorul canvasului (tool-ul „pen" e selectat implicit).
+// `expectCounter`: contorul „N trasee" există DOAR în editorul de adnotare din formular; pagina de
+// editare a schiței (`/sketches/:id/edit`) n-are așa ceva → acolo se cere explicit `false`.
+async function drawStroke(page: Page, { expectCounter = true } = {}): Promise<void> {
   const canvas = page.locator("canvas").first();
   await expect(canvas).toBeVisible();
   // Canvasul de adnotare stă JOS în formular: `boundingBox()` întoarce coordonate față de viewport,
@@ -55,7 +57,7 @@ async function drawStroke(page: Page): Promise<void> {
   // Contorul din bara editorului = singura confirmare că traseul a fost ÎNREGISTRAT, nu doar că
   // mouse-ul s-a mișcat. Fără ea, un desen ratat iese la iveală abia 30 de linii mai jos, ca un mesaj
   // derutant despre eticheta butonului „Adnotează".
-  await expect(page.getByText(/\d+ trase[eu]/)).toBeVisible();
+  if (expectCounter) await expect(page.getByText(/\d+ trase[eu]/)).toBeVisible();
 }
 
 // Curățare per test (NU stare la nivel de modul): `fullyParallel: true` în playwright.config.ts →
@@ -196,5 +198,78 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
     await page.locator("#image").setInputFiles(makeImage());
     await expect(page.getByTestId("annotate-open")).toHaveText(/^Adnotează$/);
     await expect(page.getByText("adnotare adăugată")).toHaveCount(0);
+  });
+
+  // Regresia din 2026-08-01: autorul revine să mai adauge ceva peste adnotarea lui. Editorul trebuie să
+  // pornească DIN ea (nu gol), iar publicarea s-o ÎNLOCUIASCĂ — nu să lase în urmă un rând invizibil.
+  test("Re-adnotare: „Editează adnotarea” pornește din desenul existent și îl înlocuiește", async ({
+    page,
+  }) => {
+    const [category] = await pickLeafCategories(1);
+    const title = `E2E re-adnotare ${Date.now()}`;
+    let detailId: string | null = null;
+    let imageUrl: string | null = null;
+
+    try {
+      await stripBypassHeadersForBlobUploads(page);
+      await page.goto("/details/new");
+      await page.locator("#title").fill(title);
+      await page.getByRole("button", { name: "Alege categoriile…" }).click();
+      await page.getByRole("button", { name: category.name, exact: true }).click();
+      await page.keyboard.press("Escape");
+      await page.locator("#image").setInputFiles(makeImage());
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+      await page.getByTestId("annotate-open").click();
+      await drawStroke(page);
+      await page.getByTestId("annotate-save").click();
+      await page.getByRole("button", { name: "Publică detaliul" }).click();
+      await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
+      detailId = page.url().split("/details/")[1] ?? null;
+
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId!));
+      imageUrl = row?.imageUrl ?? null;
+
+      const [first] = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+
+      // Butonul îi spune autorului ce urmează să facă (nu „Schițează peste detaliu").
+      const cta = page.getByRole("button", { name: "Editează adnotarea" });
+      await expect(cta).toBeVisible();
+      await cta.click();
+      await expect(page).toHaveURL(/\/sketches\/[0-9a-f-]+\/edit/, { timeout: 20_000 });
+
+      // Editorul pornește DIN adnotarea existentă. Pagina de editare a schiței NU are contor de trasee
+      // (acela e doar în formularul de adnotare), iar stroke-urile preîncărcate se văd doar desenate pe
+      // canvas → verificăm la sursă: draftul nou-creat trebuie să aibă deja stroke-urile adnotării.
+      const editedSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1];
+      expect(editedSketchId).toBeTruthy();
+      const [reopened] = await db
+        .select({ strokesJson: sketches.strokesJson })
+        .from(sketches)
+        .where(eq(sketches.id, editedSketchId!));
+      expect((reopened?.strokesJson as unknown[] | null)?.length).toBeGreaterThan(0);
+
+      await drawStroke(page, { expectCounter: false });
+      await page.getByRole("button", { name: /Publică schița/ }).click();
+      await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`), { timeout: 20_000 });
+
+      // ÎNLOCUIRE: o singură adnotare rămâne, și e cea nouă. Vechea nu supraviețuiește invizibil.
+      const after = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(after).toHaveLength(1);
+      expect(after[0]?.id).not.toBe(first?.id);
+
+      await expect(page.getByTestId("annotation-toggle")).toBeVisible();
+    } finally {
+      await cleanup(detailId, imageUrl);
+    }
   });
 });
