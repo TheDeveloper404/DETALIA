@@ -20,8 +20,12 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 // dimensiuni și desenul n-ar produce niciun stroke.
 
 // PNG 8x8 roșu, valid — mai mare decât 1x1 ca previzualizarea să aibă o suprafață reală de desenat.
+// Generat cu sharp și trecut prin EXACT pipeline-ul serverului (`cleanImageBuffer`) înainte de a fi
+// pus aici. `sharp().metadata()` citește doar antetul, deci un PNG cu IDAT corupt „pare" valid și
+// crapă abia la re-encodarea de pe server, cu un `INVALID_TYPE` opac în UI — verifică re-encodarea,
+// nu metadata, dacă schimbi imaginea asta.
 const SMALL_PNG_BASE64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAHUlEQVR42mP8z8BQz0AEYBxVSF+FAAOsAQlrY0QuAAAAAElFTkSuQmCC";
+  "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQI12O4Y6OBFTEMLQkAb5lQAcZEZ3sAAAAASUVORK5CYII=";
 
 function makeImage(): string {
   const dir = mkdtempSync(path.join(tmpdir(), "detalia-annot-"));
