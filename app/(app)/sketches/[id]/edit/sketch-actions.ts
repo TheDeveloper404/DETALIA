@@ -20,6 +20,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   INVALID_STROKES: "Desenul nu a putut fi salvat.",
   NOTE_TOO_LONG: "Explicația e prea lungă.",
   NO_ROLE: "Ai nevoie de un rol declarat.",
+  ANNOTATION_LIMIT: "Ai deja numărul maxim de adnotări pe acest detaliu. Șterge una ca să adaugi alta.",
   RATE_LIMITED: "Prea multe trimiteri. Așteaptă un moment.",
 };
 

@@ -36,6 +36,11 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
   se explică singur. Structural e tot un rând în `sketches` (`sketch.authorId === detail.authorId`,
   predicatul `isSelfAnnotation`), dar semantic NU e o contribuție primită → nu intră în teanc, nu se
   numără la „N schițe", nu generează notificare. Se afișează peste imaginea de bază a detaliului.
+  **Actualizat 2026-08-02:** un detaliu poate avea **până la 3 adnotări** (`MAX_ANNOTATIONS_PER_DETAIL`,
+  impus în `publish`), fiecare o explicație distinctă. Se deschid **una câte una, la cerere** — implicit
+  imaginea de bază se vede curată. Autorul le poate **șterge** (singura cale de a scăpa de una); nu există
+  editare pe loc: corectezi ștergând și desenând alta. (Între 07-31 și 08-01 regula era „exact una,
+  re-adnotarea o înlocuiește" — vezi CHANGELOG.)
 - **Validare** (`Validation`) — poziția unui user pe un detaliu SAU pe o schiță: **Aprob** / **Dezaprob**.
 - **Rol / Subrol** — PROIECTANT / EXECUTANT / FURNIZOR / BENEFICIAR + subrol (arhitect, inginer, etc.).
 - **Teanc** — totalitatea schițelor PUBLISHED ale unui detaliu (navigabile prin taburi).

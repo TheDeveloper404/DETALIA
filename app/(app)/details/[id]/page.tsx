@@ -4,11 +4,11 @@ import { notFound, redirect } from "next/navigation";
 
 import { RolePill } from "@/components/role-pill";
 import { auth } from "@/lib/auth";
-import type { Stroke } from "@/server/domain/sketch";
+import { MAX_ANNOTATIONS_PER_DETAIL, type Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
 import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
-import { getAnnotation, getTeanc } from "@/server/services/sketchService";
+import { getAnnotations, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
 import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
 
@@ -58,13 +58,24 @@ const RESOURCE_ICON = {
 
 // Pagina unui detaliu (the «repo»): antet (autor+rol), imaginea 2D, validarea pe roluri,
 // teancul de schițe și dezbaterea — o singură coloană lățită. Jos, full-width: detalii înrudite.
-export default async function DetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ annotation?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
   const { id } = await params;
+  // Semnale despre adnotare, aduse din acțiuni care s-au terminat cu redirect aici (nu pot returna o
+  // stare de formular): `failed` = publicarea a reușit dar adnotarea nu (`createDetailAction`);
+  // `limit` = s-a apăsat „adnotează" cu plafonul deja atins, dintr-o filă cu stare veche
+  // (`startSketchAction`). Fără ele, ambele situații sunt tăcute și userul nu are cum să le înțeleagă.
+  const annotationNotice = (await searchParams).annotation;
   const detail = await getDetail(id);
   if (!detail) {
     notFound();
@@ -78,13 +89,15 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
   // e per-schiță → nu mai fetchăm comentarii pe SKETCH (câștig de perf: elimină N query-uri).
   // Adnotarea autorului (schița lui pe propriul detaliu) NU e în teanc — se randează peste imaginea de
   // bază, ca notă a autorului, nu ca propunere a altcuiva. Citire independentă → paralelă cu teancul.
-  const [teancRows, annotationRow] = await Promise.all([getTeanc(detail.id), getAnnotation(detail.id)]);
-  const annotationStrokes = (annotationRow?.strokesJson as Stroke[] | null) ?? [];
-  // Fără stroke-uri nu e nimic de suprapus → tratăm ca inexistentă (nu arătăm un toggle care nu face nimic).
-  const annotation =
-    annotationRow && annotationStrokes.length > 0
-      ? { strokes: annotationStrokes, note: annotationRow.note }
-      : null;
+  const [teancRows, annotationRows] = await Promise.all([getTeanc(detail.id), getAnnotations(detail.id)]);
+  // Fără stroke-uri nu e nimic de suprapus → o adnotare goală se elimină (nu arătăm un buton inert).
+  const annotations = annotationRows
+    .map((row) => ({
+      id: row.id,
+      strokes: (row.strokesJson as Stroke[] | null) ?? [],
+      note: row.note,
+    }))
+    .filter((a) => a.strokes.length > 0);
   const sketchValidations = await getTargetValidationViews(
     "SKETCH",
     teancRows.map((r) => r.id),
@@ -129,6 +142,19 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
         <span className="text-[#cabfac]">/</span>
         <span className="truncate text-foreground/70">{detail.title}</span>
       </nav>
+
+      {(annotationNotice === "failed" || annotationNotice === "limit") && (
+        <div className="mb-5 rounded-xl border border-[#e3c9b4] bg-[#fdf4ec] px-5 py-4">
+          <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-[#95492e]">
+            {annotationNotice === "failed" ? "Adnotarea nu s-a salvat" : "Ai atins numărul maxim de adnotări"}
+          </div>
+          <p className="text-[14.5px] leading-relaxed text-foreground">
+            {annotationNotice === "failed"
+              ? "Detaliul e publicat, dar desenul tău peste imagine nu a apucat să fie salvat. Îl poți face din nou cu butonul de adnotare de sub imagine."
+              : `Un detaliu poate avea cel mult ${MAX_ANNOTATIONS_PER_DETAIL} adnotări. Deschide una dintre cele existente și șterge-o dacă vrei să adaugi alta.`}
+          </p>
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-col gap-7">
           {/* ===== RESURSE (opționale) — imaginea 2D trăiește acum în viewportul workspace-ului (tab 0) ===== */}
@@ -195,7 +221,7 @@ export default async function DetailPage({ params }: { params: Promise<{ id: str
             }}
             detailValidation={validation}
             isDetailAuthor={isAuthor}
-            annotation={annotation}
+            annotations={annotations}
             sketches={sketches}
             comments={comments}
             currentUserId={session.user.id}

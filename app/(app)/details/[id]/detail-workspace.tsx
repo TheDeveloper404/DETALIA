@@ -1,18 +1,20 @@
 "use client";
 
-import { Activity, MapPin, Pencil, Snowflake } from "lucide-react";
+import { Activity, MapPin, Pencil, Snowflake, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { RolePill } from "@/components/role-pill";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
+import { MAX_ANNOTATIONS_PER_DETAIL } from "@/server/domain/sketch";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
@@ -22,7 +24,7 @@ import type { TargetPosition } from "@/server/repos/validationsRepo";
 
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
-import { startSketchAction } from "./sketch-review-actions";
+import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
 import { SupplierOfferPanel } from "./supplier-offer-panel";
 import { ValidationPanel } from "./validation-panel";
 
@@ -81,7 +83,7 @@ export function DetailWorkspace({
   detailAuthor,
   detailValidation,
   isDetailAuthor,
-  annotation,
+  annotations,
   sketches,
   comments,
   currentUserId,
@@ -97,9 +99,10 @@ export function DetailWorkspace({
   detailAuthor: Author;
   detailValidation: ValidationView;
   isDetailAuthor: boolean;
-  // Adnotarea AUTORULUI peste propria imagine (nu e o schiță din teanc — vezi `isSelfAnnotation`).
-  // null = detaliul n-are adnotare. Se randează peste imaginea de bază, cu toggle de afișare.
-  annotation: { strokes: Stroke[]; note: string | null } | null;
+  // ADNOTĂRILE AUTORULUI peste propria imagine (nu sunt schițe din teanc — vezi `isSelfAnnotation`).
+  // 0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării. Se randează peste imaginea de bază, UNA CÂTE UNA,
+  // doar la cererea cititorului (2026-08-02: imaginea de bază se vede prima; adnotarea e opțională).
+  annotations: { id: string; strokes: Stroke[]; note: string | null }[];
   sketches: WorkspaceSketch[];
   comments: TargetComment[];
   currentUserId?: string | null;
@@ -120,9 +123,20 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === wanted);
     return idx >= 0 ? idx + 1 : 0;
   });
-  // Adnotarea autorului pornește VIZIBILĂ (autorul a desenat-o ca s-o vezi), dar e ascundibilă —
-  // uneori vrei imaginea curată dedesubt. Doar afișare, fără persistență.
-  const [showAnnotation, setShowAnnotation] = useState(true);
+  // Adnotările pornesc TOATE ÎNCHISE (decizie Liviu 2026-08-02): imaginea de bază e subiectul, adnotarea
+  // e o explicație pe care o ceri. Se deschide UNA singură — două desene suprapuse s-ar amesteca vizual.
+  // `null` = niciuna deschisă. Doar afișare, fără persistență.
+  // (Între 2026-07-31 și 2026-08-01 exista o singură adnotare, pornită vizibilă.)
+  const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(null);
+  // Ștergerea unei adnotări (doar autorul): id-ul în așteptare de confirmare.
+  const [pendingDeleteAnnotationId, setPendingDeleteAnnotationId] = useState<string | null>(null);
+  // Formular MONTAT PERMANENT, în afara oricărui bloc condiționat pe stare togglabilă: dacă ar sta în
+  // interiorul `{openAnnotation && ...}`, ref-ul ar deveni null când adnotarea se închide, iar submit-ul
+  // din ConfirmDialog ar eșua tăcut (bugul din `detail-actions-menu.tsx`, 2026-07-16).
+  const deleteAnnotationFormRef = useRef<HTMLFormElement>(null);
+  // Adnotarea deschisă acum (sau null). Derivată, nu stare separată: dacă adnotarea deschisă e ștearsă,
+  // lista revine fără ea de pe server și `find` întoarce undefined → UI-ul se închide singur, corect.
+  const openAnnotation = annotations.find((a) => a.id === openAnnotationId) ?? null;
   const safeTab = Math.min(tab, sketches.length); // max = N (ultima schiță)
   const isBase = safeTab === 0;
   const activeSketch = isBase ? null : sketches[safeTab - 1];
@@ -161,11 +175,17 @@ export function DetailWorkspace({
 
   // Mutat sub imagine (nu mai suprapus peste ea) + colaps la iconiță — textul apare doar la HOVER
   // (mouse peste buton), nu la click (spre deosebire de taburile de mai sus, care se extind la click).
-  // Pentru AUTOR, pe propriul detaliu, acțiunea nu e „încă o schiță" (nu-și poate face fork sieși) —
-  // e continuarea adnotării lui, pornită din stroke-urile existente (vezi `createDraft`). Butonul o
-  // spune, altfel userul crede că începe de la zero și că o pierde pe cea veche.
-  const editsOwnAnnotation = isDetailAuthor && !!annotation;
-  const startSketchLabel = editsOwnAnnotation ? "Editează adnotarea" : "Schițează peste detaliu";
+  // Pentru AUTOR, pe propriul detaliu, acțiunea nu e „încă o schiță" (nu-și poate face fork sieși) — e o
+  // ADNOTARE NOUĂ, de la zero (2026-08-02). Corectarea uneia existente = o ștergi și desenezi alta.
+  // La plafon butonul se dezactivează, cu explicație — dar adevărul e pe server (`publish`), nu aici.
+  const atAnnotationLimit = isDetailAuthor && annotations.length >= MAX_ANNOTATIONS_PER_DETAIL;
+  const startSketchLabel = !isDetailAuthor
+    ? "Schițează peste detaliu"
+    : atAnnotationLimit
+      ? `Ai deja ${MAX_ANNOTATIONS_PER_DETAIL} adnotări — șterge una ca să adaugi alta`
+      : annotations.length > 0
+        ? "Adnotează din nou"
+        : "Adnotează detaliul";
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
@@ -173,10 +193,11 @@ export function DetailWorkspace({
         type="submit"
         size="icon"
         title={startSketchLabel}
+        disabled={atAnnotationLimit}
         className="group/button !w-auto gap-0 overflow-hidden !px-2.5 shadow-md"
       >
         <Pencil className="size-4 shrink-0" strokeWidth={2} />
-        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/button:ml-2 group-hover/button:max-w-[220px] group-hover/button:opacity-100">
+        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/button:ml-2 group-hover/button:max-w-[320px] group-hover/button:opacity-100">
           {startSketchLabel}
         </span>
       </Button>
@@ -404,24 +425,45 @@ export function DetailWorkspace({
                 schiță peste detaliu
               </span>
             )}
-            {/* Adnotarea autorului: UN SINGUR control, în locul badge-ului de schiță — spune ce e ȘI o
-                comută. Nu e un tab și nu e o schiță a altcuiva; e nota autorului pe imaginea lui. */}
-            {isBase && annotation && (
-              <button
-                type="button"
-                onClick={() => setShowAnnotation((v) => !v)}
-                aria-pressed={showAnnotation}
-                data-testid="annotation-toggle"
-                className={cn(
-                  "absolute left-3 top-3 z-[3] inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors",
-                  showAnnotation
-                    ? "border-[#d8bfae] bg-white/90 text-[#95492e]"
-                    : "border-[#e6dccd] bg-white/70 text-[#9c9080] hover:text-[#7c7060]",
+            {/* Adnotările autorului: un buton per adnotare, în locul badge-ului de schiță. Nu sunt taburi
+                și nu sunt schițe ale altcuiva; sunt notele autorului pe imaginea lui. Click = o deschide
+                (închizându-le pe celelalte), al doilea click pe aceeași = o închide → imaginea curată. */}
+            {isBase && annotations.length > 0 && (
+              <div className="absolute left-3 top-3 z-[3] flex flex-wrap items-center gap-1.5">
+                {annotations.map((a, i) => {
+                  const isOpen = a.id === openAnnotationId;
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => setOpenAnnotationId(isOpen ? null : a.id)}
+                      aria-pressed={isOpen}
+                      data-testid={`annotation-toggle-${i + 1}`}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors",
+                        isOpen
+                          ? "border-[#d8bfae] bg-white/90 text-[#95492e]"
+                          : "border-[#e6dccd] bg-white/70 text-[#9c9080] hover:text-[#7c7060]",
+                      )}
+                    >
+                      <Pencil className="size-3" strokeWidth={2} />
+                      {annotations.length === 1 ? "adnotarea autorului" : `adnotarea ${i + 1}`}
+                    </button>
+                  );
+                })}
+                {/* Ștergerea: DOAR autorul, DOAR pe adnotarea deschisă (altfel n-ai vedea ce ștergi). */}
+                {isDetailAuthor && openAnnotation && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteAnnotationId(openAnnotation.id)}
+                    data-testid="annotation-delete"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#e6dccd] bg-white/70 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#9c9080] transition-colors hover:border-[#d8a89e] hover:text-[#95492e]"
+                  >
+                    <Trash2 className="size-3" strokeWidth={2} />
+                    șterge
+                  </button>
                 )}
-              >
-                <Pencil className="size-3" strokeWidth={2} />
-                {showAnnotation ? "adnotarea autorului" : "arată adnotarea"}
-              </button>
+              </div>
             )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
@@ -442,26 +484,30 @@ export function DetailWorkspace({
                   <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
                 </div>
               )}
-              {/* ADNOTAREA autorului — doar pe tabul de bază, fără văl (sunt notițele lui pe propria
-                  imagine, nu o foaie a altcuiva peste ea). Toggle-abilă: unii vor imaginea curată. */}
-              {isBase && annotation && showAnnotation && (
-                <div className="absolute inset-0 animate-in fade-in duration-200">
-                  <SketchViewer imageUrl={imageUrl} strokes={annotation.strokes} veil={false} />
+              {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, fără văl (sunt notițele autorului pe propria
+                  imagine, nu o foaie a altcuiva peste ea). Implicit niciuna: imaginea de bază se vede
+                  prima, adnotarea o ceri (2026-08-02). `key` pe id → fade-in la comutarea între ele. */}
+              {isBase && openAnnotation && (
+                <div
+                  key={`annotation-${openAnnotation.id}`}
+                  className="absolute inset-0 animate-in fade-in duration-200"
+                >
+                  <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} veil={false} />
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Nota scrisă a ADNOTĂRII (dacă autorul a lăsat una) — pe tabul de bază, legată de desenul lui.
-            Se ascunde odată cu adnotarea: e aceeași explicație, în cuvinte. */}
-        {isBase && annotation?.note && showAnnotation && (
+        {/* Nota scrisă a ADNOTĂRII DESCHISE (dacă autorul a lăsat una) — pe tabul de bază, legată de
+            desenul ei. Apare și dispare odată cu desenul: e aceeași explicație, în cuvinte. */}
+        {isBase && openAnnotation?.note && (
           <div className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6">
             <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
               Adnotarea autorului
             </div>
             <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
-              {annotation.note}
+              {openAnnotation.note}
             </p>
           </div>
         )}
@@ -522,6 +568,27 @@ export function DetailWorkspace({
         currentUserImage={currentUserImage}
         mentionSketches={mentionSketches}
         onSelectSketch={selectSketch}
+      />
+
+      {/* Ștergerea unei adnotări. Formularul stă MONTAT PERMANENT (ascuns), nu în blocul adnotării
+          deschise: altfel închiderea adnotării i-ar demonta ref-ul, iar confirmarea ar eșua tăcut —
+          exact bugul din `detail-actions-menu.tsx` (2026-07-16). Authz e pe server: `deleteSketch`
+          cere ca actorul să fie autorul schiței sau al detaliului — butonul nu e sursă de adevăr. */}
+      <form action={deleteSketchAction} ref={deleteAnnotationFormRef} className="hidden" aria-hidden>
+        <input type="hidden" name="sketchId" value={pendingDeleteAnnotationId ?? ""} />
+        {/* `detailId` NU e opțional: fără el `deleteSketchAction` revalidează „/details/" (cale greșită)
+            → adnotarea ștearsă rămâne pe ecran până la un reload manual. */}
+        <input type="hidden" name="detailId" value={detailId} />
+      </form>
+      <ConfirmDialog
+        open={!!pendingDeleteAnnotationId}
+        title="Ștergi adnotarea?"
+        message="Desenul și nota ei dispar definitiv de pe detaliu. Detaliul și schițele primite de la alții rămân neatinse."
+        onConfirm={() => {
+          deleteAnnotationFormRef.current?.requestSubmit();
+          setPendingDeleteAnnotationId(null);
+        }}
+        onCancel={() => setPendingDeleteAnnotationId(null)}
       />
     </div>
   );
