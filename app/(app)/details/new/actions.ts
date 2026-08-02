@@ -139,13 +139,21 @@ export async function createDetailAction(
   // fie că a mers sau nu. Serviciul face validarea + authz (doar autorul își adnotează detaliul).
   const annotationStrokes = parseAnnotationStrokes(formData.get("annotationStrokes"));
   let hasAnnotation = false;
+  // A ÎNCERCAT o adnotare și n-a mers? Userul trebuie să afle — altfel publică, nu-și vede desenul pe
+  // detaliu și nu are cum să ghicească de ce (până la 2026-08-02 eșecul era complet tăcut, vizibil doar
+  // în PostHog prin `has_annotation: false`). Nu e o eroare de formular: detaliul E publicat, deci mesajul
+  // se dă pe pagina lui, nu aici. Cauza realistă e o indisponibilitate momentană de DB — deci „reîncearcă".
+  let annotationFailed = false;
   if (annotationStrokes !== null) {
     const annotation = await createAnnotation({
       detailId: result.detailId,
       authorId: userId,
       strokes: annotationStrokes,
+      // Nota e OPȚIONALĂ; serverul o validează (`validateSketchNote` — trim + lungime). Gol → null.
+      note: formData.get("annotationNote"),
     });
     hasAnnotation = annotation.ok;
+    annotationFailed = !annotation.ok;
   }
 
   const posthog = getPostHogClient();
@@ -166,8 +174,13 @@ export async function createDetailAction(
   // Detaliul nou apare în feed (listă + counts pe categorie) → invalidează cache-ul feed-ului.
   revalidatePath("/feed");
 
-  // Publicat → ducem userul direct la pagina noului detaliu.
-  redirect(`/details/${result.detailId}`);
+  // Publicat → ducem userul direct la pagina noului detaliu. `?annotation=failed` doar dacă adnotarea
+  // (pas OPȚIONAL) n-a apucat să se salveze — pagina afișează un mesaj, detaliul rămâne publicat.
+  redirect(
+    annotationFailed
+      ? `/details/${result.detailId}?annotation=failed`
+      : `/details/${result.detailId}`,
+  );
 }
 
 // „Salvează ciornă" pe formularul de adăugare — prima dată, deci nu există încă un id. Validare

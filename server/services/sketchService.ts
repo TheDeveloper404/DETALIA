@@ -7,6 +7,7 @@
 import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import {
+  canAddAnnotation,
   isSelfAnnotation,
   SKETCH_STATUS,
   type Stroke,
@@ -18,11 +19,11 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   getSketchById,
   insertDraft,
+  countAnnotationsByDetail,
   deleteDraftByAuthor,
   deleteSketchCascade,
-  getAnnotationByDetail,
   getPublicSketchTeaser,
-  listOtherAnnotationIds,
+  listAnnotationsByDetail,
   listDraftsByAuthor,
   listPublishedByDetail,
   publishFromDraft,
@@ -40,7 +41,8 @@ type SketchError =
   | "INVALID_STATE"
   | "EMPTY_STROKES"
   | "INVALID_STROKES"
-  | "NOTE_TOO_LONG";
+  | "NOTE_TOO_LONG"
+  | "ANNOTATION_LIMIT";
 
 export type SketchResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; value: T })
@@ -59,20 +61,20 @@ export async function createDraft(input: {
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
-  // AUTORUL pe PROPRIUL detaliu nu-și poate face fork sieși: „Schițează peste" înseamnă pentru el
-  // „continuă adnotarea", nu „începe una nouă". Pornim draftul din stroke-urile adnotării curente, ca
-  // să nu piardă ce a desenat deja (publicarea o ÎNLOCUIEȘTE, vezi `publish`). Fără asta, editorul se
-  // deschidea gol și adnotarea veche dispărea tăcut din UI la prima republicare.
-  let strokesJson: Stroke[] | null = null;
+  // AUTORUL pe PROPRIUL detaliu: „Schițează peste" înseamnă o ADNOTARE NOUĂ, pornită de la zero
+  // (decizie Liviu 2026-08-02). Adnotările existente rămân neatinse — se corectează prin ȘTERGERE +
+  // desenare din nou, nu prin editare. Plafonul se verifică și AICI ca să nu deschidem un editor în
+  // care userul desenează degeaba; `publish` îl reverifică oricum și el e sursa de adevăr.
+  // (Între 2026-07-31 și 2026-08-01 draftul pornea din adnotarea curentă, iar publicarea o înlocuia.)
   if (isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.authorId })) {
-    const existing = await getAnnotationByDetail(input.detailId);
-    strokesJson = (existing?.strokesJson as Stroke[] | null) ?? null;
+    const count = await countAnnotationsByDetail(input.detailId);
+    if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
   }
 
   const sketch = await insertDraft({
     detailId: input.detailId,
     authorId: input.authorId,
-    strokesJson,
+    strokesJson: null,
     disapprovesParent: input.disapprovesParent ?? false,
   });
   return { ok: true, value: { sketchId: sketch.id } };
@@ -147,6 +149,17 @@ export async function publish(input: {
   const detail = await getDetailById(sketch.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
+  // PLAFONUL de adnotări — impus pe server, ÎNAINTE de tranziție: n-are sens să publicăm și abia apoi să
+  // ne plângem. Draftul curent e încă DRAFT, deci nu se numără pe el însuși. Un draft început când erau 2
+  // adnotări poate ajunge la publicare când sunt 3 (altă filă) → refuzăm aici, nu la deschiderea editorului.
+  // Cursă acceptată conștient: două publicări simultane ale ACELUIAȘI autor pot trece amândouă de check și
+  // duce la 4. E o cursă cu sine însuși, fără consecință distructivă (nimic nu se șterge), iar remediul —
+  // blocare la nivel de rând — nu justifică complexitatea. Ștergerea rămâne oricând la îndemâna autorului.
+  if (isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.authorId })) {
+    const count = await countAnnotationsByDetail(sketch.detailId);
+    if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
+  }
+
   // Tranziție atomică DRAFT → PUBLISHED (guard pe status + autor). Două PUBLISH concurente: doar primul prinde
   // rândul → doar el notifică / materializează. Al doilea iese cu INVALID_STATE, fără efecte duble.
   const transitioned = await publishFromDraft(input.sketchId, input.authorId, {
@@ -159,18 +172,6 @@ export async function publish(input: {
   // Dacă userul abandonase editorul, nu se ajungea aici → nicio dezaprobare „mută".
   if (sketch.disapprovesParent) {
     await recordSketchDisapproval({ userId: sketch.authorId, detailId: sketch.detailId });
-  }
-
-  if (isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.authorId })) {
-    // ÎNLOCUIRE, nu acumulare: un detaliu are o singură adnotare vizibilă (cea mai recentă). Fără
-    // curățarea celor vechi, fiecare re-adnotare ar lăsa în urmă un rând PUBLISHED invizibil — nici în
-    // teanc (exclus prin `ne(authorId, details.authorId)`), nici în viewer. Ștergem DUPĂ tranziția
-    // reușită: dacă publicarea eșua, adnotarea veche trebuie să rămână singura sursă de adevăr.
-    const stale = await listOtherAnnotationIds(sketch.detailId, sketch.id);
-    for (const id of stale) {
-      const thumbnailUrl = await deleteSketchCascade(id);
-      if (thumbnailUrl) await deleteBlobs([thumbnailUrl]);
-    }
   }
 
   // ADNOTARE (autorul pe propriul detaliu) → nimeni de anunțat: destinatarul ar fi chiar el. Notificarea
@@ -231,6 +232,8 @@ export async function createAnnotation(input: {
   detailId: string;
   authorId: string;
   strokes: unknown;
+  // Explicația în cuvinte, opțională (2026-08-02) — validată în `publish` prin `validateSketchNote`.
+  note?: unknown;
 }): Promise<SketchResult<{ sketchId: string }>> {
   if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" }; // SEC-11
 
@@ -256,6 +259,7 @@ export async function createAnnotation(input: {
     sketchId: created.value.sketchId,
     authorId: input.authorId,
     strokes: validation.value,
+    note: input.note,
   });
   if (!published.ok) return published;
   return { ok: true, value: { sketchId: created.value.sketchId } };
@@ -270,11 +274,12 @@ export function getTeanc(detailId: string) {
   return listPublishedByDetail(detailId);
 }
 
-// ADNOTAREA autorului peste propriul detaliu (sau null). Nu e un tab în teanc — se randează peste
-// imaginea de bază. Vezi `isSelfAnnotation` (server/domain/sketch.ts) pentru semantică.
-export function getAnnotation(detailId: string) {
-  if (!isUuid(detailId)) return Promise.resolve(null); // SEC-11
-  return getAnnotationByDetail(detailId);
+// ADNOTĂRILE autorului peste propriul detaliu (0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării).
+// Nu sunt taburi în teanc — se randează peste imaginea de bază, una câte una, la cererea cititorului.
+// Vezi `isSelfAnnotation` (server/domain/sketch.ts) pentru semantică.
+export function getAnnotations(detailId: string) {
+  if (!isUuid(detailId)) return Promise.resolve([]); // SEC-11
+  return listAnnotationsByDetail(detailId);
 }
 
 // Teaser PUBLIC (fără sesiune) — DOAR schițe PUBLISHED (repo-ul filtrează; o schiță ștearsă/DRAFT
