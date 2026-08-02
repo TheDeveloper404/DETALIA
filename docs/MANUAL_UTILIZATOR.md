@@ -65,7 +65,12 @@ active/discutate la momentul respectiv. Poți:
    - opțional: zonă climatică/seismică, resurse suplimentare (link, PDF, text, altă imagine)
 3. Poți salva ca **ciornă** (fără categorie/imagine încă) și reveni mai târziu s-o completezi — o
    regăsești în **„Ciornele mele"** (vezi secțiunea 8).
-4. Când apeși **„Publică detaliul"**, devine vizibil public imediat — nu există coadă de aprobare.
+4. **Opțional: adnotează imaginea.** După ce ai încărcat imaginea apare butonul **„Adnotează"** — dacă
+   vrei să explici ceva anume din ea (o săgeată, o cotă, o notiță), desenezi direct peste previzualizare
+   și poți adăuga și o **explicație scrisă**. Apeși „Gata" și adnotarea se salvează odată cu detaliul.
+   Dacă schimbi imaginea între timp, adnotarea se șterge automat (desenul era potrivit pe imaginea veche).
+   Detalii complete în secțiunea 7b.
+5. Când apeși **„Publică detaliul"**, devine vizibil public imediat — nu există coadă de aprobare.
 
 **Moderare:** dacă un detaliu e problematic, poate fi șters ulterior (de tine, ca autor, sau de un admin) —
 verificarea calității se face prin dezbaterea publică (aprobări/dezaprobări/comentarii), nu prin filtrare
@@ -111,6 +116,38 @@ o completare.
 - autorul detaliului-mamă primește o **notificare** că cineva a schițat peste conținutul lui;
 - schița poate fi **ștearsă** oricând de autorul ei SAU de autorul detaliului-mamă (moderare simplă,
   fără aprobare/respingere prealabilă).
+
+---
+
+## 7b. Adnotările tale (explicații pe propriul detaliu)
+
+O **adnotare** e desenul TĂU peste **propriul** tău detaliu. Nu e o schiță primită de la altcineva — e
+felul în care îți explici singur imaginea: săgeți, cote, notițe.
+
+**Cum o faci:**
+- la publicare, din butonul **„Adnotează"** (vezi secțiunea 5), sau
+- oricând după aceea, de pe pagina detaliului tău, din butonul **„Adnotează detaliul"** /
+  **„Adnotează din nou"**.
+
+**Ce trebuie să știi:**
+- poți avea **cel mult 3 adnotări** pe același detaliu — fiecare o explicație separată. La 3, butonul se
+  dezactivează până ștergi una;
+- fiecare adnotare **începe de la zero**. Nu se editează una existentă: dacă vrei s-o corectezi, **o
+  ștergi și desenezi alta**;
+- poți adăuga la fiecare o **explicație în cuvinte**, care apare sub imagine când adnotarea e deschisă;
+- **ștergerea:** deschizi adnotarea și apeși **„șterge"** (butonul apare doar ție, doar pe adnotarea
+  deschisă, ca să știi exact ce ștergi). Ștergerea e definitivă și ia cu ea și explicația scrisă.
+
+**Cum le văd ceilalți:**
+- imaginea detaliului se vede **curată** — adnotările NU sunt afișate din start;
+- sus-stânga apar butoane („adnotarea autorului", sau „adnotarea 1 / 2 / 3" dacă sunt mai multe);
+  cine vrea apasă pe unul și vede acel desen peste imagine. Al doilea click îl închide;
+- se deschide **una singură** odată — două desene suprapuse ar fi ilizibile.
+
+**Adnotarea NU e o schiță:** nu intră în teancul de schițe, nu se numără la „N schițe", nu trimite
+notificări și nu poate fi aprobată/dezaprobată. E nota autorului, nu o contribuție supusă dezbaterii.
+Dacă desenezi peste detaliul **altcuiva**, aceea e o schiță normală (secțiunea 7) — și pornești de la
+o foaie goală, nu de la adnotările autorului.
 
 ---
 
@@ -181,6 +218,7 @@ Dacă vezi un mesaj de tipul „Prea multe [acțiuni] într-un timp scurt", nu e
 atins una din limitele de mai sus. Mai încerci peste puțin timp.
 
 **Alte reguli importante:**
+- **Maxim 3 adnotări** pe același detaliu (vezi secțiunea 7b). La 3, ștergi una ca să poți adăuga alta.
 - **Un singur rol declarat** per cont (plus, opțional, un rol adițional gen Administrativ/Educație).
 - **Nu poți vota pe propriul conținut** (vezi secțiunea 6).
 - **Un cont suspendat** (de admin, pentru abuz) e delogat automat la prima încercare de acțiune și nu mai

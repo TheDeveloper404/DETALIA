@@ -40,6 +40,10 @@ export async function startSketchAction(formData: FormData): Promise<void> {
   const draft = await createDraft({ detailId, authorId: userId });
   if (!draft.ok) {
     if (draft.error === "NO_ROLE") redirect("/onboarding");
+    // Plafonul de adnotări atins. Butonul e dezactivat în UI, deci normal nu se ajunge aici — DAR cu o
+    // filă veche deschisă (starea din pagină e stale) se ajunge, iar fără mesaj userul apasă și nu se
+    // întâmplă nimic vizibil. Explicăm pe pagina detaliului, nu redirecționăm în gol.
+    if (draft.error === "ANNOTATION_LIMIT") redirect(`/details/${detailId}?annotation=limit`);
     redirect(`/details/${detailId}`);
   } else {
     redirect(`/sketches/${draft.value.sketchId}/edit`);
