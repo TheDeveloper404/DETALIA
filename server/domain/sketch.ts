@@ -30,6 +30,18 @@ export function isSelfAnnotation(input: {
   return input.sketchAuthorId === input.detailAuthorId;
 }
 
+// Câte adnotări poate avea un detaliu (decizie Liviu 2026-08-02). Autorul poate explica mai multe lucruri
+// separat, dar nu la nesfârșit: peste 3, selectorul devine nefolosibil și imaginea de bază dispare sub
+// desene. Plafonul se impune pe SERVER (`publish`) — UI-ul doar dezactivează butonul, nu e sursă de adevăr.
+// Istoric: 2026-07-31→2026-08-01 regula era „exact o adnotare, re-adnotarea o ÎNLOCUIEȘTE"; înlocuită aici
+// cu „până la 3, fiecare distinctă, ștergere explicită din UI". Vezi CHANGELOG 2026-08-02.
+export const MAX_ANNOTATIONS_PER_DETAIL = 3;
+
+// Mai încape o adnotare pe acest detaliu? (`count` = adnotările PUBLISHED existente.)
+export function canAddAnnotation(count: number): boolean {
+  return count < MAX_ANNOTATIONS_PER_DETAIL;
+}
+
 // Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie Liviu după ce
 // tool-ul de Text cu ancoră în margine a arătat prost în practică — un câmp dedicat e mai clar decât text
 // liber plasat pe canvas). Opțională; goală → nu se afișează la citire.

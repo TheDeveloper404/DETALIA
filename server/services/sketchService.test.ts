@@ -11,8 +11,8 @@ vi.mock("@/server/repos/sketchesRepo", () => ({
   deleteSketchCascade: vi.fn(),
   listDraftsByAuthor: vi.fn(),
   listPublishedByDetail: vi.fn(),
-  getAnnotationByDetail: vi.fn(),
-  listOtherAnnotationIds: vi.fn(),
+  listAnnotationsByDetail: vi.fn(),
+  countAnnotationsByDetail: vi.fn(),
   publishFromDraft: vi.fn(),
   updateStrokes: vi.fn(),
 }));
@@ -25,15 +25,16 @@ vi.mock("@/server/services/validationService", () => ({ recordSketchDisapproval:
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 
 import { deleteBlobs } from "@/lib/storage";
+import { MAX_ANNOTATIONS_PER_DETAIL, MAX_SKETCH_NOTE_LENGTH } from "@/server/domain/sketch";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
+  countAnnotationsByDetail,
   deleteSketchCascade,
-  getAnnotationByDetail,
   getSketchById,
   insertDraft,
-  listOtherAnnotationIds,
   publishFromDraft,
+  updateStrokes,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import {
@@ -80,81 +81,104 @@ beforeEach(() => {
     roleMain: "PROIECTANT",
     verification: "UNVERIFIED",
   } as never);
-  vi.mocked(listOtherAnnotationIds).mockResolvedValue([]);
+  vi.mocked(countAnnotationsByDetail).mockResolvedValue(0);
 });
 
-// Autorul nu-și poate face fork sieși: „Schițează peste" pe PROPRIUL detaliu = continuarea adnotării,
-// iar publicarea o ÎNLOCUIEȘTE. Fără asta (bug găsit 2026-08-01), editorul pornea gol și adnotarea
-// veche rămânea un rând PUBLISHED invizibil — nici în teanc, nici în viewer.
-describe("Re-adnotare — autorul continuă adnotarea, nu începe alta", () => {
-  it("AUTORUL, cu adnotare existentă → draftul pornește din stroke-urile ei", async () => {
+// Un detaliu poate avea până la MAX_ANNOTATIONS_PER_DETAIL adnotări (decizie 2026-08-02). Fiecare
+// „Schițează peste" al AUTORULUI pe propriul detaliu începe una NOUĂ, de la zero; cele existente rămân
+// neatinse (se corectează prin ștergere + desenare din nou). Plafonul se impune pe server, în `publish`.
+describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server", () => {
+  it("AUTORUL, cu adnotări existente → draftul pornește GOL (nu continuă adnotarea veche)", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
-    vi.mocked(getAnnotationByDetail).mockResolvedValue({ strokesJson: validStrokes } as never);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(1);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
 
     await createDraft({ detailId: DID, authorId: OWNER });
 
     expect(insertDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ authorId: OWNER, strokesJson: validStrokes }),
+      expect.objectContaining({ authorId: OWNER, strokesJson: null }),
     );
   });
 
-  it("AUTORUL, fără adnotare încă → draft gol (nu inventăm stroke-uri)", async () => {
+  it("AUTORUL la plafon → createDraft refuză, fără să deschidă un editor inutil", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
-    vi.mocked(getAnnotationByDetail).mockResolvedValue(null as never);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL);
+
+    const res = await createDraft({ detailId: DID, authorId: OWNER });
+
+    expect(res).toEqual({ ok: false, error: "ANNOTATION_LIMIT" });
+    expect(insertDraft).not.toHaveBeenCalled();
+  });
+
+  it("ALT user nu e limitat de plafonul de adnotări (teancul e alt concept)", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
 
-    await createDraft({ detailId: DID, authorId: OWNER });
+    const res = await createDraft({ detailId: DID, authorId: SKETCH_AUTHOR });
 
+    expect(res.ok).toBe(true);
+    expect(countAnnotationsByDetail).not.toHaveBeenCalled();
     expect(insertDraft).toHaveBeenCalledWith(expect.objectContaining({ strokesJson: null }));
   });
 
-  it("ALT user → draft GOL: nu pornește din desenul autorului (ar fi scurgere de conținut)", async () => {
-    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
-    vi.mocked(getAnnotationByDetail).mockResolvedValue({ strokesJson: validStrokes } as never);
-    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
-
-    await createDraft({ detailId: DID, authorId: SKETCH_AUTHOR });
-
-    expect(getAnnotationByDetail).not.toHaveBeenCalled();
-    expect(insertDraft).toHaveBeenCalledWith(expect.objectContaining({ strokesJson: null }));
-  });
-
-  it("publicarea unei adnotări noi le șterge pe cele vechi, cu tot cu thumbnail", async () => {
+  it("publicarea NU mai șterge adnotările existente (se acumulează, nu se înlocuiesc)", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
-    vi.mocked(listOtherAnnotationIds).mockResolvedValue(["old-1", "old-2"]);
-    vi.mocked(deleteSketchCascade).mockResolvedValue("https://blob/old.png" as never);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(1);
 
     const res = await publish({ sketchId: SID, authorId: OWNER });
 
     expect(res.ok).toBe(true);
-    expect(listOtherAnnotationIds).toHaveBeenCalledWith(DID, SID);
-    expect(deleteSketchCascade).toHaveBeenCalledWith("old-1");
-    expect(deleteSketchCascade).toHaveBeenCalledWith("old-2");
-    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/old.png"]);
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+    expect(deleteBlobs).not.toHaveBeenCalled();
     // Adnotarea nu e o contribuție primită → autorul nu se anunță pe sine.
     expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 
-  it("schița ALTUIA nu atinge adnotarea autorului (teancul rămâne intact)", async () => {
+  it("publish la plafon → ANNOTATION_LIMIT, FĂRĂ tranziție (draftul rămâne draft)", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL);
+
+    const res = await publish({ sketchId: SID, authorId: OWNER });
+
+    expect(res).toEqual({ ok: false, error: "ANNOTATION_LIMIT" });
+    expect(publishFromDraft).not.toHaveBeenCalled();
+  });
+
+  it("publish sub plafon (2 din 3) → trece", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL - 1);
+
+    const res = await publish({ sketchId: SID, authorId: OWNER });
+
+    expect(res.ok).toBe(true);
+  });
+
+  it("schița ALTUIA nu e supusă plafonului și nu atinge adnotările autorului", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
 
     await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
 
-    expect(listOtherAnnotationIds).not.toHaveBeenCalled();
+    expect(countAnnotationsByDetail).not.toHaveBeenCalled();
     expect(deleteSketchCascade).not.toHaveBeenCalled();
   });
 
-  it("publicare pierdută în cursă → adnotarea veche NU se șterge (rămâne singura sursă)", async () => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
-    vi.mocked(publishFromDraft).mockResolvedValue(false as never);
+  it("AUTORUL își poate ȘTERGE propria adnotare (singura cale de a scăpa de ea)", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "PUBLISHED" }) as never,
+    );
+    vi.mocked(deleteSketchCascade).mockResolvedValue("https://blob/annotation.png" as never);
 
-    const res = await publish({ sketchId: SID, authorId: OWNER });
+    const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
 
-    expect(res.ok).toBe(false);
-    expect(deleteSketchCascade).not.toHaveBeenCalled();
+    expect(res.ok).toBe(true);
+    expect(deleteSketchCascade).toHaveBeenCalledWith(SID);
+    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/annotation.png"]);
+    // Ștergerea propriei adnotări nu notifică pe nimeni — nu e moderarea muncii altcuiva.
+    expect(notifySketchDeleted).not.toHaveBeenCalled();
   });
 });
 
@@ -274,6 +298,45 @@ describe("createAnnotation — doar autorul își adnotează propriul detaliu", 
     expect(r).toEqual({ ok: true, value: { sketchId: SID } });
     expect(publishFromDraft).toHaveBeenCalledTimes(1);
     expect(notifySketchProposed).not.toHaveBeenCalled();
+  });
+
+  // Nota scrisă a adnotării, adăugată în formularul de publicare 2026-08-02. Se persistă odată cu
+  // stroke-urile (`updateStrokes`), trecută prin `validateSketchNote` — trim, nu text brut de la client.
+  it("nota adnotării ajunge validată în DB, nu brută de la client", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ roleMain: "PROIECTANT" } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+
+    const r = await createAnnotation({
+      detailId: DID,
+      authorId: OWNER,
+      strokes: validStrokes,
+      note: "  săgeata arată sensul de scurgere  ",
+    });
+
+    expect(r.ok).toBe(true);
+    expect(updateStrokes).toHaveBeenCalledWith(
+      SID,
+      validStrokes,
+      "săgeata arată sensul de scurgere",
+    );
+  });
+
+  it("notă peste limita de lungime → NOTE_TOO_LONG, adnotarea nu se publică", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ roleMain: "PROIECTANT" } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+
+    const r = await createAnnotation({
+      detailId: DID,
+      authorId: OWNER,
+      strokes: validStrokes,
+      note: "x".repeat(MAX_SKETCH_NOTE_LENGTH + 1),
+    });
+
+    expect(r).toEqual({ ok: false, error: "NOTE_TOO_LONG" });
+    expect(publishFromDraft).not.toHaveBeenCalled();
   });
 });
 

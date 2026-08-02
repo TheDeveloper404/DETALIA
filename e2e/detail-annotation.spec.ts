@@ -123,19 +123,19 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       expect(annotations).toHaveLength(1);
       expect((annotations[0]?.strokesJson as unknown[] | null)?.length).toBeGreaterThan(0);
 
-      // Pe pagina detaliului apare toggle-ul de adnotare — și NU un tab de schiță cu autorul lângă
+      // Pe pagina detaliului apare butonul de adnotare — și NU un tab de schiță cu autorul lângă
       // el însuși (regresia pe care feature-ul o repară).
-      const toggle = page.getByTestId("annotation-toggle");
+      const toggle = page.getByTestId("annotation-toggle-1");
       await expect(toggle).toBeVisible();
-      await expect(toggle).toHaveAttribute("aria-pressed", "true");
+      // ÎNCHISĂ implicit (2026-08-02): imaginea de bază se vede prima, adnotarea se cere.
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
       await expect(page.getByTestId(`sketch-tab-${annotations[0]!.id}`)).toHaveCount(0);
 
-      // Toggle-ul chiar comută (comportament interactiv — exact ce testele unitare nu acoperă).
-      await toggle.click();
-      await expect(toggle).toHaveAttribute("aria-pressed", "false");
-      await expect(toggle).toHaveText(/arată adnotarea/);
+      // Comută efectiv (comportament interactiv — exact ce testele unitare nu acoperă).
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-pressed", "true");
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-pressed", "false");
     } finally {
       await cleanup(detailId, imageUrl);
     }
@@ -168,7 +168,7 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
         .where(eq(details.id, detailId!));
       imageUrl = row?.imageUrl ?? null;
 
-      await expect(page.getByTestId("annotation-toggle")).toHaveCount(0);
+      await expect(page.getByTestId("annotation-toggle-1")).toHaveCount(0);
       const annotations = await db
         .select({ id: sketches.id })
         .from(sketches)
@@ -200,13 +200,14 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
     await expect(page.getByText("adnotare adăugată")).toHaveCount(0);
   });
 
-  // Regresia din 2026-08-01: autorul revine să mai adauge ceva peste adnotarea lui. Editorul trebuie să
-  // pornească DIN ea (nu gol), iar publicarea s-o ÎNLOCUIASCĂ — nu să lase în urmă un rând invizibil.
-  test("Re-adnotare: „Editează adnotarea” pornește din desenul existent și îl înlocuiește", async ({
+  // Regula de la 2026-08-02: autorul poate avea mai multe adnotări (max MAX_ANNOTATIONS_PER_DETAIL),
+  // fiecare începută de la zero. A doua NU o înlocuiește pe prima — se ADAUGĂ. Corectarea se face prin
+  // ștergere explicită, singura cale de a scăpa de o adnotare (golul semnalat 2026-08-01, acum închis).
+  test("A doua adnotare se ADAUGĂ (nu înlocuiește), iar autorul o poate șterge", async ({
     page,
   }) => {
     const [category] = await pickLeafCategories(1);
-    const title = `E2E re-adnotare ${Date.now()}`;
+    const title = `E2E adnotări multiple ${Date.now()}`;
     let detailId: string | null = null;
     let imageUrl: string | null = null;
 
@@ -237,37 +238,56 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
         .select({ id: sketches.id })
         .from(sketches)
         .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(first).toBeTruthy();
 
-      // Butonul îi spune autorului ce urmează să facă (nu „Schițează peste detaliu").
-      const cta = page.getByRole("button", { name: "Editează adnotarea" });
+      // Butonul îi spune autorului că începe una NOUĂ (nu că o continuă pe cea veche).
+      const cta = page.getByRole("button", { name: "Adnotează din nou" });
       await expect(cta).toBeVisible();
       await cta.click();
       await expect(page).toHaveURL(/\/sketches\/[0-9a-f-]+\/edit/, { timeout: 20_000 });
 
-      // Editorul pornește DIN adnotarea existentă. Pagina de editare a schiței NU are contor de trasee
-      // (acela e doar în formularul de adnotare), iar stroke-urile preîncărcate se văd doar desenate pe
-      // canvas → verificăm la sursă: draftul nou-creat trebuie să aibă deja stroke-urile adnotării.
-      const editedSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1];
-      expect(editedSketchId).toBeTruthy();
-      const [reopened] = await db
+      // Editorul pornește GOL — adnotarea existentă NU se moștenește (2026-08-02). Pagina de editare a
+      // schiței nu are contor de trasee (acela e doar în formularul de adnotare) → verificăm la sursă.
+      const secondSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1];
+      expect(secondSketchId).toBeTruthy();
+      const [fresh] = await db
         .select({ strokesJson: sketches.strokesJson })
         .from(sketches)
-        .where(eq(sketches.id, editedSketchId!));
-      expect((reopened?.strokesJson as unknown[] | null)?.length).toBeGreaterThan(0);
+        .where(eq(sketches.id, secondSketchId!));
+      expect((fresh?.strokesJson as unknown[] | null) ?? []).toHaveLength(0);
 
       await drawStroke(page, { expectCounter: false });
       await page.getByRole("button", { name: /Publică schița/ }).click();
       await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`), { timeout: 20_000 });
 
-      // ÎNLOCUIRE: o singură adnotare rămâne, și e cea nouă. Vechea nu supraviețuiește invizibil.
+      // ACUMULARE: ambele adnotări există; cea veche NU s-a pierdut.
       const after = await db
         .select({ id: sketches.id })
         .from(sketches)
         .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
-      expect(after).toHaveLength(1);
-      expect(after[0]?.id).not.toBe(first?.id);
+      expect(after).toHaveLength(2);
+      expect(after.map((a) => a.id)).toContain(first!.id);
 
-      await expect(page.getByTestId("annotation-toggle")).toBeVisible();
+      // Selectorul arată două butoane, ambele închise.
+      await expect(page.getByTestId("annotation-toggle-1")).toBeVisible();
+      await expect(page.getByTestId("annotation-toggle-2")).toBeVisible();
+      await expect(page.getByTestId("annotation-toggle-1")).toHaveAttribute("aria-pressed", "false");
+
+      // ȘTERGEREA: butonul apare doar pe adnotarea DESCHISĂ (altfel n-ai ști ce ștergi).
+      await expect(page.getByTestId("annotation-delete")).toHaveCount(0);
+      await page.getByTestId("annotation-toggle-2").click();
+      await page.getByTestId("annotation-delete").click();
+      // Numele accesibil e case-insensitive în Playwright: „Șterge" (confirmarea) s-ar potrivi ȘI cu
+      // butonul „șterge" care a deschis dialogul → strict mode violation. Restrângem la dialog.
+      await page.getByRole("dialog").getByRole("button", { name: "Șterge" }).click();
+
+      await expect(page.getByTestId("annotation-toggle-2")).toHaveCount(0, { timeout: 20_000 });
+      const remaining = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(remaining).toHaveLength(1);
+      expect(remaining[0]?.id).toBe(first!.id);
     } finally {
       await cleanup(detailId, imageUrl);
     }

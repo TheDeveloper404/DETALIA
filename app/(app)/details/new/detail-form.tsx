@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
-import type { Stroke } from "@/server/domain/sketch";
+import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 import {
   HEIC_ERROR_MESSAGE,
   HeicUnsupportedError,
@@ -341,6 +341,10 @@ export function DetailForm({
   const [annotating, setAnnotating] = useState(false);
   const [annotationStrokes, setAnnotationStrokes] = useState<Stroke[] | null>(null);
   const [annotationCount, setAnnotationCount] = useState(0);
+  // Explicația în CUVINTE a adnotării, separată de desen (același model ca `note` la schițe, 2026-07-16).
+  // Până la 2026-08-02 se putea scrie doar din editorul de schiță, deși coloana exista și se afișa —
+  // autorul care adnota la publicare nu avea unde s-o scrie. `annotating` o ține în editor, lângă desen.
+  const [annotationNote, setAnnotationNote] = useState("");
   const [categoryIds, setCategoryIds] = useState<string[]>(initial?.categoryIds ?? []);
   // Pill „România" / „Altă locație" — la editare, dacă locația salvată nu e România, pornim direct
   // pe pillul „Altă locație" cu textul deja completat (formularul reflectă starea reală salvată).
@@ -420,6 +424,7 @@ export function DetailForm({
     setAnnotating(false);
     setAnnotationStrokes(null);
     setAnnotationCount(0);
+    setAnnotationNote("");
   }
 
   function removeImage() {
@@ -576,6 +581,12 @@ export function DetailForm({
         type="hidden"
         name="annotationStrokes"
         value={annotationStrokes ? JSON.stringify(annotationStrokes) : ""}
+      />
+      {/* Nota merge doar dacă există un desen — o explicație fără adnotare n-ar avea unde să apară. */}
+      <input
+        type="hidden"
+        name="annotationNote"
+        value={annotationStrokes ? annotationNote : ""}
       />
       {/* Editare: id-ul detaliului + semnal dacă imaginea s-a schimbat (pt reprocesare pe server). */}
       {isEdit && <input type="hidden" name="detailId" value={initial.detailId} />}
@@ -859,7 +870,25 @@ export function DetailForm({
                       onStrokesCount={setAnnotationCount}
                     />
                   </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[#eee6da] bg-card px-3.5 py-2.5">
+                  <div className="border-t border-[#eee6da] bg-card px-3.5 pt-2.5">
+                    <label
+                      htmlFor="annotationNoteField"
+                      className="mb-1 block font-mono text-[11px] uppercase tracking-wide text-[#a59a88]"
+                    >
+                      Explicația ta, în cuvinte (opțional)
+                    </label>
+                    <textarea
+                      id="annotationNoteField"
+                      data-testid="annotate-note"
+                      value={annotationNote}
+                      onChange={(e) => setAnnotationNote(e.target.value.slice(0, MAX_SKETCH_NOTE_LENGTH))}
+                      maxLength={MAX_SKETCH_NOTE_LENGTH}
+                      rows={2}
+                      placeholder="Ex.: săgeata arată sensul de scurgere; cota e măsurată la fața finită."
+                      className="w-full resize-none rounded-lg border border-[#e6dccd] bg-card px-3 py-2 text-[13.5px] leading-relaxed text-foreground placeholder:text-[#bdb3a2]"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center justify-end gap-2 bg-card px-3.5 py-2.5">
                     <span className="mr-auto font-mono text-[11.5px] text-muted-foreground">
                       {annotationCount === 0
                         ? "Desenează peste imagine ce vrei să explici."

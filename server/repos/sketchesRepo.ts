@@ -1,5 +1,5 @@
 // Repo schițe — singurul loc cu acces Drizzle pentru tabelul `sketches`.
-import { and, desc, eq, inArray, ne } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
@@ -106,16 +106,20 @@ function listByDetailAndStatus(detailId: string, status: SketchStatus) {
 }
 
 // Teancul = schițele PUBLISHED ale unui detaliu, ALE ALTOR USERI (navigabile prin taburi).
-// Adnotarea autorului pe propriul detaliu NU e aici — vezi `getAnnotationByDetail`.
+// Adnotările autorului pe propriul detaliu NU sunt aici — vezi `listAnnotationsByDetail`.
 export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
 }
 
-// ADNOTAREA autorului: schița PUBLISHED făcută de autorul detaliului pe PROPRIUL lui detaliu.
-// Se afișează peste imaginea de bază, nu ca tab în teanc. Dacă autorul a lăsat mai multe (posibil
-// pe date istorice — vezi CHANGELOG 2026-07-31), o luăm pe cea mai recentă: e „ultimul lui cuvânt".
-export async function getAnnotationByDetail(detailId: string) {
-  const [row] = await db
+// ADNOTĂRILE autorului: schițele PUBLISHED făcute de autorul detaliului pe PROPRIUL lui detaliu.
+// Se afișează peste imaginea de bază (una câte una, la cerere), nu ca taburi în teanc. Un detaliu poate
+// avea până la MAX_ANNOTATIONS_PER_DETAIL (domain/sketch.ts) — decizie 2026-08-02, înainte era una singură.
+// ORDINE ASCENDENTĂ după `created_at`: numerotarea din UI („adnotarea 1/2/3") urmează ordinea în care
+// autorul le-a desenat. ATENȚIE: e o POZIȚIE în listă, nu un ordinal persistat — la ștergerea uneia din
+// mijloc, cele de după se renumerotează. Un ordinal stabil ar cere o coloană dedicată (vezi CHANGELOG
+// 2026-08-02); acceptat conștient, adnotările nu sunt referite după număr nicăieri (nu sunt @mention-abile).
+export async function listAnnotationsByDetail(detailId: string) {
+  return db
     .select({
       id: sketches.id,
       strokesJson: sketches.strokesJson,
@@ -132,20 +136,14 @@ export async function getAnnotationByDetail(detailId: string) {
         eq(sketches.authorId, details.authorId),
       ),
     )
-    .orderBy(desc(sketches.createdAt))
-    .limit(1);
-  return row ?? null;
+    .orderBy(asc(sketches.createdAt));
 }
 
-// Adnotările PUBLISHED ale autorului pe acest detaliu, ALTELE decât cea păstrată. Un detaliu are o
-// singură adnotare vizibilă (`getAnnotationByDetail` ia doar cea mai recentă), deci restul ar fi rânduri
-// invizibile — le ștergem la publicarea uneia noi, ca „re-adnotarea" să însemne ÎNLOCUIRE, nu acumulare.
-export async function listOtherAnnotationIds(
-  detailId: string,
-  keepSketchId: string,
-): Promise<string[]> {
-  const rows = await db
-    .select({ id: sketches.id })
+// Câte adnotări PUBLISHED are detaliul — pentru plafonul impus în `publish`. Numărat în DB, nu prin
+// `listAnnotationsByDetail(...).length`: la verificarea plafonului nu ne trebuie payload-ul de stroke-uri.
+export async function countAnnotationsByDetail(detailId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
     .from(sketches)
     .innerJoin(details, eq(details.id, sketches.detailId))
     .where(
@@ -153,10 +151,9 @@ export async function listOtherAnnotationIds(
         eq(sketches.detailId, detailId),
         eq(sketches.status, "PUBLISHED"),
         eq(sketches.authorId, details.authorId),
-        ne(sketches.id, keepSketchId),
       ),
     );
-  return rows.map((r) => r.id);
+  return row?.count ?? 0;
 }
 
 // Filtrează, dintr-un set de id-uri candidate, doar pe cele care sunt schițe PUBLISHED ale acestui
