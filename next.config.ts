@@ -13,6 +13,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   experimental: {
     // Trimiterea unei schițe postează prin Server Action strokes JSON + thumbnail PNG (1000px lățime,
     // poate depăși 1MB). Default-ul de 1MB pică cu 413 → ridicăm plafonul. Acțiunea e auth-gated + rate-limited.
