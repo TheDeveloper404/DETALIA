@@ -7,7 +7,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs } from "@/lib/storage";
-import { isOwnBlobUrl } from "@/lib/blob-url";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { publishDetailDraft, saveDetailDraft, updateDetail } from "@/server/services/detailService";
 
@@ -83,14 +83,14 @@ export async function updateDetailAction(
   if (location.trim().length === 0) return { error: ERROR_MESSAGES.LOCATION_REQUIRED };
 
   const imageUrl = String(formData.get("imageUrl") ?? "");
-  if (!isOwnBlobUrl(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+  if (!isUsersBlobUrl(imageUrl, userId)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   // Imaginea se reprocesează (validare + re-encodare fără metadata) DOAR dacă userul a schimbat-o.
   // Dacă a rămas cea existentă, e deja procesată → o trimitem ca atare (fără blob nou/orfan).
   const imageChanged = String(formData.get("imageChanged") ?? "") === "1";
   let finalImageUrl = imageUrl;
   if (imageChanged) {
-    const processed = await reprocessBlobImage(imageUrl, "details");
+    const processed = await reprocessBlobImage(imageUrl, "details", userId);
     if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
     finalImageUrl = processed.url;
   }
@@ -144,17 +144,17 @@ function readDraftFields(formData: FormData) {
 }
 
 // Imaginea e OPȚIONALĂ la ciornă — validăm/reprocesăm (SEC-02) doar dacă e prezentă/schimbată.
-async function resolveDraftImageUrl(formData: FormData): Promise<
+async function resolveDraftImageUrl(formData: FormData, userId: string): Promise<
   { ok: true; imageUrl: string | null } | { ok: false; error: string }
 > {
   const rawImageUrl = String(formData.get("imageUrl") ?? "");
   if (rawImageUrl.length === 0) return { ok: true, imageUrl: null };
-  if (!isOwnBlobUrl(rawImageUrl)) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
+  if (!isUsersBlobUrl(rawImageUrl, userId)) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
 
   const imageChanged = String(formData.get("imageChanged") ?? "") === "1";
   if (!imageChanged) return { ok: true, imageUrl: rawImageUrl };
 
-  const processed = await reprocessBlobImage(rawImageUrl, "details");
+  const processed = await reprocessBlobImage(rawImageUrl, "details", userId);
   if (!processed.ok) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
   return { ok: true, imageUrl: processed.url };
 }
@@ -172,7 +172,7 @@ export async function saveDraftDetailAction(
   if (fields.detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
   if (fields.title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
 
-  const image = await resolveDraftImageUrl(formData);
+  const image = await resolveDraftImageUrl(formData, userId);
   if (!image.ok) return { error: image.error };
 
   const result = await saveDetailDraft({ ...fields, authorId: userId, imageUrl: image.imageUrl });
@@ -195,7 +195,7 @@ export async function publishDraftDetailAction(
   const fields = readDraftFields(formData);
   if (fields.detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
 
-  const image = await resolveDraftImageUrl(formData);
+  const image = await resolveDraftImageUrl(formData, userId);
   if (!image.ok) return { error: image.error };
   if (!image.imageUrl) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 

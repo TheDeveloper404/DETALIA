@@ -23,3 +23,17 @@ export function isOwnBlobUrl(url: string): boolean {
     return false;
   }
 }
+
+// SEC-001 — `isOwnBlobUrl` verifică DOAR că URL-ul e din store-ul nostru, nu CINE l-a urcat. Fără asta,
+// orice user autentificat putea trimite URL-ul unei imagini a altui user la `setAvatar`/`updateDetail`/etc.
+// și `reprocessBlobImage` îl ștergea ca „original" după re-încărcare (ștergere arbitrară cross-user).
+// Căile noi se urcă sub `u/<userId>/...` (impus server-side în `/api/blob/upload`) — aici verificăm că
+// URL-ul dat aparține efectiv userului curent înainte să fie reprocesat/persistat/șters.
+export function isUsersBlobUrl(url: string, userId: string): boolean {
+  if (!isOwnBlobUrl(url)) return false;
+  try {
+    return new URL(url).pathname.startsWith(`/u/${userId}/`);
+  } catch {
+    return false;
+  }
+}
