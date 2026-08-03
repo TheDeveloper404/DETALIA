@@ -19,6 +19,16 @@ async function loadWithToken(token: string | undefined) {
   return (await import("./blob-url")).isOwnBlobUrl;
 }
 
+async function loadUsersCheckWithToken(token: string | undefined) {
+  vi.resetModules();
+  if (token === undefined) {
+    delete process.env.BLOB_READ_WRITE_TOKEN;
+  } else {
+    process.env.BLOB_READ_WRITE_TOKEN = token;
+  }
+  return (await import("./blob-url")).isUsersBlobUrl;
+}
+
 afterEach(() => {
   delete process.env.BLOB_READ_WRITE_TOKEN;
 });
@@ -71,5 +81,39 @@ describe("isOwnBlobUrl — token malformat (nu se poate extrage store ID)", () =
   it("cade pe forma generală (nu blochează fluxul)", async () => {
     const isOwnBlobUrl = await loadWithToken("token-care-nu-respecta-formatul");
     expect(isOwnBlobUrl("https://oricare.public.blob.vercel-storage.com/x.png")).toBe(true);
+  });
+});
+
+// isUsersBlobUrl (SEC-001) — pe lângă store-ul nostru, verifică și că URL-ul e sub namespace-ul
+// userului dat (`/u/<userId>/...`). Fără asta, orice user autentificat putea da URL-ul unei imagini a
+// altui user la saveAvatarUrl/updateDetail etc., iar reprocessBlobImage îl ștergea ca „original".
+describe("isUsersBlobUrl", () => {
+  it("acceptă un URL sub namespace-ul userului corect", async () => {
+    const isUsersBlobUrl = await loadUsersCheckWithToken(OWN_TOKEN);
+    expect(isUsersBlobUrl(`https://${OWN_HOST}/u/user-a/avatars/x.png`, "user-a")).toBe(true);
+  });
+
+  it("respinge URL-ul altui user (namespace diferit) — nucleul SEC-001", async () => {
+    const isUsersBlobUrl = await loadUsersCheckWithToken(OWN_TOKEN);
+    expect(isUsersBlobUrl(`https://${OWN_HOST}/u/user-b/details/x.png`, "user-a")).toBe(false);
+  });
+
+  it("respinge un userId care e doar PREFIX-ul altuia (fără graniță de segment)", async () => {
+    const isUsersBlobUrl = await loadUsersCheckWithToken(OWN_TOKEN);
+    // "user-a" nu trebuie să matcheze calea lui "user-abc" doar pentru că e prefix.
+    expect(isUsersBlobUrl(`https://${OWN_HOST}/u/user-abc/avatars/x.png`, "user-a")).toBe(false);
+  });
+
+  it("respinge un URL din alt store chiar dacă path-ul pare corect", async () => {
+    const isUsersBlobUrl = await loadUsersCheckWithToken(OWN_TOKEN);
+    expect(
+      isUsersBlobUrl("https://altstore99.public.blob.vercel-storage.com/u/user-a/avatars/x.png", "user-a"),
+    ).toBe(false);
+  });
+
+  it("respinge URL-uri fără format valid", async () => {
+    const isUsersBlobUrl = await loadUsersCheckWithToken(OWN_TOKEN);
+    expect(isUsersBlobUrl("not-a-url", "user-a")).toBe(false);
+    expect(isUsersBlobUrl("", "user-a")).toBe(false);
   });
 });

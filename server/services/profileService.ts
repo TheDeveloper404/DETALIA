@@ -8,7 +8,7 @@ import type {
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import { normalizeWebsite } from "@/lib/url";
-import { isOwnBlobUrl } from "@/lib/blob-url";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { isUuid } from "@/server/domain/ids";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import type { RoleSnapshot } from "@/server/domain/validation";
@@ -224,8 +224,8 @@ export type SaveImageResult = { ok: true; url: string } | { ok: false };
 // Persistă poza de profil/cover DUPĂ ce clientul a urcat fișierul direct în Blob. Acceptăm DOAR un URL
 // de Blob al store-ului nostru (anti-SSRF). SEC-02: re-encodare (strip EXIF/GPS) + plafon. SEC-06: cleanup orfan.
 export async function setAvatar(userId: string, url: string): Promise<SaveImageResult> {
-  if (!isOwnBlobUrl(url)) return { ok: false };
-  const processed = await reprocessBlobImage(url, "avatars");
+  if (!isUsersBlobUrl(url, userId)) return { ok: false };
+  const processed = await reprocessBlobImage(url, "avatars", userId);
   if (!processed.ok) return { ok: false };
   const old = (await getUserMedia(userId))?.image ?? null;
   await updateUserImage(userId, processed.url);
@@ -234,8 +234,8 @@ export async function setAvatar(userId: string, url: string): Promise<SaveImageR
 }
 
 export async function setCover(userId: string, url: string): Promise<SaveImageResult> {
-  if (!isOwnBlobUrl(url)) return { ok: false };
-  const processed = await reprocessBlobImage(url, "covers");
+  if (!isUsersBlobUrl(url, userId)) return { ok: false };
+  const processed = await reprocessBlobImage(url, "covers", userId);
   if (!processed.ok) return { ok: false };
   const old = (await getUserMedia(userId))?.coverImage ?? null;
   await updateUserCoverImage(userId, processed.url);
