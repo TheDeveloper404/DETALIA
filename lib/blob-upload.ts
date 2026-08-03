@@ -44,14 +44,27 @@ export async function isSessionAlive(): Promise<boolean> {
 
 export const SESSION_EXPIRED_MESSAGE = "Sesiunea a expirat. Reîncarcă pagina și autentifică-te din nou.";
 
+// SEC-001 — calea de upload trebuie să înceapă cu `u/<userId>/` (verificat server-side în
+// /api/blob/upload). Fără userId nu putem construi o cale validă → tratăm ca sesiune expirată
+// (mesajul existent, catch-urile de la apelanți deja verifică `isSessionAlive()`).
+async function requireCurrentUserId(): Promise<string> {
+  const res = await fetch("/api/auth/session");
+  if (res.ok) {
+    const session = (await res.json()) as { user?: { id?: string } };
+    if (session?.user?.id) return session.user.id;
+  }
+  throw new Error("SESSION_EXPIRED");
+}
+
 export async function uploadImageToBlob(
   folder: string,
   file: File,
   kind: "image" | "avatar" = "image",
 ): Promise<string> {
   if (isHeicFile(file)) throw new HeicUnsupportedError();
+  const userId = await requireCurrentUserId();
   const ext = file.type.split("/")[1] ?? "bin";
-  const blob = await upload(`${folder}/${crypto.randomUUID()}.${ext}`, file, {
+  const blob = await upload(`u/${userId}/${folder}/${crypto.randomUUID()}.${ext}`, file, {
     access: "public",
     handleUploadUrl: "/api/blob/upload",
     contentType: file.type,
@@ -67,9 +80,10 @@ export async function uploadDocToBlob(
   file: File,
   kind: "pdf" | "cad",
 ): Promise<string> {
+  const userId = await requireCurrentUserId();
   const nameExt = file.name.split(".").pop()?.toLowerCase();
   const ext = nameExt || (kind === "pdf" ? "pdf" : "bin");
-  const blob = await upload(`${folder}/${crypto.randomUUID()}.${ext}`, file, {
+  const blob = await upload(`u/${userId}/${folder}/${crypto.randomUUID()}.${ext}`, file, {
     access: "public",
     handleUploadUrl: "/api/blob/upload",
     contentType: file.type || "application/octet-stream",

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { auth, signOut } from "@/lib/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
 import {
@@ -35,6 +36,9 @@ async function requireUserId() {
 // arbitrare în DB). Tipul/mărimea au fost deja impuse la emiterea tokenului, pe server.
 export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
   const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
+  }
   const res = await setAvatar(userId, url);
   if (!res.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
   revalidatePath("/profile");
@@ -46,6 +50,9 @@ export async function saveAvatarUrl(url: string): Promise<ProfileFormState> {
 // Idem pentru imaginea de cover (banda de sus a profilului).
 export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
   const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
+  }
   const res = await setCover(userId, url);
   if (!res.ok) return { error: "Imaginea nu a putut fi salvată.", ok: false };
   revalidatePath("/profile");
@@ -56,6 +63,9 @@ export async function saveCoverUrl(url: string): Promise<ProfileFormState> {
 // Șterge poza de profil. Reversibil prin re-upload.
 export async function deleteAvatar(): Promise<ProfileFormState> {
   const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
+  }
   await removeAvatar(userId);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -65,6 +75,9 @@ export async function deleteAvatar(): Promise<ProfileFormState> {
 // Salvează poziția verticală a cover-ului (0..100).
 export async function saveCoverPosition(position: number): Promise<ProfileFormState> {
   const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
+  }
   await setCoverPosition(userId, position);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -74,6 +87,9 @@ export async function saveCoverPosition(position: number): Promise<ProfileFormSt
 // Șterge imaginea de cover.
 export async function deleteCover(): Promise<ProfileFormState> {
   const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
+  }
   await removeCover(userId);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
@@ -93,6 +109,9 @@ export async function updateProfileDetailsAction(
   formData: FormData,
 ): Promise<ProfileFormState> {
   const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
+  }
   const res = await updateProfileDetails(userId, {
     name: String(formData.get("name") ?? ""),
     headline: String(formData.get("headline") ?? ""),

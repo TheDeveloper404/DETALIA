@@ -1,7 +1,7 @@
 // Service onboarding — profil text + imagini (opționale) + declarare rol, într-un singur pas atomic
 // din perspectiva apelantului. Server Action-ul (app/onboarding/actions.ts) rămâne subțire: extrage
 // FormData → deleagă AICI → mapează eroarea la mesaj de UI → redirect.
-import { isOwnBlobUrl } from "@/lib/blob-url";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import {
@@ -37,8 +37,8 @@ export async function completeOnboarding(input: {
 
   // SEC-02: acceptăm DOAR URL-uri de Blob ale store-ului nostru (tipul/mărimea impuse la emiterea
   // tokenului de upload). Un URL extern ar bypassa reprocesarea (anti-SSRF) de mai jos.
-  if (avatarUrl && !isOwnBlobUrl(avatarUrl)) return { ok: false, error: "INVALID_TYPE" };
-  if (coverUrl && !isOwnBlobUrl(coverUrl)) return { ok: false, error: "INVALID_TYPE" };
+  if (avatarUrl && !isUsersBlobUrl(avatarUrl, userId)) return { ok: false, error: "INVALID_TYPE" };
+  if (coverUrl && !isUsersBlobUrl(coverUrl, userId)) return { ok: false, error: "INVALID_TYPE" };
 
   // ── Profil text PRIMUL ────
   await updateUserProfile(userId, {
@@ -55,8 +55,8 @@ export async function completeOnboarding(input: {
   // Avatar + cover se procesează ÎN PARALEL (fiecare = fetch+sharp+reupload+delete, secvențial ar
   // dubla latența la onboarding, unde de regulă ambele sunt setate deodată).
   const [avatarResult, coverResult] = await Promise.all([
-    avatarUrl ? reprocessBlobImage(avatarUrl, "avatars") : null,
-    coverUrl ? reprocessBlobImage(coverUrl, "covers") : null,
+    avatarUrl ? reprocessBlobImage(avatarUrl, "avatars", userId) : null,
+    coverUrl ? reprocessBlobImage(coverUrl, "covers", userId) : null,
   ]);
   // Eșec parțial (una din cele două reușește, cealaltă nu) → blob-ul deja reprocesat/urcat cu succes
   // ar rămâne orfan (urcat, dar niciodată referit în DB) dacă doar am respinge fără cleanup.

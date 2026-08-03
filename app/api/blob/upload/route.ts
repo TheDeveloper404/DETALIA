@@ -61,6 +61,13 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("RATE_LIMITED");
         }
 
+        // SEC-001: calea trebuie să fie sub namespace-ul userului curent (`u/<userId>/...`, impus în
+        // lib/blob-upload.ts) — altfel tokenul emis ar permite oricui să urce/suprascrie orice cale din
+        // store. Namespace-ul e ce leagă un URL de Blob de proprietarul lui (vezi isUsersBlobUrl).
+        if (!pathname.startsWith(`u/${session.user.id}/`)) {
+          throw new Error("INVALID_PATH");
+        }
+
         const kind = resolveKind(clientPayload);
         if (kind === "pdf") {
           return {

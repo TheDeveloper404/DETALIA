@@ -12,7 +12,7 @@
 import { del, put } from "@vercel/blob";
 import sharp from "sharp";
 
-import { isOwnBlobUrl } from "@/lib/blob-url";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
 // §11c#4 / SEC-02: ștergere best-effort a unui blob orfan, dar cu LOG la eșec (altfel orfanul rămâne fără
@@ -82,9 +82,12 @@ export type ReprocessResult = { ok: true; url: string } | { ok: false };
 
 // Re-procesează o imagine deja urcată în Blob (primită ca URL). Pe succes întoarce noul URL curat și
 // șterge originalul; pe eșec șterge orfanul. `folder` = prefixul de cale în Blob (ex. "details", "avatars").
-export async function reprocessBlobImage(url: string, folder: string): Promise<ReprocessResult> {
-  // Acceptăm DOAR URL-uri din store-ul nostru → fetch-ul nu poate fi îndreptat spre alte gazde (anti-SSRF).
-  if (!isOwnBlobUrl(url)) return { ok: false };
+// `userId` = SEC-001: URL-ul trebuie să fie sub namespace-ul acestui user — altfel oricine ar putea da
+// URL-ul imaginii altcuiva și l-am șterge aici ca „original" după re-încărcare.
+export async function reprocessBlobImage(url: string, folder: string, userId: string): Promise<ReprocessResult> {
+  // Acceptăm DOAR URL-uri din store-ul nostru, urcate de userul curent → fetch-ul nu poate fi îndreptat
+  // spre alte gazde (anti-SSRF) și nu putem șterge/consuma fișierul altcuiva.
+  if (!isUsersBlobUrl(url, userId)) return { ok: false };
 
   let input: Buffer;
   try {
@@ -106,7 +109,7 @@ export async function reprocessBlobImage(url: string, folder: string): Promise<R
   }
 
   try {
-    const uploaded = await put(`${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
+    const uploaded = await put(`u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
       access: "public",
       addRandomSuffix: false,
       contentType: clean.contentType,

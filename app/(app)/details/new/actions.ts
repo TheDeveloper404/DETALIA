@@ -7,7 +7,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { isOwnBlobUrl } from "@/lib/blob-url";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail, createDetailDraft } from "@/server/services/detailService";
 import { createAnnotation } from "@/server/services/sketchService";
@@ -105,10 +105,10 @@ export async function createDetailAction(
   // Imaginea s-a urcat CLIENT direct în Blob (vezi /api/blob/upload). Aici primim doar URL-ul →
   // acceptăm DOAR un URL de Blob al store-ului nostru (tipul/mărimea au fost impuse la token).
   const imageUrl = String(formData.get("imageUrl") ?? "");
-  if (!isOwnBlobUrl(imageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+  if (!isUsersBlobUrl(imageUrl, userId)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   // SEC-02: validează real + re-encodează (fără metadata) + plafonează dimensiuni. Returnează un URL curat.
-  const processed = await reprocessBlobImage(imageUrl, "details");
+  const processed = await reprocessBlobImage(imageUrl, "details", userId);
   if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
 
   const result = await createDetail({
@@ -213,8 +213,8 @@ export async function saveNewDetailDraftAction(
   const rawImageUrl = String(formData.get("imageUrl") ?? "");
   let imageUrl: string | null = null;
   if (rawImageUrl.length > 0) {
-    if (!isOwnBlobUrl(rawImageUrl)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
-    const processed = await reprocessBlobImage(rawImageUrl, "details");
+    if (!isUsersBlobUrl(rawImageUrl, userId)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+    const processed = await reprocessBlobImage(rawImageUrl, "details", userId);
     if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
     imageUrl = processed.url;
   }
