@@ -299,11 +299,14 @@ export async function publishDetailRow(detailId: string) {
 // Neon HTTP n-are tranzacții interactive → folosim `db.batch` (un singur batch atomic).
 // Întoarce URL-urile de blob de curățat best-effort din service (thumbnail-uri schițe + resurse IMAGE/PDF/CAD;
 // LINK/TEXT nu au fișier în Blob-ul nostru — LINK e URL extern).
-// Câte interacțiuni a primit un detaliu — folosit ca să decidem dacă ștergerea îl elimină complet sau
-// doar retrage identitatea autorului. Un singur query, trei subquery-uri corelate (nu 3 round-trip-uri).
+// Câte interacțiuni a PRIMIT un detaliu de la ALȚI useri — folosit ca să decidem dacă ștergerea îl
+// elimină complet sau doar retrage identitatea autorului. Un singur query, trei subquery-uri corelate
+// (nu 3 round-trip-uri).
 //
-// Schițele se numără DOAR de la alții: adnotarea autorului pe propriul detaliu nu e o interacțiune
-// primită (aceeași regulă ca la `sketchCount` din feed — vezi `isSelfAnnotation`).
+// Toate trei exclud autorul (`<> details.author_id`): comentariile lui pe propriul detaliu, pozițiile
+// lui (posibile din 2026-08-06, item 6) și adnotările lui nu sunt interacțiuni PRIMITE. Fără excluderea
+// asta, autorul care își dă Aprob pe propriul detaliu și-ar bloca singur ștergerea completă, ireversibil
+// (decizie Liviu 2026-08-06). Aceeași regulă ca la `sketchCount` din feed — vezi `isSelfAnnotation`.
 export async function countDetailInteractions(detailId: string): Promise<{
   comments: number;
   validations: number;
@@ -312,9 +315,11 @@ export async function countDetailInteractions(detailId: string): Promise<{
   const [row] = await db
     .select({
       comments: sql<number>`(select count(*)::int from ${comments}
-        where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`,
+        where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id}
+          and ${comments.authorId} <> ${details.authorId})`,
       validations: sql<number>`(select count(*)::int from ${validations}
-        where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`,
+        where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id}
+          and ${validations.userId} <> ${details.authorId})`,
       sketchesFromOthers: sql<number>`(select count(*)::int from ${sketches}
         where ${sketches.detailId} = ${details.id}
           and ${sketches.status} = 'PUBLISHED'

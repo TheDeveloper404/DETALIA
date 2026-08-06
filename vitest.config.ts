@@ -7,7 +7,9 @@ export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
     environment: "node",
-    include: ["{server,lib,app,components}/**/*.test.ts"],
+    // `scripts` e inclus pentru poarta de audit (scripts/audit-report.test.ts): e cod care decide dacă
+    // un PR trece sau nu, deci merită acoperit ca oricare altă regulă de securitate.
+    include: ["{server,lib,app,components,scripts}/**/*.test.ts"],
     globals: true,
   },
 });
