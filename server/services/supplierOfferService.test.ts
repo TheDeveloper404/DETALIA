@@ -86,6 +86,22 @@ describe("nu poți oferta pe propriul detaliu — CANNOT_OFFER_OWN", () => {
     expect(await toggleSupplierOffer(input)).toEqual({ ok: false, error: "CANNOT_OFFER_OWN" });
     expect(insertSupplierOfferIfAbsent).not.toHaveBeenCalled();
   });
+
+  // Regresie (găsit la /code-review, 2026-08-06): verificarea trebuie să folosească `ownerId`
+  // (proprietarul REAL), nu `authorId` (mascat de anonimizare → null pe un detaliu din care autorul
+  // s-a retras). Cu `authorId`, guard-ul devenea inert: fostul autor și-ar fi putut oferta propriul
+  // detaliu anonimizat.
+  it("detaliu ANONIMIZAT (authorId mascat = null) → tot CANNOT_OFFER_OWN, folosind ownerId", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DETAIL_ID,
+      ownerId: "u-1",
+      authorId: null,
+      isAnonymized: true,
+      title: "T",
+    } as never);
+    expect(await toggleSupplierOffer(input)).toEqual({ ok: false, error: "CANNOT_OFFER_OWN" });
+    expect(insertSupplierOfferIfAbsent).not.toHaveBeenCalled();
+  });
 });
 
 describe("toggle reversibil + notificare DOAR la primul click", () => {
