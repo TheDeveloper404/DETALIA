@@ -205,7 +205,9 @@ export async function deleteSketch(input: {
 
   const detail = await getDetailById(sketch.detailId);
   const isSketchAuthor = sketch.authorId === input.actorUserId;
-  const isDetailAuthor = detail?.authorId === input.actorUserId;
+  // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
+  // autorul unui detaliu retras pierde dreptul de moderare pe propriile schițe.
+  const isDetailAuthor = detail?.ownerId === input.actorUserId;
   if (!isSketchAuthor && !isDetailAuthor) return { ok: false, error: "FORBIDDEN" };
 
   const thumbnailUrl = await deleteSketchCascade(input.sketchId);
