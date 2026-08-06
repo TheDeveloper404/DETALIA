@@ -220,11 +220,11 @@ const detailWithAuthorColumns = {
   authorHeadline: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.headline} end`,
   // Rolul SUPRAVIEȚUIEȘTE retragerii (cerința: „Autor șters · rol") — după anonimizare nu-l mai putem
   // citi din contul userului, deci vine din snapshot-ul înghețat la momentul retragerii.
-  authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}
+  authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
     else ${details.authorRoleSnapshot}->>'roleMain' end`,
   authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
     else ${details.authorRoleSnapshot}->>'subRole' end`,
-  authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}
+  authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
     else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
 } as const;
 
@@ -487,11 +487,11 @@ export async function listTopDebated(limit: number) {
       isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
       authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
       authorImage: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.image} end`,
-      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}
+      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
         else ${details.authorRoleSnapshot}->>'roleMain' end`,
       authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
         else ${details.authorRoleSnapshot}->>'subRole' end`,
-      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}
+      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
         else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
       validationCount,
       commentCount,
@@ -519,11 +519,11 @@ export async function listRelatedDetails(input: {
       title: details.title,
       // Vezi nota de la `listTopDebated`: masca de anonimizare se aplică pe FIECARE cale de citire.
       authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
-      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}
+      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
         else ${details.authorRoleSnapshot}->>'roleMain' end`,
       authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
         else ${details.authorRoleSnapshot}->>'subRole' end`,
-      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}
+      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
         else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
       commentCount,
       sketchCount,
