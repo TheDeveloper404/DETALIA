@@ -312,18 +312,24 @@ export async function countDetailInteractions(detailId: string): Promise<{
   validations: number;
   sketchesFromOthers: number;
 }> {
+  // BUG REAL găsit la debugging e2e (2026-08-06): fără calificare explicită, `${details.authorId}`
+  // necalificat SE REZOLVĂ la coloana subquery-ului (`comments.author_id`/`validations.user_id`/
+  // `sketches.author_id`), nu la `details.author_id` — Postgres tratează identificatorul necalificat
+  // ca aparținând scope-ului cel mai apropiat (FROM-ul subquery-ului). Rezultat: `x <> x`, mereu FALS,
+  // contor mereu 0 — exact capcana deja documentată la `sketchCount`/`detailsAuthorId` mai jos în acest
+  // fișier. Refolosim ACEEAȘI referință calificată explicit, nu una nouă.
   const [row] = await db
     .select({
       comments: sql<number>`(select count(*)::int from ${comments}
-        where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id}
-          and ${comments.authorId} <> ${details.authorId})`,
+        where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+          and ${comments.authorId} <> ${detailsAuthorId})`,
       validations: sql<number>`(select count(*)::int from ${validations}
-        where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id}
-          and ${validations.userId} <> ${details.authorId})`,
+        where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+          and ${validations.userId} <> ${detailsAuthorId})`,
       sketchesFromOthers: sql<number>`(select count(*)::int from ${sketches}
-        where ${sketches.detailId} = ${details.id}
+        where ${sketches.detailId} = ${detailsId}
           and ${sketches.status} = 'PUBLISHED'
-          and ${sketches.authorId} <> ${details.authorId})`,
+          and ${sketches.authorId} <> ${detailsAuthorId})`,
     })
     .from(details)
     .where(eq(details.id, detailId))
@@ -410,18 +416,27 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
 
 // Counts de interacțiune per detaliu (polimorfice, pe DETAIL) — subquery-uri corelate (nu join-uri)
 // ca să nu dublăm rândurile când există mai multe interacțiuni. `::int` ca să vină number, nu string.
+//
+// BUG REAL, CRITIC găsit la debugging e2e (2026-08-06, verificat direct pe date de producție —
+// un detaliu cu 5 comentarii reale întorcea 0): fără calificare explicită, `${details.id}` necalificat
+// într-un subquery pe `comments`/`validations`/`sketches` SE REZOLVĂ la coloana `id` a SUBQUERY-ULUI
+// (toate tabelele au o coloană `id`), nu la `details.id` din exterior — Postgres tratează
+// identificatorul necalificat ca aparținând scope-ului cel mai apropiat. Rezultat: corelarea devine
+// `comments.target_id = comments.id`, aproape mereu FALS → contor mereu 0, silențios, fără eroare SQL.
+// A afectat feed-ul ÎNTREG (contoare de comentarii/validări/schițe greșite) ȘI `interactionScore`
+// (sortarea „cele mai dezbătute" era efectiv doar pe dată, scorul fiind mereu 0 pentru toți).
+// ACEEAȘI capcană fusese deja găsită și reparată în `profileRepo.ts` (2026-07-23) — fix-ul NU fusese
+// propagat aici. Reparat cu ACELAȘI pattern: `sql.identifier` calificat explicit, nu interpolare directă.
+const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
+const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const validationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`;
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`;
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
 // „N schițe" = contribuțiile ALTORA (model fork/PR). Adnotarea autorului pe propriul detaliu nu e o
 // contribuție primită → exclusă (mirror SQL al `isSelfAnnotation`, server/domain/sketch.ts).
-// `details.author_id` calificat EXPLICIT: subquery-ul e pe `sketches`, care are ȘI EL `author_id` — o
-// referință necalificată s-ar rezolva la coloana subquery-ului → `x <> x`, mereu fals, contor mereu 0.
-// (Aceeași capcană documentată pe larg în profileRepo.ts pentru `details.id`.)
-const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
-   where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED'
+   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
      and ${sketches.authorId} <> ${detailsAuthorId})`;
 
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
@@ -436,7 +451,7 @@ const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
     select ${users.name} as name, ${users.image} as image
     from ${validations}
     join ${users} on ${users.id} = ${validations.userId}
-    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id}
+    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
     order by ${validations.createdAt} desc
     limit 5
   ) sub

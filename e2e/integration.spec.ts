@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { commentLikes, comments, detailCategories, detailResources, details, sketches, validations } from "../db/schema";
 import { addComment, getComments, toggleCommentLike } from "../server/services/commentService";
-import { createDetail, deleteDetail } from "../server/services/detailService";
+import { createDetail, deleteDetail, getFeed } from "../server/services/detailService";
 import { approve } from "../server/services/validationService";
 import { getSeed } from "./seed";
 
@@ -156,6 +156,50 @@ test("toggleCommentLike: toggle real pe DB + CANNOT_LIKE_OWN + cascadă la șter
     const remainingLikes = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
     expect(remainingLikes).toHaveLength(0);
   } finally {
+    await db.delete(details).where(eq(details.id, detailId));
+  }
+});
+
+// Regresie CRITICĂ (găsit la debugging manual, 2026-08-06 — verificat direct pe date de producție,
+// unde un detaliu cu 5 comentarii reale întorcea commentCount: 0): fără calificare explicită a
+// coloanei `details.id` în subquery-urile corelate din `detailsRepo.ts` (commentCount/validationCount/
+// sketchCount), Postgres rezolvă identificatorul necalificat la coloana `id` a SUBQUERY-ULUI (toate
+// tabelele au o coloană `id`), nu la `details.id` din exterior — corelarea devine `comments.target_id
+// = comments.id`, aproape mereu FALS. Testele unitare (mock-uite) nu puteau prinde asta — doar SQL
+// real, pe DB real, o poate verifica. A afectat feed-ul ÎNTREG (contoare greșite) și sortarea „cele
+// mai dezbătute" (interactionScore mereu 0 pentru toți).
+test("getFeed: comentariul/validarea/schița ALTCUIVA se numără corect în contoare (nu 0)", async () => {
+  const { testerUserId, authorUserId, categoryId } = getSeed();
+
+  const created = await createDetail({
+    authorId: testerUserId,
+    title: `Integration test — contoare ${Date.now()}`,
+    categoryIds: [categoryId],
+    imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+  });
+  expect(created.ok).toBe(true);
+  if (!created.ok) return;
+  const detailId = created.detailId;
+
+  try {
+    // Interacțiunea vine de la ALTCINEVA (authorUserId), ca în scenariul care a expus bug-ul.
+    await addComment({
+      userId: authorUserId,
+      targetType: "DETAIL",
+      targetId: detailId,
+      body: "Integration test — comentariu de la altcineva.",
+    });
+    await approve({ userId: authorUserId, targetType: "DETAIL", targetId: detailId });
+
+    const feed = await getFeed({ q: "contoare" });
+    const row = feed.find((d) => d.id === detailId);
+    expect(row).toBeDefined();
+    // Dacă bug-ul de corelare revine, ambele contoare cad silențios la 0 — nu la o eroare.
+    expect(row?.commentCount).toBe(1);
+    expect(row?.validationCount).toBe(1);
+  } finally {
+    await db.delete(comments).where(eq(comments.targetId, detailId));
+    await db.delete(validations).where(eq(validations.targetId, detailId));
     await db.delete(details).where(eq(details.id, detailId));
   }
 });
