@@ -7,7 +7,14 @@ import {
   MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
+  colorAtRampPosition,
+  STROKE_COLORS,
+  colorRampGradient,
+  COLOR_RAMP_STOPS,
+  duplicateTextStroke,
   isSelfAnnotation,
+  TEXT_DUPLICATE_OFFSET,
+  type Point,
   validateSketchNote,
   validateStrokes,
 } from "./sketch";
@@ -129,5 +136,103 @@ describe("validateSketchNote — nota autorului, separată de desen (2026-07-16)
 
   it("respinge non-string", () => {
     expect(validateSketchNote(42).ok).toBe(false);
+  });
+});
+
+describe("duplicateTextStroke", () => {
+  const textStroke = {
+    color: "#211d18",
+    size: 12,
+    kind: "text" as const,
+    text: "Șarpantă",
+    points: [[0.4, 0.5]] as Point[],
+    angle: 0.3,
+  };
+
+  it("adaugă o copie deplasată diagonal și o raportează ca selecție nouă", () => {
+    const result = duplicateTextStroke([textStroke], 0);
+    expect(result).not.toBeNull();
+    expect(result!.strokes).toHaveLength(2);
+    expect(result!.newIndex).toBe(1);
+
+    const copy = result!.strokes[1];
+    expect(copy.points[0]).toEqual([0.4 + TEXT_DUPLICATE_OFFSET, 0.5 + TEXT_DUPLICATE_OFFSET]);
+    // Restul proprietăților rămân identice cu originalul.
+    expect(copy.text).toBe(textStroke.text);
+    expect(copy.color).toBe(textStroke.color);
+    expect(copy.size).toBe(textStroke.size);
+    expect(copy.angle).toBe(textStroke.angle);
+  });
+
+  it("nu modifică array-ul original (fără mutație)", () => {
+    const strokes = [textStroke];
+    duplicateTextStroke(strokes, 0);
+    expect(strokes).toHaveLength(1);
+    expect(strokes[0].points[0]).toEqual([0.4, 0.5]);
+  });
+
+  it("ancora rămâne în [0,1] pentru un text lipit de marginea dreapta-jos", () => {
+    const result = duplicateTextStroke([{ ...textStroke, points: [[1, 1]] as Point[] }], 0);
+    expect(result!.strokes[1].points[0]).toEqual([1, 1]);
+  });
+
+  it("întoarce null pentru un stroke care nu e text", () => {
+    expect(duplicateTextStroke([{ color: "#211d18", size: 4, points: [[0.1, 0.1], [0.2, 0.2]] as Point[] }], 0)).toBeNull();
+  });
+
+  it("întoarce null la index invalid", () => {
+    expect(duplicateTextStroke([textStroke], 1)).toBeNull();
+    expect(duplicateTextStroke([textStroke], -1)).toBeNull();
+    expect(duplicateTextStroke([], 0)).toBeNull();
+  });
+
+  it("refuză duplicarea la plafonul MAX_STROKES (nu depășește silențios limita serverului)", () => {
+    const full = Array.from({ length: MAX_STROKES }, () => textStroke);
+    expect(duplicateTextStroke(full, 0)).toBeNull();
+  });
+});
+
+describe("bara continuă de culoare", () => {
+  it("capetele barei: alb sus (0), negru jos (100)", () => {
+    expect(colorAtRampPosition(0)).toBe("#ffffff");
+    expect(colorAtRampPosition(100)).toBe("#000000");
+  });
+
+  it("fiecare oprire e atinsă EXACT de slider (pas 1) — culorile de brand rămân selectabile", () => {
+    for (const stop of COLOR_RAMP_STOPS) {
+      expect(Number.isInteger(stop.at)).toBe(true);
+      expect(colorAtRampPosition(stop.at)).toBe(stop.color);
+    }
+  });
+
+  it("poziția implicită a editorului (90) = grafitul, prima culoare din paleta de brand", () => {
+    expect(colorAtRampPosition(90)).toBe(STROKE_COLORS[0]);
+  });
+
+  it("între două opriri interpolează (culoare nouă, valabilă, între vecine)", () => {
+    const mid = colorAtRampPosition(37.5); // între #d97a1e (30) și #b0463c (45)
+    expect(mid).toMatch(/^#[0-9a-f]{6}$/);
+    expect(mid).not.toBe("#d97a1e");
+    expect(mid).not.toBe("#b0463c");
+  });
+
+  it("orice poziție produce un hex acceptat de validarea serverului", () => {
+    for (let p = 0; p <= 100; p += 1) {
+      const stroke = { color: colorAtRampPosition(p), size: 8, points: [[0.1, 0.1], [0.2, 0.2]] };
+      expect(validateStrokes([stroke]).ok).toBe(true);
+    }
+  });
+
+  it("valori în afara intervalului se clamp-uiesc la capete", () => {
+    expect(colorAtRampPosition(-20)).toBe("#ffffff");
+    expect(colorAtRampPosition(999)).toBe("#000000");
+    expect(colorAtRampPosition(Number.NaN)).toBe("#ffffff");
+  });
+
+  it("gradientul CSS folosește exact aceleași opriri ca funcția de culoare", () => {
+    const css = colorRampGradient();
+    for (const stop of COLOR_RAMP_STOPS) {
+      expect(css).toContain(`${stop.color} ${stop.at}%`);
+    }
   });
 });

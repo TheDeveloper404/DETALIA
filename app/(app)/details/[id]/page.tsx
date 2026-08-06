@@ -1,12 +1,19 @@
 import { Compass, FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { RolePill } from "@/components/role-pill";
 import { auth } from "@/lib/auth";
 import { MAX_ANNOTATIONS_PER_DETAIL, type Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
-import { getDetail, getRelatedDetails, isDetailSaved } from "@/server/services/detailService";
+import {
+  getDeletionPreview,
+  getDetail,
+  getRelatedDetails,
+  isDetailSaved,
+  recordDetailView,
+} from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getAnnotations, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
@@ -81,6 +88,10 @@ export default async function DetailPage({
     notFound();
   }
 
+  // Contorul de vizualizări: DUPĂ răspuns (`after`), ca un write de statistică să nu întârzie
+  // randarea paginii. „Vizualizare" = fiecare încărcare a paginii, nu vizitator unic.
+  after(() => recordDetailView(detail.id));
+
   const userId = session.user.id;
   const validation = await getTargetValidationView("DETAIL", detail.id, userId);
   const comments = await getComments("DETAIL", detail.id, userId);
@@ -114,6 +125,10 @@ export default async function DetailPage({
   );
 
   const isAuthor = detail.authorId === userId;
+  // Ce va face butonul „Șterge" pe acest detaliu — calculat pe server, doar pentru autor (altcineva
+  // nici nu vede butonul). Fără el, dialogul ar promite „se șterge definitiv" și pentru un detaliu care
+  // de fapt doar se anonimizează.
+  const deletionPreview = isAuthor ? await getDeletionPreview({ detailId: detail.id, userId }) : null;
   // 4 citiri independente (doar userId/detail.id) — paralelizate, nu secvențiale (eficiență găsită la
   // code-review 2026-07-16: doar ultimele 2 erau în Promise.all, restul adăugau latență evitabilă).
   const [saved, role, supplierOffers, offeringSupplier] = await Promise.all([
@@ -221,6 +236,7 @@ export default async function DetailPage({
             }}
             detailValidation={validation}
             isDetailAuthor={isAuthor}
+            deletionMode={deletionPreview?.mode}
             annotations={annotations}
             sketches={sketches}
             comments={comments}

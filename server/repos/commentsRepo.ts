@@ -36,6 +36,7 @@ export async function insertComment(input: {
   targetId: string;
   authorId: string;
   body: string;
+  imageUrl?: string | null;
   originValidationId?: string | null;
   parentCommentId?: string | null;
   sketchContextId?: string | null;
@@ -47,6 +48,7 @@ export async function insertComment(input: {
       targetId: input.targetId,
       authorId: input.authorId,
       body: input.body,
+      imageUrl: input.imageUrl ?? null,
       originValidationId: input.originValidationId ?? null,
       wasDisapproval: input.originValidationId != null,
       parentCommentId: input.parentCommentId ?? null,
@@ -90,6 +92,7 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
     .select({
       id: comments.id,
       body: comments.body,
+      imageUrl: comments.imageUrl,
       createdAt: comments.createdAt,
       originValidationId: comments.originValidationId,
       wasDisapproval: comments.wasDisapproval,
@@ -143,12 +146,17 @@ export async function updateCommentByAuthor(id: string, authorId: string, body: 
 
 // Șterge un comentariu — DOAR al autorului ȘI doar comentariu LIBER (originValidationId null).
 // Justificările de dezaprobare nu se șterg singure (ar deveni „dezaprobare mută"). True dacă a șters.
-export async function deleteFreeCommentByAuthor(id: string, authorId: string): Promise<boolean> {
+// Întoarce `imageUrl` al rândului șters (sau null) ca serviciul să poată curăța fișierul din Blob —
+// fără asta, fiecare comentariu șters cu poză lăsa un orfan în storage, plătit la nesfârșit.
+export async function deleteFreeCommentByAuthor(
+  id: string,
+  authorId: string,
+): Promise<{ deleted: boolean; imageUrl: string | null }> {
   const rows = await db
     .delete(comments)
     .where(and(eq(comments.id, id), eq(comments.authorId, authorId), isNull(comments.originValidationId)))
-    .returning({ id: comments.id });
-  return rows.length > 0;
+    .returning({ id: comments.id, imageUrl: comments.imageUrl });
+  return { deleted: rows.length > 0, imageUrl: rows[0]?.imageUrl ?? null };
 }
 
 // Toggle like pe comentariu — o singură poziție per user per comentariu, reversibilă (delete dacă

@@ -127,23 +127,35 @@ describe("approve = 1 click", () => {
   });
 });
 
-describe("nu te validezi pe propriul conținut — CANNOT_VALIDATE_OWN (enforce pe server)", () => {
+// Regula „nu te validezi pe propriul conținut" a fost ELIMINATĂ deliberat (2026-08-06, decizie de
+// produs Edi + Liviu). Testele de mai jos NU au fost șterse — au fost INVERSATE, ca acoperirea pe acest
+// flow să rămână: dacă cineva reintroduce accidental guard-ul, ele pică.
+describe("auto-validare PERMISĂ pe conținut propriu (decizie de produs 2026-08-06)", () => {
   beforeEach(() => {
     // Autorul țintei = userul care votează.
     vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: target.userId, title: "T" } as never);
   });
 
-  it("approve pe propriul detaliu → CANNOT_VALIDATE_OWN, fără upsert", async () => {
+  it("approve pe propriul detaliu → OK, poziția se înregistrează", async () => {
     const r = await approve(target);
-    expect(r).toEqual({ ok: false, error: "CANNOT_VALIDATE_OWN" });
-    expect(upsertPosition).not.toHaveBeenCalled();
+    expect(r).toEqual({ ok: true });
+    expect(vi.mocked(upsertPosition).mock.calls[0][0]).toMatchObject({
+      userId: target.userId,
+      position: "APPROVE",
+    });
   });
 
-  it("disapprove pe propriul detaliu → CANNOT_VALIDATE_OWN, fără upsert/comentariu", async () => {
+  it("disapprove pe propriul detaliu → OK, cu justificare + comentariu ca la oricine altcineva", async () => {
     const r = await disapprove({ ...target, justification: "motiv valid" });
-    expect(r).toEqual({ ok: false, error: "CANNOT_VALIDATE_OWN" });
+    expect(r).toEqual({ ok: true });
+    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
+    expect(insertComment).toHaveBeenCalledTimes(1);
+  });
+
+  it("regulile care NU s-au schimbat rămân active: dezaprobarea fără justificare tot se respinge", async () => {
+    const r = await disapprove({ ...target, justification: "   " });
+    expect(r).toEqual({ ok: false, error: "JUSTIFICATION_REQUIRED" });
     expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
-    expect(insertComment).not.toHaveBeenCalled();
   });
 });
 

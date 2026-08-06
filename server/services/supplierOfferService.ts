@@ -65,7 +65,7 @@ export async function toggleSupplierOffer(input: {
   try {
     const actor = await getNotificationActor(input.userId);
     await notifySupplierOffered({
-      recipientUserId: detail.authorId,
+      recipientUserId: detail.ownerId,
       detailId: input.detailId,
       detailTitle: detail.title,
       supplierName: actor?.name ?? null,

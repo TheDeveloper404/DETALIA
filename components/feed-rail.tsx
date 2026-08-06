@@ -1,5 +1,6 @@
 // Coloana dreaptă a feed-ului — autori activi + „cele mai dezbătute" + nudge de validare pe rol.
 // Prezentațional (props-driven). „În dezbatere" = detaliile cu cele mai multe comentarii (derivat din feed).
+import { Layers, MessageSquare } from "lucide-react";
 import Link from "next/link";
 
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
@@ -101,7 +102,21 @@ export function FeedRail({
                     </span>
                   )}
                   <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-                    {d.validationCount} validări · {d.commentCount} comentarii · {d.sketchCount} schițe
+                    <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                      <span>{d.validationCount} validări</span>
+                      <span className="text-border">·</span>
+                      <span className="inline-flex items-center gap-1" title="Comentarii">
+                        <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                        <span className="sr-only">comentarii:</span>
+                        {d.commentCount}
+                      </span>
+                      <span className="text-border">·</span>
+                      <span className="inline-flex items-center gap-1" title="Schițe în teanc">
+                        <Layers className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                        <span className="sr-only">schițe în teanc:</span>
+                        {d.sketchCount}
+                      </span>
+                    </span>
                   </div>
                 </Link>
               </li>

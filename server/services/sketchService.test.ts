@@ -75,7 +75,9 @@ function draft(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getDetailById).mockResolvedValue({ id: DID, authorId: OWNER, title: "T" } as never);
+  // `ownerId` = proprietarul REAL al detaliului (nemascat de anonimizare) — serviciile de business
+  // îl citesc pe ăsta, nu `authorId` (care e identitatea afișabilă, null după retragere).
+  vi.mocked(getDetailById).mockResolvedValue({ id: DID, ownerId: OWNER, authorId: OWNER, title: "T" } as never);
   vi.mocked(getNotificationActor).mockResolvedValue({
     name: "X",
     roleMain: "PROIECTANT",
