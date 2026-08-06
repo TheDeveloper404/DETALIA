@@ -94,6 +94,9 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `wind_load` | text | default `'General'` (listă fixă) |
 | `image_url` | text | imaginea 2D (jpg/png/webp, ~5MB) |
 | `status` | text | default `'PUBLISHED'` |
+| `views` | integer | not null, default `0` — contor de vizualizări; FIECARE încărcare de pagină (nu vizitatori unici), incrementat atomic prin SQL brut ca să nu atingă `updated_at` (2026-08-06) |
+| `anonymized_at` | timestamptz | nullable — momentul în care autorul s-a RETRAS din detaliu. Non-null ⇒ nume/poză/link de profil mascate ÎN SQL la orice citire, detaliul dispare de pe profilul autorului, editarea e blocată. `author_id` rămâne, pentru audit (2026-08-06) |
+| `author_role_snapshot` | jsonb | nullable — rolul autorului îngheţat la retragere (`{roleMain, subRole, verificationStatus}`), fiindcă după anonimizare nu mai poate fi citit din cont. Acelaşi model ca `validations.role_snapshot` |
 | `created_at` / `updated_at` | timestamptz | |
 
 ### `detail_categories` (many-to-many — bifezi oricâte categorii pe un detaliu)
@@ -150,6 +153,7 @@ detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pintere
 | `target_id` | uuid | polimorfic |
 | `author_id` | uuid FK→users.id | **index** |
 | `body` | text | not null |
+| `image_url` | text | nullable — MAXIM o imagine ataşată; trecută prin acelaşi pipeline de re-encodare ca imaginile de detalii, sub `u/<userId>/comments/`. Ştearsă din Blob odată cu comentariul (şi la ştergerea detaliului-părinte) (2026-08-06) |
 | `origin_validation_id` | uuid FK→validations.id | nullable — setat când vine dintr-un DISAPPROVE obligatoriu; **index** |
 | `was_disapproval` | boolean | default `false`; persistă DINCOLO de retragere (`origin_validation_id` → null la retract) — UI arată „fostă dezaprobare, retrasă" |
 | `parent_comment_id` | uuid FK→comments.id | nullable — reply, UN SINGUR nivel (un reply nu poate primi reply, enforce în service); cascade; **index** |

@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { CommentImageAttach } from "@/components/comment-image-attach";
 import { EmojiPickerButton } from "@/components/emoji-picker-button";
 import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
@@ -138,13 +139,14 @@ export function CommentsSection({
             </p>
           )}
           <div className="mt-2 flex items-center justify-between gap-2">
-            {mentionSketches.length > 0 ? (
-              <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#a59a88]">
-                <AtSign className="size-3" strokeWidth={2} /> scrie „@” ca să referi o schiță
-              </span>
-            ) : (
-              <span />
-            )}
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <CommentImageAttach disabled={pending} resetSignal={state} />
+              {mentionSketches.length > 0 && (
+                <span className="inline-flex items-center gap-1 font-mono text-[11px] text-[#a59a88]">
+                  <AtSign className="size-3" strokeWidth={2} /> scrie „@” ca să referi o schiță
+                </span>
+              )}
+            </span>
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Se trimite…" : "Comentează"}
             </Button>
@@ -204,6 +206,44 @@ export function CommentsSection({
 // ref; corpul cu tokeni se reconstruiește nevăzut într-un <input hidden name="body"> la fiecare modificare
 // → serverul primește același format ca înainte (validat că sid-urile aparțin detaliului).
 // Textarea e NECONTROLAT; reset-ul câmpurilor îl face form.reset() din părinte, la succes.
+// Imaginea atașată unui comentariu: thumbnail în flux, extinsă la click (dialog nativ — fără
+// dependență nouă și cu Escape/backdrop gratuite). `unoptimized`: e un blob deja re-encodat
+// server-side, nu are ce optimiza pipeline-ul de imagini.
+function CommentImage({ url }: { url: string }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => dialogRef.current?.showModal()}
+        className="mt-2 block w-fit rounded-md border border-border transition-opacity hover:opacity-90"
+        title="Vezi imaginea mărită"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- blob deja procesat, dimensiune necunoscută */}
+        <img
+          src={url}
+          alt="Imagine atașată comentariului"
+          className="max-h-56 w-auto rounded-md object-contain"
+          loading="lazy"
+        />
+      </button>
+      <dialog
+        ref={dialogRef}
+        onClick={() => dialogRef.current?.close()}
+        className="max-h-[90vh] max-w-[90vw] rounded-lg bg-transparent p-0 backdrop:bg-black/70"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element -- vezi mai sus */}
+        <img
+          src={url}
+          alt="Imagine atașată comentariului, mărită"
+          className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+        />
+      </dialog>
+    </>
+  );
+}
+
 function MentionComposer({
   sketches,
   disabled,
@@ -679,7 +719,10 @@ function CommentItem({
             </div>
           </div>
         ) : (
-          <CommentBody body={c.body} validSketchIds={validSketchIds} onSelectSketch={onSelectSketch} />
+          <>
+            <CommentBody body={c.body} validSketchIds={validSketchIds} onSelectSketch={onSelectSketch} />
+            {c.imageUrl && <CommentImage url={c.imageUrl} />}
+          </>
         )}
 
         {!editing && (

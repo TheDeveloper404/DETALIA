@@ -9,7 +9,8 @@
 
 ## Ce este DETALIA
 Comunitate profesională din construcții, organizată în jurul **detaliului de execuție**. Modelul mental:
-**„GitHub pentru construcții"** — detaliu = repo, schiță = fork+PR, validare = code review. Faza curentă:
+**„StackOverflow pentru construcții"** — detaliu = întrebare/postare, schiță = răspuns, validare =
+răspuns acceptat/vot de comunitate. Faza curentă:
 **validare de piață** (cost ~$0, livrare rapidă, fundație care scalează fără rescriere). Lansare = **acces
 public deschis** (înregistrare liberă), cu **conținut seed** pus la început prin conturi reale (echipa +
 useri aduși din toate categoriile) ca platforma să nu fie goală la primul contact.

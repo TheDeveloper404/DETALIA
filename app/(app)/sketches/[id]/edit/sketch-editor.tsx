@@ -41,7 +41,7 @@ export function SketchEditor({
   initialStrokes: Stroke[];
   initialNote: string | null;
   detailTitle: string;
-  authorId: string;
+  authorId: string | null; // null = autorul s-a retras din detaliu (anonimizat) → fără link de profil
   authorName: string | null;
   authorRoleMain: string | null;
   authorSubRole?: string | null;
@@ -115,12 +115,19 @@ export function SketchEditor({
           </span>
           <span className="hidden flex-none items-center gap-2 border-l border-border pl-3 md:inline-flex">
             <span className="font-mono text-xs text-muted-foreground">de</span>
-            <Link
-              href={`/profile/${authorId}`}
-              className="font-heading text-[13.5px] font-semibold text-foreground/80 no-underline hover:underline"
-            >
-              {authorName ?? "Anonim"}
-            </Link>
+            {authorId ? (
+              <Link
+                href={`/profile/${authorId}`}
+                className="font-heading text-[13.5px] font-semibold text-foreground/80 no-underline hover:underline"
+              >
+                {authorName ?? "Anonim"}
+              </Link>
+            ) : (
+              // Autor retras: rămân doar rolul (din snapshot) și conținutul — fără nume, poză sau link.
+              <span className="font-heading text-[13.5px] font-semibold text-muted-foreground">
+                Autor șters
+              </span>
+            )}
             <RolePill roleMain={authorRoleMain} subRole={authorSubRole} verified={authorVerified} />
           </span>
         </div>

@@ -62,6 +62,68 @@ export function validateSketchNote(input: unknown): { ok: true; value: string | 
 export const STROKE_COLORS = ["#211d18", "#b0463c", "#d97a1e", "#caa12e", "#2f8f5f", "#2f6fb0"] as const;
 export const STROKE_WIDTHS = [8, 16, 28] as const;
 
+// ── Bara continuă de culoare (2026-08-06, cerere Edi) ────────────────────────
+// Înlocuiește grila de 6 culori fixe din editorul de schiță: o bară verticală (același model vizual
+// ca sliderul de grosime) cu ALB sus, NEGRU jos și culorile de brand între ele.
+//
+// Opririle sunt exact culorile din `STROKE_COLORS`, plus alb și negru la capete — poziționate pe
+// procente rotunde, ca sliderul (0..100, pas 1) să le poată atinge EXACT: altfel „bară continuă" ar
+// fi însemnat că nu mai poți nimeri o culoare de brand.
+//
+// Serverul NU are nevoie de schimbări: `validateStrokes` acceptă de la început orice hex valid
+// (HEX_COLOR_RE), nu doar lista fixă — verificat 2026-08-06, contrar ipotezei din planul inițial.
+export const COLOR_RAMP_STOPS = [
+  { at: 0, color: "#ffffff" },
+  { at: 15, color: "#caa12e" },
+  { at: 30, color: "#d97a1e" },
+  { at: 45, color: "#b0463c" },
+  { at: 60, color: "#2f8f5f" },
+  { at: 75, color: "#2f6fb0" },
+  { at: 90, color: "#211d18" },
+  { at: 100, color: "#000000" },
+] as const;
+
+function hexToRgb(hex: string): [number, number, number] {
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16),
+  ];
+}
+
+function toHex(n: number): string {
+  return Math.round(n).toString(16).padStart(2, "0");
+}
+
+// Culoarea de la poziția `pos` (0..100) pe bară — interpolare liniară în RGB între opririle vecine.
+// Valorile în afara intervalului se clamp-uiesc la capete (un slider nu le produce, dar funcția e
+// publică și nu presupune apelantul).
+export function colorAtRampPosition(pos: number): string {
+  if (!Number.isFinite(pos)) return COLOR_RAMP_STOPS[0].color;
+  const p = Math.min(100, Math.max(0, pos));
+
+  for (let i = 0; i < COLOR_RAMP_STOPS.length - 1; i++) {
+    const a = COLOR_RAMP_STOPS[i];
+    const b = COLOR_RAMP_STOPS[i + 1];
+    if (p < a.at || p > b.at) continue;
+
+    const span = b.at - a.at;
+    const t = span === 0 ? 0 : (p - a.at) / span;
+    const [ar, ag, ab] = hexToRgb(a.color);
+    const [br, bg, bb] = hexToRgb(b.color);
+    return `#${toHex(ar + (br - ar) * t)}${toHex(ag + (bg - ag) * t)}${toHex(ab + (bb - ab) * t)}`;
+  }
+
+  return COLOR_RAMP_STOPS[COLOR_RAMP_STOPS.length - 1].color;
+}
+
+// Gradientul CSS al barei — derivat din ACELEAȘI opriri ca funcția de mai sus, ca ce vezi pe bară să
+// fie exact ce obții la click (o listă duplicată în CSS ar fi divergat tăcut).
+export function colorRampGradient(direction = "to bottom"): string {
+  const stops = COLOR_RAMP_STOPS.map((s) => `${s.color} ${s.at}%`).join(", ");
+  return `linear-gradient(${direction}, ${stops})`;
+}
+
 // Un punct = [x, y] normalizat 0..1 față de imaginea-mamă (rezoluție-agnostic).
 export type Point = [number, number];
 // Unealta cu care a fost desenat stroke-ul. Toate formele cu 2 capete (line/rect/ellipse/arrow) folosesc
@@ -172,4 +234,32 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
   if (bytes > MAX_STROKES_BYTES) return { ok: false, error: "TOO_LARGE" };
 
   return { ok: true, value };
+}
+
+// Duplică blocul de text de la indexul dat: copie identică, deplasată puțin diagonal, ca să nu se
+// suprapună perfect peste original. Ancora rămâne în [0,1] (coordonate normalizate) chiar dacă
+// originalul e lipit de marginea din dreapta-jos.
+//
+// Întoarce `null` dacă duplicarea nu e posibilă: index invalid, stroke care nu e text, sau plafonul
+// MAX_STROKES atins — UI-ul dezactivează butonul în acest ultim caz, dar plafonul se verifică ȘI aici
+// (o singură sursă de adevăr, nu doar în componentă).
+export const TEXT_DUPLICATE_OFFSET = 0.02;
+
+export function duplicateTextStroke(
+  strokes: Stroke[],
+  index: number,
+): { strokes: Stroke[]; newIndex: number } | null {
+  if (!Number.isInteger(index) || index < 0 || index >= strokes.length) return null;
+  if (strokes.length >= MAX_STROKES) return null;
+
+  const source = strokes[index];
+  if (source.kind !== "text") return null;
+
+  const [x, y] = source.points[0] ?? [0, 0];
+  const copy: Stroke = {
+    ...source,
+    points: [[Math.min(1, x + TEXT_DUPLICATE_OFFSET), Math.min(1, y + TEXT_DUPLICATE_OFFSET)]],
+  };
+
+  return { strokes: [...strokes, copy], newIndex: strokes.length };
 }

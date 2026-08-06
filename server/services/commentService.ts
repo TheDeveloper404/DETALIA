@@ -4,7 +4,9 @@
 //  - Corpul e obligatoriu (non-vid, ≤ limită). authorId vine din sesiune (apelantul) — fără IDOR.
 //  - Ținta trebuie să existe și să fie publică.
 
+import { reprocessBlobImage } from "@/lib/image-processing";
 import { extractMentionSketchIds, sanitizeMentions } from "@/lib/mentions";
+import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import { type TargetType, validateCommentBody } from "@/server/domain/validation";
 import {
@@ -44,6 +46,7 @@ export async function addComment(input: {
   targetType: TargetType;
   targetId: string;
   body: string;
+  imageUrl?: string | null;
   parentCommentId?: string | null;
 }): Promise<AddCommentResult> {
   const role = await getRoleByUserId(input.userId);
@@ -74,11 +77,23 @@ export async function addComment(input: {
       ? await sanitizeDetailMentions(input.targetId, v.value)
       : v.value;
 
+  // Imaginea atașată (opțională, maxim una): trece prin ACELAȘI pipeline ca imaginile de detalii —
+  // `reprocessBlobImage` verifică întâi că URL-ul e din store-ul NOSTRU și al userului curent
+  // (`u/<userId>/...`, anti-IDOR/anti-SSRF), apoi re-encodează imaginea (curăță metadate/payload
+  // ascuns) și șterge originalul. Un URL străin sau o imagine invalidă → comentariul se salvează
+  // fără poză, nu eșuează tot (textul e conținutul principal).
+  let imageUrl: string | null = null;
+  if (input.imageUrl) {
+    const processed = await reprocessBlobImage(input.imageUrl, "comments", input.userId);
+    imageUrl = processed.ok ? processed.url : null;
+  }
+
   await insertComment({
     targetType: input.targetType,
     targetId: input.targetId,
     authorId: input.userId,
     body,
+    imageUrl,
     originValidationId: null, // comentariu liber (nu provine dintr-o dezaprobare)
     parentCommentId,
   });
@@ -126,8 +141,12 @@ export async function deleteComment(input: {
   commentId: string;
 }): Promise<DeleteCommentResult> {
   if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
-  const deleted = await deleteFreeCommentByAuthor(input.commentId, input.userId);
-  return deleted ? { ok: true } : { ok: false, error: "NOT_FOUND" };
+  const { deleted, imageUrl } = await deleteFreeCommentByAuthor(input.commentId, input.userId);
+  if (!deleted) return { ok: false, error: "NOT_FOUND" };
+  // Fișierul din Blob moare odată cu comentariul — best-effort (deleteBlobs nu aruncă): rândul e deja
+  // șters, un orfan în storage nu justifică să raportăm eșec userului.
+  await deleteBlobs([imageUrl]);
+  return { ok: true };
 }
 
 export type ToggleCommentLikeResult =
