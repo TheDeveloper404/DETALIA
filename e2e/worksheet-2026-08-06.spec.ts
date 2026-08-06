@@ -68,18 +68,22 @@ test.describe.serial("Item 6 — autorul poate lua poziție pe PROPRIUL detaliu"
 
     await expect(page.getByRole("button", { name: /Retrage|Aprobat/i }).first()).toBeVisible();
 
-    const rows = await db
-      .select({ position: validations.position })
-      .from(validations)
-      .where(
-        and(
-          eq(validations.userId, getSeed().testerUserId),
-          eq(validations.targetType, "DETAIL"),
-          eq(validations.targetId, detailId),
-        ),
-      );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].position).toBe("APPROVE");
+    // Butonul devine "Aprobat" optimist (useOptimistic, în validation-panel.tsx) ÎNAINTE ca
+    // server action-ul să fi comis efectiv rândul — un query imediat pe DB poate prinde cursa.
+    const selectRow = () =>
+      db
+        .select({ position: validations.position })
+        .from(validations)
+        .where(
+          and(
+            eq(validations.userId, getSeed().testerUserId),
+            eq(validations.targetType, "DETAIL"),
+            eq(validations.targetId, detailId),
+          ),
+        );
+    await expect.poll(async () => (await selectRow()).length, { timeout: 5_000 }).toBe(1);
+    const [row] = await selectRow();
+    expect(row.position).toBe("APPROVE");
   });
 });
 
@@ -121,7 +125,9 @@ test.describe.serial("Item 10 — imagine atașată la comentariu", () => {
 
     const posted = page.locator(`li:has-text("${body}")`).first();
     await expect(posted).toBeVisible({ timeout: 15_000 });
-    await expect(posted.getByAltText("Imagine atașată comentariului")).toBeVisible();
+    // Butonul-thumbnail din listă, NU imaginea mărită din lightbox — ambele au același `alt`
+    // ("Imagine atașată comentariului"), deci getByAltText e ambiguu (strict-mode violation).
+    await expect(posted.getByRole("button", { name: "Imagine atașată comentariului" })).toBeVisible();
 
     // Serverul NU salvează URL-ul brut trimis de client: îl re-încarcă curat sub `u/<userId>/comments/`.
     const [row] = await db
