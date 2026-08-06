@@ -142,10 +142,16 @@ export async function updateDetail(input: {
 }): Promise<UpdateDetailResult> {
   if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
 
-  // 1) Ownership: doar autorul detaliului îl poate edita.
+  // 1) Ownership: doar autorul detaliului îl poate edita. `ownerId` (identitatea reală, neafectată
+  // de mascarea de afișare), NU `authorId` — pe un detaliu anonimizat authorId e mereu null, deci
+  // verificarea ar pica FORBIDDEN pentru oricine din întâmplare, nu prin design (SEC-001, audit 2026-08-07).
   const existing = await getDetailById(input.detailId);
   if (!existing) return { ok: false, error: "NOT_FOUND" };
-  if (existing.authorId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+  if (existing.ownerId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+  // Autor retras: verificarea de mai sus SINGURĂ nu mai ajunge — `ownerId` rămâne cel real după
+  // anonimizare, deci fostul autor ar trece de ea. Poarta de pe /edit (getDetailForEditing) blochează
+  // navigarea, dar acțiunea de server e o cale separată, apelabilă direct — trebuie blocată și aici.
+  if (existing.isAnonymized) return { ok: false, error: "FORBIDDEN" };
 
   // 2) Validare + normalizare (aceleași reguli ca la creare).
   const validation = validateDetailInput({

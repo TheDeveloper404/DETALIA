@@ -58,7 +58,10 @@ async function getTargetAuthorId(
   if (!isUuid(targetId)) return null; // SEC-11
   if (targetType === "DETAIL") {
     const detail = await getDetailById(targetId); // doar PUBLISHED
-    return detail?.authorId ?? null;
+    // `ownerId` (identitatea reală), NU `authorId` (mascat la null după anonimizare) — altfel guard-ul
+    // de auto-dezaprobare din recordSketchDisapproval nu s-ar mai declanșa NICIODATĂ pe un detaliu
+    // anonimizat, pentru NIMENI, nu doar pentru fostul autor (SEC-002, audit 2026-08-07).
+    return detail?.ownerId ?? null;
   }
   const sketch = await getSketchById(targetId);
   return sketch !== null && sketch.status === "PUBLISHED" ? sketch.authorId : null;
