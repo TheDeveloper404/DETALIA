@@ -242,10 +242,17 @@ export function validateDetailInput(
 // Regula de produs (Edi + Liviu): un detaliu care a strâns interacțiuni nu mai dispare la ștergere —
 // discuția din jurul lui aparține și celorlalți. În locul ștergerii, autorul se RETRAGE din el.
 //
-// „Interacțiune" = ORICARE dintre: un comentariu, o poziție (Aprob/Dezaprob), o schiță de la altcineva.
-// Toate trei, confirmat explicit de Liviu (2026-08-06) — nu doar o submulțime.
+// „Interacțiune" = ORICARE dintre: un comentariu, o poziție (Aprob/Dezaprob), o schiță — toate trei,
+// confirmat explicit de Liviu (2026-08-06), dar NUMAI de la ALȚI useri.
+//
+// De ce „de la alții" contează, nu doar tipul: din 2026-08-06 autorul își poate valida și comenta
+// propriul detaliu (item 6, guard-ul de auto-validare eliminat). Dacă am număra și interacțiunile lui
+// cu sine, un simplu Aprob pe propriul detaliu l-ar face pentru totdeauna neștergibil — autorul și-ar
+// bloca singur o acțiune ireversibilă, fără să înțeleagă de ce. Discuția cu tine însuți nu e discuție.
 export type DetailInteractionCounts = {
+  /** Comentariile ALTORA. */
   comments: number;
+  /** Pozițiile ALTORA (Aprob/Dezaprob). */
   validations: number;
   /** Schițele ALTORA. Adnotarea autorului pe propriul detaliu nu e o interacțiune primită. */
   sketchesFromOthers: number;
