@@ -235,7 +235,7 @@ export function DetailWorkspace({
               <span className="flex items-center gap-2">
                 <AvatarInitials name={null} imageUrl={null} size={38} />
                 <span className="font-heading text-[15.5px] font-bold text-muted-foreground">
-                  Autor șters
+                  Anonim
                 </span>
               </span>
             )}

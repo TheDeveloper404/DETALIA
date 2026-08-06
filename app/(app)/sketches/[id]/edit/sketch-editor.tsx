@@ -125,7 +125,7 @@ export function SketchEditor({
             ) : (
               // Autor retras: rămân doar rolul (din snapshot) și conținutul — fără nume, poză sau link.
               <span className="font-heading text-[13.5px] font-semibold text-muted-foreground">
-                Autor șters
+                Anonim
               </span>
             )}
             <RolePill roleMain={authorRoleMain} subRole={authorSubRole} verified={authorVerified} />
