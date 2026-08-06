@@ -12,12 +12,14 @@ import { getSeed } from "./seed";
 // detaliul seedat (autorat de author, folosit de authed.spec.ts pt validare pe rol).
 
 // NU un URL fals ("e2e.public.blob..."): `createDetail()` (service) nu validează store-ul, dar
-// `updateDetailAction` (ruta reală de editare) verifică `isOwnBlobUrl` chiar și când imaginea nu
+// `updateDetailAction` (ruta reală de editare) verifică `isUsersBlobUrl` chiar și când imaginea nu
 // s-a schimbat → un fixture cu URL fals pică editarea cu IMAGE_REQUIRED, deși nu e bug de aplicație.
-// Hostname-ul de mai jos e store-ul REAL de Blob al acestui mediu (derivat dintr-un imageUrl real
-// existent în DB) — obiectul nu trebuie să existe efectiv (isOwnBlobUrl verifică doar formatul/hostname-ul,
-// iar reprocesarea SEC-02 rulează doar când `imageChanged=true`, ceea ce nu e cazul aici).
-const OWN_STORE_IMAGE_URL = "https://oqhrxxllqvcxn05s.public.blob.vercel-storage.com/details/e2e-placeholder.png";
+// Hostname-ul e store-ul REAL de Blob al acestui mediu; path-ul TREBUIE să înceapă cu `/u/<userId>/`
+// (SEC-001, isUsersBlobUrl în lib/blob-url.ts) — obiectul nu trebuie să existe efectiv (verificarea e
+// doar de format/hostname/ownership, iar reprocesarea SEC-02 rulează doar când `imageChanged=true`,
+// ceea ce nu e cazul aici).
+const ownStoreImageUrl = (userId: string) =>
+  `https://oqhrxxllqvcxn05s.public.blob.vercel-storage.com/u/${userId}/details/e2e-placeholder.png`;
 
 
 test.describe.serial("Editare detaliu existent", () => {
@@ -35,7 +37,7 @@ test.describe.serial("Editare detaliu existent", () => {
       authorId: testerUserId,
       title: originalTitle,
       categoryIds: [categoryId],
-      imageUrl: OWN_STORE_IMAGE_URL,
+      imageUrl: ownStoreImageUrl(testerUserId),
       resources: [],
     });
     expect(created.ok).toBe(true);
@@ -117,7 +119,7 @@ test.describe.serial("Editare detaliu — locație / context tehnic", () => {
       authorId: testerUserId,
       title: `E2E locație — ${Date.now()}`,
       categoryIds: [categoryId],
-      imageUrl: OWN_STORE_IMAGE_URL,
+      imageUrl: ownStoreImageUrl(testerUserId),
       resources: [],
     });
     expect(created.ok).toBe(true);
@@ -173,8 +175,8 @@ test.describe.serial("Resursă suplimentară — IMAGE afișată ca imagine, cu 
       authorId: testerUserId,
       title: `E2E resursă imagine — ${Date.now()}`,
       categoryIds: [categoryId],
-      imageUrl: OWN_STORE_IMAGE_URL,
-      resources: [{ type: "IMAGE", url: OWN_STORE_IMAGE_URL }],
+      imageUrl: ownStoreImageUrl(testerUserId),
+      resources: [{ type: "IMAGE", url: ownStoreImageUrl(testerUserId) }],
     });
     expect(created.ok).toBe(true);
     if (created.ok) detailId = created.detailId;
