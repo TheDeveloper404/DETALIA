@@ -49,7 +49,9 @@ test("createDetail: detaliul + categoriile + resursele se inserează atomic (ins
 test("deleteDetail: cascada șterge schița + validarea/comentariul polimorfice de pe ea", async () => {
   const { testerUserId, authorUserId, categoryId } = getSeed();
 
-  // Detaliu deținut de `tester` (owner pentru ștergere), schiță autorată de `author`.
+  // Detaliu deținut de `tester`, schiță autorată tot de `tester` — dacă schița ar fi a lui `author`,
+  // countDetailInteractions ar detecta o interacțiune de la altcineva și deleteDetail ar anonimiza în
+  // loc să șteargă cascadă (decizie de produs 2026-08-06, server/services/detailService.ts:444-461).
   const created = await createDetail({
     authorId: testerUserId,
     title: `Integration test — cascadă ${Date.now()}`,
@@ -63,15 +65,17 @@ test("deleteDetail: cascada șterge schița + validarea/comentariul polimorfice 
 
   const [sketch] = await db
     .insert(sketches)
-    .values({ detailId, authorId: authorUserId, status: "PUBLISHED", strokesJson: [] })
+    .values({ detailId, authorId: testerUserId, status: "PUBLISHED", strokesJson: [] })
     .returning({ id: sketches.id });
 
-  // Polimorfism: validare + comentariu pe ținta SKETCH (nu DETAIL) — `tester` validează schița lui `author`.
-  const validationRes = await approve({ userId: testerUserId, targetType: "SKETCH", targetId: sketch.id });
+  // Polimorfism: validare + comentariu pe ținta SKETCH (nu DETAIL) — `author` ia poziție/comentează pe
+  // schița lui `tester` (nu contează pentru countDetailInteractions, care numără doar ținte DETAIL și
+  // sketchesFromOthers).
+  const validationRes = await approve({ userId: authorUserId, targetType: "SKETCH", targetId: sketch.id });
   expect(validationRes.ok).toBe(true);
 
   const commentRes = await addComment({
-    userId: testerUserId,
+    userId: authorUserId,
     targetType: "SKETCH",
     targetId: sketch.id,
     body: "Comentariu de integrare pe schiță",
@@ -110,9 +114,11 @@ test("toggleCommentLike: toggle real pe DB + CANNOT_LIKE_OWN + cascadă la șter
   const detailId = created.detailId;
 
   try {
-    // Comentariu al lui `author` pe detaliul lui `tester`.
+    // Comentariu al lui `tester` (owner-ul detaliului) pe propriul detaliu — dacă ar fi al lui `author`,
+    // countDetailInteractions l-ar număra ca interacțiune de la altcineva și deleteDetail ar anonimiza
+    // în loc să șteargă cascadă (decizie de produs 2026-08-06, server/services/detailService.ts:444-461).
     const commentRes = await addComment({
-      userId: authorUserId,
+      userId: testerUserId,
       targetType: "DETAIL",
       targetId: detailId,
       body: "Comentariu de integrare — like",
@@ -122,36 +128,36 @@ test("toggleCommentLike: toggle real pe DB + CANNOT_LIKE_OWN + cascadă la șter
     const [comment] = await db.select({ id: comments.id }).from(comments).where(eq(comments.targetId, detailId));
 
     // Autorul nu-și poate aprecia propriul comentariu (CANNOT_LIKE_OWN, enforce în service).
-    const ownLike = await toggleCommentLike({ userId: authorUserId, commentId: comment.id });
+    const ownLike = await toggleCommentLike({ userId: testerUserId, commentId: comment.id });
     expect(ownLike).toEqual({ ok: false, error: "CANNOT_LIKE_OWN" });
 
-    // `tester` apreciază comentariul lui `author` → toggle real pe tabelul comment_likes.
-    const liked = await toggleCommentLike({ userId: testerUserId, commentId: comment.id });
+    // `author` apreciază comentariul lui `tester` → toggle real pe tabelul comment_likes.
+    const liked = await toggleCommentLike({ userId: authorUserId, commentId: comment.id });
     expect(liked).toEqual({ ok: true, liked: true });
 
     const rowsAfterLike = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
     expect(rowsAfterLike).toHaveLength(1);
 
     // Agregarea din listCommentsForTarget (likeCount/likedByMe/likers) reflectă like-ul.
-    const listedForTester = await getComments("DETAIL", detailId, testerUserId);
-    const listed = listedForTester.find((c) => c.id === comment.id);
+    const listedForAuthor = await getComments("DETAIL", detailId, authorUserId);
+    const listed = listedForAuthor.find((c) => c.id === comment.id);
     expect(listed?.likeCount).toBe(1);
     expect(listed?.likedByMe).toBe(true);
     expect(listed?.likers).toHaveLength(1);
-    expect(listed?.likers[0]).toMatchObject({ id: testerUserId });
+    expect(listed?.likers[0]).toMatchObject({ id: authorUserId });
 
-    // Din perspectiva altcuiva (author), likedByMe e fals — poziția e per-user.
-    const listedForAuthor = await getComments("DETAIL", detailId, authorUserId);
-    expect(listedForAuthor.find((c) => c.id === comment.id)?.likedByMe).toBe(false);
+    // Din perspectiva altcuiva (tester), likedByMe e fals — poziția e per-user.
+    const listedForTester = await getComments("DETAIL", detailId, testerUserId);
+    expect(listedForTester.find((c) => c.id === comment.id)?.likedByMe).toBe(false);
 
     // Retragere — toggle din nou → liked: false, rândul dispare.
-    const unliked = await toggleCommentLike({ userId: testerUserId, commentId: comment.id });
+    const unliked = await toggleCommentLike({ userId: authorUserId, commentId: comment.id });
     expect(unliked).toEqual({ ok: true, liked: false });
     const rowsAfterUnlike = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
     expect(rowsAfterUnlike).toHaveLength(0);
 
     // Cascadă: ștergerea detaliului (→ șterge comentariul) elimină și un like rămas.
-    await toggleCommentLike({ userId: testerUserId, commentId: comment.id }); // re-apreciază
+    await toggleCommentLike({ userId: authorUserId, commentId: comment.id }); // re-apreciază
     await deleteDetail({ detailId, userId: testerUserId });
     const remainingLikes = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
     expect(remainingLikes).toHaveLength(0);
