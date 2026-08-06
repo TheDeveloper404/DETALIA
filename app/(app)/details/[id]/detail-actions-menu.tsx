@@ -248,7 +248,7 @@ export function DetailActionsMenu({
           deletionMode === "ANONYMIZE"
             ? "Detaliul a strâns deja discuție (comentarii, poziții sau schițe), așa că nu mai poate fi " +
               "șters — conținutul rămâne pentru ceilalți. Dispar doar numele și poza ta: în locul lor " +
-              "apare „Autor șters”, cu rolul tău. Nu vei mai putea edita detaliul. Nu se poate reveni."
+              "apare „Anonim”, cu rolul tău. Nu vei mai putea edita detaliul. Nu se poate reveni."
             : "Schițele, validările și comentariile lui se șterg definitiv. Nu se poate reveni."
         }
         confirmLabel={deletionMode === "ANONYMIZE" ? "Retrage-mă" : "Șterge"}

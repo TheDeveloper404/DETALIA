@@ -115,7 +115,7 @@ export function DetailCard({
               <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[11px] text-muted-foreground">
                 <PersonSilhouette className="size-4" />
               </span>
-              <span className="text-sm font-semibold text-muted-foreground">Autor șters</span>
+              <span className="text-sm font-semibold text-muted-foreground">Anonim</span>
             </span>
           ) : (
           <Link
