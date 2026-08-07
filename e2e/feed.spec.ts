@@ -3,6 +3,7 @@ import { and, eq, isNotNull } from "drizzle-orm";
 
 import { db } from "../db";
 import { categories } from "../db/schema";
+import { getSeed } from "./seed";
 
 // Sidebar de categorii pe feed — ierarhie (secțiuni + capitole cu dropdown + frunze), NU o listă
 // flată (2026-07-07, cerere Liviu: „ordinea din document, cu titluri/subtitluri/dropdown"). Verificăm
@@ -53,4 +54,21 @@ test("sidebar feed: capitolul pornește colapsat, se deschide la click, frunza f
   await childLink.click();
 
   await expect(page).toHaveURL(new RegExp(`\\?cat=${childId}$`));
+});
+
+// „Schițează peste" și „Trimite în Planșă" scoase din card-ul de feed (2026-08-07, decizie produs) —
+// rămân funcționale pe pagina de detaliu, nu se elimină din platformă.
+test("card din feed nu mai are CTA-urile de schițare/planșă, dar pagina de detaliu le păstrează", async ({
+  page,
+}) => {
+  const { detailId, detailTitle } = getSeed();
+
+  await page.goto("/feed");
+  const card = page.locator("article", { has: page.getByRole("heading", { name: detailTitle }) });
+  await expect(card).toBeVisible();
+  await expect(card.getByTitle("Schițează peste")).toHaveCount(0);
+  await expect(card.getByTitle("Trimite în Planșă")).toHaveCount(0);
+
+  await page.goto(`/details/${detailId}`);
+  await expect(page.getByRole("button", { name: "Schițează peste detaliu" })).toBeVisible();
 });
