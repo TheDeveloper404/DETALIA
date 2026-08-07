@@ -2,17 +2,18 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 
-import { VoteTriangle } from "./vote-triangle";
-
-// Cardul de preview din hero-ul landing — (1) FEED: SCREENSHOT REAL din aplicație (nu o recreere de
-// cod — public/landing/feed-real.png, cadru dintr-o înregistrare reală, test.mp4), cu tap
-// simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
+// Cardul de preview din hero-ul landing — (1) FEED: screenshot al componentei REALE `DetailCard`,
+// randată cu date fictive (public/landing/feed-real.png, generat 2026-08-07 — vezi CHANGELOG pentru
+// metodă), nu o recreere manuală — reflectă exact UI-ul curent (font/iconițe/culori). La o schimbare
+// viitoare de UI, se regenerează la fel (randezi cardul cu date fictive, screenshot, decupezi).
+// Tap simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
 // desenul de mai jos), (2) crossfade spre detaliul REAL (imagine, fundal eliminat —
 // public/landing/hero-detail.png) cu o propunere desenată live peste el (traseu subțire + hașură,
 // filtru fin de „mână"), (3) chrome-ul cardului (titlu/autor/rol — IDENTICE cu cardul din feed, ca
-// tranziția să fie continuă) + pozițiile pe roluri (Aprobă/Dezaprobă cu justificare). La fiecare
-// ciclu secvența se reia prin remontare (key=cycle) — un `animation-delay` pur CSS nu păstrează
-// stagger-ul peste iterații.
+// tranziția să fie continuă) + lista de poziții (nume + rol + „aprobă"/„dezaprobă" text simplu colorat,
+// fără pastilă/scor — IDENTIC cu lista din validation-panel.tsx, secțiunea „Pozițiile celorlalți").
+// La fiecare ciclu secvența se reia prin remontare (key=cycle) — un `animation-delay` pur CSS nu
+// păstrează stagger-ul peste iterații.
 
 const MONO = "var(--font-plex-mono), monospace";
 const SANS = "var(--font-archivo), system-ui, sans-serif";
@@ -21,49 +22,65 @@ const CYCLE_MS = 10500;
 // remount, apoi îl remontăm (invizibil) și îl lăsăm să reapară — un crossfade, nu o tăietură seacă.
 const LOOP_FADE_MS = 450;
 
-const stackAvatar: CSSProperties = {
-  flex: "none",
-  width: 24,
-  height: 24,
-  borderRadius: "50%",
-  background: "var(--secondary)",
-  border: "2px solid var(--card)",
-  marginLeft: -7,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 9.5,
-  color: "var(--muted-foreground)",
-  fontFamily: MONO,
+// Silueta generică — ACEEAȘI iconiță (path) ca PersonSilhouette din avatar-initials.tsx. Aplicația reală
+// NU arată inițiale-text pentru avatare fără poză (nici în ValidatorStack, nici în lista de poziții din
+// validation-panel.tsx) — arată mereu silueta asta, pe fundal cald.
+const SILHOUETTE_PATH =
+  "M12 12c2.65 0 4.8-2.15 4.8-4.8S14.65 2.4 12 2.4 7.2 4.55 7.2 7.2 9.35 12 12 12Zm0 2.4c-3.2 0-9.6 1.61-9.6 4.8v2.4h19.2v-2.4c0-3.19-6.4-4.8-9.6-4.8Z";
+
+function SilhouetteAvatar({ size, style }: { size: number; style?: CSSProperties }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        flex: "none",
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: "var(--secondary)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--muted-foreground)",
+        ...style,
+      }}
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: size * 0.55, height: size * 0.55 }}>
+        <path d={SILHOUETTE_PATH} />
+      </svg>
+    </span>
+  );
+}
+
+// Pastilă de rol — ACEEAȘI logică de culoare ca RolePill.tsx (colorat pe rolul principal, eticheta e
+// MESERIA/subrolul, nu rolul principal ca text simplu — „Nume · Arhitect", nu „Nume · Proiectant").
+const ROLE_STYLE: Record<string, { bg: string; fg: string }> = {
+  PROIECTANT: { bg: "#a9573a", fg: "#ffffff" },
+  EXECUTANT: { bg: "#7a8a3f", fg: "#ffffff" },
+  FURNIZOR: { bg: "#5e6f8a", fg: "#ffffff" },
+  BENEFICIAR: { bg: "#ece4d6", fg: "#5d564c" },
 };
 
-const voteAvatar: CSSProperties = {
-  flex: "none",
-  width: 26,
-  height: 26,
-  borderRadius: "50%",
-  background: "var(--secondary)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  fontSize: 10.5,
-  color: "var(--muted-foreground)",
-  fontFamily: MONO,
-};
-
-// Pastilă de rol — același limbaj vizual ca RolePill din feed (fundal cald, text primary).
-const rolePill: CSSProperties = {
-  display: "inline-flex",
-  alignItems: "center",
-  fontFamily: MONO,
-  fontSize: 11,
-  color: "var(--primary)",
-  background: "var(--secondary)",
-  border: "1px solid var(--border)",
-  padding: "2px 8px",
-  borderRadius: 999,
-  whiteSpace: "nowrap",
-};
+function RolePillStatic({ roleMain, label }: { roleMain: keyof typeof ROLE_STYLE; label: string }) {
+  const style = ROLE_STYLE[roleMain];
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        whiteSpace: "nowrap",
+        borderRadius: 999,
+        padding: "2px 8px",
+        fontFamily: MONO,
+        fontSize: 11.5,
+        lineHeight: 1,
+        background: style.bg,
+        color: style.fg,
+      }}
+    >
+      {label}
+    </span>
+  );
+}
 
 export function HeroPreview() {
   const [cycle, setCycle] = useState(0);
@@ -107,7 +124,7 @@ export function HeroPreview() {
             position: "absolute",
             inset: 0,
             zIndex: 2,
-            aspectRatio: "702 / 808",
+            aspectRatio: "676 / 693",
             backgroundImage: "url(/landing/feed-real.png)",
             backgroundSize: "contain",
             backgroundPosition: "top center",
@@ -211,15 +228,15 @@ export function HeroPreview() {
 
           {/* Autor + rol */}
           <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "5.9s" }}>
-            <span style={voteAvatar}>CD</span>
-            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>C. Dobre</span>
-            <span style={rolePill}>Beneficiar</span>
+            <SilhouetteAvatar size={28} />
+            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>R. Ionescu</span>
+            <RolePillStatic roleMain="BENEFICIAR" label="Beneficiar" />
           </div>
 
-          {/* Stivă de validatori — avatarele celor care au luat poziție (apar pe rând). */}
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "6.4s" }}>
-            <span style={stackAvatar}>TS</span>
-            <span style={stackAvatar}>NB</span>
+          {/* Stivă de validatori — avatarele celor care au luat poziție (apar pe rând), suprapuse. */}
+          <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, animationDelay: "6.4s" }}>
+            <SilhouetteAvatar size={24} style={{ border: "2px solid var(--card)" }} />
+            <SilhouetteAvatar size={24} style={{ border: "2px solid var(--card)", marginLeft: -8 }} />
           </div>
 
           {/* Contoare — ca în feed: validări · comentarii · schițe în teanc. */}
@@ -232,34 +249,24 @@ export function HeroPreview() {
           </div>
         </div>
 
-        {/* Pozițiile pe roluri — partea „vie" a dezbaterii (Aprobă / Dezaprobă cu justificare). */}
+        {/* Pozițiile celorlalți — nume + rol, text simplu colorat (aprobă/dezaprobă), fără pastilă/citat —
+            IDENTIC cu lista din validation-panel.tsx (fără scor, doar rolul, la vedere). */}
         <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "7.1s" }}>
-            <span style={voteAvatar}>TS</span>
-            <span style={{ fontSize: 13.5, flex: 1 }}>
-              <b style={{ fontWeight: 600 }}>T. Sava</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
+          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8, animationDelay: "7.1s" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <SilhouetteAvatar size={28} />
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>M. Popa</span>
+              <RolePillStatic roleMain="PROIECTANT" label="Arhitect" />
             </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2f6b3f", background: "rgba(47,107,63,0.12)", border: "1px solid rgba(47,107,63,0.3)", padding: "3px 9px", borderRadius: 999 }}>
-              <VoteTriangle direction="up" size={8} />
-              Aprobă
-            </span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 500, color: "#2f6b3f" }}>aprobă</span>
           </div>
-          <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "7.8s" }}>
-            <span style={voteAvatar}>NB</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 13.5 }}>
-                  <b style={{ fontWeight: 600 }}>N. Barbu</b> <span style={{ color: "var(--muted-foreground)" }}>· Executant</span>
-                </span>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#9a3a30", background: "rgba(176,70,60,0.12)", border: "1px solid rgba(176,70,60,0.3)", padding: "3px 9px", borderRadius: 999, marginLeft: "auto" }}>
-                  <VoteTriangle direction="down" size={8} />
-                  Dezaprobă
-                </span>
-              </div>
-              <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.45 }}>
-                „Cosoroaba nu ține cornișa la deschiderea asta — mai pune un reazem.”
-              </div>
-            </div>
+          <div data-rise="1" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8, animationDelay: "7.8s" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <SilhouetteAvatar size={28} />
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>I. Radu</span>
+              <RolePillStatic roleMain="EXECUTANT" label="Constructor" />
+            </span>
+            <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 500, color: "var(--destructive)" }}>dezaprobă</span>
           </div>
         </div>
       </div>
