@@ -2,9 +2,11 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 
-// Cardul de preview din hero-ul landing — (1) FEED: SCREENSHOT REAL din aplicație (nu o recreere de
-// cod — public/landing/feed-real.png, cadru dintr-o înregistrare reală, test.mp4), cu tap
-// simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
+// Cardul de preview din hero-ul landing — (1) FEED: screenshot al componentei REALE `DetailCard`,
+// randată cu date fictive (public/landing/feed-real.png, generat 2026-08-07 — vezi CHANGELOG pentru
+// metodă), nu o recreere manuală — reflectă exact UI-ul curent (font/iconițe/culori). La o schimbare
+// viitoare de UI, se regenerează la fel (randezi cardul cu date fictive, screenshot, decupezi).
+// Tap simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
 // desenul de mai jos), (2) crossfade spre detaliul REAL (imagine, fundal eliminat —
 // public/landing/hero-detail.png) cu o propunere desenată live peste el (traseu subțire + hașură,
 // filtru fin de „mână"), (3) chrome-ul cardului (titlu/autor/rol — IDENTICE cu cardul din feed, ca
@@ -105,7 +107,7 @@ export function HeroPreview() {
             position: "absolute",
             inset: 0,
             zIndex: 2,
-            aspectRatio: "702 / 808",
+            aspectRatio: "676 / 693",
             backgroundImage: "url(/landing/feed-real.png)",
             backgroundSize: "contain",
             backgroundPosition: "top center",
