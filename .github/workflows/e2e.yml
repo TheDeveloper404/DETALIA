@@ -83,6 +83,12 @@ jobs:
     if: needs.gate.outputs.proceed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # `issues: write` — necesar pt pasul „Alertare activă" (gh issue create/comment la eșec). Fără el,
+    # GITHUB_TOKEN implicit e read-only pe issues → alertarea eșuează silențios cu „Resource not
+    # accessible by integration" (găsit 2026-08-07, reprodus în CI).
+    permissions:
+      contents: read
+      issues: write
     steps:
       - name: Checkout (commit-ul deploy-ului)
         uses: actions/checkout@v7
