@@ -89,11 +89,24 @@ Lângă orice detaliu (sau schiță) vezi două butoane: **Aprob** și **Dezapro
     vizual decât în cuvinte).
 - Poți avea **o singură poziție** (aprob SAU dezaprob) pe fiecare detaliu/schiță, dar o poți **retrage
   oricând** și schimba.
-- **Nu poți vota pe propriul conținut** — dacă ai postat tu detaliul/schița, nu vezi butoanele de
-  aprobare (publicarea ta e considerată automat „aprobare implicită").
+- **Poți vota și pe propriul conținut** — butoanele Aprob/Dezaprob apar și pe detaliile/schițele tale.
 
 Lângă fiecare poziție de aprobare/dezaprobare apare **numele + rolul** persoanei — transparență completă,
 fără voturi anonime.
+
+---
+
+## 6b. Ștergerea unui detaliu propriu — și ce înseamnă „Anonim"
+
+Din meniul de acțiuni al propriului detaliu ai fie **„Șterge detaliul"**, fie **„Retrage-te din
+detaliu"** — care din ele apare depinde dacă alții au reacționat deja:
+
+- **Fără nicio reacție de la alții** (niciun comentariu, nicio poziție, nicio schiță) → **„Șterge
+  detaliul"** îl elimină complet, definitiv, la fel ca o ciornă.
+- **Cu cel puțin o reacție de la altcineva** → detaliul nu se mai poate șterge (ar rupe discuția pentru
+  ceilalți). În loc de ștergere, te poți **retrage**: numele și poza ta dispar, în locul lor apare
+  **„Anonim"** (cu rolul tău, care rămâne vizibil). Conținutul, comentariile și schițele rămân neatinse.
+  **Retragerea e definitivă** — nu mai poți edita detaliul după aceea, și nu poate fi anulată.
 
 ---
 
@@ -169,6 +182,8 @@ Ciornele sunt **vizibile doar pentru tine** — nimeni altcineva nu le vede.
 
 Sub fiecare detaliu/schiță există o secțiune de dezbatere unde oricine poate comenta liber (rolul apare
 lângă nume, ca peste tot). Comentariile provenite dintr-o dezaprobare argumentată sunt marcate ca atare.
+Poți atașa **o singură poză** la un comentariu (ex. o fotografie de pe șantier) — apeși „Atașează o poză"
+înainte de a trimite; click pe poza afișată o mărește. Poți aprecia comentariile altora (nu și pe ale tale).
 
 ---
 
@@ -220,11 +235,10 @@ atins una din limitele de mai sus. Mai încerci peste puțin timp.
 **Alte reguli importante:**
 - **Maxim 3 adnotări** pe același detaliu (vezi secțiunea 7b). La 3, ștergi una ca să poți adăuga alta.
 - **Un singur rol declarat** per cont (plus, opțional, un rol adițional gen Administrativ/Educație).
-- **Nu poți vota pe propriul conținut** (vezi secțiunea 6).
 - **Un cont suspendat** (de admin, pentru abuz) e delogat automat la prima încercare de acțiune și nu mai
   poate publica/comenta/vota — accesul readevine posibil doar dacă un admin ridică suspendarea.
-- **Ștergerea e definitivă**: dacă ștergi un detaliu/schiță/comentariu, dispar și toate reacțiile legate de el
-  (aprobări, comentarii) — nu poate fi recuperat.
+- **Ștergerea unui detaliu e definitivă DOAR dacă n-a strâns nicio reacție** de la alții (comentariu,
+  poziție sau schiță) — vezi secțiunea 6b. Ștergerea unei schițe/comentariu propriu rămâne mereu definitivă.
 
 ---
 

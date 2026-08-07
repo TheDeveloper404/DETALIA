@@ -2,9 +2,8 @@
 
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
-> _Ultima verificare față de cod: 2026-07-07 — sincronizat cu `db/schema.ts` (era stale din 2026-07-03:
-> lipseau `canvases`/`canvas_items` (Planșă), valoarea `CAD` din `detail_resource_type`; referința la
-> `lib/admin.ts` era greșită — fișierele reale sunt `lib/admin-allowlist.ts` + `lib/admin-auth.ts`)._
+> _Ultima verificare față de cod: 2026-08-06 — sincronizat cu `db/schema.ts` (adăugate `details.views`,
+> `details.anonymized_at`, `details.author_role_snapshot`, `comments.image_url` — vezi CHANGELOG 2026-08-06)._
 >
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.

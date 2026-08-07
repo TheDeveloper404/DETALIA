@@ -15,6 +15,8 @@ la divergență, câștigă codul (excepție: `INCIDENTS.md` și `CHANGELOG.md`,
 | [CONFIDENTIALITATE-GDPR.md](CONFIDENTIALITATE-GDPR.md) | Notă de lucru GDPR: ce date se colectează, drepturile persoanei, schelet Notă de confidențialitate + ToS (nepublicate încă). |
 | [PLAN-SEED.md](PLAN-SEED.md) | Plan de conținut de start (seed): ce detalii se pun la lansare, cine le pune, cum se măsoară succesul. |
 | [MANUAL_UTILIZATOR.md](MANUAL_UTILIZATOR.md) | Manual de utilizare pentru useri finali — flux, funcționalități, întrebări frecvente. |
+| [QA_TEST_CASES.md](QA_TEST_CASES.md) | Cazuri de test funcționale, pe funcție, cu pași + rezultat așteptat — de completat de inginerul QA (Status/Observații). |
+| [BACKLOG.md](BACKLOG.md) | Ce e de făcut, pe scurt (Acum/Următor/Blocat/Idei) — nu ține detaliu tehnic, doar ce urmează. |
 | [CHANGELOG.md](CHANGELOG.md) | Jurnal cronologic detaliat al modificărilor, cel mai recent sus. Istoric, nu se rescrie retroactiv. |
 | [INCIDENTS.md](INCIDENTS.md) | Jurnal al incidentelor reale de producție (impact efectiv pe useri/date) — distinct de confuzii clarificate sau probleme fără impact vizibil. |
 
@@ -22,6 +24,7 @@ la divergență, câștigă codul (excepție: `INCIDENTS.md` și `CHANGELOG.md`,
 
 | Fișier | Scop |
 |---|---|
-| `CLAUDE.md` (rădăcina proiectului) | Instrucțiuni de proiect: glosar de domeniu, reguli de business non-negociabile, arhitectură pe straturi, flux de lucru per task. |
+| `CLAUDE.md` (rădăcina proiectului) | Instrucțiuni de proces: clasificare SMALL/NORMAL/CRITICAL, arhitectură pe straturi, quality gates, capcane tehnice cunoscute, flux de lucru per task. |
+| `CONTEXT.md` (rădăcina proiectului) | Context de business/domeniu: ce este DETALIA, stack, glosar de domeniu, regulile de business non-negociabile, decizii de produs. |
 | `.remember/remember.md` | Handoff „unde am rămas" — context viu + pași următori. Comprimat/rescris în timp; istoricul detaliat trăiește în `CHANGELOG.md`. |
 | `LICENSE` (rădăcina proiectului) | Licență proprietară — toate drepturile rezervate, cod ne-open-source. |

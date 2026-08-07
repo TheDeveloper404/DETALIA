@@ -13,7 +13,9 @@ paralele (foste `AUDIT-SECURITATE-2026-07-09.md` și `detalia-security-audit-202
 > Mențiunile de mai jos care descriu Sentry ca „live"/activ sunt istoricul auditului la data lui — nu mai
 > reflectă starea curentă. Vezi `docs/CHANGELOG.md` 2026-07-16 pentru detaliu.
 
-**Ultima verificare:** 2026-07-09 (audit extern black-box + fixuri + recalibrare notă) · anterior 2026-07-04
+**Ultima verificare:** 2026-08-07 (audit țintit — retragerea autorului/anonimizare, 4 findinguri reparate,
+vezi secțiunea dedicată mai jos) · anterior 2026-07-09 (audit extern black-box + fixuri + recalibrare notă) ·
+încă mai vechi 2026-07-04
 (audit pe scenarii, SEC-S1…S5) · **Tip:** re-audit static complet (13 categorii, skill `security-audit`) pe
 toată suprafața (auth, authz, mutații, API, business logic, infra) + `npm audit` + **audit extern independent
 black-box** (Codex, fără acces la cod). Auditul din 2026-07-02 rămâne valabil ca bază; mai jos doar delta.
@@ -270,6 +272,44 @@ cont din `/admin-page` — singura armă de moderare era ștergerea ireversibil�
 (Planșa pre-rescriere, excalidraw/tldraw) sau incident istoric de migrație (2026-07-05) — închise cu
 comentariu explicativ. Regulă nouă adăugată în `CLAUDE.md`: după orice refactor care elimină cod, trece
 prin Sentry și închide ce nu se mai poate reproduce.
+
+---
+
+## Audit țintit — retragerea autorului (anonimizare), 2026-08-07
+
+Feature CRITICAL adăugat 2026-08-06 (vezi CHANGELOG, item 5): un detaliu care a strâns interacțiuni de
+la alții nu mai poate fi șters complet — autorul se RETRAGE (`details.anonymized_at`), numele/poza dispar
+din afișare ("Anonim"), rolul (înghețat în `author_role_snapshot`) și conținutul rămân. Identitatea reală
+(`author_id`) rămâne în DB pentru audit; masca se aplică ÎN SQL, în `detailWithAuthorColumns`
+(`server/repos/detailsRepo.ts`), niciodată doar în UI.
+
+Pattern introdus: `authorId` (coloană SELECT, mascată — devine `null` după anonimizare, sigură de trimis
+spre client) vs `ownerId` (proprietarul real, neafectat de mască, STRICT pentru autorizare server-side —
+nu se trimite niciodată la client).
+
+**Audit țintit (`security-audit` + `/code-review`, 2026-08-07)** a găsit 4 verificări rămase pe `authorId`
+în loc de `ownerId` — toate cauzate de aceeași confuzie, toate reparate:
+
+- `server/services/detailService.ts` (`updateDetail`) — ownership check pe `authorId` mascat; fail-safe
+  din întâmplare (FORBIDDEN pentru oricine pe un detaliu anonimizat), nu prin design. Fixul a scos la
+  iveală o gaură nouă: fără check EXPLICIT pe `isAnonymized`, fostul autor (al cărui `ownerId` rămâne
+  neschimbat) ar fi trecut din nou verificarea, direct prin Server Action (poarta de pe `/edit` nu acoperă
+  această cale). Adăugat check separat.
+- `server/services/validationService.ts` (`getTargetAuthorId` / `recordSketchDisapproval`) — guard-ul de
+  auto-dezaprobare la publicarea unei schițe folosea `authorId` mascat → pe un detaliu anonimizat nu se mai
+  înregistra NICIODATĂ dezaprobarea automată, pentru nimeni (bug de integritate a datelor, fail-safe, nu
+  escaladare de privilegii).
+- `server/services/supplierOfferService.ts:35` (`CANNOT_OFFER_OWN`) — guard-ul devenea inert pe un detaliu
+  anonimizat (fostul autor ar fi putut oferta pe propriul detaliu retras).
+- `server/services/sketchService.ts:208` (`deleteSketch`) — moderarea schițelor de către „autorul
+  detaliului" nu mai funcționa pe un detaliu anonimizat (fostul autor pierdea dreptul de a-și modera
+  propriile schițe).
+
+Toate patru: `authorId` → `ownerId`, câte un test de regresie per fix. Verificat separat: niciun Server
+Component/Server Action nu scurge `ownerId` (identitatea reală) către client — `page.tsx` construiește
+explicit obiecte reduse pentru componentele client, nu face spread pe obiectul `detail` întreg.
+
+**Verdict:** APPROVED după remediere (0 Critical/High deschise).
 
 ---
 

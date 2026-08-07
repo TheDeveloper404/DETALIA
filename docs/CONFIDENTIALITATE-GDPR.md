@@ -43,6 +43,12 @@ Acces · rectificare · ștergere („dreptul de a fi uitat") · portabilitate �
 
 Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în MVP.
 
+**NU se confundă cu „retragerea" dintr-un detaliu (2026-08-06, `details.anonymized_at`)** — acela e un
+mecanism SEPARAT, per-conținut, nu per-cont: autorul își retrage numele/poza de pe UN detaliu anume
+(afișare devine „Anonim"), dar `author_id` rămâne intact în DB pentru audit, contul rămâne activ, iar
+restul conținutului lui (alte detalii, profil) e neafectat. NU satisface „dreptul de a fi uitat" — pentru
+asta rămâne singurul flux valid ștergerea de cont descrisă mai sus.
+
 ---
 
 ## 3. Schelet — Notă de confidențialitate (de completat + revizuit juridic)
