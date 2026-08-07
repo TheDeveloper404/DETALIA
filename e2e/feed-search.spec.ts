@@ -43,3 +43,42 @@ test("categorie inexistentă în URL → filtru ignorat (fallback pe feed nefilt
   // activeId devine null când categoria nu există în listă → titlul rămâne cel implicit, nu 500/crash.
   await expect(page.getByRole("heading", { name: "Detalii în dezbatere" })).toBeVisible();
 });
+
+// As-you-type cu debounce (2026-08-07) — components/feed-search.tsx. Fără Enter/submit, fără reload de
+// pagină: doar tastare + pauză → URL-ul se actualizează cu `q` și feed-ul se refiltrează.
+test("tastare fără Enter → după debounce, URL capătă ?q= și rezultatul se filtrează", async ({ page }) => {
+  const { detailTitle } = getSeed();
+  const term = detailTitle.split(" ")[0];
+
+  await page.goto("/feed");
+  await expect(page.getByRole("heading", { name: "Detalii în dezbatere" })).toBeVisible();
+
+  await page.getByRole("searchbox", { name: "Caută detalii" }).fill(term);
+  // NU apăsăm Enter — doar debounce-ul trebuie să declanșeze navigarea.
+  await expect(page).toHaveURL(new RegExp(`[?&]q=${term}`), { timeout: 2000 });
+  await expect(page.getByRole("heading", { name: `Rezultate pentru „${term}”` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: detailTitle })).toBeVisible();
+});
+
+test("căutare fără rezultate, tastată as-you-type → empty state de căutare, fără Enter", async ({ page }) => {
+  const term = `garbage-nomatch-${Date.now()}`;
+
+  await page.goto("/feed");
+  await page.getByRole("searchbox", { name: "Caută detalii" }).fill(term);
+
+  await expect(page.getByRole("heading", { name: "Niciun Rezultat" })).toBeVisible({ timeout: 2000 });
+});
+
+test("refresh cu ?q= în URL → input-ul reflectă query-ul curent (nu rămâne text stale netrimis)", async ({
+  page,
+}) => {
+  const { detailTitle } = getSeed();
+  const term = detailTitle.split(" ")[0];
+
+  await page.goto(`/feed?q=${encodeURIComponent(term)}`);
+  const searchInput = page.getByRole("searchbox", { name: "Caută detalii" });
+  await expect(searchInput).toHaveValue(term);
+
+  await page.reload();
+  await expect(searchInput).toHaveValue(term);
+});

@@ -86,6 +86,7 @@ export default defineConfig({
         /feed\.spec\.ts/,
         /sketch-numbering\.spec\.ts/,
         /feed-search\.spec\.ts/,
+        /feed-validation\.spec\.ts/,
         /profile-edit\.spec\.ts/,
         /profile-public\.spec\.ts/,
         /profile-contact\.spec\.ts/,

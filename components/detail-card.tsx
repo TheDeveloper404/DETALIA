@@ -3,7 +3,7 @@
 //
 // Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
 // Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
-import { Eye, Layers, MessageSquare, PencilRuler } from "lucide-react";
+import { Eye, Layers, MessageSquare, ThumbsUp } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -15,7 +15,6 @@ import { PersonSilhouette } from "./avatar-initials";
 import { FeedValidationActions } from "./feed-validation-actions";
 import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
-import { SendToCanvasButton } from "./send-to-canvas-button";
 
 // Stivă de avatare ale validatorilor — cercuri suprapuse (cine a luat poziție pe detaliu).
 // Aducem max 5 avatare din DB; dacă sunt mai mulți validatori, ultimul cerc devine „+N".
@@ -149,7 +148,19 @@ export function DetailCard({
         <div className="mb-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
           <PublishedTime value={detail.createdAt} />
           <span className="text-border">·</span>
-          <span>{detail.validationCount} validări</span>
+          {canValidate ? (
+            <FeedValidationActions
+              detailId={detail.id}
+              myPosition={myPosition}
+              validationCount={detail.validationCount}
+            />
+          ) : (
+            <span className="inline-flex items-center gap-1" title="Validări">
+              <ThumbsUp className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="sr-only">validări:</span>
+              {detail.validationCount}
+            </span>
+          )}
           <span className="text-border">·</span>
           <span className="inline-flex items-center gap-1" title="Comentarii">
             <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
@@ -168,27 +179,6 @@ export function DetailCard({
             <span className="sr-only">vizualizări:</span>
             {detail.views}
           </span>
-        </div>
-
-        {/* Acțiuni — toate icon-only, text la HOVER (nu la click), un singur rând: validare (dacă e permisă)
-            + „Schițează peste" + „Trimite în Planșă". Link secundar (NU buton) pt schițare: duce în pagina
-            detaliului la teanc (context), fără să creeze draft. */}
-        <div className="mt-auto flex flex-wrap items-center gap-3">
-          {canValidate && <FeedValidationActions detailId={detail.id} myPosition={myPosition} />}
-          {/* Tooltip absolut poziționat (NU expandare inline) — o etichetă care „împinge" vecinii la hover
-              le mută poziția reală sub cursor, iar cursorul „ratează" iconița următoare la navigare rapidă
-              (bug raportat de Liviu, 2026-07-06). Absolut = restul rândului nu se mișcă niciodată. */}
-          <Link
-            href={`${href}#schiteaza`}
-            title="Schițează peste"
-            className="group/schiteaza relative inline-flex items-center justify-center rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <PencilRuler className="size-3.5 shrink-0" strokeWidth={2} />
-            <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 font-mono text-[11px] text-background opacity-0 transition-opacity duration-150 group-hover/schiteaza:opacity-100">
-              Schițează peste
-            </span>
-          </Link>
-          {currentUserId && <SendToCanvasButton detailId={detail.id} />}
         </div>
       </div>
     </article>
