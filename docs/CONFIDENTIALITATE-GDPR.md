@@ -41,7 +41,7 @@ Acces · rectificare · ștergere („dreptul de a fi uitat") · portabilitate �
   teancul și dezbaterile altor useri). Rolul declarat (main/sub, non-PII) rămâne ca context al conținutului.
 - **Status `DELETED`** → re-login imposibil (blocat de SEC-04). Cod: `server/services/accountService.ts`.
 
-Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin) în MVP.
+Restul drepturilor (acces/portabilitate) rămân manuale (cerere → admin), momentan.
 
 **NU se confundă cu „retragerea" dintr-un detaliu (2026-08-06, `details.anonymized_at`)** — acela e un
 mecanism SEPARAT, per-conținut, nu per-cont: autorul își retrage numele/poza de pe UN detaliu anume

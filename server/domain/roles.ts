@@ -1,7 +1,7 @@
 // Domain roluri — sursa unică pentru rolurile principale și subrolurile (meseriile) lor.
 // Rolul clasifică OAMENII (credibilitate), distinct de taxonomia de categorii (clasifică detaliile).
 //
-// Listă finală confirmată de Edi (`lista_meserii.md`). roleMain rămâne enum-ul de grupare din DB
+// Listă finală confirmată (`lista_meserii.md`). roleMain rămâne enum-ul de grupare din DB
 // (folosit la signup + ca ROLE_MAIN al lui subRole), dar NU se mai afișează în platformă — doar
 // meseria (subRole) e vizibilă lângă nume (ex. „Eduard Nemeș · Arhitect", nu „Proiectant · Arhitect").
 

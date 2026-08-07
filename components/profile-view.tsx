@@ -90,7 +90,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
       {/* Card unic pt banner + antet (avatar/nume/badge/bio) — coerent cu bara de statistici de mai
-          jos, care are deja propriul chenar (cerință Liviu, 2026-07-16: „le-aș pune și pe astea într-un
+          jos, care are deja propriul chenar (2026-07-16: „le-aș pune și pe astea într-un
           container"). */}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
       {/* Banner — imaginea de cover dacă există, altfel grilă blueprint mascată radial. */}
@@ -363,7 +363,7 @@ function TabButton({
 }
 
 // Listele de pe profil arată doar primele câteva, ca la LinkedIn — restul se cere explicit prin
-// „Vezi toate", nu scroll lung (cerință Liviu, 2026-07-16).
+// „Vezi toate", nu scroll lung (2026-07-16).
 const TAB_PAGE_SIZE = 4;
 
 function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; viewerIsOwner: boolean }) {

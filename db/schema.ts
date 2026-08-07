@@ -86,7 +86,7 @@ export const users = pgTable("users", {
   website: text(),
   // Firma pe care o reprezintă userul (opțional, auto-declarat — ca locația/website-ul).
   company: text(),
-  // Contact opțional (2026-07-16, cerere Edi) — ajută doi useri să se conecteze direct. PRIVAT implicit:
+  // Contact opțional (2026-07-16) — ajută doi useri să se conecteze direct. PRIVAT implicit:
   // vizibil altor useri DOAR dacă userul bifează explicit vizibilitatea (opt-in, nu opt-out). Emailul
   // (coloana `email` de mai sus, deja folosită la login) capătă propriul flag separat — până acum nu era
   // afișat nicăieri public; rămâne privat implicit și după acest flag, dacă userul nu-l activează.
@@ -199,12 +199,12 @@ export const details = pgTable(
     authorId: uuid()
       .notNull()
       .references(() => users.id),
-    // Locație (2026-07-16, cerere Edi): „România" (implicit) = context tehnic RO complet valabil.
+    // Locație (2026-07-16): „România" (implicit) = context tehnic RO complet valabil.
     // Orice altă valoare (text liber „Țară, oraș", introdus de user la pill-ul „Altă locație") =
     // context tehnic RO INVALID pt acel detaliu (enforce în validateDetailInput, nu doar UI) — nu
     // afișăm/acceptăm clasificări românești pe un detaliu din afara României.
     location: text().notNull().default("România"),
-    // Zona climatică n-are variantă neutră în lista Edi (Zona I..IV) → nullable, fără default.
+    // Zona climatică n-are variantă neutră în listă (Zona I..IV) → nullable, fără default.
     climateZone: text(),
     // Ceilalți parametri tehnici au „General" ca variantă neutră în listă (lista_categorii.md).
     seismicAg: text().notNull().default("General"),
@@ -215,7 +215,7 @@ export const details = pgTable(
     // la upload. La PUBLISHED, imaginea e mereu obligatorie (enforce în validateDetailInput strict).
     imageUrl: text(),
     status: text().notNull().default("PUBLISHED"),
-    // ── Ștergere cu retragerea identității (2026-08-06, cerere Edi) ──
+    // ── Ștergere cu retragerea identității (2026-08-06) ──
     // Un detaliu care a strâns interacțiuni (comentarii / poziții / schițe de la alții) NU se mai poate
     // șterge complet — ar rupe discuția pentru toți ceilalți. În locul ștergerii, autorul se poate
     // RETRAGE: numele și poza lui dispar din afișare, ROLUL și conținutul rămân, ca discuția să continue.
@@ -227,8 +227,8 @@ export const details = pgTable(
     // userului (n-am mai avea de unde să știm care era ATUNCI). Același model (și aceeași formă jsonb)
     // ca `validations.roleSnapshot`.
     authorRoleSnapshot: jsonb(),
-    // Contor de vizualizări (2026-08-06, cerere Edi): „vizualizare" = FIECARE încărcare a paginii
-    // detaliului, ca la StackOverflow — NU vizitatori unici (decizie de produs confirmată de Liviu).
+    // Contor de vizualizări (2026-08-06): „vizualizare" = FIECARE încărcare a paginii
+    // detaliului, ca la StackOverflow — NU vizitatori unici (decizie de produs).
     // Incrementat atomic (`views = views + 1`), deci fără condiție de cursă la acces concurent.
     views: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -247,7 +247,7 @@ export const details = pgTable(
   ],
 );
 
-// Categorii bifate pe un detaliu — many-to-many (Edi: „bifezi oricâte", stil tag Pinterest).
+// Categorii bifate pe un detaliu — many-to-many (regulă de produs: „bifezi oricâte", stil tag Pinterest).
 export const detailCategories = pgTable(
   "detail_categories",
   {
@@ -354,7 +354,7 @@ export const comments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     body: text().notNull(),
-    // Imagine atașată la comentariu (2026-08-06, cerere Edi) — MAXIM UNA, opțională („uite, aici la
+    // Imagine atașată la comentariu (2026-08-06) — MAXIM UNA, opțională („uite, aici la
     // îmbinarea asta"). URL de Vercel Blob, trecut prin ACELAȘI pipeline de re-encodare/curățare ca
     // imaginile de detalii (`reprocessBlobImage`), sub `u/<userId>/comments/...`. La ștergerea
     // comentariului se șterge și fișierul, altfel rămân orfani în storage.
@@ -362,14 +362,14 @@ export const comments = pgTable(
     originValidationId: uuid().references(() => validations.id, { onDelete: "set null" }),
     // Persistă DINCOLO de retragere (originValidationId devine null la retract, onDelete: set null) —
     // ca UI-ul să poată eticheta un comentariu drept „fostă dezaprobare, retrasă" în loc să dispară orice
-    // urmă și să pară un comentariu obișnuit (2026-07-06, clarificare cerută de Liviu).
+    // urmă și să pară un comentariu obișnuit (2026-07-06).
     wasDisapproval: boolean().notNull().default(false),
     // Schița de origine a unei justificări de dezaprobare scrise de pe tabul unei schițe (2026-07-16).
     // Comentariul însuși stă mereu pe targetType DETAIL (dezbatere unificată) — coloana asta e DOAR ca
     // UI-ul să poată eticheta „pe schița N" și să sară la tab. null = comentariu obișnuit / dezaprobare
     // pe detaliul de bază. Schița ștearsă → set null (nu pierdem comentariul, doar eticheta).
     sketchContextId: uuid().references(() => sketches.id, { onDelete: "set null" }),
-    // Reply (2026-07-06, idee Edi) — UN SINGUR nivel: un reply nu poate avea el însuși reply-uri
+    // Reply (2026-07-06) — UN SINGUR nivel: un reply nu poate avea el însuși reply-uri
     // (enforce în commentService, nu doar aici). null = comentariu rădăcină. Cascade: comentariul-părinte
     // șters → reply-urile lui dispar odată cu el (nu rămân orfane).
     parentCommentId: uuid().references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
@@ -424,8 +424,8 @@ export const savedDetails = pgTable(
   ],
 );
 
-// „Ridic mâna" — un FURNIZOR semnalează public că poate oferta materiale pt acest detaliu (2026-07-16,
-// cerere Edi). Entitate SEPARATĂ de `validations` (deliberat): semantica de aprobare/dezaprobare
+// „Ridic mâna" — un FURNIZOR semnalează public că poate oferta materiale pt acest detaliu (2026-07-16).
+// Entitate SEPARATĂ de `validations` (deliberat): semantica de aprobare/dezaprobare
 // (contoare, justificare obligatorie) n-are legătură cu asta — e doar vizibilitate comercială.
 // Compus (userId, detailId) = PK, identic modelul „o poziție per user per țintă, reversibilă" ca la
 // bookmark (savedDetails): al doilea click = retragere (DELETE), nu o a doua ramură de stare.
@@ -515,7 +515,7 @@ export const platformSettings = pgTable("platform_settings", {
 
 // Planșă v2 (canvas privat, ENGINE PROPRIU — nu Excalidraw/tldraw) — spațiu de lucru per user: adună
 // detalii din platformă, le aranjează (mută/scalează/z-order) și desenează freehand peste ansamblu.
-// STRICT privat la MVP — ownership enforce în plansaService (NU RLS). `state` = CanvasDocument
+// STRICT privat — ownership enforce în plansaService (NU RLS). `state` = CanvasDocument
 // ({ version, items, strokes } — vezi server/domain/plansa.ts), opac pt Drizzle, validat structural
 // pe server la fiecare save; `canvas_items` = index relațional planșă↔detalii.
 export const canvases = pgTable(

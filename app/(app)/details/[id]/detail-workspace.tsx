@@ -126,7 +126,7 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === wanted);
     return idx >= 0 ? idx + 1 : 0;
   });
-  // Adnotările pornesc TOATE ÎNCHISE (decizie Liviu 2026-08-02): imaginea de bază e subiectul, adnotarea
+  // Adnotările pornesc TOATE ÎNCHISE (decizie de produs 2026-08-02): imaginea de bază e subiectul, adnotarea
   // e o explicație pe care o ceri. Se deschide UNA singură — două desene suprapuse s-ar amesteca vizual.
   // `null` = niciuna deschisă. Doar afișare, fără persistență.
   // (Între 2026-07-31 și 2026-08-01 exista o singură adnotare, pornită vizibilă.)
@@ -367,7 +367,7 @@ export function DetailWorkspace({
             // Ordinalul e după data creării (prima schiță = 1, FIX, nu se renumerotează niciodată) — NU
             // după ordinea din `sketches` (cea mai nouă primă, doar pt afișarea taburilor). Altfel, la
             // fiecare schiță nouă a aceluiași autor, toate etichetele mai vechi s-ar renumerota (bug
-            // raportat de Liviu 2026-07-07: schița de azi devenea „1", cea de ieri „2").
+            // raportat 2026-07-07: schița de azi devenea „1", cea de ieri „2").
             const baseName = s.author.name ?? "Anonim";
             const sameAuthor = sketches
               .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
@@ -481,7 +481,7 @@ export function DetailWorkspace({
             )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
-                  altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16, cerere Edi — detaliul
+                  altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16 — detaliul
                   de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
                   SketchViewer peste el, ca în realitate). Doar overlay-ul de schiță face fade-in la
                   comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}

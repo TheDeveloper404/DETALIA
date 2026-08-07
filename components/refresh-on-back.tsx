@@ -7,7 +7,7 @@ import { useEffect } from "react";
 // verificare de staleness a Client Router Cache-ului (bypass explicit cu -1 în sursa Next.js,
 // indiferent de `staleTimes`) — pagina revine din cache oricât de veche ar fi. Fără acest refresh,
 // contorul de vizualizări (incrementat pe pagina de detaliu) n-ar apărea actualizat în feed la
-// întoarcere cu Back (2026-08-07, cerere Liviu: „intru pe detaliu, ies, vreau să văd că s-a contorizat").
+// întoarcere cu Back (2026-08-07: „intru pe detaliu, ies, vreau să văd că s-a contorizat").
 //
 // Montat în layout-ul zonei autentificate (`app/(app)/layout.tsx`), NU în `feed/page.tsx` — un
 // component montat la nivel de pagină ar rata exact evenimentul care-l aduce pe ecran: la Back

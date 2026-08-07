@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { audit } from "@/lib/audit";
 import { cleanupOldNotifications } from "@/server/services/notificationService";
 
-// Retenție notificări: șterge notificările CITITE mai vechi de 15 zile (decizie Liviu 2026-07-03).
+// Retenție notificări: șterge notificările CITITE mai vechi de 15 zile (decizie de produs 2026-07-03).
 // Necitite NU se șterg (userul trebuie să le vadă măcar o dată) — doar cele deja consumate se curăță,
 // ca să nu crească nemărginit tabelul. Invocat de Vercel Cron (vercel.json), autorizat prin CRON_SECRET
 // (header pe care Vercel îl trimite automat la apelul programat — vezi docs Vercel Cron Jobs).

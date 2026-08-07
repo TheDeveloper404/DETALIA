@@ -1,9 +1,14 @@
-# DETALIA — Arhitectură & Plan de Atac (MVP)
+# DETALIA — Arhitectură & Plan de Atac
 
+> **Actualizat 2026-08-07: proiectul a trecut din faza MVP/validare de piață în v1 — 100% funcțională,
+> 19 useri activi.** Restul documentului e păstrat ca înregistrare istorică a planului inițial (context
+> → decizie), inclusiv referințele la „MVP" din corpul textului — nu retro-editate, ca să rămână o
+> înregistrare fidelă a raționamentului de la momentul respectiv.
+>
 > Document de start, scris pentru a fi prezentat lui Edward și folosit ca referință tehnică.
-> Faza proiectului: **validare de piață**. Obiectiv tehnic: cost cât mai aproape de $0, livrare rapidă,
-> fundație curată care suportă creșterea fără rescriere.
-> Întrebarea pe care MVP-ul o testează: *„dacă pun în fața specialiștilor un detaliu bun, se aprinde
+> Faza proiectului la momentul scrierii: **validare de piață**. Obiectiv tehnic: cost cât mai aproape de
+> $0, livrare rapidă, fundație curată care suportă creșterea fără rescriere.
+> Întrebarea pe care MVP-ul o testa: *„dacă pun în fața specialiștilor un detaliu bun, se aprinde
 > dezbaterea pe roluri sau nu?"*
 
 ---

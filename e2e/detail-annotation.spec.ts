@@ -93,7 +93,7 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
 
       // Pasul e OPȚIONAL, deci userul trebuie să înțeleagă DE CE l-ar face — textul explicativ e parte
-      // din cerință (Liviu, 2026-07-31: „trebuie specificat clar de ce"), nu decor.
+      // din cerință (2026-07-31: „trebuie specificat clar de ce"), nu decor.
       await expect(page.getByText(/Vrei să explici ceva anume din imagine/)).toBeVisible();
 
       await page.getByTestId("annotate-open").click();

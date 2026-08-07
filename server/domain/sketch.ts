@@ -1,5 +1,5 @@
 // Domain Schiță — reguli pure pentru „foaia" desenată peste un detaliu-mamă (~fork).
-// State machine (enforce în SketchService) — simplificat 2026-06-30 (decizie Edi):
+// State machine (enforce în SketchService) — simplificat 2026-06-30:
 //   DRAFT ──(autor PUBLISH)──▶ PUBLISHED (intră direct în teanc, public)
 // Schițele se publică DIRECT (fără coadă de acceptare). Moderare POST-publicare: autorul detaliului-mamă
 // (sau autorul schiței) poate ȘTERGE o schiță nerelevantă. Un singur autor pe foaie. Asincron, fără real-time.
@@ -30,7 +30,7 @@ export function isSelfAnnotation(input: {
   return input.sketchAuthorId === input.detailAuthorId;
 }
 
-// Câte adnotări poate avea un detaliu (decizie Liviu 2026-08-02). Autorul poate explica mai multe lucruri
+// Câte adnotări poate avea un detaliu (decizie de produs 2026-08-02). Autorul poate explica mai multe lucruri
 // separat, dar nu la nesfârșit: peste 3, selectorul devine nefolosibil și imaginea de bază dispare sub
 // desene. Plafonul se impune pe SERVER (`publish`) — UI-ul doar dezactivează butonul, nu e sursă de adevăr.
 // Istoric: 2026-07-31→2026-08-01 regula era „exact o adnotare, re-adnotarea o ÎNLOCUIEȘTE"; înlocuită aici
@@ -42,7 +42,7 @@ export function canAddAnnotation(count: number): boolean {
   return count < MAX_ANNOTATIONS_PER_DETAIL;
 }
 
-// Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie Liviu după ce
+// Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie luată după ce
 // tool-ul de Text cu ancoră în margine a arătat prost în practică — un câmp dedicat e mai clar decât text
 // liber plasat pe canvas). Opțională; goală → nu se afișează la citire.
 export const MAX_SKETCH_NOTE_LENGTH = 500;
@@ -62,7 +62,7 @@ export function validateSketchNote(input: unknown): { ok: true; value: string | 
 export const STROKE_COLORS = ["#211d18", "#b0463c", "#d97a1e", "#caa12e", "#2f8f5f", "#2f6fb0"] as const;
 export const STROKE_WIDTHS = [8, 16, 28] as const;
 
-// ── Bara continuă de culoare (2026-08-06, cerere Edi) ────────────────────────
+// ── Bara continuă de culoare (2026-08-06) ────────────────────────
 // Înlocuiește grila de 6 culori fixe din editorul de schiță: o bară verticală (același model vizual
 // ca sliderul de grosime) cu ALB sus, NEGRU jos și culorile de brand între ele.
 //

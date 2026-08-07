@@ -12,6 +12,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
+    "check:subqueries": "node scripts/check-correlated-subqueries.mjs",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",

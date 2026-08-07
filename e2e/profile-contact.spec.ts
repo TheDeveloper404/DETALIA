@@ -6,7 +6,7 @@ import { db } from "../db";
 import { roles, users } from "../db/schema";
 import { getSeed } from "./seed";
 
-// Telefon/email opțional pe profil, vizibilitate opt-in per câmp (2026-07-16, cerere Edi). Proprietarul
+// Telefon/email opțional pe profil, vizibilitate opt-in per câmp (2026-07-16). Proprietarul
 // vede ÎNTOTDEAUNA datele lui; alt user vede DOAR dacă flagul de vizibilitate e explicit true.
 
 const CONTACT_EMAIL = "e2e-profile-contact@detalia.test";
