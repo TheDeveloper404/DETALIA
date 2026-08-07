@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 // Resursă de tip Imagine — thumbnail mic în listă, click → lightbox (imaginea mărită), nu link extern
-// (2026-07-16, cerere Edi: „trebuie să apară imaginea propriu-zisă, nu link preview ca și acum").
+// (2026-07-16: „trebuie să apară imaginea propriu-zisă, nu link preview ca și acum").
 export function ResourceImage({ url, alt }: { url: string; alt: string }) {
   const [open, setOpen] = useState(false);
 

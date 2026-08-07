@@ -1,4 +1,4 @@
-// Service Notificări — in-app (sursa principală) + email best-effort (Edi le vrea de la început).
+// Service Notificări — in-app (sursa principală) + email best-effort (cerut de la început).
 // Notificările in-app se scriu mereu; emailul se trimite dacă există credențiale (altfel no-op).
 
 import {
@@ -26,7 +26,7 @@ function detailUrl(detailId: string): string {
   return `${base}/details/${detailId}`;
 }
 
-// Emailurile de notificare sunt OPRITE implicit (decizie Liviu 2026-07-03): notificarea in-app ajunge,
+// Emailurile de notificare sunt OPRITE implicit (decizie de produs 2026-07-03): notificarea in-app ajunge,
 // iar cota Resend free (100/zi) rămâne pentru magic link-uri (login/signup + admin), unde emailul e
 // singura cale de acces. Reversibil fără cod: NOTIFICATION_EMAILS_ENABLED=true în env le repornește
 // (motivul inițial „in-app + email pentru brand awareness" rămâne valabil când cota nu mai e o limită).

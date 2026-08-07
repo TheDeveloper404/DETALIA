@@ -19,7 +19,7 @@ import { VoteTriangle } from "./vote-triangle";
 
 const initialState: DisapproveState = { error: null };
 
-// Validare inline din feed — widget vertical stil StackOverflow (2026-08-07, cerere Liviu, înlocuiește
+// Validare inline din feed — widget vertical stil StackOverflow (2026-08-07, înlocuiește
 // reacția tip „Like"/meniu-pe-hover): săgeată sus (Aprob) / count / săgeată jos (Dezaprob). Aprob = 1
 // click; Dezaprob = justificare OBLIGATORIE (devine comentariu pe server, regulă non-negociabilă) — click
 // pe săgeata jos deschide modalul, nu trimite direct. Ca înainte: o singură poziție per user, comutare

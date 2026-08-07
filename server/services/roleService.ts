@@ -120,7 +120,7 @@ type RequestVerificationResult =
   | { ok: false; error: "NO_ROLE" | "ALREADY_VERIFIED" | "PENDING" | "EMPTY_EVIDENCE" };
 
 // Cererea de verificare a rolului (Poarta 2 — „pull, nu push"). Opțională, fără blocare.
-// Userul trimite o dovadă (OAR/CUI); statusul devine PENDING; aprobarea e manuală (admin/Edi).
+// Userul trimite o dovadă (OAR/CUI); statusul devine PENDING; aprobarea e manuală (admin).
 export async function requestRoleVerification(input: {
   userId: string;
   evidence: string;

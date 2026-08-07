@@ -68,8 +68,10 @@ import {
 // Raportul zonei de lucru (16:9 — mărit față de 16:10 inițial, mai multă lățime pt aranjat mai multe
 // detalii pe rând) — spațiul logic de referință al coordonatelor normalizate. ATENȚIE: items existente
 // deja salvate cu `height` calculat la un raport VECHI (vezi `fixAspect`, care „coace" înălțimea
-// normalizată folosind WORKSPACE_RATIO din momentul materializării) vor apărea ușor distorsionate după
-// schimbare — acceptabil acum (pre-lansare, doar date de test), NU retroactiv corect pt planșe reale.
+// normalizată folosind WORKSPACE_RATIO din momentul materializării) vor apărea ușor distorsionate dacă
+// valoarea de mai jos se schimbă din nou — cu planșe reale deja existente, o schimbare NU mai e
+// retroactiv corectă pt ele (verificat 2026-08-07: nicio distorsiune curentă, dar riscul e real la
+// următoarea schimbare de raport).
 const WORKSPACE_RATIO = 9 / 16;
 // Rezoluția thumbnail-ului exportat (aceeași rație).
 const THUMB_W = 800;
@@ -494,7 +496,7 @@ export const PlansaCanvas = forwardRef<
   );
 
   // Zoom cu rotița, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există pagină
-  // dedesubt de scrollat (2026-07-06, decizie Liviu). Non-passive, previne scroll-ul.
+  // dedesubt de scrollat (2026-07-06). Non-passive, previne scroll-ul.
   useEffect(() => {
     const c = containerRef.current;
     if (!c) return;

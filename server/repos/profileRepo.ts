@@ -149,7 +149,7 @@ const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
      and ${sketches.authorId} <> ${detailsAuthorId})`;
 
-// Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (Edi: „bifezi oricâte",
+// Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (regula e „bifezi oricâte",
 // dar cardul de profil arată doar un rezumat, nu toate categoriile).
 const firstCategoryName = sql<string | null>`(
   select ${categories.name}

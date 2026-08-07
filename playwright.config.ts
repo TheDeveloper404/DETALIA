@@ -116,9 +116,11 @@ export default defineConfig({
     },
     // SEC-04 la nivel de acțiune — user SUSPENDAT dedicat, cookie JWT propriu (NU storageState-ul comun
     // din "authed", ca să nu-l invalideze pentru authed.spec.ts/sketch.spec.ts care rulează în paralel).
+    // account-deletion.spec.ts (2026-08-07): la fel, user + cookie proprii (ireversibil — nu poate folosi
+    // storageState-ul comun).
     {
       name: "suspended",
-      testMatch: /suspended\.spec\.ts/,
+      testMatch: [/suspended\.spec\.ts/, /account-deletion\.spec\.ts/],
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"] },
     },

@@ -11,7 +11,7 @@ import { Reveal } from "@/components/reveal";
 // (planșă în panou + voturi pe roluri) + CTA final dark. Paletă proprie de brand (bej cald / teracotă)
 // cu fonturile Archivo + IBM Plex Mono — intenționat separată de tokenii UI shadcn (restul aplicației).
 // Rutele /signup /login /feed sunt cablate; pentru userii autentificați CTA-urile devin „Mergi la feed".
-// Auth passwordless: doar magic link pe email (Google scos pentru MVP).
+// Auth passwordless: doar magic link pe email (Google OAuth scos).
 //
 // Responsive: heading-urile și padding-urile verticale folosesc clamp() (fluide, fără media queries);
 // grilele de carduri folosesc repeat(auto-fit, minmax(...)) → colapsează singure pe ecrane înguste;
@@ -276,7 +276,7 @@ export default function Home() {
           <div>
             <div style={{ ...eyebrow, marginBottom: 24, fontSize: 12 }}>
               <span style={eyebrowDiamond} />
-              Pre-lansare · Comunitate profesională
+              Comunitate profesională activă
             </div>
             <h1
               style={{
@@ -519,7 +519,7 @@ export default function Home() {
 
       {/* ===== CTA FINAL (dark) ===== */}
       {/* Ton închis din familia teracotei (--primary #a9573a întunecat), nu maro-negru neutru — ca să
-          se simtă aceeași identitate, nu o paletă separată (feedback Liviu, 2026-07-06). */}
+          se simtă aceeași identitate, nu o paletă separată (2026-07-06). */}
       <section style={{ position: "relative", overflow: "hidden", background: "#33201a" }}>
         <div
           aria-hidden
@@ -538,14 +538,14 @@ export default function Home() {
         <div style={{ position: "relative", maxWidth: 880, margin: "0 auto", padding: "clamp(72px, 10vw, 104px) 24px", textAlign: "center" }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 10, fontFamily: MONO, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase", color: "#e0a07f", marginBottom: 22 }}>
             <span style={{ width: 6, height: 6, background: "#e0a07f", transform: "rotate(45deg)", display: "inline-block" }} />
-            Pre-lansare
+            Live
           </div>
           <h2 style={{ fontFamily: SANS, fontWeight: 800, fontSize: "clamp(28px, 4.6vw, 44px)", lineHeight: 1.08, letterSpacing: "-0.02em", margin: "0 0 18px", color: "#faf6ef", textWrap: "balance" }}>
-            Suntem la început de drum. Construim împreună standardul.
+            Construim împreună standardul.
           </h2>
           <p style={{ fontSize: 18, lineHeight: 1.6, color: "#c4bcae", margin: "0 auto 36px", maxWidth: "60ch", textWrap: "pretty" }}>
-            DETALIA se naște acum, cu primii profesioniști care intră. Fii printre ei și ajută la așezarea felului
-            în care breasla discută un detaliu de execuție.
+            DETALIA e live, cu profesioniști care deja discută execuție zi de zi. Alătură-te lor și ajută la
+            așezarea felului în care breasla discută un detaliu de execuție.
           </p>
           <Link
             href="/signup"

@@ -1,5 +1,9 @@
 # DETALIA — Decizii de arhitectură (ADR — formă scurtă)
 
+> **Actualizat 2026-08-07: proiectul a trecut din faza MVP în v1 — 100% funcțională, 19 useri activi.**
+> Deciziile de mai jos rămân valabile ca înregistrare istorică (context → decizie de la momentul
+> respectiv) — referințele la „MVP" din corpul lor nu sunt retro-editate.
+>
 > Registru compact al deciziilor structurante și **de ce** au fost luate (context → decizie → consecințe).
 > Forma e deliberat **ușoară** (nu ceremonie enterprise): la scara unui MVP de validare, `CHANGELOG.md` ține
 > jurnalul cronologic, iar acest fișier fixează deciziile *durabile* într-un singur loc, ușor de revizitat.

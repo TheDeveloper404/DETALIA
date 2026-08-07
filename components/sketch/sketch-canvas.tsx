@@ -384,7 +384,7 @@ export const SketchCanvas = forwardRef<
     ctx.stroke();
     const img = imgRef.current;
     if (img) {
-      // Detaliul-mamă rămâne OPAC (2026-07-16, cerere Edi) — nu se mai face transparent detaliul ca să
+      // Detaliul-mamă rămâne OPAC (2026-07-16) — nu se mai face transparent detaliul ca să
       // „iasă" schița în evidență, fiindcă grila din spate răzbătea prin el (nenatural). În loc, punem o
       // FOAIE semitransparentă peste el (mai jos) — ca în realitate: schița stă pe o coală translucidă
       // așezată peste detaliul opac, nu invers.
@@ -418,7 +418,7 @@ export const SketchCanvas = forwardRef<
   }, []);
 
   // Zoom cu rotița mouse-ului, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există
-  // pagină dedesubt de scrollat, deci nu se pierde nimic (2026-07-06, decizie Liviu). Listener non-passive
+  // pagină dedesubt de scrollat, deci nu se pierde nimic (2026-07-06). Listener non-passive
   // ca să putem preveni scroll-ul (irelevant aici, dar consistent cu restul paginii dacă ea totuși scrollează).
   useEffect(() => {
     const c = containerRef.current;
@@ -749,7 +749,7 @@ export const SketchCanvas = forwardRef<
         <RailDivider />
 
         <RailLabel>Culoare</RailLabel>
-        {/* Bară CONTINUĂ de culoare (2026-08-06, cerere Edi): alb sus → culorile de brand → negru jos,
+        {/* Bară CONTINUĂ de culoare (2026-08-06): alb sus → culorile de brand → negru jos,
             același model de interacțiune ca sliderul de grosime de mai jos. Bara vizibilă e doar
             fundalul; sliderul de deasupra (transparent) e controlul real — deci tastatura și
             cititoarele de ecran funcționează fără cod în plus. Gradientul și culoarea aleasă vin din

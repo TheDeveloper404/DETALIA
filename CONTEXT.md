@@ -10,18 +10,18 @@
 ## Ce este DETALIA
 Comunitate profesională din construcții, organizată în jurul **detaliului de execuție**. Modelul mental:
 **„StackOverflow pentru construcții"** — detaliu = întrebare/postare, schiță = răspuns, validare =
-răspuns acceptat/vot de comunitate. Faza curentă:
-**validare de piață** (cost ~$0, livrare rapidă, fundație care scalează fără rescriere). Lansare = **acces
-public deschis** (înregistrare liberă), cu **conținut seed** pus la început prin conturi reale (echipa +
-useri aduși din toate categoriile) ca platforma să nu fie goală la primul contact.
+răspuns acceptat/vot de comunitate. Faza curentă (din 2026-08-07): **v1, 100% funcțională, 19 useri
+activi** — a trecut din validare de piață în produs lansat, cu **acces public deschis** (înregistrare
+liberă) și **conținut seed** pus la început prin conturi reale (echipa + useri aduși din toate
+categoriile) ca platforma să nu fie goală la primul contact.
 
-Întrebarea pe care MVP-ul o testează: *dacă pun un detaliu bun în față, se aprinde dezbaterea pe roluri?*
+Întrebarea pe care produsul o testează în continuare: *dacă pun un detaliu bun în față, se aprinde dezbaterea pe roluri?*
 
 ---
 
 ## Stack (confirmat)
 Single-app **Next.js (App Router)** pe **Vercel** · **Neon Postgres** + **Drizzle** · **Auth.js v5** —
-**magic link (Resend)**, passwordless (fără parolă) — *Google OAuth scos pentru MVP; schela de re-adăugare e documentată
+**magic link (Resend)**, passwordless (fără parolă) — *Google OAuth scos; schela de re-adăugare e documentată
 în comentarii (`lib/auth.ts`)* · **Resend** (email) · **Vercel Blob** (stocare) · **Canvas + perfect-freehand** pentru schiță.
 NU monorepo Fastify în această fază (motivare: `docs/ARHITECTURA.md §2`). Business izolat în `server/` ca
 extragerea spre API separat ulterior să fie posibilă fără rescriere.
@@ -56,7 +56,7 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
   devine automat un `Comment` (cu `originValidationId`), atribuit nume+rol. **Nu există „dezaprobare mută".**
 - **O singură poziție per user per țintă, reversibilă** — garantat de constrângere unică în DB
   `(userId, targetType, targetId)`.
-- **FĂRĂ ponderare numerică / scor / reputație în MVP.** Greutatea o judecă cititorul uitându-se la rol.
+- **FĂRĂ ponderare numerică / scor / reputație.** Greutatea o judecă cititorul uitându-se la rol.
   Noi doar afișăm rolul corect și transparent. (Scoring = backlog, decizie de produs separată.)
 
 ### Discovery (feed & căutare)
@@ -92,12 +92,12 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 - **Dezaprobare = alegere binară** (pe detaliu): „Scrie o justificare" (text → comentariu) SAU „Fă o schiță"
   (desenul **e** justificarea). La varianta schiță, poziția DISAPPROVE + comentariul se materializează **la
   publicarea schiței** (draft marcat `disapprovesParent`), nu la click → fără „dezaprobare mută" la abandon.
-- Schițarea e **asincronă** (fiecare foaie un autor). **FĂRĂ co-desenare real-time în MVP.** (Model confirmat.)
+- Schițarea e **asincronă** (fiecare foaie un autor). **FĂRĂ co-desenare real-time.** (Model confirmat.)
 - Stroke-uri stocate **vectorial** (`strokesJson`, coordonate **normalizate 0..1** față de imaginea-mamă).
   La publicare se randează **o singură dată** un thumbnail PNG (Blob) pentru hover-slideshow/liste.
 - **UX la intrarea în modul schiță:** detaliul-mamă se afișează cu **fill slab** (intensitate redusă, nu la
   intensitatea naturală) — semnal vizibil că s-a declanșat schițarea + ajută la desenat peste detalii colorate intens.
-- **Unelte MVP:** mai multe **culori stridente** + **3 grosimi** de creion + **radieră** + **undo/redo**.
+- **Unelte actuale:** mai multe **culori stridente** + **3 grosimi** de creion + **radieră** + **undo/redo**.
   (Viitor: Line / Circle / Square / Arrow / inserare casetă text.)
 - `Validation` și `Comment` sunt **polimorfice** (Detail SAU Sketch) → dezbaterea per schiță vine gratis.
 
@@ -115,12 +115,12 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
   user), **opțional, fără blocare**. Rol neverificat = **funcțional 100%**. Nu stresăm pe nimeni: doar un
   **nudge blând permanent** („Rolul tău nu e verificat → Verifică rolul"). Userii vin **singuri** să se
   verifice, motivați de credibilitate (rol verificat „cântărește" mai mult în ochii cititorului). La verificare
-  le cerem niște date; **aprobarea e manuală (admin)** în MVP; OAR/CUI auto = ulterior. Odată verificat →
+  le cerem niște date; **aprobarea e manuală (admin)**; OAR/CUI auto = ulterior. Odată verificat →
   **badge cu steluță galbenă** lângă rol (poziția UI exactă — lângă rol și/sau avatar — se decide la implementare).
   Fără scoring numeric: greutatea e dată de rol + faptul că e verificat, judecată de cititor.
 - **Upload de detalii DESCHIS userilor (confirmat, iunie 2026).** Orice user autentificat cu **rol
   declarat** poate publica detalii (nu trebuie să fie verificat). **Moderare post-publicare** (publici direct,
-  ștergem abuzurile ulterior) — fără cozi de aprobare în MVP. Calitatea o dă validarea/dezbaterea pe roluri.
+  ștergem abuzurile ulterior) — fără cozi de aprobare. Calitatea o dă validarea/dezbaterea pe roluri.
   Seed-ul inițial e tot prin conturi reale (vezi mai jos), dar uploadul NU mai e limitat la admin/seed.
 
 ---

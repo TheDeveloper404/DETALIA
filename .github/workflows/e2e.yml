@@ -118,3 +118,25 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+      # Alertare ACTIVĂ (2026-08-07 — înainte, eșecul stătea pasiv în Actions, neobservat decât dacă
+      # cineva se uita manual; exact ce s-a întâmplat cu eșecul care a scos la iveală bug-ul din
+      # worksheet-2026-08-06.spec.ts). Un issue deschis pe repo, nu doar log — apare implicit în
+      # notificările GitHub ale watcher-ilor. Reutilizează issue-ul deschis existent (label
+      # `e2e-alerta`) în loc să creeze unul nou la fiecare rulare picată — evită spam pe flakiness
+      # cunoscut (ex. rate-limit pe createDetail).
+      - name: Alertare activă (issue GitHub) la eșec
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          DEPLOY_URL: ${{ github.event.client_payload.url || inputs.base_url }}
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --label e2e-alerta --state open --json number --jq '.[0].number' || true)"
+          body="Rulare picată: $RUN_URL"$'\n'"Preview testat: $DEPLOY_URL"$'\n\n'"Raport Playwright atașat ca artifact la rularea de mai sus (retenție 7 zile)."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "E2E picat pe preview (post-deploy dev)" --label e2e-alerta --body "$body"
+          fi

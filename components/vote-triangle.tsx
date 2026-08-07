@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 // Triunghi CSS plin (border trick), nu iconiță cu coadă — stilul exact StackOverflow pentru
-// săgețile de vot (2026-08-07, cerere Liviu). Culoarea vine din `currentColor` (text-color pe wrapper).
+// săgețile de vot (2026-08-07). Culoarea vine din `currentColor` (text-color pe wrapper).
 export function VoteTriangle({
   direction,
   size = 10,

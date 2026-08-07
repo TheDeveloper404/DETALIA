@@ -45,8 +45,8 @@ export async function signInWithEmailAction(formData: FormData): Promise<void> {
   if (!(await verifyTurnstile(captcha, ip))) redirect(`${authPath}?error=CaptchaFailed`);
 
   // Login/signup rămân fluxuri distincte pe server (login NU creează cont automat, signup NU
-  // retrimite pe un cont existent) — dar NU mai expunem asta în răspuns (fix 2026-07-30, găsit de
-  // Liviu: mesajele distincte "NoAccount"/"AccountExists" permiteau enumerarea conturilor după
+  // retrimite pe un cont existent) — dar NU mai expunem asta în răspuns (fix 2026-07-30: mesajele
+  // distincte "NoAccount"/"AccountExists" permiteau enumerarea conturilor după
   // email). În ambele cazuri de nepotrivire, NU trimitem email, dar redirecționăm la /verify-request
   // — exact pagina de succes real — ca răspunsul să fie indistinguizabil extern de un trimis reușit.
   const accountExists = await userExistsByEmail(email);

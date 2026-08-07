@@ -175,7 +175,7 @@ export function listDetailDraftsByAuthor(authorId: string) {
 }
 
 // Categoriile bifate pe un detaliu, ca array JSON — subquery corelat (nu join), ca să nu dublăm
-// rândurile detaliului când sunt mai multe categorii (Edi: „bifezi oricâte").
+// rândurile detaliului când sunt mai multe categorii (regula e „bifezi oricâte").
 const detailCategoriesJson = sql<{ id: string; name: string; slug: string }[]>`(
   select coalesce(json_agg(json_build_object('id', ${categories.id}, 'name', ${categories.name}, 'slug', ${categories.slug}) order by ${categories.name}), '[]'::json)
   from ${detailCategories}
@@ -306,7 +306,7 @@ export async function publishDetailRow(detailId: string) {
 // Toate trei exclud autorul (`<> details.author_id`): comentariile lui pe propriul detaliu, pozițiile
 // lui (posibile din 2026-08-06, item 6) și adnotările lui nu sunt interacțiuni PRIMITE. Fără excluderea
 // asta, autorul care își dă Aprob pe propriul detaliu și-ar bloca singur ștergerea completă, ireversibil
-// (decizie Liviu 2026-08-06). Aceeași regulă ca la `sketchCount` din feed — vezi `isSelfAnnotation`.
+// (decizie de produs 2026-08-06). Aceeași regulă ca la `sketchCount` din feed — vezi `isSelfAnnotation`.
 export async function countDetailInteractions(detailId: string): Promise<{
   comments: number;
   validations: number;
@@ -520,7 +520,7 @@ export async function listTopDebated(limit: number) {
     .limit(limit);
 }
 
-// Detalii înrudite = cel puțin o categorie comună (Edi: „bifezi oricâte"), PUBLISHED, exclus self.
+// Detalii înrudite = cel puțin o categorie comună (regula e „bifezi oricâte"), PUBLISHED, exclus self.
 // Pentru sidebar-ul paginii de detaliu. Sortare după interacțiuni, tie-break pe dată.
 export async function listRelatedDetails(input: {
   detailId: string;
