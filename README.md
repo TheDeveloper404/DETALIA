@@ -14,7 +14,7 @@ Modelul mental: **„GitHub pentru construcții"** — un detaliu este ca un rep
 - **Schițare** peste un detaliu, direct în browser, cu unelte de desen vectorial.
 - **Teanc de schițe** navigabil pentru fiecare detaliu.
 - **Comentarii** legate de detaliu sau de schiță.
-- **Notificări** in-app și pe email.
+- **Notificări** in-app (canalul email există în cod, dezactivat implicit).
 - **Profil** cu rol, subrol, poză și verificare opțională a rolului (badge).
 
 ## Cum funcționează
@@ -31,7 +31,7 @@ Membrii comunității pot:
 - **dezaproba** numai împreună cu o justificare, care devine automat un comentariu;
 - retrage sau schimba ulterior propria poziție (o singură poziție per țintă).
 
-Validările nu formează un scor anonim — rolul și argumentul persoanei rămân vizibile pentru cititor. Nu îți poți valida propriul conținut.
+Validările nu formează un scor anonim — rolul și argumentul persoanei rămân vizibile pentru cititor. Poți vota și pe propriul conținut.
 
 ### 4. Propunerea unei schițe
 Un utilizator poate desena peste imaginea unui detaliu și publica rezultatul:
@@ -43,7 +43,7 @@ DRAFT → PUBLISHED
 Schița se publică direct și intră în teancul public al detaliului. Fiecare schiță are un singur autor. Moderarea este post-publicare: schița poate fi ștearsă de autorul ei sau de autorul detaliului-mamă.
 
 ### 5. Dezbatere și notificări
-Comentariile pot aparține unui detaliu sau unei schițe. Autorii primesc notificări în aplicație și pe email pentru evenimentele relevante (o schiță nouă peste detaliul lor, ștergeri etc.).
+Comentariile pot aparține unui detaliu sau unei schițe. Autorii primesc notificări în aplicație pentru evenimentele relevante (o schiță nouă peste detaliul lor, ștergeri etc.) — canalul email există în cod dar e dezactivat implicit.
 
 ## Concepte
 
@@ -147,11 +147,16 @@ npm run format:check  # verificare formatare (Prettier)
 
 | Document | Conținut |
 |---|---|
+| [`docs/README.md`](docs/README.md) | Index complet al documentației, cu scopul fiecărui document |
 | [`docs/ARHITECTURA.md`](docs/ARHITECTURA.md) | Arhitectura și deciziile tehnice |
 | [`docs/ADR.md`](docs/ADR.md) | Decizii de arhitectură și consecințe |
 | [`docs/SCHEMA.md`](docs/SCHEMA.md) | Modelul bazei de date |
 | [`docs/SECURITATE.md`](docs/SECURITATE.md) | Controale de securitate și audit |
-| [`docs/UX-ECRANE.md`](docs/UX-ECRANE.md) | Ecrane, stări și fluxuri UX |
 | [`docs/PLAN-TESTE.md`](docs/PLAN-TESTE.md) | Strategia și scenariile de testare |
+| [`docs/QA_TEST_CASES.md`](docs/QA_TEST_CASES.md) | Cazuri de test funcționale, pe funcție |
+| [`docs/MANUAL_UTILIZATOR.md`](docs/MANUAL_UTILIZATOR.md) | Manual pentru useri finali |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Infrastructură, medii, backup/restore, reguli de release |
 | [`docs/CONFIDENTIALITATE-GDPR.md`](docs/CONFIDENTIALITATE-GDPR.md) | Confidențialitate și cerințe GDPR |
+| [`docs/INCIDENTS.md`](docs/INCIDENTS.md) | Incidente reale de producție |
+| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Ce e de făcut, pe scurt |
 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Istoricul modificărilor |
