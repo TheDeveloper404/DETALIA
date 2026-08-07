@@ -197,6 +197,7 @@ export default function Home() {
   // Landing public (anonim). Redirectul user-logat → /feed se face în `proxy.ts` (307 curat,
   // fără meta-refresh) — un user autentificat nu ajunge niciodată să randeze pagina asta.
   // LOCKDOWN-ul (mentenanță totală) e gestionat GLOBAL în proxy (rewrite la /maintenance), nu aici.
+
   return (
     <div
       className="dc-landing"
