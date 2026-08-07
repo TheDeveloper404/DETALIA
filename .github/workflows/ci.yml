@@ -1,7 +1,7 @@
 name: CI
 
 # Verifica la fiecare push SI PR pe dev / main: secret scan (gitleaks) + npm audit (high/critical)
-# + type-check + lint + test (vitest) + build.
+# + type-check + gardă subquery corelat (baseline, doar instanțe NOI) + lint + test (vitest) + build.
 # Teste verzi nu inseamna build verde - vitest ignora erorile de tip; build-ul prinde ce pica la deploy.
 # Testele = unit/domain/securitate (repo-uri mock, fara DB/secrete). E2E NU ruleaza in CI (cere preview + bypass).
 # Pre-scaffold (fara package.json) ruleaza gol si trece - devine activ automat dupa Faza 0.
@@ -61,6 +61,13 @@ jobs:
       - name: Type-check
         if: steps.detect.outputs.ready == 'true'
         run: npm run typecheck --if-present
+
+      # Gardă mecanică pt bug-ul recurent de subquery corelat necalificat (3x, ultima cu impact
+      # real în producție — vezi CLAUDE.md §„Capcane tehnice"). Baseline îngheață instanțele
+      # pre-existente; pică doar pe instanțe NOI. Vezi scripts/check-correlated-subqueries.mjs.
+      - name: Subquery-uri corelate (gardă anti-recidivă)
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run check:subqueries --if-present
 
       - name: Lint
         if: steps.detect.outputs.ready == 'true'
