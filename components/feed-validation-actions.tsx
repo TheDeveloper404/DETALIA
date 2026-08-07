@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowBigDown, ArrowBigUp } from "lucide-react";
 import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import {
@@ -16,6 +15,7 @@ import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { ValidationPosition } from "@/server/domain/validation";
 
 import { computeOptimisticValidationCount } from "./validation-count";
+import { VoteTriangle } from "./vote-triangle";
 
 const initialState: DisapproveState = { error: null };
 
@@ -93,7 +93,7 @@ export function FeedValidationActions({
           approved ? "text-[#2f6b3f]" : "text-muted-foreground hover:text-[#2f6b3f]",
         )}
       >
-        <ArrowBigUp className="size-4 shrink-0" strokeWidth={2} fill={approved ? "currentColor" : "none"} />
+        <VoteTriangle direction="up" size={7} />
       </button>
       <span className="sr-only">validări:</span>
       <span className="px-0.5 font-mono text-[11px] font-semibold">{displayCount}</span>
@@ -108,7 +108,7 @@ export function FeedValidationActions({
           disapproved ? "text-destructive" : "text-muted-foreground hover:text-destructive",
         )}
       >
-        <ArrowBigDown className="size-4 shrink-0" strokeWidth={2} fill={disapproved ? "currentColor" : "none"} />
+        <VoteTriangle direction="down" size={7} />
       </button>
     </span>
 

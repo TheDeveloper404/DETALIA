@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowBigDown, ArrowBigUp, Pencil, PenLine } from "lucide-react";
+import { Pencil, PenLine } from "lucide-react";
 import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { VoteTriangle } from "@/components/vote-triangle";
 import { cn } from "@/lib/utils";
 import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType, ValidationPosition } from "@/server/domain/validation";
@@ -128,7 +129,7 @@ export function ValidationPanel({
                   approved ? "text-emerald-600" : "text-muted-foreground hover:text-emerald-600",
                 )}
               >
-                <ArrowBigUp className="size-7 shrink-0" strokeWidth={2} fill={approved ? "currentColor" : "none"} />
+                <VoteTriangle direction="up" size={13} />
               </button>
               <span className="font-mono text-sm font-bold text-foreground">{totalValidari}</span>
               <button
@@ -143,11 +144,7 @@ export function ValidationPanel({
                   myPos && !approved ? "text-destructive" : "text-muted-foreground hover:text-destructive",
                 )}
               >
-                <ArrowBigDown
-                  className="size-7 shrink-0"
-                  strokeWidth={2}
-                  fill={myPos && !approved ? "currentColor" : "none"}
-                />
+                <VoteTriangle direction="down" size={13} />
               </button>
             </div>
 
