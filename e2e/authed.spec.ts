@@ -85,8 +85,9 @@ test.describe.serial("Validare pe rol", () => {
 
   test("Aprob = 1 click → poziția devine activă", async ({ page }) => {
     await page.goto(detailUrl());
-    // exact: „Aprob" e substring în „Dezaprob" → fără exact prinde ambele butoane.
-    const aprob = page.getByRole("button", { name: "Aprob", exact: true });
+    // Widget vertical stil StackOverflow (2026-08-07, validation-panel.tsx) — butoanele au aria-label
+    // „Aprobă"/„Dezaprobă"; exact: „Aprobă" e substring în „Dezaprobă" → fără exact prinde ambele.
+    const aprob = page.getByRole("button", { name: "Aprobă", exact: true });
     await aprob.click();
     // După click butoanele colapsează într-o pastilă icon-only (vezi validation-panel.tsx, 2026-07-06):
     // „Ai aprobat" nu mai e text vizibil (doar `title`), iar span-ul „Retrage" e tot în DOM (doar comprimat
@@ -106,7 +107,7 @@ test.describe.serial("Validare pe rol", () => {
       page.waitForResponse((r) => r.request().method() === "POST" && r.ok()),
       page.getByRole("button", { name: /retrage/i }).click(),
     ]);
-    const dezaprob = page.getByRole("button", { name: "Dezaprob", exact: true });
+    const dezaprob = page.getByRole("button", { name: "Dezaprobă", exact: true });
     await dezaprob.click();
     // Pe DETAIL, Dezaprob deschide întâi alegerea binară (text/schiță) — vezi validation-panel.tsx.
     await page.getByRole("button", { name: "Scrie o justificare" }).click();
