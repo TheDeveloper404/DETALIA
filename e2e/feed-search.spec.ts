@@ -69,6 +69,31 @@ test("căutare fără rezultate, tastată as-you-type → empty state de căutar
   await expect(page.getByRole("heading", { name: "Niciun Rezultat" })).toBeVisible({ timeout: 2000 });
 });
 
+// Regresie 2026-08-07: după ce debounce-ul pornea navigarea pentru primul termen, dacă userul continua
+// să scrie ÎNAINTE ca navigarea să se întoarcă, ecoul ei (props `initialQuery` reîmprospătat cu valoarea
+// VECHE) suprascria orice tastase între timp — „scriu, șterg, scriu repede" → textul nou dispărea.
+test("tastare rapidă peste o navigare deja pornită → textul nou NU e suprascris de ecoul ei", async ({
+  page,
+}) => {
+  const { detailTitle } = getSeed();
+  const first = detailTitle.split(" ")[0];
+  const second = `altceva-${Date.now()}`;
+
+  await page.goto("/feed");
+  const input = page.getByRole("searchbox", { name: "Caută detalii" });
+
+  await input.fill(first);
+  // Trecem pragul de debounce (275ms) — destul cât să pornească router.replace pentru `first` — apoi
+  // continuăm IMEDIAT să scriem, fără să așteptăm ca acea navigare să se fi întors.
+  await page.waitForTimeout(300);
+  await input.fill("");
+  await input.fill(second);
+
+  await expect(input).toHaveValue(second);
+  await expect(page).toHaveURL(new RegExp(`[?&]q=${second}`), { timeout: 2000 });
+  await expect(input).toHaveValue(second);
+});
+
 test("refresh cu ?q= în URL → input-ul reflectă query-ul curent (nu rămâne text stale netrimis)", async ({
   page,
 }) => {

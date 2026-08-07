@@ -9,14 +9,11 @@ import { execFileSync } from "node:child_process";
 import { classifyFindings, isValidAuditReport } from "./audit-report.mjs";
 
 // Advisory-uri HIGH acceptate explicit (GHSA). Fiecare intrare = risk-acceptance cu motiv.
-const ALLOWLIST = new Map([
-  [
-    "GHSA-r28c-9q8g-f849",
-    "postcss (path traversal via sourceMappingURL): vine din @tailwindcss/postcss/next/shadcn/vite, " +
-      "procesează doar CSS-ul propriu din repo la build time, fără sourcemap-uri de la utilizatori. " +
-      "Fără fix disponibil upstream. Zero cale spre runtime-ul de producție.",
-  ],
-]);
+//
+// GHSA-r28c-9q8g-f849 (postcss, path traversal via sourceMappingURL) — SCOASĂ 2026-08-07: rezolvată
+// prin fix real (`npm audit fix`, postcss 8.5.16 → 8.5.26), nu mai e risc acceptat, nu mai apare deloc
+// în `npm audit`.
+const ALLOWLIST = new Map([]);
 
 let report;
 try {
