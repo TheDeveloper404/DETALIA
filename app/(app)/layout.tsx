@@ -1,6 +1,7 @@
 import { AddDetailFab } from "@/components/add-detail-fab";
 import { AppHeader } from "@/components/app-header";
 import { PostHogIdentify } from "@/components/posthog-identify";
+import { RefreshOnBack } from "@/components/refresh-on-back";
 import { auth } from "@/lib/auth";
 
 // Layout al zonei autentificate (feed, details, profile, sketches, notifications): aici trăiește
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <>
       <AppHeader />
+      <RefreshOnBack />
       {session?.user?.id && <PostHogIdentify userId={session.user.id} name={session.user.name} />}
       {/* pb-24: rezervă spațiu sub conținut ca ultimele rânduri (ex. comentarii) să nu fie acoperite
           de AddDetailFab, care e `fixed` peste pagină indiferent de scroll. */}
