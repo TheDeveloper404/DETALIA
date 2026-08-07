@@ -4,16 +4,19 @@ import { Copy, LayoutDashboard, Loader2, MoreVertical, Plus, Trash2 } from "luci
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  type CanvasActionResult,
   createCanvasAction,
   deleteCanvasAction,
   duplicateCanvasAction,
   renameCanvasAction,
 } from "./canvas-list-actions";
+
+const INITIAL_ACTION_STATE: CanvasActionResult = { ok: true };
 
 type CanvasItem = { id: string; name: string; thumbnailUrl: string | null; updatedAt: string };
 
@@ -114,7 +117,15 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [duplicating, startDuplicate] = useTransition();
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // 2026-08-07, fix code-review: rename/delete foloseau `<form action={fn}>` cu acțiuni ce întorceau
+  // `void` — un eșec (NOT_FOUND pe un id învechit, rar dar posibil) dispărea silențios, fără feedback.
+  // `useActionState` e mecanismul standard React pt. exact asta: form action + citirea rezultatului.
+  const [renameState, renameFormAction] = useActionState(renameCanvasAction, INITIAL_ACTION_STATE);
+  const [deleteState, deleteFormAction] = useActionState(deleteCanvasAction, INITIAL_ACTION_STATE);
+  const actionError = duplicateError ?? (!renameState.ok ? renameState.error : null) ?? (!deleteState.ok ? deleteState.error : null);
 
   // Apel direct (NU <form type="submit">): vrem să închidem meniul DUPĂ ce acțiunea termină, nu la click
   // (același bug ca la Șterge — onClick pe un submit ar demonta form-ul înaintea submit-ului nativ).
@@ -122,8 +133,9 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
     const fd = new FormData();
     fd.set("canvasId", canvas.id);
     startDuplicate(async () => {
-      await duplicateCanvasAction(fd);
+      const res = await duplicateCanvasAction(fd);
       setMenuOpen(false);
+      setDuplicateError(res.ok ? null : (res.error ?? "Nu am putut duplica planșa."));
     });
   };
 
@@ -150,7 +162,7 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
       <div className="flex items-start justify-between gap-2 p-3">
         <div className="min-w-0">
           {renaming ? (
-            <form ref={formRef} action={renameCanvasAction} className="flex items-center gap-1.5">
+            <form ref={formRef} action={renameFormAction} className="flex items-center gap-1.5">
               <input type="hidden" name="canvasId" value={canvas.id} />
               <Input
                 name="name"
@@ -174,6 +186,11 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
             </Link>
           )}
           <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">{formatDate(canvas.updatedAt)}</p>
+          {actionError && (
+            <p role="alert" className="mt-0.5 font-mono text-[11px] text-destructive">
+              {actionError}
+            </p>
+          )}
         </div>
 
         {/* Meniu (redenumește / șterge) */}
@@ -214,7 +231,7 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
                   )}
                   Duplică
                 </button>
-                <form action={deleteCanvasAction}>
+                <form action={deleteFormAction}>
                   <input type="hidden" name="canvasId" value={canvas.id} />
                   {/* FĂRĂ onClick care închide meniul: ar demonta form-ul sincron, înaintea acțiunii
                       native de submit a browserului, și click-ul nu ar mai ajunge la server action.

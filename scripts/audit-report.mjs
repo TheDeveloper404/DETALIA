@@ -1,9 +1,9 @@
 // Logica PURĂ a porții de audit, separată de execuția `npm audit` ca să fie testabilă fără rețea.
 // `scripts/audit-check.mjs` o folosește; testele o acoperă direct (scripts/audit-report.test.ts).
 
-export const BLOCKING = new Set(["high", "critical"]);
+const BLOCKING = new Set(["high", "critical"]);
 
-export const ghsaFromUrl = (url) =>
+const ghsaFromUrl = (url) =>
   typeof url === "string" ? url.split("/advisories/")[1] ?? url : "";
 
 // Un raport `npm audit --json` VALID conține întotdeauna `vulnerabilities` (obiect, gol când nu e nimic)
