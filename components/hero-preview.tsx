@@ -2,8 +2,6 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 
-import { VoteTriangle } from "./vote-triangle";
-
 // Cardul de preview din hero-ul landing — (1) FEED: SCREENSHOT REAL din aplicație (nu o recreere de
 // cod — public/landing/feed-real.png, cadru dintr-o înregistrare reală, test.mp4), cu tap
 // simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
@@ -211,15 +209,15 @@ export function HeroPreview() {
 
           {/* Autor + rol */}
           <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 9, marginTop: 9, animationDelay: "5.9s" }}>
-            <span style={voteAvatar}>CD</span>
-            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>C. Dobre</span>
+            <span style={voteAvatar}>RI</span>
+            <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 600, color: "var(--foreground)" }}>R. Ionescu</span>
             <span style={rolePill}>Beneficiar</span>
           </div>
 
           {/* Stivă de validatori — avatarele celor care au luat poziție (apar pe rând). */}
           <div data-rise="1" style={{ display: "flex", alignItems: "center", marginTop: 12, paddingLeft: 7, animationDelay: "6.4s" }}>
-            <span style={stackAvatar}>TS</span>
-            <span style={stackAvatar}>NB</span>
+            <span style={stackAvatar}>MP</span>
+            <span style={stackAvatar}>IR</span>
           </div>
 
           {/* Contoare — ca în feed: validări · comentarii · schițe în teanc. */}
@@ -235,25 +233,23 @@ export function HeroPreview() {
         {/* Pozițiile pe roluri — partea „vie" a dezbaterii (Aprobă / Dezaprobă cu justificare). */}
         <div style={{ padding: "12px 18px 16px", marginTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
           <div data-rise="1" style={{ display: "flex", alignItems: "center", gap: 10, animationDelay: "7.1s" }}>
-            <span style={voteAvatar}>TS</span>
+            <span style={voteAvatar}>MP</span>
             <span style={{ fontSize: 13.5, flex: 1 }}>
-              <b style={{ fontWeight: 600 }}>T. Sava</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
+              <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2f6b3f", background: "rgba(47,107,63,0.12)", border: "1px solid rgba(47,107,63,0.3)", padding: "3px 9px", borderRadius: 999 }}>
-              <VoteTriangle direction="up" size={8} />
-              Aprobă
+              ✓ Aprobă
             </span>
           </div>
           <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "7.8s" }}>
-            <span style={voteAvatar}>NB</span>
+            <span style={voteAvatar}>IR</span>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 13.5 }}>
-                  <b style={{ fontWeight: 600 }}>N. Barbu</b> <span style={{ color: "var(--muted-foreground)" }}>· Executant</span>
+                  <b style={{ fontWeight: 600 }}>I. Radu</b> <span style={{ color: "var(--muted-foreground)" }}>· Executant</span>
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#9a3a30", background: "rgba(176,70,60,0.12)", border: "1px solid rgba(176,70,60,0.3)", padding: "3px 9px", borderRadius: 999, marginLeft: "auto" }}>
-                  <VoteTriangle direction="down" size={8} />
-                  Dezaprobă
+                  ✕ Dezaprobă
                 </span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.45 }}>
