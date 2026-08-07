@@ -1,6 +1,6 @@
 // Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, desc, eq, exists, inArray, ne, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -196,16 +196,36 @@ const detailWithAuthorColumns = {
   snowLoad: details.snowLoad,
   windLoad: details.windLoad,
   status: details.status,
+  views: details.views,
   createdAt: details.createdAt,
   categories: detailCategoriesJson,
-  authorId: details.authorId,
-  authorName: users.name,
-  authorImage: users.image,
-  authorLocation: users.location,
-  authorHeadline: users.headline,
-  authorRoleMain: roles.roleMain,
-  authorSubRole: roles.subRole,
-  authorVerification: roles.verificationStatus,
+  // ── Autor, cu anonimizarea impusă ÎN SQL ──
+  // Un detaliu din care autorul s-a retras (`anonymized_at`) nu mai trebuie să poarte nume/poză/link de
+  // profil NICĂIERI — nici într-un payload de Server Component, nici într-un răspuns de acțiune. De aceea
+  // masca stă AICI, în singurul loc prin care trec toate citirile de detaliu, nu în componente: o
+  // ascundere doar în UI ar lăsa identitatea în datele trimise clientului.
+  //
+  // `details.author_id` RĂMÂNE în tabel (audit/abuz) — doar nu mai iese de aici.
+  isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
+  // `authorId` = identitatea AFIȘABILĂ: null după retragere, ca UUID-ul autorului să nu ajungă la client
+  // (din el s-ar deschide direct /profile/<id> — anonimizarea ar fi fost decorativă).
+  authorId: sql<string | null>`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
+  // `ownerId` = proprietarul REAL, needitat de anonimizare. STRICT pentru logica de server (autorizare,
+  // notificări, „e adnotarea propriului autor?"). NU se trimite spre client — componentele de afișare
+  // citesc `authorId`/`isAnonymized`, niciodată asta.
+  ownerId: details.authorId,
+  authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
+  authorImage: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.image} end`,
+  authorLocation: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.location} end`,
+  authorHeadline: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.headline} end`,
+  // Rolul SUPRAVIEȚUIEȘTE retragerii (cerința: „Autor șters · rol") — după anonimizare nu-l mai putem
+  // citi din contul userului, deci vine din snapshot-ul înghețat la momentul retragerii.
+  authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
+    else ${details.authorRoleSnapshot}->>'roleMain' end`,
+  authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
+    else ${details.authorRoleSnapshot}->>'subRole' end`,
+  authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
+    else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
 } as const;
 
 export async function getDetailResources(detailId: string) {
@@ -218,6 +238,21 @@ export async function getDetailResources(detailId: string) {
     })
     .from(detailResources)
     .where(eq(detailResources.detailId, detailId));
+}
+
+// Incrementează atomic contorul de vizualizări al unui detaliu PUBLICAT.
+//
+// `views = views + 1` la nivel de DB (nu citire-apoi-scriere din aplicație) → fără condiție de cursă
+// când mai mulți useri deschid pagina simultan.
+//
+// SQL brut, NU `db.update(details).set(...)`, DINADINS: `updatedAt` are `$onUpdate` în schema Drizzle,
+// deci orice update trecut prin query builder ar rescrie și „ultima modificare" a detaliului — o simplă
+// vizualizare ar fi arătat ca o editare a autorului.
+export async function incrementDetailViews(id: string): Promise<void> {
+  await db.execute(
+    sql`update ${details} set ${sql.identifier("views")} = ${sql.identifier("views")} + 1
+        where ${details.id} = ${id} and ${details.status} = ${DETAIL_STATUS.PUBLISHED}`,
+  );
 }
 
 export async function getDetailById(id: string) {
@@ -241,7 +276,11 @@ export async function getDetailForEdit(id: string, ownerId: string) {
     .from(details)
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(and(eq(details.id, id), eq(details.authorId, ownerId)))
+    // `anonymized_at is null`: un detaliu din care autorul s-a retras nu se mai editează de nimeni
+    // (decizie de produs 2026-08-06 — nu poți edita ceva de care te-ai desprins public). Blocat AICI,
+    // în poarta prin care trec ȘI încărcarea formularului de editare, ȘI ștergerea ciornei, ȘI update-ul
+    // — nu în UI, unde ar fi rămas doar cosmetic.
+    .where(and(eq(details.id, id), eq(details.authorId, ownerId), isNull(details.anonymizedAt)))
     .limit(1);
   return row ?? null;
 }
@@ -260,6 +299,70 @@ export async function publishDetailRow(detailId: string) {
 // Neon HTTP n-are tranzacții interactive → folosim `db.batch` (un singur batch atomic).
 // Întoarce URL-urile de blob de curățat best-effort din service (thumbnail-uri schițe + resurse IMAGE/PDF/CAD;
 // LINK/TEXT nu au fișier în Blob-ul nostru — LINK e URL extern).
+// Câte interacțiuni a PRIMIT un detaliu de la ALȚI useri — folosit ca să decidem dacă ștergerea îl
+// elimină complet sau doar retrage identitatea autorului. Un singur query, trei subquery-uri corelate
+// (nu 3 round-trip-uri).
+//
+// Toate trei exclud autorul (`<> details.author_id`): comentariile lui pe propriul detaliu, pozițiile
+// lui (posibile din 2026-08-06, item 6) și adnotările lui nu sunt interacțiuni PRIMITE. Fără excluderea
+// asta, autorul care își dă Aprob pe propriul detaliu și-ar bloca singur ștergerea completă, ireversibil
+// (decizie Liviu 2026-08-06). Aceeași regulă ca la `sketchCount` din feed — vezi `isSelfAnnotation`.
+export async function countDetailInteractions(detailId: string): Promise<{
+  comments: number;
+  validations: number;
+  sketchesFromOthers: number;
+}> {
+  // BUG REAL găsit la debugging e2e (2026-08-06): fără calificare explicită, `${details.authorId}`
+  // necalificat SE REZOLVĂ la coloana subquery-ului (`comments.author_id`/`validations.user_id`/
+  // `sketches.author_id`), nu la `details.author_id` — Postgres tratează identificatorul necalificat
+  // ca aparținând scope-ului cel mai apropiat (FROM-ul subquery-ului). Rezultat: `x <> x`, mereu FALS,
+  // contor mereu 0 — exact capcana deja documentată la `sketchCount`/`detailsAuthorId` mai jos în acest
+  // fișier. Refolosim ACEEAȘI referință calificată explicit, nu una nouă.
+  const [row] = await db
+    .select({
+      comments: sql<number>`(select count(*)::int from ${comments}
+        where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+          and ${comments.authorId} <> ${detailsAuthorId})`,
+      validations: sql<number>`(select count(*)::int from ${validations}
+        where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+          and ${validations.userId} <> ${detailsAuthorId})`,
+      sketchesFromOthers: sql<number>`(select count(*)::int from ${sketches}
+        where ${sketches.detailId} = ${detailsId}
+          and ${sketches.status} = 'PUBLISHED'
+          and ${sketches.authorId} <> ${detailsAuthorId})`,
+    })
+    .from(details)
+    .where(eq(details.id, detailId))
+    .limit(1);
+
+  return row ?? { comments: 0, validations: 0, sketchesFromOthers: 0 };
+}
+
+// Retrage identitatea autorului dintr-un detaliu: îngheață rolul curent în snapshot și marchează
+// momentul. Conținutul, schițele, comentariile și pozițiile rămân neatinse — doar afișarea autorului
+// se schimbă (masca e aplicată la CITIRE, în `detailWithAuthorColumns`).
+//
+// Condiționat pe `author_id` (fără IDOR) ȘI pe `anonymized_at is null` (idempotent: două cereri
+// concurente nu rescriu snapshot-ul cu un rol schimbat între timp). True dacă acest apel a anonimizat.
+export async function anonymizeDetailAuthor(
+  detailId: string,
+  authorId: string,
+  roleSnapshot: { roleMain: string; subRole: string | null; verificationStatus: string },
+): Promise<boolean> {
+  const rows = await db
+    .update(details)
+    .set({ anonymizedAt: new Date(), authorRoleSnapshot: roleSnapshot })
+    .where(
+      and(
+        eq(details.id, detailId),
+        eq(details.authorId, authorId),
+        isNull(details.anonymizedAt),
+      ),
+    )
+    .returning({ id: details.id });
+  return rows.length > 0;
+}
+
 export async function deleteDetailCascade(detailId: string): Promise<string[]> {
   const sketchRows = await db
     .select({ id: sketches.id, thumbnailUrl: sketches.thumbnailUrl })
@@ -291,31 +394,49 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
       )
     : and(eq(comments.targetType, "DETAIL"), eq(comments.targetId, detailId));
 
+  // Imaginile atașate comentariilor care urmează să dispară — citite ÎNAINTE de delete, altfel URL-urile
+  // s-ar pierde odată cu rândurile și fișierele ar rămâne orfane în Blob, plătite la nesfârșit.
+  const commentImageRows = await db
+    .select({ imageUrl: comments.imageUrl })
+    .from(comments)
+    .where(comWhere);
+
   await db.batch([
     db.delete(validations).where(valWhere),
     db.delete(comments).where(comWhere),
     db.delete(details).where(eq(details.id, detailId)), // cascade → detail_resources + sketches
   ]);
 
-  return [...sketchRows.map((s) => s.thumbnailUrl), ...resourceRows.map((r) => r.url)].filter(
-    (u): u is string => !!u,
-  );
+  return [
+    ...sketchRows.map((s) => s.thumbnailUrl),
+    ...resourceRows.map((r) => r.url),
+    ...commentImageRows.map((c) => c.imageUrl),
+  ].filter((u): u is string => !!u);
 }
 
 // Counts de interacțiune per detaliu (polimorfice, pe DETAIL) — subquery-uri corelate (nu join-uri)
 // ca să nu dublăm rândurile când există mai multe interacțiuni. `::int` ca să vină number, nu string.
+//
+// BUG REAL, CRITIC găsit la debugging e2e (2026-08-06, verificat direct pe date de producție —
+// un detaliu cu 5 comentarii reale întorcea 0): fără calificare explicită, `${details.id}` necalificat
+// într-un subquery pe `comments`/`validations`/`sketches` SE REZOLVĂ la coloana `id` a SUBQUERY-ULUI
+// (toate tabelele au o coloană `id`), nu la `details.id` din exterior — Postgres tratează
+// identificatorul necalificat ca aparținând scope-ului cel mai apropiat. Rezultat: corelarea devine
+// `comments.target_id = comments.id`, aproape mereu FALS → contor mereu 0, silențios, fără eroare SQL.
+// A afectat feed-ul ÎNTREG (contoare de comentarii/validări/schițe greșite) ȘI `interactionScore`
+// (sortarea „cele mai dezbătute" era efectiv doar pe dată, scorul fiind mereu 0 pentru toți).
+// ACEEAȘI capcană fusese deja găsită și reparată în `profileRepo.ts` (2026-07-23) — fix-ul NU fusese
+// propagat aici. Reparat cu ACELAȘI pattern: `sql.identifier` calificat explicit, nu interpolare directă.
+const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
+const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const validationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id})`;
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${details.id})`;
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
 // „N schițe" = contribuțiile ALTORA (model fork/PR). Adnotarea autorului pe propriul detaliu nu e o
 // contribuție primită → exclusă (mirror SQL al `isSelfAnnotation`, server/domain/sketch.ts).
-// `details.author_id` calificat EXPLICIT: subquery-ul e pe `sketches`, care are ȘI EL `author_id` — o
-// referință necalificată s-ar rezolva la coloana subquery-ului → `x <> x`, mereu fals, contor mereu 0.
-// (Aceeași capcană documentată pe larg în profileRepo.ts pentru `details.id`.)
-const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
-   where ${sketches.detailId} = ${details.id} and ${sketches.status} = 'PUBLISHED'
+   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
      and ${sketches.authorId} <> ${detailsAuthorId})`;
 
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
@@ -330,7 +451,7 @@ const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
     select ${users.name} as name, ${users.image} as image
     from ${validations}
     join ${users} on ${users.id} = ${validations.userId}
-    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${details.id}
+    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
     order by ${validations.createdAt} desc
     limit 5
   ) sub
@@ -376,11 +497,17 @@ export async function listTopDebated(limit: number) {
       id: details.id,
       title: details.title,
       categories: detailCategoriesJson,
-      authorName: users.name,
-      authorImage: users.image,
-      authorRoleMain: roles.roleMain,
-      authorSubRole: roles.subRole,
-      authorVerification: roles.verificationStatus,
+      // Aceeași mască de anonimizare ca în `detailWithAuthorColumns` — altfel rail-ul „cele mai
+      // dezbătute" ar fi continuat să afișeze numele unui autor care s-a retras.
+      isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
+      authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
+      authorImage: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.image} end`,
+      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
+        else ${details.authorRoleSnapshot}->>'roleMain' end`,
+      authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
+        else ${details.authorRoleSnapshot}->>'subRole' end`,
+      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
+        else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
       validationCount,
       commentCount,
       sketchCount,
@@ -405,10 +532,14 @@ export async function listRelatedDetails(input: {
     .select({
       id: details.id,
       title: details.title,
-      authorName: users.name,
-      authorRoleMain: roles.roleMain,
-      authorSubRole: roles.subRole,
-      authorVerification: roles.verificationStatus,
+      // Vezi nota de la `listTopDebated`: masca de anonimizare se aplică pe FIECARE cale de citire.
+      authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
+      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
+        else ${details.authorRoleSnapshot}->>'roleMain' end`,
+      authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
+        else ${details.authorRoleSnapshot}->>'subRole' end`,
+      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
+        else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
       commentCount,
       sketchCount,
     })

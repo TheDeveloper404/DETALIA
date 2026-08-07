@@ -3,6 +3,7 @@
 import {
   ArrowUpRight,
   Circle,
+  Copy,
   Eraser,
   Hand,
   Minus,
@@ -35,9 +36,14 @@ import {
   TEXT_FONT_FAMILY,
   TEXT_FONT_SCALE,
 } from "@/lib/sketch-render";
+import { resolveCanvasShortcut } from "@/lib/canvas-shortcuts";
 import { cn } from "@/lib/utils";
 import {
+  colorAtRampPosition,
+  colorRampGradient,
+  duplicateTextStroke,
   MAX_STROKE_SIZE,
+  MAX_STROKES,
   MAX_TEXT_LENGTH,
   STROKE_COLORS,
   STROKE_WIDTHS,
@@ -226,7 +232,10 @@ export const SketchCanvas = forwardRef<
     present: initialStrokes,
     future: [],
   });
+  // Culoarea curentă + poziția ei pe bara continuă. Pornim de la grafit (culoarea de adnotare
+  // tehnică, primul element din paleta de brand) — poziția 90 pe rampă.
   const [color, setColor] = useState<string>(STROKE_COLORS[0]);
+  const [colorPos, setColorPos] = useState<number>(90);
   const [size, setSize] = useState<number>(STROKE_WIDTHS[1]);
   // Mărimea textului e independentă de grosimea creionului — altfel schimbarea uneia o „scurgea"
   // silențios pe cealaltă (aceeași stare `size` era folosită și de makeStroke, și de commitText).
@@ -487,9 +496,41 @@ export const SketchCanvas = forwardRef<
     setSelected(null);
   }
 
+  // Duplică blocul de text selectat: copia apare ușor deplasată și devine selecția curentă,
+  // gata de mutat (același model ca „Duplică" de pe planșă).
+  function duplicateSelectedText() {
+    if (selected === null) return;
+    const result = duplicateTextStroke(present, selected);
+    if (!result) return;
+    dispatch({ type: "commit", present: result.strokes });
+    setSelected(result.newIndex);
+  }
+
   // Focus pe input-ul flotant când se deschide o casetă nouă.
   useEffect(() => {
     if (textDraft) textInputRef.current?.focus();
+  }, [textDraft]);
+
+  // Shortcut-uri de istoric: Ctrl/Cmd+Z = undo, Ctrl/Cmd+Shift+Z sau Ctrl+Y = redo.
+  // Cât timp userul tastează într-o casetă de text (tool-ul text, sau orice alt input din pagină),
+  // lăsăm undo-ul NATIV al casetei să funcționeze — nu anulăm desenul sub degete.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const inTextField =
+        textDraft !== null ||
+        (!!target &&
+          (target.tagName === "TEXTAREA" || target.tagName === "INPUT" || target.isContentEditable));
+
+      const action = resolveCanvasShortcut(e, { isEditingText: inTextField });
+      if (!action) return;
+
+      e.preventDefault();
+      dispatch({ type: action });
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [textDraft]);
 
   // Aplică radiera la un punct: marchează stroke-urile atinse (geometric) și redesenează vederea filtrată.
@@ -707,29 +748,50 @@ export const SketchCanvas = forwardRef<
 
         <RailDivider />
 
-        <RailLabel>Culori</RailLabel>
+        <RailLabel>Culoare</RailLabel>
+        {/* Bară CONTINUĂ de culoare (2026-08-06, cerere Edi): alb sus → culorile de brand → negru jos,
+            același model de interacțiune ca sliderul de grosime de mai jos. Bara vizibilă e doar
+            fundalul; sliderul de deasupra (transparent) e controlul real — deci tastatura și
+            cititoarele de ecran funcționează fără cod în plus. Gradientul și culoarea aleasă vin din
+            ACELEAȘI opriri (`colorRampGradient` / `colorAtRampPosition`), nu din două liste paralele. */}
         <div
-          className="grid grid-cols-2 gap-2.5 transition-opacity"
+          className="flex w-full flex-col items-center gap-2.5 transition-opacity"
           style={{ opacity: drawActive ? 1 : 0.5 }}
         >
-          {STROKE_COLORS.map((c) => (
-            <button
-              key={c}
-              type="button"
-              aria-label={`Culoare ${c}`}
-              onClick={() => {
-                setColor(c);
+          <span
+            aria-hidden
+            className="block size-6 rounded-full ring-1 ring-foreground/15"
+            style={{ backgroundColor: color }}
+          />
+          <div className="relative h-[120px] w-6">
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-full ring-1 ring-foreground/15"
+              style={{ background: colorRampGradient() }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={colorPos}
+              aria-label="Culoarea creionului"
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setColorPos(next);
+                setColor(colorAtRampPosition(next));
                 if (tool === "eraser") setTool("pen");
               }}
-              className={cn(
-                "size-6 rounded-full ring-offset-background transition-shadow",
-                drawActive && color === c
-                  ? "ring-2 ring-foreground ring-offset-2"
-                  : "ring-1 ring-foreground/15",
-              )}
-              style={{ backgroundColor: c }}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              style={{ writingMode: "vertical-lr" }}
             />
-          ))}
+            {/* Indicatorul poziției curente pe bară — pur vizual (sliderul real e transparent deasupra). */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute left-1/2 h-1 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.35)]"
+              style={{ top: `${colorPos}%` }}
+            />
+          </div>
         </div>
 
         <RailDivider />
@@ -960,6 +1022,13 @@ export const SketchCanvas = forwardRef<
               <TextCtrlBtn label="Editează textul" onClick={editSelectedText}>
                 <Pencil className="size-4" strokeWidth={2} />
               </TextCtrlBtn>
+              <TextCtrlBtn
+                label={present.length >= MAX_STROKES ? "Limita de elemente atinsă" : "Duplică"}
+                onClick={duplicateSelectedText}
+                disabled={present.length >= MAX_STROKES}
+              >
+                <Copy className="size-4" strokeWidth={2} />
+              </TextCtrlBtn>
               <TextCtrlBtn label="Șterge" onClick={deleteSelectedText}>
                 <Trash2 className="size-4 text-destructive" strokeWidth={2} />
               </TextCtrlBtn>
@@ -985,10 +1054,12 @@ function TextCtrlBtn({
   label,
   onClick,
   children,
+  disabled = false,
 }: {
   label: string;
   onClick: () => void;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -996,7 +1067,8 @@ function TextCtrlBtn({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="flex size-7 items-center justify-center rounded-md text-foreground/75 transition-colors hover:bg-secondary"
+      disabled={disabled}
+      className="flex size-7 items-center justify-center rounded-md text-foreground/75 transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
     >
       {children}
     </button>

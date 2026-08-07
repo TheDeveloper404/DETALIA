@@ -75,7 +75,9 @@ function draft(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(getDetailById).mockResolvedValue({ id: DID, authorId: OWNER, title: "T" } as never);
+  // `ownerId` = proprietarul REAL al detaliului (nemascat de anonimizare) — serviciile de business
+  // îl citesc pe ăsta, nu `authorId` (care e identitatea afișabilă, null după retragere).
+  vi.mocked(getDetailById).mockResolvedValue({ id: DID, ownerId: OWNER, authorId: OWNER, title: "T" } as never);
   vi.mocked(getNotificationActor).mockResolvedValue({
     name: "X",
     roleMain: "PROIECTANT",
@@ -374,5 +376,25 @@ describe("DELETE — moderare post-publicare (autor schiță SAU autor detaliu)"
     const r = await deleteSketch({ sketchId: "not-a-uuid", actorUserId: OWNER });
     expect(r).toEqual({ ok: false, error: "SKETCH_NOT_FOUND" });
     expect(getSketchById).not.toHaveBeenCalled();
+  });
+
+  // Regresie (găsit la /code-review, 2026-08-06): moderarea trebuie să folosească `ownerId`
+  // (proprietarul REAL), nu `authorId` (mascat de anonimizare → null pe un detaliu retras). Cu
+  // `authorId`, autorul unui detaliu anonimizat pierdea dreptul de a-și modera propriile schițe.
+  it("detaliu ANONIMIZAT (authorId mascat = null) → autorul REAL tot poate modera (folosind ownerId)", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: null,
+      isAnonymized: true,
+      title: "T",
+    } as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+
+    const r = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(r).toEqual({ ok: true });
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
   });
 });

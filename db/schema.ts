@@ -215,6 +215,22 @@ export const details = pgTable(
     // la upload. La PUBLISHED, imaginea e mereu obligatorie (enforce în validateDetailInput strict).
     imageUrl: text(),
     status: text().notNull().default("PUBLISHED"),
+    // ── Ștergere cu retragerea identității (2026-08-06, cerere Edi) ──
+    // Un detaliu care a strâns interacțiuni (comentarii / poziții / schițe de la alții) NU se mai poate
+    // șterge complet — ar rupe discuția pentru toți ceilalți. În locul ștergerii, autorul se poate
+    // RETRAGE: numele și poza lui dispar din afișare, ROLUL și conținutul rămân, ca discuția să continue.
+    //
+    // `authorId` rămâne intact în DB (audit/abuz) — anonimizarea e la nivel de AFIȘARE, impusă pe server
+    // (repo-ul nu mai selectează nume/poză pentru rândurile anonimizate), nu ascunsă doar în UI.
+    anonymizedAt: timestamp({ withTimezone: true }),
+    // Rolul autorului îngheţat în momentul retragerii — după anonimizare nu-l mai putem citi din contul
+    // userului (n-am mai avea de unde să știm care era ATUNCI). Același model (și aceeași formă jsonb)
+    // ca `validations.roleSnapshot`.
+    authorRoleSnapshot: jsonb(),
+    // Contor de vizualizări (2026-08-06, cerere Edi): „vizualizare" = FIECARE încărcare a paginii
+    // detaliului, ca la StackOverflow — NU vizitatori unici (decizie de produs confirmată de Liviu).
+    // Incrementat atomic (`views = views + 1`), deci fără condiție de cursă la acces concurent.
+    views: integer().notNull().default(0),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -338,6 +354,11 @@ export const comments = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     body: text().notNull(),
+    // Imagine atașată la comentariu (2026-08-06, cerere Edi) — MAXIM UNA, opțională („uite, aici la
+    // îmbinarea asta"). URL de Vercel Blob, trecut prin ACELAȘI pipeline de re-encodare/curățare ca
+    // imaginile de detalii (`reprocessBlobImage`), sub `u/<userId>/comments/...`. La ștergerea
+    // comentariului se șterge și fișierul, altfel rămân orfani în storage.
+    imageUrl: text(),
     originValidationId: uuid().references(() => validations.id, { onDelete: "set null" }),
     // Persistă DINCOLO de retragere (originValidationId devine null la retract, onDelete: set null) —
     // ca UI-ul să poată eticheta un comentariu drept „fostă dezaprobare, retrasă" în loc să dispară orice

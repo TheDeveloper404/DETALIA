@@ -3,7 +3,7 @@
 //
 // Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
 // Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
-import { PencilRuler } from "lucide-react";
+import { Eye, Layers, MessageSquare, PencilRuler } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,6 +13,7 @@ import type { FeedItem } from "@/server/repos/detailsRepo";
 import { FeedSaveButton } from "./feed-save-button";
 import { PersonSilhouette } from "./avatar-initials";
 import { FeedValidationActions } from "./feed-validation-actions";
+import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
 import { SendToCanvasButton } from "./send-to-canvas-button";
 
@@ -68,7 +69,8 @@ export function DetailCard({
 }) {
   const href = `/details/${detail.id}`;
   // Autorul propriului detaliu nu se validează pe sine → ascundem butoanele (enforce și pe server).
-  const canValidate = !currentUserId || detail.authorId !== currentUserId;
+  // Poziția e permisă oricui e autentificat, inclusiv autorului pe propriul detaliu (2026-08-06).
+  const canValidate = !!currentUserId;
 
   return (
     <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
@@ -104,8 +106,18 @@ export function DetailCard({
           <p className="mb-3.5 line-clamp-2 text-sm text-muted-foreground">{detail.description}</p>
         )}
 
-        {/* Autor + rol. */}
+        {/* Autor + rol. Autorul retras (anonimizat) NU are nume, poză sau link de profil — doar rolul,
+            din snapshot-ul înghețat la retragere; identitatea nici nu ajunge de pe server (vezi
+            `detailWithAuthorColumns`). */}
         <div className="mb-3 flex flex-wrap items-center gap-2.5">
+          {detail.isAnonymized ? (
+            <span className="flex items-center gap-2.5">
+              <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[11px] text-muted-foreground">
+                <PersonSilhouette className="size-4" />
+              </span>
+              <span className="text-sm font-semibold text-muted-foreground">Anonim</span>
+            </span>
+          ) : (
           <Link
             href={`/profile/${detail.authorId}`}
             className="flex items-center gap-2.5 no-underline"
@@ -122,6 +134,7 @@ export function DetailCard({
               {detail.authorName ?? "Anonim"}
             </span>
           </Link>
+          )}
           <RolePill
             roleMain={detail.authorRoleMain}
             subRole={detail.authorSubRole}
@@ -134,11 +147,27 @@ export function DetailCard({
 
         {/* Stats. */}
         <div className="mb-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
+          <PublishedTime value={detail.createdAt} />
+          <span className="text-border">·</span>
           <span>{detail.validationCount} validări</span>
           <span className="text-border">·</span>
-          <span>{detail.commentCount} comentarii</span>
+          <span className="inline-flex items-center gap-1" title="Comentarii">
+            <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            <span className="sr-only">comentarii:</span>
+            {detail.commentCount}
+          </span>
           <span className="text-border">·</span>
-          <span>{detail.sketchCount} schițe în teanc</span>
+          <span className="inline-flex items-center gap-1" title="Schițe în teanc">
+            <Layers className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            <span className="sr-only">schițe în teanc:</span>
+            {detail.sketchCount}
+          </span>
+          <span className="text-border">·</span>
+          <span className="inline-flex items-center gap-1" title="Vizualizări">
+            <Eye className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+            <span className="sr-only">vizualizări:</span>
+            {detail.views}
+          </span>
         </div>
 
         {/* Acțiuni — toate icon-only, text la HOVER (nu la click), un singur rând: validare (dacă e permisă)

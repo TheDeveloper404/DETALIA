@@ -34,9 +34,14 @@ export function DetailActionsMenu({
   activeSketchPublicId,
   canDeleteActiveSketch,
   deleteSketchLabel,
+  deletionMode = "HARD_DELETE",
 }: {
   detailId: string;
   isAuthor: boolean;
+  // Ce face efectiv „Șterge" pe ACEST detaliu, calculat pe server: dispariție completă (fără nicio
+  // interacțiune) sau retragerea identității autorului (detaliul a strâns deja discuție). Userul trebuie
+  // să vadă ÎNAINTE de a apăsa care din cele două urmează — sunt lucruri foarte diferite, ambele ireversibile.
+  deletionMode?: "HARD_DELETE" | "ANONYMIZE";
   isSaved: boolean;
   // „Trimite în Planșă" — vizibil doar când userul e logat (orice tab: detaliu SAU schiță).
   canSendToCanvas?: boolean;
@@ -217,7 +222,7 @@ export function DetailActionsMenu({
                 className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
               >
                 <Trash2 className="size-4" strokeWidth={2} />
-                Șterge detaliul
+                {deletionMode === "ANONYMIZE" ? "Retrage-te din detaliu" : "Șterge detaliul"}
               </button>
             )}
           </div>
@@ -236,8 +241,17 @@ export function DetailActionsMenu({
       />
       <ConfirmDialog
         open={confirmDelete === "detail"}
-        title="Ștergi acest detaliu?"
-        message="Schițele, validările și comentariile lui se șterg definitiv. Nu se poate reveni."
+        title={
+          deletionMode === "ANONYMIZE" ? "Te retragi din acest detaliu?" : "Ștergi acest detaliu?"
+        }
+        message={
+          deletionMode === "ANONYMIZE"
+            ? "Detaliul a strâns deja discuție (comentarii, poziții sau schițe), așa că nu mai poate fi " +
+              "șters — conținutul rămâne pentru ceilalți. Dispar doar numele și poza ta: în locul lor " +
+              "apare „Anonim”, cu rolul tău. Nu vei mai putea edita detaliul. Nu se poate reveni."
+            : "Schițele, validările și comentariile lui se șterg definitiv. Nu se poate reveni."
+        }
+        confirmLabel={deletionMode === "ANONYMIZE" ? "Retrage-mă" : "Șterge"}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={() => {
           setConfirmDelete(null);

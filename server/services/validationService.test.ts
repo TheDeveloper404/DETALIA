@@ -30,7 +30,12 @@ const target = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getRoleByUserId).mockResolvedValue(ROLE as never);
-  vi.mocked(getDetailById).mockResolvedValue({ id: "22222222-2222-4222-8222-222222222222", authorId: "x", title: "T" } as never);
+  vi.mocked(getDetailById).mockResolvedValue({
+    id: "22222222-2222-4222-8222-222222222222",
+    ownerId: "x",
+    authorId: "x",
+    title: "T",
+  } as never);
   vi.mocked(upsertPosition).mockResolvedValue({ id: "v-1" } as never);
   vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue({ id: "v-1" } as never);
 });
@@ -127,29 +132,51 @@ describe("approve = 1 click", () => {
   });
 });
 
-describe("nu te validezi pe propriul conținut — CANNOT_VALIDATE_OWN (enforce pe server)", () => {
+// Regula „nu te validezi pe propriul conținut" a fost ELIMINATĂ deliberat (2026-08-06, decizie de
+// produs Edi + Liviu). Testele de mai jos NU au fost șterse — au fost INVERSATE, ca acoperirea pe acest
+// flow să rămână: dacă cineva reintroduce accidental guard-ul, ele pică.
+describe("auto-validare PERMISĂ pe conținut propriu (decizie de produs 2026-08-06)", () => {
   beforeEach(() => {
     // Autorul țintei = userul care votează.
-    vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: target.userId, title: "T" } as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: target.targetId,
+      ownerId: target.userId,
+      authorId: target.userId,
+      title: "T",
+    } as never);
   });
 
-  it("approve pe propriul detaliu → CANNOT_VALIDATE_OWN, fără upsert", async () => {
+  it("approve pe propriul detaliu → OK, poziția se înregistrează", async () => {
     const r = await approve(target);
-    expect(r).toEqual({ ok: false, error: "CANNOT_VALIDATE_OWN" });
-    expect(upsertPosition).not.toHaveBeenCalled();
+    expect(r).toEqual({ ok: true });
+    expect(vi.mocked(upsertPosition).mock.calls[0][0]).toMatchObject({
+      userId: target.userId,
+      position: "APPROVE",
+    });
   });
 
-  it("disapprove pe propriul detaliu → CANNOT_VALIDATE_OWN, fără upsert/comentariu", async () => {
+  it("disapprove pe propriul detaliu → OK, cu justificare + comentariu ca la oricine altcineva", async () => {
     const r = await disapprove({ ...target, justification: "motiv valid" });
-    expect(r).toEqual({ ok: false, error: "CANNOT_VALIDATE_OWN" });
+    expect(r).toEqual({ ok: true });
+    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
+    expect(insertComment).toHaveBeenCalledTimes(1);
+  });
+
+  it("regulile care NU s-au schimbat rămân active: dezaprobarea fără justificare tot se respinge", async () => {
+    const r = await disapprove({ ...target, justification: "   " });
+    expect(r).toEqual({ ok: false, error: "JUSTIFICATION_REQUIRED" });
     expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
-    expect(insertComment).not.toHaveBeenCalled();
   });
 });
 
 describe("recordSketchDisapproval — materializarea dezaprobării la publicarea schiței", () => {
   it("autorul schiței ≠ autorul detaliului → tranziție DISAPPROVE + comentariu auto", async () => {
-    vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: "owner-x", title: "T" } as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: target.targetId,
+      ownerId: "owner-x",
+      authorId: "owner-x",
+      title: "T",
+    } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
     expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
     expect(insertComment).toHaveBeenCalledTimes(1);
@@ -157,16 +184,42 @@ describe("recordSketchDisapproval — materializarea dezaprobării la publicarea
   });
 
   it("dublu-publish / dezaprobare deja existentă (tranziție null) → fără comentariu dublu", async () => {
-    vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: "owner-x", title: "T" } as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: target.targetId,
+      ownerId: "owner-x",
+      authorId: "owner-x",
+      title: "T",
+    } as never);
     vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue(null as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
     expect(insertComment).not.toHaveBeenCalled();
   });
 
   it("autorul-mamă schițează pe propriul detaliu → no-op (nu se auto-dezaprobă)", async () => {
-    vi.mocked(getDetailById).mockResolvedValue({ id: target.targetId, authorId: target.userId, title: "T" } as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: target.targetId,
+      ownerId: target.userId,
+      authorId: target.userId,
+      title: "T",
+    } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
     expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
     expect(insertComment).not.toHaveBeenCalled();
+  });
+
+  // SEC-002 (audit 2026-08-07): getTargetAuthorId citea `authorId` — coloana MASCATĂ, null după
+  // anonimizare — nu `ownerId` (identitatea reală). Pe un detaliu anonimizat, `!authorId` era mereu
+  // true → guard-ul ieșea devreme pentru ORICINE, nu doar pentru fostul autor, deci dezaprobarea
+  // automată nu se mai înregistra niciodată. Cu `ownerId`, altcineva decât fostul autor tot declanșează
+  // tranziția normal.
+  it("detaliu anonimizat (authorId mascat null) — altcineva decât fostul autor tot declanșează dezaprobarea", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: target.targetId,
+      ownerId: "owner-x",
+      authorId: null,
+      title: "T",
+    } as never);
+    await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
+    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
   });
 });

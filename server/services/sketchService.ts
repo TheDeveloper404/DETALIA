@@ -66,7 +66,7 @@ export async function createDraft(input: {
   // desenare din nou, nu prin editare. Plafonul se verifică și AICI ca să nu deschidem un editor în
   // care userul desenează degeaba; `publish` îl reverifică oricum și el e sursa de adevăr.
   // (Între 2026-07-31 și 2026-08-01 draftul pornea din adnotarea curentă, iar publicarea o înlocuia.)
-  if (isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.authorId })) {
+  if (isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.ownerId })) {
     const count = await countAnnotationsByDetail(input.detailId);
     if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
   }
@@ -155,7 +155,7 @@ export async function publish(input: {
   // Cursă acceptată conștient: două publicări simultane ale ACELUIAȘI autor pot trece amândouă de check și
   // duce la 4. E o cursă cu sine însuși, fără consecință distructivă (nimic nu se șterge), iar remediul —
   // blocare la nivel de rând — nu justifică complexitatea. Ștergerea rămâne oricând la îndemâna autorului.
-  if (isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.authorId })) {
+  if (isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
     const count = await countAnnotationsByDetail(sketch.detailId);
     if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
   }
@@ -176,10 +176,10 @@ export async function publish(input: {
 
   // ADNOTARE (autorul pe propriul detaliu) → nimeni de anunțat: destinatarul ar fi chiar el. Notificarea
   // are sens doar la o contribuție PRIMITĂ de la altcineva. Vezi `isSelfAnnotation` (domain/sketch.ts).
-  if (!isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.authorId })) {
+  if (!isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
     const author = await getNotificationActor(sketch.authorId);
     await notifySketchProposed({
-      recipientUserId: detail.authorId,
+      recipientUserId: detail.ownerId,
       sketchId: sketch.id,
       detailId: sketch.detailId,
       detailTitle: detail.title,
@@ -205,7 +205,9 @@ export async function deleteSketch(input: {
 
   const detail = await getDetailById(sketch.detailId);
   const isSketchAuthor = sketch.authorId === input.actorUserId;
-  const isDetailAuthor = detail?.authorId === input.actorUserId;
+  // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
+  // autorul unui detaliu retras pierde dreptul de moderare pe propriile schițe.
+  const isDetailAuthor = detail?.ownerId === input.actorUserId;
   if (!isSketchAuthor && !isDetailAuthor) return { ok: false, error: "FORBIDDEN" };
 
   const thumbnailUrl = await deleteSketchCascade(input.sketchId);
@@ -246,7 +248,7 @@ export async function createAnnotation(input: {
 
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
-  if (!isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.authorId })) {
+  if (!isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.ownerId })) {
     return { ok: false, error: "FORBIDDEN" };
   }
 

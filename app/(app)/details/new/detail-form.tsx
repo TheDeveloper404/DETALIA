@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
+import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 import {
   HEIC_ERROR_MESSAGE,
@@ -931,12 +932,24 @@ export function DetailForm({
                 </div>
               ) : (
                 <div className="relative z-[1] flex items-center justify-center p-6">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
-                  <img
-                    src={preview.url}
-                    alt="Previzualizare detaliu"
-                    className="max-h-80 w-auto max-w-full object-contain"
-                  />
+                  {/* Previzualizarea arată imaginea CU adnotarea suprapusă, prin exact componenta care
+                      randează adnotarea pe pagina detaliului publicat (SketchViewer) — altfel, după
+                      „Gata", userul vedea poza goală și credea că desenul s-a pierdut (nu se pierduse,
+                      doar nu se randa). `veil={false}`: sunt notițele autorului pe propria imagine, nu
+                      foaia altcuiva peste ea — aceeași regulă ca pe pagina finală.
+                      Wrapper-ul `relative inline-block` se mulează exact pe imaginea randată, deci
+                      dreptunghiul măsurat de SketchViewer coincide cu imaginea. */}
+                  <span className="relative inline-block max-w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
+                    <img
+                      src={preview.url}
+                      alt="Previzualizare detaliu"
+                      className="max-h-80 w-auto max-w-full object-contain"
+                    />
+                    {annotationStrokes && annotationStrokes.length > 0 && (
+                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} veil={false} />
+                    )}
+                  </span>
                 </div>
               )}
               {!annotating && (

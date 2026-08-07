@@ -32,7 +32,9 @@ export async function toggleSupplierOffer(input: {
 
   const detail = await getDetailById(input.detailId); // doar PUBLISHED
   if (!detail) return { ok: false, error: "TARGET_NOT_FOUND" };
-  if (detail.authorId === input.userId) return { ok: false, error: "CANNOT_OFFER_OWN" };
+  // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
+  // regula "nu-ți oferi singur" devine inertă pe un detaliu din care autorul s-a retras.
+  if (detail.ownerId === input.userId) return { ok: false, error: "CANNOT_OFFER_OWN" };
 
   // Tranziție ATOMICĂ (bug găsit 2026-07-16): decizia „a fost primul click?" o ia inserarea din DB
   // (`onConflictDoNothing().returning()`), NU o citire prealabilă — altfel dublu-click/tab dublu putea
@@ -65,7 +67,7 @@ export async function toggleSupplierOffer(input: {
   try {
     const actor = await getNotificationActor(input.userId);
     await notifySupplierOffered({
-      recipientUserId: detail.authorId,
+      recipientUserId: detail.ownerId,
       detailId: input.detailId,
       detailTitle: detail.title,
       supplierName: actor?.name ?? null,

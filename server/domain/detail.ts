@@ -236,3 +236,38 @@ export function validateDetailInput(
     },
   };
 }
+
+// ── Ștergerea unui detaliu: complet vs. retragerea identității (2026-08-06) ───────────────────
+//
+// Regula de produs (Edi + Liviu): un detaliu care a strâns interacțiuni nu mai dispare la ștergere —
+// discuția din jurul lui aparține și celorlalți. În locul ștergerii, autorul se RETRAGE din el.
+//
+// „Interacțiune" = ORICARE dintre: un comentariu, o poziție (Aprob/Dezaprob), o schiță — toate trei,
+// confirmat explicit de Liviu (2026-08-06), dar NUMAI de la ALȚI useri.
+//
+// De ce „de la alții" contează, nu doar tipul: din 2026-08-06 autorul își poate valida și comenta
+// propriul detaliu (item 6, guard-ul de auto-validare eliminat). Dacă am număra și interacțiunile lui
+// cu sine, un simplu Aprob pe propriul detaliu l-ar face pentru totdeauna neștergibil — autorul și-ar
+// bloca singur o acțiune ireversibilă, fără să înțeleagă de ce. Discuția cu tine însuți nu e discuție.
+export type DetailInteractionCounts = {
+  /** Comentariile ALTORA. */
+  comments: number;
+  /** Pozițiile ALTORA (Aprob/Dezaprob). */
+  validations: number;
+  /** Schițele ALTORA. Adnotarea autorului pe propriul detaliu nu e o interacțiune primită. */
+  sketchesFromOthers: number;
+};
+
+export function hasInteractions(counts: DetailInteractionCounts): boolean {
+  return counts.comments > 0 || counts.validations > 0 || counts.sketchesFromOthers > 0;
+}
+
+export type DetailDeletionMode = "HARD_DELETE" | "ANONYMIZE";
+
+// Ce se întâmplă efectiv la apăsarea „Șterge": dispariție completă dacă nu există nicio urmă de
+// interacțiune, altfel retragerea identității autorului (conținutul rămâne). Funcție pură — folosită
+// ȘI de UI (ca să spună dinainte exact ce urmează), ȘI de server la execuție, dintr-un singur loc,
+// ca cele două să nu poată diverge.
+export function resolveDeletionMode(counts: DetailInteractionCounts): DetailDeletionMode {
+  return hasInteractions(counts) ? "ANONYMIZE" : "HARD_DELETE";
+}

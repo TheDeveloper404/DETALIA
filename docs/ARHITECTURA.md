@@ -191,7 +191,10 @@ Detail  («repository»)
   id, title, description?, authorId,
   climateZone? (fără default, listă fixă Zona I..IV), seismicAg/seismicTc (default „General"),
   snowLoad/windLoad (default „General"),  // parametri tehnici separați, listă fixă
-  imageUrl (imaginea 2D: jpg/png/webp, ~5MB), status, createdAt
+  imageUrl (imaginea 2D: jpg/png/webp, ~5MB), status, createdAt,
+  views (contor de vizualizări, fiecare încărcare de pagină, nu vizitatori unici — 2026-08-06),
+  anonymizedAt? (momentul retragerii autorului; non-null → nume/poză mascate la citire — 2026-08-06),
+  authorRoleSnapshot? (rolul autorului înghețat la retragere, pt. afișare după anonimizare — 2026-08-06)
 DetailCategories       // many-to-many — un detaliu poate avea oricâte categorii (tag-uri, stil Pinterest)
   detailId, categoryId  // PK compus; înlocuiește vechiul FK simplu categoryId de pe Detail
 DetailResource         // MAX 3 resurse opționale de înțelegere (imagine + link; PDF/text mai târziu)
@@ -214,7 +217,10 @@ Validation  («code review» — INIMA, polimorfică pe Detail SAU Sketch)
 
 Comment
   id, targetType (DETAIL|SKETCH), targetId, authorId, body,
+  imageUrl? (maxim o imagine atașată, re-encodată server-side — 2026-08-06),
   originValidationId? (setat când vine dintr-un Dezaprob obligatoriu), createdAt
+CommentLike             // toggle simplu, PK compus (commentId, userId)
+  commentId, userId, createdAt
 
 Notification
   id, recipientUserId, type (SKETCH_PROPOSED|SKETCH_DELETED; SKETCH_ACCEPTED|SKETCH_REJECTED = istoric),
@@ -229,6 +235,14 @@ Decizii de modelare cheie:
   garantat de bază de date, nu de cod fragil.
 - **Dezaprob → Comment cu `originValidationId`** → justificarea obligatorie intră automat în comentarii,
   atribuită cu nume+rol, exact ca în mail.
+- **Retragerea autorului (anonimizare) — mascare în SQL, nu în UI (2026-08-06).** Un detaliu care a strâns
+  interacțiuni de la alții nu se mai poate șterge fizic — autorul se retrage, conținutul rămâne. Rândul
+  `Detail` expune DOUĂ identități la citire: `authorId` (coloană derivată, `NULL` dacă `anonymizedAt` e
+  setat — sigură de trimis către client/UI) vs `ownerId` (coloana reală `author_id`, neschimbată,
+  STRICT server-side pentru autorizare — niciodată expusă clientului). Masca se aplică o singură dată,
+  la interogare (`detailWithAuthorColumns`, `server/repos/detailsRepo.ts`), nu în fiecare componentă —
+  altfel identitatea tot ar fi ajuns în payload-ul trimis browserului, doar ascunsă vizual. Orice
+  verificare de ownership server-side trebuie să folosească `ownerId`, niciodată `authorId`.
 
 ---
 
@@ -468,7 +482,13 @@ confirmi stack-ul.
   datele reale dau greutate). Sursă: `lista_categorii.md` (poate fi ștearsă).
 - **Upload detalii = DESCHIS** userilor cu rol declarat (moderare post-publicare); seed inițial prin conturi reale.
 - **Acces = PUBLIC** (înregistrare deschisă, fără invitație); mecanismul de invitație a fost eliminat complet din cod.
-- **Feed ~20** detalii după interacțiuni; căutare pe filtre la început.
+- **Feed ~20** detalii, sortare STRICT cronologică (nu după interacțiuni — corectat 2026-07-23, vezi
+  `CONTEXT.md`); sortarea după scor există separat, în rail-ul „cele mai dezbătute". Căutare pe filtre la
+  început.
+- **Aprob/Dezaprob PERMIS și pe propriul conținut** (2026-08-06) — guard-ul `CANNOT_VALIDATE_OWN` a fost
+  eliminat deliberat din `approve`/`disapprove` (rămâne doar la auto-dezaprobarea automată din
+  `recordSketchDisapproval`). Vezi `CONTEXT.md`.
+- **Ștergere condiționată de interacțiuni** (2026-08-06) — vezi §4, decizia de mascare `authorId`/`ownerId`.
 - O imagine 2D/detaliu (jpg/png/webp, ~5MB); **max 3 resurse** suplimentare.
 
 ### Încă deschise
