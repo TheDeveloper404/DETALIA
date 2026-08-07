@@ -144,41 +144,46 @@ export function DetailCard({
         {/* Stivă de validatori — avatarele celor care au luat poziție, suprapuse (cine a contribuit). */}
         <ValidatorStack avatars={detail.validatorAvatars} total={detail.validationCount} />
 
-        {/* Stats. */}
-        <div className="mb-3.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
-          <PublishedTime value={detail.createdAt} />
-          <span className="text-border">·</span>
-          {canValidate ? (
-            <FeedValidationActions
-              detailId={detail.id}
-              myPosition={myPosition}
-              validationCount={detail.validationCount}
-            />
-          ) : (
-            <span className="inline-flex items-center gap-1" title="Validări">
-              <ThumbsUp className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-              <span className="sr-only">validări:</span>
-              {detail.validationCount}
+        {/* Stats — lipit de marginea de jos a cardului (mt-auto absoarbe spațiul rămas). Stânga: acțiuni
+            de interacțiune, în ordinea 1. validare 2. comentarii 3. schițe în teanc (2026-08-07, cerere
+            Liviu). Dreapta: dată publicare + vizualizări (informativ, nu interacțiune). */}
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            {canValidate ? (
+              <FeedValidationActions
+                detailId={detail.id}
+                myPosition={myPosition}
+                validationCount={detail.validationCount}
+              />
+            ) : (
+              <span className="inline-flex items-center gap-1" title="Validări">
+                <ThumbsUp className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                <span className="sr-only">validări:</span>
+                {detail.validationCount}
+              </span>
+            )}
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1" title="Comentarii">
+              <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="sr-only">comentarii:</span>
+              {detail.commentCount}
             </span>
-          )}
-          <span className="text-border">·</span>
-          <span className="inline-flex items-center gap-1" title="Comentarii">
-            <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-            <span className="sr-only">comentarii:</span>
-            {detail.commentCount}
-          </span>
-          <span className="text-border">·</span>
-          <span className="inline-flex items-center gap-1" title="Schițe în teanc">
-            <Layers className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-            <span className="sr-only">schițe în teanc:</span>
-            {detail.sketchCount}
-          </span>
-          <span className="text-border">·</span>
-          <span className="inline-flex items-center gap-1" title="Vizualizări">
-            <Eye className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-            <span className="sr-only">vizualizări:</span>
-            {detail.views}
-          </span>
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1" title="Schițe în teanc">
+              <Layers className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="sr-only">schițe în teanc:</span>
+              {detail.sketchCount}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+            <PublishedTime value={detail.createdAt} />
+            <span className="text-border">·</span>
+            <span className="inline-flex items-center gap-1" title="Vizualizări">
+              <Eye className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="sr-only">vizualizări:</span>
+              {detail.views}
+            </span>
+          </div>
         </div>
       </div>
     </article>
