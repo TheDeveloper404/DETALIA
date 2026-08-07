@@ -133,7 +133,7 @@ describe("approve = 1 click", () => {
 });
 
 // Regula „nu te validezi pe propriul conținut" a fost ELIMINATĂ deliberat (2026-08-06, decizie de
-// produs Edi + Liviu). Testele de mai jos NU au fost șterse — au fost INVERSATE, ca acoperirea pe acest
+// produs). Testele de mai jos NU au fost șterse — au fost INVERSATE, ca acoperirea pe acest
 // flow să rămână: dacă cineva reintroduce accidental guard-ul, ele pică.
 describe("auto-validare PERMISĂ pe conținut propriu (decizie de produs 2026-08-06)", () => {
   beforeEach(() => {

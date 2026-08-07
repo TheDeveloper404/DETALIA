@@ -12,7 +12,7 @@ import {
 } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGE_MB } from "@/lib/upload-limits";
 
-// Atașarea UNEI imagini la un comentariu (2026-08-06, cerere Edi).
+// Atașarea UNEI imagini la un comentariu (2026-08-06).
 //
 // Fișierul urcă direct browser → Blob prin exact același helper ca restul platformei
 // (`uploadImageToBlob` → `/api/blob/upload`, care cere sesiune, verifică statusul contului, aplică

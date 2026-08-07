@@ -209,7 +209,7 @@ export function VerificationSection({ status }: { status: VerificationStatus }) 
     );
   }
 
-  // MVP: verificarea pe bază de dovadă (OAR/CUI → aprobare) e pe HOLD până definim o metodă
+  // Verificarea pe bază de dovadă (OAR/CUI → aprobare) e pe HOLD până definim o metodă
   // sigură, cu frecare mică. Nu expunem un buton care duce într-un PENDING fără ieșire.
   // Rolul declarat rămâne funcțional 100%. (Re-activare: readuci formularul de cerere de verificare.)
   return (

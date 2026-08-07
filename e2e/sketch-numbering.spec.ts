@@ -9,8 +9,8 @@ import { sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
 
 // Numerotarea „schița N" per autor trebuie să fie STABILĂ după ordinea de creare (prima = 1, mereu) —
-// NU recalculată după ordinea de afișare a taburilor (cea mai nouă primă). Bug raportat de Liviu
-// 2026-07-07: la a doua schiță a aceluiași autor, prima devenea „schița 2" și a doua „schița 1".
+// NU recalculată după ordinea de afișare a taburilor (cea mai nouă primă). Bug raportat 2026-07-07:
+// la a doua schiță a aceluiași autor, prima devenea „schița 2" și a doua „schița 1".
 // Fix: detail-workspace.tsx + comments-section.tsx calculează ordinalul după `createdAt` ascendent.
 
 let cachedDetailUrl: string | null = null;

@@ -47,7 +47,7 @@ beforeEach(() => {
   vi.mocked(getPublicProfile).mockResolvedValue(PROFILE_ROW as never);
 });
 
-// Convenție platformă: doar meseria (subRole) se afișează, NU domeniul (roleMain) — decizie Edi,
+// Convenție platformă: doar meseria (subRole) se afișează, NU domeniul (roleMain) — decizie de produs,
 // unificată 2026-07-06 (era aplicată inconsecvent: edit-profile corect, profil/feed/rail arătau domeniul).
 
 describe("roleLabelOf", () => {

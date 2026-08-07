@@ -97,7 +97,7 @@ export async function approve(input: {
 }): Promise<ValidationResult> {
   const role = await getRoleByUserId(input.userId);
   if (!role) return { ok: false, error: "NO_ROLE" };
-  // Din 2026-08-06 (decizie de produs, Edi + Liviu): ORICINE poate lua poziție pe orice, INCLUSIV
+  // Din 2026-08-06 (decizie de produs): ORICINE poate lua poziție pe orice, INCLUSIV
   // autorul pe propriul conținut. Guard-ul „nu te validezi singur" a fost eliminat DELIBERAT — cu
   // prețul asumat că scorul de validare nu mai garantează că vine doar de la alții. Verificăm doar
   // că ținta există și e publică.

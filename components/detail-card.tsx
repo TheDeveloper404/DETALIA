@@ -146,8 +146,8 @@ export function DetailCard({
         <ValidatorStack avatars={detail.validatorAvatars} total={detail.validationCount} />
 
         {/* Stats — lipit de marginea de jos a cardului (mt-auto absoarbe spațiul rămas). Stânga: acțiuni
-            de interacțiune, în ordinea 1. validare 2. comentarii 3. schițe în teanc (2026-08-07, cerere
-            Liviu). Dreapta: dată publicare + vizualizări (informativ, nu interacțiune). */}
+            de interacțiune, în ordinea 1. validare 2. comentarii 3. schițe în teanc (2026-08-07).
+            Dreapta: dată publicare + vizualizări (informativ, nu interacțiune). */}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {canValidate ? (

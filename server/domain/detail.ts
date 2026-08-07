@@ -17,15 +17,15 @@ export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 5000;
 export const MAX_DETAIL_RESOURCES = 3;
 export const DEFAULT_FEED_SIZE = 30; // feed finit, fără scroll infinit (caracter de comunitate)
-// SEC-11 — plafon defensiv pe nr. de categorii bifate (Edi: „oricâte" — capul e doar anti-abuz, nu produs).
+// SEC-11 — plafon defensiv pe nr. de categorii bifate (regula de produs e „oricâte" — capul e doar anti-abuz, nu produs).
 export const MAX_DETAIL_CATEGORIES = 10;
 export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonabilă de browser/DB)
 
-// Locație (2026-07-16, cerere Edi): pill „România" (implicit) vs „Altă locație" (text liber țară+oraș).
+// Locație (2026-07-16): pill „România" (implicit) vs „Altă locație" (text liber țară+oraș).
 export const DEFAULT_LOCATION = "România";
 export const LOCATION_MAX_LENGTH = 200;
 
-// Parametri tehnici — liste finale confirmate de Edi (`lista_categorii.md`). Toți opționali; fără
+// Parametri tehnici — liste finale confirmate (`lista_categorii.md`). Toți opționali; fără
 // valoare aleasă = neafișat (nu forțăm „General" pe zona climatică, care n-are variantă neutră).
 export const CLIMATE_ZONES = ["Zona I", "Zona II", "Zona III", "Zona IV"] as const;
 export const SEISMIC_AG_VALUES = [
@@ -137,7 +137,7 @@ export function validateDetailInput(
     return { ok: false, error: "DESCRIPTION_TOO_LONG" };
   }
 
-  // Categorii: „bifezi oricâte" (Edi) — cel puțin una la PUBLICARE; la ciornă, oricâte (inclusiv zero).
+  // Categorii: regula de produs e „bifezi oricâte" — cel puțin una la PUBLICARE; la ciornă, oricâte (inclusiv zero).
   const categoryIds = [...new Set((input.categoryIds ?? []).map((c) => c.trim()).filter(Boolean))];
   if (strict && categoryIds.length === 0) return { ok: false, error: "CATEGORY_REQUIRED" };
   if (categoryIds.length > MAX_DETAIL_CATEGORIES) return { ok: false, error: "TOO_MANY_CATEGORIES" };
@@ -188,7 +188,7 @@ export function validateDetailInput(
   if (location.length > LOCATION_MAX_LENGTH) return { ok: false, error: "LOCATION_TOO_LONG" };
   const isRomania = location === DEFAULT_LOCATION;
 
-  // Parametri tehnici: liste fixe (Edi, `lista_categorii.md`). Toți opționali — valoare goală/lipsă
+  // Parametri tehnici: liste fixe (`lista_categorii.md`). Toți opționali — valoare goală/lipsă
   // trece necompletată (climă) sau „General" (ceilalți, care au variantă neutră în listă).
   // NU au sens în afara României — enforce pe SERVER (nu doar UI): pt orice locație ≠ România, sunt
   // forțate la valoarea neutră INDIFERENT ce a trimis clientul (formularul le ascunde, dar un POST
@@ -239,11 +239,11 @@ export function validateDetailInput(
 
 // ── Ștergerea unui detaliu: complet vs. retragerea identității (2026-08-06) ───────────────────
 //
-// Regula de produs (Edi + Liviu): un detaliu care a strâns interacțiuni nu mai dispare la ștergere —
+// Regula de produs: un detaliu care a strâns interacțiuni nu mai dispare la ștergere —
 // discuția din jurul lui aparține și celorlalți. În locul ștergerii, autorul se RETRAGE din el.
 //
 // „Interacțiune" = ORICARE dintre: un comentariu, o poziție (Aprob/Dezaprob), o schiță — toate trei,
-// confirmat explicit de Liviu (2026-08-06), dar NUMAI de la ALȚI useri.
+// confirmate explicit (2026-08-06), dar NUMAI de la ALȚI useri.
 //
 // De ce „de la alții" contează, nu doar tipul: din 2026-08-06 autorul își poate valida și comenta
 // propriul detaliu (item 6, guard-ul de auto-validare eliminat). Dacă am număra și interacțiunile lui

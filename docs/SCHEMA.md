@@ -220,7 +220,7 @@ tabel de conturi/parole), sesiune proprie (cookie dedicat), acces izolat la `/ad
 | `thumbnail_url` | text | nullable; PNG compus client-side la salvare |
 | `created_at` / `updated_at` | timestamptz | |
 
-Strict privat la MVP — ownership enforce în service (nu RLS).
+Strict privat — ownership enforce în service (nu RLS).
 
 ### `canvas_items` (relația planșă ↔ detalii/schițe)
 | coloană | tip | note |

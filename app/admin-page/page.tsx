@@ -8,7 +8,7 @@ import { adminLogoutAction } from "./actions";
 import { MaintenanceForm } from "./maintenance-form";
 import { UsersTable } from "./users-table";
 
-// Panou de admin (MVP) — autentificare SEPARATĂ de useri. Fără sesiune de admin → login.
+// Panou de admin — autentificare SEPARATĂ de useri. Fără sesiune de admin → login.
 // Conține: lista userilor (nume/email/rol/dată) + toggle-ul de mentenanță.
 export const dynamic = "force-dynamic";
 

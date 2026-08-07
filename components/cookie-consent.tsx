@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 // GDPR/ePrivacy cookie-urile strict necesare nu cer consimțământ). Cu PostHog activ, cookie-ul de
 // analytics NU mai e strict necesar → în strictețe GDPR ar putea necesita opt-in real (Accept/Refuz),
 // nu doar notificare. Schimbarea de text de mai jos e minimă (adevăr, nu ascunde), dar mecanismul de
-// consimțământ propriu-zis NU a fost revizuit — de discutat cu Liviu/jurist dacă modelul curent rămâne
+// consimțământ propriu-zis NU a fost revizuit — de discutat cu un jurist dacă modelul curent rămâne
 // suficient. Apare o singură dată, la 10s după prima vizită pe landing, colț jos-stânga. Alegerea
 // userului (dismis) persistă în localStorage.
 const DISMISSED_KEY = "detalia-cookie-notice-dismissed";

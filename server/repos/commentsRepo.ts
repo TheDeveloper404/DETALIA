@@ -10,7 +10,7 @@ const likeCount = sql<number>`(select count(*)::int from ${commentLikes}
    where ${commentLikes.commentId} = ${comments.id})`;
 
 // Lista celor care au apreciat (nume + rol + verificare), cei mai recenți primii — pentru popup-ul
-// „vezi cine a apreciat". La scara MVP (comunitate mică) e ieftin să vină odată cu comentariul, fără
+// „vezi cine a apreciat". La scara actuală (comunitate mică) e ieftin să vină odată cu comentariul, fără
 // fetch separat la deschiderea popup-ului.
 const commentLikers = sql<
   { id: string; name: string | null; image: string | null; roleMain: string | null; subRole: string | null; verified: boolean }[]

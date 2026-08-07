@@ -306,7 +306,7 @@ function MentionComposer({
   }, [sketches]);
   // Ordinal STABIL după data creării (prima schiță a autorului = 1, fix) — NU după `sketches` (ordinea
   // taburilor, cea mai nouă primă). Altfel, la fiecare schiță nouă, etichetele mai vechi s-ar renumerota
-  // (bug raportat de Liviu 2026-07-07: schița de azi devenea „1", cea de ieri „2" — vezi detail-workspace.tsx).
+  // (bug raportat 2026-07-07: schița de azi devenea „1", cea de ieri „2" — vezi detail-workspace.tsx).
   const ordinalById = useMemo(() => {
     const byAuthorAsc = [...sketches].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const seen = new Map<string, number>();

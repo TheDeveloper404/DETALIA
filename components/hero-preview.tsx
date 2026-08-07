@@ -3,7 +3,7 @@
 import { type CSSProperties, useEffect, useState } from "react";
 
 // Cardul de preview din hero-ul landing — (1) FEED: SCREENSHOT REAL din aplicație (nu o recreere de
-// cod — public/landing/feed-real.png, cadru din înregistrarea trimisă de Liviu, test.mp4), cu tap
+// cod — public/landing/feed-real.png, cadru dintr-o înregistrare reală, test.mp4), cu tap
 // simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
 // desenul de mai jos), (2) crossfade spre detaliul REAL (imagine, fundal eliminat —
 // public/landing/hero-detail.png) cu o propunere desenată live peste el (traseu subțire + hașură,

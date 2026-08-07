@@ -113,7 +113,7 @@ export function ValidationPanel({
           {/* Fără poziție: cele două butoane. Cu poziție: colaps într-o SINGURĂ pastilă colorată cu
               „retrage" integrat (fără banner separat) — mai puțin zgomot + înălțime constantă a zonei. */}
           <div className="flex items-center gap-4">
-            {/* Widget vertical stil StackOverflow (2026-08-07, cerere Liviu, înlocuiește perechea de
+            {/* Widget vertical stil StackOverflow (2026-08-07, înlocuiește perechea de
                 butoane cu Check/X): săgeată sus (Aprob) / count total / săgeată jos (Dezaprob). Poziția
                 activă rămâne umplută + colorată; săgeata opusă e dezactivată cât ai o poziție — comutarea
                 trece explicit prin „Retrage" (click pe săgeata activă), nu direct dintr-o poziție în alta. */}

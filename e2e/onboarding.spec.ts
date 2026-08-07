@@ -97,7 +97,7 @@ test("onboarding: fără rol → formular → declară rolul → /feed; revizita
   }
 });
 
-// Restructurare roluri (2026-07-16, cerere Edi): subrolurile noi de Execuție sunt selectabile, cele
+// Restructurare roluri (2026-07-16): subrolurile noi de Execuție sunt selectabile, cele
 // mutate la Rol adițional nu mai apar la Execuție.
 test("onboarding: subrol nou de Execuție (Tâmplar mobilă) e selectabil și se salvează", async ({
   browser,

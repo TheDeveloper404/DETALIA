@@ -1,6 +1,6 @@
 // Pastilă de rol — MESERIA (subRole) afișată lângă nume, colorat pe rolul principal (grupare internă,
-// invizibilă) + steluță galbenă dacă e VERIFICAT. Rolul principal NU se mai afișează (lista_meserii.md,
-// decizie Edi): „Eduard Nemeș · Arhitect", nu „Proiectant · Arhitect" — se subînțelege din meserie.
+// invizibilă) + steluță galbenă dacă e VERIFICAT. Rolul principal NU se mai afișează (lista_meserii.md):
+// „Nume · Arhitect", nu „Proiectant · Arhitect" — se subînțelege din meserie.
 // Greutatea o judecă cititorul după meserie; noi doar o afișăm corect și transparent (fără scoring).
 // Culorile sunt specifice acestui marker (nu tokeni shadcn), deci stau inline.
 import type { RoleMain } from "@/server/domain/roles";

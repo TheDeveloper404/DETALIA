@@ -106,7 +106,7 @@ test.describe.serial("Editare detaliu existent", () => {
   });
 });
 
-// Locație (2026-07-16, cerere Edi): pill „România" (context tehnic RO) vs „Altă locație" (text liber,
+// Locație (2026-07-16): pill „România" (context tehnic RO) vs „Altă locație" (text liber,
 // context tehnic ascuns). Detaliu propriu, izolat de blocul de mai sus.
 test.describe.serial("Editare detaliu — locație / context tehnic", () => {
   let categoryId: string;
@@ -165,7 +165,7 @@ test.describe.serial("Editare detaliu — locație / context tehnic", () => {
   });
 });
 
-// Resursă IMAGE (2026-07-16, cerere Edi): thumbnail real + lightbox, NU link/chip generic ca PDF/LINK/CAD.
+// Resursă IMAGE (2026-07-16): thumbnail real + lightbox, NU link/chip generic ca PDF/LINK/CAD.
 test.describe.serial("Resursă suplimentară — IMAGE afișată ca imagine, cu lightbox", () => {
   let detailId: string | null = null;
 
