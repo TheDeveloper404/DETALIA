@@ -33,7 +33,7 @@
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "lucide-react": "^1.23.0",
-    "next": "16.2.11",
+    "next": "16.3.0",
     "next-auth": "^5.0.0-beta.32",
     "nextjs-toploader": "^3.9.17",
     "perfect-freehand": "^1.2.3",
