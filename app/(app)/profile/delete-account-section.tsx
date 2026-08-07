@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
+import { useFormStatus } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,12 +10,27 @@ import { deleteAccountAction } from "./actions";
 
 // Ștergere cont (GDPR) — ireversibilă. Confirmare în 2 pași + tastarea cuvântului „ȘTERGE" ca să nu fie accidentală.
 // La confirmare, server action-ul anonimizează contul (șterge PII, păstrează conținutul) și face logout (redirect).
+//
+// CRITIC: submit prin <form action={...}>, NU onClick+startTransition apelând acțiunea direct (2026-08-08,
+// bug real reprodus în CI de 2 ori: signOut() nu golea cookie-ul de sesiune, intermitent). Cauză documentată
+// în comunitatea Next.js/next-auth: când un server action e apelat direct (nu ca submit de <form>), ștergerea
+// de cookie din signOut() poate să nu se aplice pe răspuns — HTTP nu mai poate seta cookie-uri după ce
+// streaming-ul a început, iar apelul direct nu garantează timing-ul corect. Fix documentat: submit real de
+// formular, nu apel direct al acțiunii.
 const CONFIRM_WORD = "ȘTERGE";
+
+function ConfirmSubmitButton({ disabled }: { disabled: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" variant="destructive" disabled={disabled || pending}>
+      {pending ? "Se șterge…" : "Confirm ștergerea definitivă"}
+    </Button>
+  );
+}
 
 export function DeleteAccountSection() {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
-  const [pending, startTransition] = useTransition();
 
   return (
     <section className="flex flex-col gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-5">
@@ -43,19 +59,11 @@ export function DeleteAccountSection() {
             autoComplete="off"
             className="max-w-[220px]"
           />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="destructive"
-              disabled={confirm.trim() !== CONFIRM_WORD || pending}
-              onClick={() => startTransition(() => deleteAccountAction())}
-            >
-              {pending ? "Se șterge…" : "Confirm ștergerea definitivă"}
-            </Button>
+          <form action={deleteAccountAction} className="flex flex-wrap gap-2">
+            <ConfirmSubmitButton disabled={confirm.trim() !== CONFIRM_WORD} />
             <Button
               type="button"
               variant="outline"
-              disabled={pending}
               onClick={() => {
                 setOpen(false);
                 setConfirm("");
@@ -63,7 +71,7 @@ export function DeleteAccountSection() {
             >
               Anulează
             </Button>
-          </div>
+          </form>
         </div>
       )}
     </section>
