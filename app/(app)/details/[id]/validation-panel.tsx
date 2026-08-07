@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Pencil, PenLine, X } from "lucide-react";
+import { ArrowBigDown, ArrowBigUp, Pencil, PenLine } from "lucide-react";
 import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -111,70 +111,49 @@ export function ValidationPanel({
         <>
           {/* Fără poziție: cele două butoane. Cu poziție: colaps într-o SINGURĂ pastilă colorată cu
               „retrage" integrat (fără banner separat) — mai puțin zgomot + înălțime constantă a zonei. */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            {!myPos ? (
-              // DOUĂ butoane separate (2026-07-06: meniul unic „reacție" testat pe pagina de detaliu era
-              // confuz — un singur icon fără etichetă arăta ca un „Ok" generic, nu ca validare pe roluri).
-              // Icon-only + text la HOVER (nu la click) — același pattern ca taburile de mai sus / butonul
-              // „Schițează peste detaliu". Feed-ul (FeedValidationActions) rămâne cu meniul unic, e ok acolo.
-              <>
-                <Button
-                  type="button"
-                  size="icon"
-                  onClick={onApprove}
-                  title="Aprob"
-                  className="group/approve !w-auto gap-0 overflow-hidden !px-2.5 border border-[#cfe3d2] bg-[#e9f2ea] text-[#2f6b3f] shadow-none hover:bg-[#dbe9dd]"
-                >
-                  <Check className="size-[17px] shrink-0" strokeWidth={2.6} />
-                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 font-bold transition-all duration-200 group-hover/approve:ml-2 group-hover/approve:max-w-[80px] group-hover/approve:opacity-100">
-                    Aprob
-                  </span>
-                </Button>
-
-                <Button
-                  type="button"
-                  size="icon"
-                  onClick={onPickDisapprove}
-                  aria-expanded={mode !== "none"}
-                  title="Dezaprob"
-                  className="group/disapprove !w-auto gap-0 overflow-hidden !px-2.5 border border-destructive/30 bg-destructive/10 text-destructive shadow-none hover:bg-destructive/20"
-                >
-                  <X className="size-4 shrink-0" strokeWidth={2.6} />
-                  <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 font-bold transition-all duration-200 group-hover/disapprove:ml-2 group-hover/disapprove:max-w-[100px] group-hover/disapprove:opacity-100">
-                    Dezaprob
-                  </span>
-                </Button>
-              </>
-            ) : (
-              // Aceeași dimensiune ca butoanele de mai sus (icon-only, !w-auto+!px-2.5) — altfel containerul
-              // „sare" vizibil la click (2026-07-06, raportat de Liviu din bug.mp4: pastila cu propoziția
-              // completă era mult mai lată decât cele două butoane inițiale). Text la hover: „Retrage".
-              <Button
+          <div className="flex items-center gap-4">
+            {/* Widget vertical stil StackOverflow (2026-08-07, cerere Liviu, înlocuiește perechea de
+                butoane cu Check/X): săgeată sus (Aprob) / count total / săgeată jos (Dezaprob). Poziția
+                activă rămâne umplută + colorată; săgeata opusă e dezactivată cât ai o poziție — comutarea
+                trece explicit prin „Retrage" (click pe săgeata activă), nu direct dintr-o poziție în alta. */}
+            <div className="flex flex-col items-center gap-0.5">
+              <button
                 type="button"
-                size="icon"
-                onClick={onRetract}
-                title={approved ? "Ai aprobat — click pentru a retrage" : "Ai dezaprobat — click pentru a retrage"}
+                onClick={approved ? onRetract : myPos ? undefined : onApprove}
+                disabled={myPos !== null && !approved}
+                aria-label={approved ? "Retrage aprobarea" : "Aprobă"}
+                title={approved ? "Ai aprobat — click pentru a retrage" : "Aprob"}
                 className={cn(
-                  "group/positioned !w-auto gap-0 overflow-hidden !px-2.5 border font-bold text-white shadow-sm",
-                  approved
-                    ? "border-emerald-700 bg-emerald-600 hover:bg-emerald-700"
-                    : "border-destructive bg-destructive hover:bg-destructive/90",
+                  "rounded transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+                  approved ? "text-emerald-600" : "text-muted-foreground hover:text-emerald-600",
                 )}
               >
-                {approved ? (
-                  <Check className="size-[17px] shrink-0" strokeWidth={2.6} />
-                ) : (
-                  <X className="size-4 shrink-0" strokeWidth={2.6} />
+                <ArrowBigUp className="size-7 shrink-0" strokeWidth={2} fill={approved ? "currentColor" : "none"} />
+              </button>
+              <span className="font-mono text-sm font-bold text-foreground">{totalValidari}</span>
+              <button
+                type="button"
+                onClick={myPos && !approved ? onRetract : approved ? undefined : onPickDisapprove}
+                disabled={approved}
+                aria-expanded={mode !== "none"}
+                aria-label={myPos && !approved ? "Retrage dezaprobarea" : "Dezaprobă"}
+                title={myPos && !approved ? "Ai dezaprobat — click pentru a retrage" : "Dezaprob"}
+                className={cn(
+                  "rounded transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+                  myPos && !approved ? "text-destructive" : "text-muted-foreground hover:text-destructive",
                 )}
-                <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/positioned:ml-2 group-hover/positioned:max-w-[80px] group-hover/positioned:opacity-100">
-                  Retrage
-                </span>
-              </Button>
-            )}
+              >
+                <ArrowBigDown
+                  className="size-7 shrink-0"
+                  strokeWidth={2}
+                  fill={myPos && !approved ? "currentColor" : "none"}
+                />
+              </button>
+            </div>
 
-            <span className="font-mono text-[11px] leading-tight text-[#a59a88] sm:ml-auto sm:text-right">
+            <span className="font-mono text-[11px] leading-tight text-[#a59a88]">
               o singură poziție
-              <br className="hidden sm:inline" /> reversibilă oricând
+              <br /> reversibilă oricând
             </span>
           </div>
 
