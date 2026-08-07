@@ -3,7 +3,7 @@
 //
 // Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
 // Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
-import { ArrowBigUp, Eye, Layers, MessageSquare } from "lucide-react";
+import { Eye, Layers, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -15,6 +15,7 @@ import { PersonSilhouette } from "./avatar-initials";
 import { FeedValidationActions } from "./feed-validation-actions";
 import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
+import { VoteTriangle } from "./vote-triangle";
 
 // Stivă de avatare ale validatorilor — cercuri suprapuse (cine a luat poziție pe detaliu).
 // Aducem max 5 avatare din DB; dacă sunt mai mulți validatori, ultimul cerc devine „+N".
@@ -157,7 +158,7 @@ export function DetailCard({
               />
             ) : (
               <span className="inline-flex items-center gap-1" title="Validări">
-                <ArrowBigUp className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                <VoteTriangle direction="up" size={7} />
                 <span className="sr-only">validări:</span>
                 {detail.validationCount}
               </span>
