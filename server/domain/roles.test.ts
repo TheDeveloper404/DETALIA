@@ -55,7 +55,7 @@ describe("isValidSecondaryRole — rol adițional (Administrativ/Educație), adi
   });
 });
 
-describe("restructurare roluri 2026-07-16 (cerere Edi)", () => {
+describe("restructurare roluri 2026-07-16", () => {
   it("Diriginte de șantier / RTE au fost mutate din EXECUTANT (subrol) în Rol adițional", () => {
     expect(isValidSubRole("EXECUTANT", "Diriginte de șantier")).toBe(false);
     expect(isValidSubRole("EXECUTANT", "RTE")).toBe(false);

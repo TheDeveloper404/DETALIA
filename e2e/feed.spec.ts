@@ -6,7 +6,7 @@ import { categories } from "../db/schema";
 import { getSeed } from "./seed";
 
 // Sidebar de categorii pe feed — ierarhie (secțiuni + capitole cu dropdown + frunze), NU o listă
-// flată (2026-07-07, cerere Liviu: „ordinea din document, cu titluri/subtitluri/dropdown"). Verificăm
+// flată (2026-07-07: „ordinea din document, cu titluri/subtitluri/dropdown"). Verificăm
 // pattern-ul de bază: un capitol (ex. Instalații) pornește colapsat, se deschide la click, iar
 // clic pe o frunză din el filtrează feed-ul (URL ?cat=<id>).
 

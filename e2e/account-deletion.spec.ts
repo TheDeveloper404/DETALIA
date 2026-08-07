@@ -94,6 +94,15 @@ test("ștergere cont: anonimizare, delogare reală, conținutul rămâne, acces 
     // `deleteAccountAction` face `signOut({ redirectTo: "/" })` — semnalul real că fluxul a mers.
     await expect(page).toHaveURL(`${url.origin}/`, { timeout: 15_000 });
 
+    // DIAGNOSTIC (2026-08-07, eșec real reprodus pe preview: /profile/edit rămâne accesibil după
+    // signOut()) — verificăm DIRECT dacă cookie-ul de sesiune chiar a fost șters din context de către
+    // signOut(), înainte să presupunem cauza. Dacă asertarea de mai jos pică, problema e signOut()
+    // însuși (nu golește cookie-ul); dacă trece dar /profile/edit tot se încarcă, problema e altundeva
+    // (cache/pagina nu re-verifică).
+    const cookiesAfterSignOut = await context.cookies();
+    const sessionCookieStillPresent = cookiesAfterSignOut.some((c) => c.name === cookieName);
+    expect(sessionCookieStillPresent, "signOut() ar trebui să șteargă cookie-ul de sesiune imediat").toBe(false);
+
     // Rândul user: PII șters, email placeholder, status DELETED.
     const [row] = await db
       .select({ email: users.email, name: users.name, status: users.status, image: users.image })

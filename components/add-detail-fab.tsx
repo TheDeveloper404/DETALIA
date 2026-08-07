@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 // CTA principal al platformei — fix pe ecran (nu în flow-ul unei coloane), ca să rămână mereu
 // accesibil indiferent de scroll sau de câte categorii sunt expandate în sidebar (vezi CHANGELOG).
 // Ascuns DOAR pe pagina de adăugare detaliu (`/details/new`) — n-are sens „Adaugă detaliu" cât timp
-// ești deja pe formularul de adăugare (task Edi, 2026-07-06).
+// ești deja pe formularul de adăugare (2026-07-06).
 export function AddDetailFab() {
   const pathname = usePathname();
   if (pathname === "/details/new") return null;

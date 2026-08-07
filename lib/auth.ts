@@ -64,7 +64,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         if (!ok) throw new Error("MAGIC_LINK_EMAIL_FAILED");
       },
     }),
-    // Google OAuth scos pentru MVP (rămâne doar magic link). Schela de provider se poate readăuga ulterior.
+    // Google OAuth scos, rămâne doar magic link. Schela de provider se poate readăuga ulterior.
   ],
   callbacks: {
     // SEC-04: blochează conturile non-ACTIVE (suspendate). La email provider, signIn se cheamă de două ori

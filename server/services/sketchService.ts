@@ -62,7 +62,7 @@ export async function createDraft(input: {
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
   // AUTORUL pe PROPRIUL detaliu: „Schițează peste" înseamnă o ADNOTARE NOUĂ, pornită de la zero
-  // (decizie Liviu 2026-08-02). Adnotările existente rămân neatinse — se corectează prin ȘTERGERE +
+  // (decizie de produs 2026-08-02). Adnotările existente rămân neatinse — se corectează prin ȘTERGERE +
   // desenare din nou, nu prin editare. Plafonul se verifică și AICI ca să nu deschidem un editor în
   // care userul desenează degeaba; `publish` îl reverifică oricum și el e sursa de adevăr.
   // (Între 2026-07-31 și 2026-08-01 draftul pornea din adnotarea curentă, iar publicarea o înlocuia.)

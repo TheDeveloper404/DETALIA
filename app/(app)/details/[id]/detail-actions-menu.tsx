@@ -13,7 +13,7 @@ import { deleteSketchAction } from "./sketch-review-actions";
 import { toggleSaveDetailAction } from "./save-actions";
 
 // Meniul de acțiuni al unui detaliu (kebab „⋮"). Ascunde ștergerea (ireversibilă) într-un meniu, ca să
-// nu fie apăsată din greșeală (cerință Edi, 2026-07-02): Șterge stă ULTIMA, roșu, separată de restul.
+// nu fie apăsată din greșeală (2026-07-02): Șterge stă ULTIMA, roșu, separată de restul.
 // Vizibil tuturor: Salvează + Vezi profil autor + Copiază link. „Șterge detaliul" DOAR autorului (authz
 // reală rămâne pe server, în deleteDetail). Pattern-ul de dropdown e cel din components/user-menu.tsx.
 // 2026-07-06: unificat AICI toate acțiunile care înainte erau împrăștiate lângă panoul din dreapta al
@@ -22,7 +22,7 @@ import { toggleSaveDetailAction } from "./save-actions";
 // 2026-07-06: „Trimite în Planșă" acum funcționează și pe tab de schiță — trimite imaginea COMPUSĂ a
 // schiței (thumbnailUrl randat la publicare), nu detaliul-mamă (vezi addDetailToCanvas în plansaService,
 // canvas_items.sketch_id). `activeSketchPublicId` (deja calculat pt link) e reutilizat ca sketchId aici.
-// 2026-07-06: scos linkul PRIVAT (pagina curentă) — decizie Liviu: între useri cu cont, link-ul se
+// 2026-07-06: scos linkul PRIVAT (pagina curentă) — între useri cu cont, link-ul se
 // trimite din bara de adresă a browser-ului, nu are nevoie de buton dedicat. Rămâne DOAR linkul PUBLIC
 // al schiței (`/s/[id]`, fără cont) — pentru asta există, ca să poți trimite unui prieten fără cont.
 // Detaliul de bază nu are variantă publică → nu are niciun item de „copiază link" în meniu.

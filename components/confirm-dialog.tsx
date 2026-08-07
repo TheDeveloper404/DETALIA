@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 
 // Confirmare de acțiune ireversibilă — stil platformă, NU popup-ul nativ al browserului (window.confirm).
-// 2026-07-16, cerere Edi: „Șterge schița"/„Șterge detaliul" arătau confirmarea browser-ului, inconsecvent
+// 2026-07-16: „Șterge schița"/„Șterge detaliul" arătau confirmarea browser-ului, inconsecvent
 // vizual cu restul platformei.
 export function ConfirmDialog({
   open,

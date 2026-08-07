@@ -6,12 +6,12 @@
 // Rulează cu: `npm run db:seed`. Cere DATABASE_URL (Neon).
 import { config } from "dotenv";
 
-// Taxonomia finală (Edi, `lista_categorii.md`, actualizată 2026-07-16 — redenumiri + Amenajări exterioare
+// Taxonomia finală (`lista_categorii.md`, actualizată 2026-07-16 — redenumiri + Amenajări exterioare
 // / Scări devenite capitole + categoria Mobilier). Secțiuni = grupare vizuală (părinte, neselectabilă în UI).
 // Unele „capitole" (Fundație, Acoperiș, Instalații, Fațadă, Amenajări exterioare, Scări) se împart la
 // rândul lor în sub-categorii — capitolul însuși NU e bifabil, doar copiii lui. Frunzele au numele
 // PĂRINTELUI copiat în etichetă (ex. „Fundație beton", nu doar „Beton") — modelul e IDENTIC cu Rol/Subrol:
-// capitolul e doar organizare admin, categoria (frunza) e ce apare ca badge lângă detaliu (Edi, 2026-07-16).
+// capitolul e doar organizare admin, categoria (frunza) e ce apare ca badge lângă detaliu (2026-07-16).
 // Restul frunzelor fără copii sunt bifabile direct (stil tag Pinterest) prin many-to-many `detail_categories`.
 // ORDINEA contează — NU se mai sortează alfabetic, ci după `position` (vezi categoriesRepo.ts).
 type Leaf = { slug: string; name: string; children?: { slug: string; name: string }[] };

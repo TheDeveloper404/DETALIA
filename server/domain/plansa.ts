@@ -1,5 +1,5 @@
 // Domain Planșă v2 — reguli pure pentru canvasul privat per user (adună detalii + schițează peste ansamblu).
-// Engine PROPRIU (nu Excalidraw/tldraw) — vezi docs/ARHITECTURA.md §7.7. STRICT privat la MVP: ownership-ul
+// Engine PROPRIU (nu Excalidraw/tldraw) — vezi docs/ARHITECTURA.md §7.7. STRICT privat: ownership-ul
 // se enforce în plansaService (nu aici). Aici trăiesc doar validările de input independente de DB.
 //
 // Document persistat opac în `state` jsonb: { version, items, strokes }. `items` = imagini-detaliu poziționate

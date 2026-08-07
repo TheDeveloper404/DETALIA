@@ -79,7 +79,7 @@ Sursa de adevăr pentru inginerie/securitate. Skill-urile globale (`security-aud
 - Tabele `snake_case` plural; coloane `snake_case` singular. PK `uuid DEFAULT gen_random_uuid()`.
 - `created_at` / `updated_at` standard; **toate FK indexate**; **migrații reversibile**.
 
-**Divergență față de `Backend.md`:** DETALIA folosește **magic link passwordless** (Google OAuth scos pentru MVP) →
+**Divergență față de `Backend.md`:** DETALIA folosește **magic link passwordless** (Google OAuth scos) →
 endpoint-urile de register/login-cu-parolă/reset-password/MFA din `Backend.md` **NU se aplică**. Sesiunile, tokenurile și
 adapter-ul de DB le **gestionează Auth.js** (nu le mâna manual). Reținem de acolo doar: format eroare,
 non-enumerare, logging fără valori sensibile, env pentru config.

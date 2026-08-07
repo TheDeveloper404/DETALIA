@@ -8,7 +8,7 @@ import { getMyDrafts } from "@/server/services/sketchService";
 import { DraftsList, type UnifiedDraft } from "./drafts-list";
 
 // „Ciornele mele" — UNIFICAT (2026-07-06): schițe DRAFT + detalii DRAFT ale userului, reluabile
-// oricând, într-o singură listă (decizie Liviu — o singură pagină, nu două concepte separate).
+// oricând, într-o singură listă (o singură pagină, nu două concepte separate).
 export default async function DraftsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");

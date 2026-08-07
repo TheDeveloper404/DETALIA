@@ -12,7 +12,7 @@
 // allowlist-ul de host alături de nonce (ambele surse valide). Edge-safe (doar construire de string).
 
 // `previewTools` = includem originile toolbar-ului Vercel (vercel.live/pusher). Ele NU rulează pe
-// producție (doar pe preview) → le scoatem din CSP-ul de prod (suprafață mai mică). MVP n-are real-time, deci
+// producție (doar pe preview) → le scoatem din CSP-ul de prod (suprafață mai mică). Platforma n-are real-time, deci
 // pusher e exclusiv infra toolbar-ului. Storage-ul Blob și Turnstile rămân MEREU (sunt funcțional real).
 //
 // BUG FIX 2026-07-13: `https://vercel.com` NU e doar toolbar-ul de preview — e API-ul REST real al Vercel

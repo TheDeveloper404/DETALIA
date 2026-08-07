@@ -96,7 +96,7 @@ function resourcePlaceholder(type: ResourceType): string {
 
 // IMAGE/PDF/CAD pot fi și încărcate direct (nu doar link) — LINK rămâne doar link.
 // „Imagine" fără upload real nu se folosea aproape deloc (userul trebuia să aibă deja un link extern
-// către o imagine găzduită) — 2026-07-16, cerere Edi, verificat cu Liviu.
+// către o imagine găzduită) — 2026-07-16.
 const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["IMAGE", "PDF", "CAD"]);
 function resourceFileAccept(type: ResourceType): string {
   if (type === "CAD") return ".dwg,.dxf";
@@ -148,7 +148,7 @@ function CategoryDropdown({
 }) {
   const [open, setOpen] = useState(false);
   // „Capitolele" cu sub-categorii (ex. Instalații) pornesc colapsate — apeși săgeata, se deschid copiii
-  // (Edi: „dacă apăs, mi se deschid cele patru").
+  // (cerință de produs: „dacă apăs, mi se deschid cele patru").
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
