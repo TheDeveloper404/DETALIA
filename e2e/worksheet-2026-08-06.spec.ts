@@ -187,7 +187,7 @@ test.describe("Itemii 3 și 4 — data publicării și contorul de vizualizări"
       await db.select({ views: details.views }).from(details).where(eq(details.id, detailId))
     )[0].views;
 
-    await card.getByRole("link", { name: detailTitle }).click();
+    await card.getByRole("link", { name: detailTitle, exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`));
 
     // Așteptăm ca incrementul (after(), best-effort) să fi ajuns efectiv în DB înainte de Back —
