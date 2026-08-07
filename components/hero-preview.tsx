@@ -2,6 +2,8 @@
 
 import { type CSSProperties, useEffect, useState } from "react";
 
+import { VoteTriangle } from "./vote-triangle";
+
 // Cardul de preview din hero-ul landing — (1) FEED: SCREENSHOT REAL din aplicație (nu o recreere de
 // cod — public/landing/feed-real.png, cadru dintr-o înregistrare reală, test.mp4), cu tap
 // simulat pe cardul „Cornișă șarpantă lemn" (al treilea, cel care chiar se deschide spre exact
@@ -238,7 +240,8 @@ export function HeroPreview() {
               <b style={{ fontWeight: 600 }}>M. Popa</b> <span style={{ color: "var(--muted-foreground)" }}>· Proiectant</span>
             </span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#2f6b3f", background: "rgba(47,107,63,0.12)", border: "1px solid rgba(47,107,63,0.3)", padding: "3px 9px", borderRadius: 999 }}>
-              ✓ Aprobă
+              <VoteTriangle direction="up" size={8} />
+              Aprobă
             </span>
           </div>
           <div data-rise="1" style={{ display: "flex", alignItems: "flex-start", gap: 10, animationDelay: "7.8s" }}>
@@ -249,7 +252,8 @@ export function HeroPreview() {
                   <b style={{ fontWeight: 600 }}>I. Radu</b> <span style={{ color: "var(--muted-foreground)" }}>· Executant</span>
                 </span>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 600, color: "#9a3a30", background: "rgba(176,70,60,0.12)", border: "1px solid rgba(176,70,60,0.3)", padding: "3px 9px", borderRadius: 999, marginLeft: "auto" }}>
-                  ✕ Dezaprobă
+                  <VoteTriangle direction="down" size={8} />
+                  Dezaprobă
                 </span>
               </div>
               <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 4, lineHeight: 1.45 }}>
