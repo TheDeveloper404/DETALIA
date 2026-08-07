@@ -169,4 +169,49 @@ test.describe("Itemii 3 și 4 — data publicării și contorul de vizualizări"
       )
       .toBeGreaterThan(before);
   });
+
+  // 2026-08-07 — RefreshOnBack (components/refresh-on-back.tsx): navigarea Back din browser în App
+  // Router ignoră intenționat staleness-ul Client Router Cache-ului → fără fix, feed-ul arăta
+  // contorul VECHI (de dinainte de vizualizare) după ce reveneai cu Back de pe pagina detaliului.
+  test("Back din pagina de detaliu → cardul din feed arată contorul de vizualizări proaspăt, nu pe cel din cache", async ({
+    page,
+  }) => {
+    const { detailId, detailTitle } = getSeed();
+    const term = detailTitle.split(" ")[0];
+
+    await page.goto(`/feed?q=${encodeURIComponent(term)}`);
+    const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
+    await expect(card).toBeVisible();
+
+    const before = (
+      await db.select({ views: details.views }).from(details).where(eq(details.id, detailId))
+    )[0].views;
+
+    await card.getByRole("link", { name: detailTitle, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`));
+
+    // Așteptăm ca incrementul (after(), best-effort) să fi ajuns efectiv în DB înainte de Back —
+    // altfel testăm doar dacă UI-ul se reîmprospătează, nu dacă are ce numere proaspete de arătat.
+    await expect
+      .poll(
+        async () =>
+          (await db.select({ views: details.views }).from(details).where(eq(details.id, detailId)))[0].views,
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(before);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/feed/);
+
+    const refreshedCard = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
+    await expect
+      .poll(
+        async () => {
+          const text = await refreshedCard.getByTitle("Vizualizări").textContent();
+          return Number((text ?? "").replace(/\D/g, ""));
+        },
+        { timeout: 10_000 },
+      )
+      .toBeGreaterThan(before);
+  });
 });
