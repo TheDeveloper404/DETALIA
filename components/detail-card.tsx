@@ -3,7 +3,7 @@
 //
 // Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
 // Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
-import { Eye, Layers, MessageSquare, ThumbsUp } from "lucide-react";
+import { ArrowBigUp, Eye, Layers, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -157,7 +157,7 @@ export function DetailCard({
               />
             ) : (
               <span className="inline-flex items-center gap-1" title="Validări">
-                <ThumbsUp className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+                <ArrowBigUp className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
                 <span className="sr-only">validări:</span>
                 {detail.validationCount}
               </span>
