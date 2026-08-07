@@ -15,19 +15,25 @@ import { cn } from "@/lib/utils";
 import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { ValidationPosition } from "@/server/domain/validation";
 
+import { computeOptimisticValidationCount } from "./validation-count";
+
 const initialState: DisapproveState = { error: null };
 
 // Validare inline din feed — UN SINGUR buton (2026-07-06, redesign cerut de Liviu, pattern „reacții
 // LinkedIn"): hover peste iconiță → mini-meniu cu Aprob/Dezaprob. Aprob = 1 click; Dezaprob = justificare
 // OBLIGATORIE (devine comentariu pe server, regulă non-negociabilă). După poziționare, butonul colapsează
-// la iconița stării (colorată) + „Retrage" apare la hover — același principiu icon-hover-text ca la
-// „Schițează peste"/„Trimite în Planșă" de sub el și ca „Schițează peste detaliu" din workspace.
+// la iconița stării (colorată) + „Retrage" apare la hover.
+// Mutat ÎN rândul de stats, lângă numărul de validări (2026-08-07, cerere Liviu: pattern „reacții
+// LinkedIn" — iconiță + count inline, consistent cu comentarii/schițe/vizualizări), nu mai stă separat
+// într-un rând de „Acțiuni" sub stats.
 export function FeedValidationActions({
   detailId,
   myPosition,
+  validationCount,
 }: {
   detailId: string;
   myPosition: ValidationPosition | null;
+  validationCount: number;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showJustify, setShowJustify] = useState(false);
@@ -77,6 +83,7 @@ export function FeedValidationActions({
   // Modalul e deschis doar cât NU ești dezaprobat: după o dezaprobare reușită (revalidare →
   // myPosition devine DISAPPROVE) se închide automat, fără effect/setState.
   const justifyOpen = showJustify && !disapproved;
+  const displayCount = computeOptimisticValidationCount(validationCount, myPosition, myPos);
 
   const hidden = (
     <>
@@ -87,18 +94,21 @@ export function FeedValidationActions({
   );
 
   return (
-    <div className="mt-auto flex items-center">
+    <>
+    <span className="inline-flex items-center gap-1">
       {!myPos ? (
-        <div className="relative inline-flex" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
+        <div className="relative inline-flex items-center" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             title="Validează"
-            className="inline-flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-full text-muted-foreground transition-colors hover:text-foreground"
           >
-            <ThumbsUp className="size-4" strokeWidth={2} />
+            <ThumbsUp className="size-3.5 shrink-0" strokeWidth={2} />
+            <span className="sr-only">validări:</span>
+            {displayCount}
           </button>
 
           {menuOpen && (
@@ -136,21 +146,24 @@ export function FeedValidationActions({
           onClick={onRetract}
           title={approved ? "Ai aprobat — click pentru a retrage" : "Ai dezaprobat — click pentru a retrage"}
           className={cn(
-            "group/valid relative inline-flex items-center justify-center rounded-full p-1.5 font-semibold transition-colors",
-            approved ? "text-[#2f6b3f] hover:bg-[#e9f2ea]" : "text-destructive hover:bg-destructive/10",
+            "group/valid relative inline-flex items-center gap-1 rounded-full font-semibold transition-colors",
+            approved ? "text-[#2f6b3f] hover:text-[#245132]" : "text-destructive hover:text-destructive/80",
           )}
         >
           {approved ? (
-            <ThumbsUp className="size-4 shrink-0 fill-current" strokeWidth={2} />
+            <ThumbsUp className="size-3.5 shrink-0 fill-current" strokeWidth={2} />
           ) : (
-            <X className="size-4 shrink-0" strokeWidth={2.6} />
+            <X className="size-3.5 shrink-0" strokeWidth={2.6} />
           )}
+          <span className="sr-only">validări:</span>
+          {displayCount}
           {/* Tooltip absolut — nu împinge iconițele de lângă el (bug hover raportat, 2026-07-06). */}
           <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 font-mono text-[11px] font-semibold text-background opacity-0 transition-opacity duration-150 group-hover/valid:opacity-100">
             Retrage
           </span>
         </button>
       )}
+    </span>
 
       {/* Modal de justificare — overlay fix, nu împinge layout-ul cardului. */}
       {justifyOpen && (
@@ -208,6 +221,6 @@ export function FeedValidationActions({
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
