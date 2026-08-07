@@ -62,7 +62,7 @@ test.describe.serial("Item 6 — autorul poate lua poziție pe PROPRIUL detaliu"
     await page.goto(`/details/${detailId}`);
 
     // Înainte de 2026-08-06 butoanele nici nu apăreau pe propriul conținut (CANNOT_VALIDATE_OWN).
-    const aprob = page.getByRole("button", { name: "Aprob", exact: true });
+    const aprob = page.getByRole("button", { name: "Aprobă", exact: true });
     await expect(aprob).toBeVisible();
     await aprob.click();
 
