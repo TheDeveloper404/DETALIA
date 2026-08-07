@@ -89,30 +89,51 @@ export async function createCanvasAndAddDetailAction(
   return { ok: true, canvasId: created.value.canvasId };
 }
 
-// Redenumește o planșă (din „Planșele mele"). Form action → revalidate.
-export async function renameCanvasAction(formData: FormData): Promise<void> {
+// Redenumește o planșă (din „Planșele mele"). Form action (useActionState) → revalidate.
+// Semnătura (prevState, formData) e cerută de useActionState — 2026-08-07, fix code-review: înainte
+// întorcea `void`, iar un eșec (`NOT_FOUND`/`INVALID_NAME`) dispărea silențios, fără feedback în UI.
+export async function renameCanvasAction(
+  _prevState: CanvasActionResult,
+  formData: FormData,
+): Promise<CanvasActionResult> {
   const userId = await requireActiveUserId();
   const canvasId = String(formData.get("canvasId") ?? "");
   const name = String(formData.get("name") ?? "");
-  if (!(await checkLimit(limiters.mutation, userId)).ok) redirect("/canvases");
-  await renameCanvas({ canvasId, ownerId: userId, name });
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+  const res = await renameCanvas({ canvasId, ownerId: userId, name });
+  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut redenumi planșa." };
   revalidatePath("/canvases");
+  return { ok: true };
 }
 
-// Duplică o planșă (din „Planșele mele"). Form action → revalidate; copia apare în listă.
-export async function duplicateCanvasAction(formData: FormData): Promise<void> {
+// Duplică o planșă (din „Planșele mele"). Apelată direct din client (nu `<form action>`) → revalidate;
+// copia apare în listă.
+export async function duplicateCanvasAction(formData: FormData): Promise<CanvasActionResult> {
   const userId = await requireActiveUserId();
   const canvasId = String(formData.get("canvasId") ?? "");
-  if (!(await checkLimit(limiters.mutation, userId)).ok) redirect("/canvases");
-  await duplicateCanvas({ canvasId, ownerId: userId });
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+  const res = await duplicateCanvas({ canvasId, ownerId: userId });
+  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut duplica planșa." };
   revalidatePath("/canvases");
+  return { ok: true };
 }
 
-// Șterge o planșă (din „Planșele mele"). Form action → revalidate.
-export async function deleteCanvasAction(formData: FormData): Promise<void> {
+// Șterge o planșă (din „Planșele mele"). Form action (useActionState) → revalidate.
+export async function deleteCanvasAction(
+  _prevState: CanvasActionResult,
+  formData: FormData,
+): Promise<CanvasActionResult> {
   const userId = await requireActiveUserId();
   const canvasId = String(formData.get("canvasId") ?? "");
-  if (!(await checkLimit(limiters.mutation, userId)).ok) redirect("/canvases");
-  await deleteCanvas({ canvasId, ownerId: userId });
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+  const res = await deleteCanvas({ canvasId, ownerId: userId });
+  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut șterge planșa." };
   revalidatePath("/canvases");
+  return { ok: true };
 }
