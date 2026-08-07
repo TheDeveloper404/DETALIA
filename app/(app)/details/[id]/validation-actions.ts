@@ -15,7 +15,6 @@ export type DisapproveState = { error: string | null };
 const ERROR_MESSAGES: Record<string, string> = {
   TARGET_NOT_FOUND: "Conținutul nu mai există.",
   DETAIL_NOT_FOUND: "Detaliul nu mai există.",
-  CANNOT_VALIDATE_OWN: "Nu îți poți valida propriul conținut.",
   JUSTIFICATION_REQUIRED: "Dezaprobarea cere o justificare.",
   JUSTIFICATION_TOO_LONG: "Justificarea e prea lungă (max 5000 de caractere).",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",

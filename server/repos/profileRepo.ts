@@ -2,7 +2,7 @@
 // Totul DERIVAT din tabelele existente (fără tabel de evenimente separat): validations/comments/details/sketches
 // au deja `created_at`. Citiri, fără mutații.
 import { alias } from "drizzle-orm/pg-core";
-import { and, count, desc, eq, gte, inArray, ne, or, sql, type SQL } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, ne, or, sql, type SQL } from "drizzle-orm";
 import { type PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -77,7 +77,15 @@ export async function getProfileStats(userId: string) {
     db
       .select({ c: count() })
       .from(details)
-      .where(and(eq(details.authorId, userId), eq(details.status, "PUBLISHED"))),
+      // Detaliile din care autorul s-a retras nu se mai numără aici — altfel contorul ar spune 5 și
+      // lista de dedesubt ar arăta 4, iar diferența ar semnala exact ce a fost ascuns.
+      .where(
+        and(
+          eq(details.authorId, userId),
+          eq(details.status, "PUBLISHED"),
+          isNull(details.anonymizedAt),
+        ),
+      ),
     // „Schițe propuse" = trimise (orice în afară de DRAFT), pe detaliile ALTORA. Adnotarea pe
     // propriul detaliu nu e o propunere către cineva → exclusă (mirror SQL al `isSelfAnnotation`).
     db
@@ -164,7 +172,16 @@ export function listAuthorDetails(userId: string) {
       sketchCount: detailSketchCount,
     })
     .from(details)
-    .where(and(eq(details.authorId, userId), eq(details.status, "PUBLISHED")))
+    // `anonymized_at is null`: un detaliu din care autorul s-a RETRAS nu mai apare pe profilul lui —
+    // altfel oricine ar deschide profilul ar reface legătura pe care retragerea tocmai a rupt-o
+    // („Autor șters" pe pagina detaliului, dar listat pe profilul lui X = anonimizare doar de fațadă).
+    .where(
+      and(
+        eq(details.authorId, userId),
+        eq(details.status, "PUBLISHED"),
+        isNull(details.anonymizedAt),
+      ),
+    )
     .orderBy(desc(details.createdAt));
 }
 
@@ -247,7 +264,15 @@ export async function listAuthorActivity(userId: string, limit: number) {
   const dRows = await db
     .select({ id: details.id, title: details.title, createdAt: details.createdAt })
     .from(details)
-    .where(and(eq(details.authorId, userId), eq(details.status, "PUBLISHED")))
+    // Activitatea afișează TITLUL detaliului — un detaliu din care autorul s-a retras l-ar lega direct
+    // înapoi de el. Exclus, ca peste tot pe profil.
+    .where(
+      and(
+        eq(details.authorId, userId),
+        eq(details.status, "PUBLISHED"),
+        isNull(details.anonymizedAt),
+      ),
+    )
     .orderBy(desc(details.createdAt))
     .limit(limit);
 

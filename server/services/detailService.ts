@@ -10,8 +10,10 @@
 import {
   DEFAULT_FEED_SIZE,
   DETAIL_STATUS,
+  type DetailDeletionMode,
   type DetailResourceInput,
   type DetailValidationError,
+  resolveDeletionMode,
   validateDetailInput,
 } from "@/server/domain/detail";
 import { deleteBlobs } from "@/lib/storage";
@@ -21,7 +23,10 @@ import {
   deleteSavedDetail,
   getDetailById,
   getDetailForEdit,
+  anonymizeDetailAuthor,
+  countDetailInteractions,
   getDetailResources,
+  incrementDetailViews,
   insertDetailWithRelations,
   insertSavedDetail,
   isDetailSavedByUser,
@@ -37,6 +42,7 @@ import {
   replaceDetailResources,
   updateDetailRow,
 } from "@/server/repos/detailsRepo";
+import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { listTopAuthors } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
@@ -136,10 +142,16 @@ export async function updateDetail(input: {
 }): Promise<UpdateDetailResult> {
   if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
 
-  // 1) Ownership: doar autorul detaliului îl poate edita.
+  // 1) Ownership: doar autorul detaliului îl poate edita. `ownerId` (identitatea reală, neafectată
+  // de mascarea de afișare), NU `authorId` — pe un detaliu anonimizat authorId e mereu null, deci
+  // verificarea ar pica FORBIDDEN pentru oricine din întâmplare, nu prin design (SEC-001, audit 2026-08-07).
   const existing = await getDetailById(input.detailId);
   if (!existing) return { ok: false, error: "NOT_FOUND" };
-  if (existing.authorId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+  if (existing.ownerId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+  // Autor retras: verificarea de mai sus SINGURĂ nu mai ajunge — `ownerId` rămâne cel real după
+  // anonimizare, deci fostul autor ar trece de ea. Poarta de pe /edit (getDetailForEditing) blochează
+  // navigarea, dar acțiunea de server e o cale separată, apelabilă direct — trebuie blocată și aici.
+  if (existing.isAnonymized) return { ok: false, error: "FORBIDDEN" };
 
   // 2) Validare + normalizare (aceleași reguli ca la creare).
   const validation = validateDetailInput({
@@ -392,9 +404,27 @@ export async function getDetail(id: string) {
   return { ...detail, resources };
 }
 
+// Înregistrează o vizualizare a unui detaliu.
+//
+// „Vizualizare" = FIECARE încărcare a paginii detaliului, nu vizitator unic (decizie de produs,
+// 2026-08-06, modelul StackOverflow). Nu deduplicăm pe user/sesiune — ar cere un tabel în plus fără
+// beneficiu la faza actuală.
+//
+// Best-effort: un contor de afișări nu are voie să strice pagina. Dacă write-ul eșuează (DB lentă,
+// rând inexistent), înghițim eroarea — pagina e deja randată oricum, apelantul rulează asta prin
+// `after()`, după răspuns.
+export async function recordDetailView(detailId: string): Promise<void> {
+  if (!isUuid(detailId)) return;
+  try {
+    await incrementDetailViews(detailId);
+  } catch {
+    // intenționat tăcut — vezi comentariul de mai sus
+  }
+}
+
 export type DeleteDetailResult =
-  | { ok: true }
-  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" };
+  | { ok: true; mode: DetailDeletionMode; alreadyDone?: boolean }
+  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" | "ALREADY_ANONYMIZED" };
 
 // Ștergerea unui detaliu de către AUTORUL lui (enforce pe SERVER — ownership, nu frontend).
 //  - id malformat / inexistent → NOT_FOUND (nu dezvăluim existența).
@@ -410,11 +440,44 @@ export async function deleteDetail(input: {
 
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "NOT_FOUND" };
-  if (detail.authorId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+  // `ownerId` (proprietarul real), NU `authorId` (mascat după anonimizare): altfel un detaliu deja
+  // anonimizat ar răspunde FORBIDDEN oricui, inclusiv la o a doua încercare a fostului autor — vrem
+  // NOT_FOUND-ul corect de mai jos, nu o eroare derutantă.
+  if (detail.ownerId !== input.userId) return { ok: false, error: "FORBIDDEN" };
+  // Deja retras: nu mai are ce anonimiza și nu mai poate șterge (s-a desprins de detaliu).
+  if (detail.isAnonymized) return { ok: false, error: "ALREADY_ANONYMIZED" };
 
-  const blobUrls = await deleteDetailCascade(input.detailId);
-  await deleteBlobs([detail.imageUrl, ...blobUrls]);
-  return { ok: true };
+  // Ce se întâmplă efectiv depinde de urma lăsată de ceilalți (decizie de produs 2026-08-06):
+  // fără nicio interacțiune → dispare tot; cu interacțiuni → conținutul rămâne, autorul se retrage.
+  const counts = await countDetailInteractions(input.detailId);
+  if (resolveDeletionMode(counts) === "HARD_DELETE") {
+    const blobUrls = await deleteDetailCascade(input.detailId);
+    await deleteBlobs([detail.imageUrl, ...blobUrls]);
+    return { ok: true, mode: "HARD_DELETE" };
+  }
+
+  // Rolul se îngheață ACUM: după retragere nu mai avem de unde ști care era la momentul publicării.
+  const role = await getRoleByUserId(input.userId);
+  const anonymized = await anonymizeDetailAuthor(input.detailId, input.userId, {
+    roleMain: role?.roleMain ?? "",
+    subRole: role?.subRole ?? null,
+    verificationStatus: role?.verificationStatus ?? "UNVERIFIED",
+  });
+  // false = altcineva (altă filă/dublu-click) a anonimizat între timp — rezultatul dorit există deja.
+  return { ok: true, mode: "ANONYMIZE", alreadyDone: !anonymized };
+}
+
+// Ce ar face butonul „Șterge" ACUM, pentru acest detaliu — ca UI-ul să poată spune dinainte exact ce
+// urmează (dispariție completă vs. retragerea identității), nu un text generic. Aceeași funcție pură de
+// decizie ca la execuție → cele două nu pot diverge.
+export async function getDeletionPreview(input: {
+  detailId: string;
+  userId: string;
+}): Promise<{ mode: DetailDeletionMode } | null> {
+  if (!isUuid(input.detailId)) return null;
+  const detail = await getDetailById(input.detailId);
+  if (!detail || detail.ownerId !== input.userId || detail.isAnonymized) return null;
+  return { mode: resolveDeletionMode(await countDetailInteractions(input.detailId)) };
 }
 
 // Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu, strict cronologic. Fără scroll infinit.

@@ -6,14 +6,10 @@
 // PĂSTRÂND poarta strictă pentru orice alt high/critical nou. Vezi docs/SECURITATE.md.
 import { execFileSync } from "node:child_process";
 
+import { classifyFindings, isValidAuditReport } from "./audit-report.mjs";
+
 // Advisory-uri HIGH acceptate explicit (GHSA). Fiecare intrare = risk-acceptance cu motiv.
 const ALLOWLIST = new Map([
-  [
-    "GHSA-mh99-v99m-4gvg",
-    "brace-expansion (ReDoS): doar via minimatch în eslint/typescript-eslint/ts-morph, procesează " +
-      "pattern-uri de fișiere din repo la lint/build time, fără input extern. Fix necesită bump major " +
-      "eslint (breaking). Zero cale spre runtime-ul de producție.",
-  ],
   [
     "GHSA-r28c-9q8g-f849",
     "postcss (path traversal via sourceMappingURL): vine din @tailwindcss/postcss/next/shadcn/vite, " +
@@ -21,9 +17,6 @@ const ALLOWLIST = new Map([
       "Fără fix disponibil upstream. Zero cale spre runtime-ul de producție.",
   ],
 ]);
-
-const BLOCKING = new Set(["high", "critical"]);
-const ghsaFromUrl = (url) => (typeof url === "string" ? url.split("/advisories/")[1] ?? url : "");
 
 let report;
 try {
@@ -41,30 +34,38 @@ try {
     console.error("audit-check: nu am putut rula `npm audit --json`:", err.message);
     process.exit(2);
   }
-  report = JSON.parse(err.stdout);
-}
-
-// npm v7+ : report.vulnerabilities[pkg].via[] conține fie stringuri (tranzitiv), fie obiecte-advisory.
-const blocking = [];
-const accepted = [];
-for (const vuln of Object.values(report.vulnerabilities ?? {})) {
-  for (const via of vuln.via ?? []) {
-    if (typeof via !== "object" || !BLOCKING.has(via.severity)) continue;
-    const ghsa = ghsaFromUrl(via.url);
-    if (ALLOWLIST.has(ghsa)) accepted.push(`${ghsa} (${via.title ?? via.name})`);
-    else blocking.push(`${via.severity.toUpperCase()} ${ghsa || via.source} — ${via.title ?? via.name}`);
+  try {
+    report = JSON.parse(err.stdout);
+  } catch {
+    console.error("audit-check: `npm audit --json` a scris ceva ce nu e JSON — nu pot verifica nimic.");
+    process.exit(2);
   }
 }
 
+// FAIL-CLOSED: un raport fără structura așteptată înseamnă că auditul NU a rulat, nu că totul e curat.
+// Vezi nota din audit-report.mjs — varianta veche trecea PR-ul în exact acest caz.
+if (!isValidAuditReport(report)) {
+  console.error(
+    "audit-check: raport `npm audit` invalid/incomplet (lipsesc `vulnerabilities`/`metadata`) — " +
+      "auditul NU a putut rula. Blochez, ca sa nu raportez curat fara sa fi verificat.",
+  );
+  if (report?.error) console.error("  detaliu:", report.error.summary ?? report.error.code ?? "necunoscut");
+  process.exit(2);
+}
+
+const { blocking, accepted } = classifyFindings(report, ALLOWLIST);
+
 if (accepted.length) {
   console.log("audit-check: high/critical ACCEPTATE (allowlist, risk-acceptance):");
-  for (const a of new Set(accepted)) console.log("  ✓", a);
+  for (const a of accepted) console.log("  ✓", a);
 }
 
 if (blocking.length) {
   console.error("\naudit-check: high/critical NEACCEPTATE — PR blocat:");
-  for (const b of new Set(blocking)) console.error("  ✖", b);
-  console.error("\nRezolvă (upgrade/override) sau, dacă e risk-acceptance justificat, adaugă GHSA în ALLOWLIST din scripts/audit-check.mjs.");
+  for (const b of blocking) console.error("  ✖", b);
+  console.error(
+    "\nRezolvă (upgrade/override) sau, dacă e risk-acceptance justificat, adaugă GHSA în ALLOWLIST din scripts/audit-check.mjs.",
+  );
   process.exit(1);
 }
 

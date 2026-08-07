@@ -9,7 +9,8 @@
 
 ## Ce este DETALIA
 Comunitate profesională din construcții, organizată în jurul **detaliului de execuție**. Modelul mental:
-**„GitHub pentru construcții"** — detaliu = repo, schiță = fork+PR, validare = code review. Faza curentă:
+**„StackOverflow pentru construcții"** — detaliu = întrebare/postare, schiță = răspuns, validare =
+răspuns acceptat/vot de comunitate. Faza curentă:
 **validare de piață** (cost ~$0, livrare rapidă, fundație care scalează fără rescriere). Lansare = **acces
 public deschis** (înregistrare liberă), cu **conținut seed** pus la început prin conturi reale (echipa +
 useri aduși din toate categoriile) ca platforma să nu fie goală la primul contact.
@@ -79,8 +80,15 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
   La ștergerea de către autorul-mamă → `Notification` (`SKETCH_DELETED`) către autorul schiței.
   **Notificările merg doar in-app** (decizie 2026-07-03: emailurile de notificare OPRITE — cota Resend
   free rămâne pentru magic link-uri; repornibile cu `NOTIFICATION_EMAILS_ENABLED=true`).
-- **Validarea pe propriul conținut e interzisă** (`CANNOT_VALIDATE_OWN`, enforce pe server): autorul nu vede
-  Aprob/Dezaprob pe propriul detaliu/schiță. Aprobarea propriului conținut e implicită prin publicare.
+- **Validarea pe propriul conținut e PERMISĂ** (decizie de produs 2026-08-06 — guard-ul `CANNOT_VALIDATE_OWN`
+  a fost eliminat deliberat din `approve`/`disapprove`; consecință asumată: scorul de validare nu mai
+  garantează că vine doar de la alții). Rămâne interzisă DOAR auto-dezaprobarea AUTOMATĂ la publicarea unei
+  schițe peste propriul detaliu (`recordSketchDisapproval`) — acolo autorul nu și-a cerut nimic explicit.
+- **Ștergere condiționată de interacțiuni** (decizie de produs 2026-08-06): un detaliu FĂRĂ nicio interacțiune
+  de la alții (comentariu/poziție/schiță) se șterge complet la cererea autorului. Unul CU interacțiuni nu se
+  mai poate șterge — autorul se RETRAGE: numele/poza dispar din afișare („Anonim"), rolul (înghețat la
+  momentul retragerii) și conținutul rămân pentru ceilalți. Identitatea reală rămâne în DB (audit), mascată
+  doar la citire. Ireversibil.
 - **Dezaprobare = alegere binară** (pe detaliu): „Scrie o justificare" (text → comentariu) SAU „Fă o schiță"
   (desenul **e** justificarea). La varianta schiță, poziția DISAPPROVE + comentariul se materializează **la
   publicarea schiței** (draft marcat `disapprovesParent`), nu la click → fără „dezaprobare mută" la abandon.
@@ -129,5 +137,5 @@ DRAFT ──(autorul dă PUBLISH)──▶ PUBLISHED  (intră DIRECT în teanc, 
 
 ## Decizii deschise
 - **Surse de verificare automată a rolului** (OAR/CUI confirmate?), dincolo de manual-admin: **pe HOLD**.
-- Vezi `.remember/remember.md` §„Decizii / HOLD" pentru lista completă la zi (Termeni și Condiții, firmă/SRL,
+- Vezi `docs/BACKLOG.md` §„Blocat" pentru lista completă la zi (Termeni și Condiții, firmă/SRL,
   specializări pe profil).

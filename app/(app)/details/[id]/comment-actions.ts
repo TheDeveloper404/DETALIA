@@ -45,8 +45,12 @@ export async function addCommentAction(
   const body = String(formData.get("body") ?? "");
   const parentCommentIdRaw = formData.get("parentCommentId");
   const parentCommentId = parentCommentIdRaw ? String(parentCommentIdRaw) : null;
+  // Imaginea atașată: doar URL-ul întors de upload-ul client→Blob. Validarea reală (store-ul nostru,
+  // namespace-ul userului, re-encodare) e în service — aici nu avem încredere în nimic din formular.
+  const imageUrlRaw = formData.get("imageUrl");
+  const imageUrl = imageUrlRaw ? String(imageUrlRaw) : null;
 
-  const res = await addComment({ userId, targetType, targetId, body, parentCommentId });
+  const res = await addComment({ userId, targetType, targetId, body, imageUrl, parentCommentId });
 
   if (!res.ok) {
     if (res.error === "NO_ROLE") redirect("/onboarding");
@@ -62,6 +66,7 @@ export async function addCommentAction(
       target_id: targetId,
       detail_id: detailId,
       is_reply: !!parentCommentId,
+      has_image: !!imageUrl,
     },
   });
   await posthog.flush();

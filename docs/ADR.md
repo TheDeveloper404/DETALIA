@@ -73,6 +73,20 @@ dezbaterea și adăuga o stare de așteptare fără beneficiu clar la scara unui
 dar nu se mai produc. Notificările „schiță acceptată/respinsă" au fost eliminate (`SKETCH_ACCEPTED`/
 `SKETCH_REJECTED` rămân în `notification_type`, nemaifolosite). _(CHANGELOG 2026-06-30, SCHEMA.md)_
 
+## ADR-012 — Ștergere condiționată + identitate mascată în SQL (`authorId` vs `ownerId`)
+**Context:** ștergerea necondiționată a unui detaliu care strânsese deja discuție (comentarii, poziții,
+schițe de la alții) rupea acea discuție pentru toți ceilalți — conținut real, dispărut fără urmă.
+**Decizie (2026-08-06):** un detaliu FĂRĂ interacțiuni de la alții se șterge complet, ca înainte. Unul CU
+interacțiuni nu se mai poate șterge fizic — autorul se RETRAGE (`anonymized_at`): nume/poză mascate la
+citire, rolul (înghețat în `author_role_snapshot`) și conținutul rămân. Masca se aplică O SINGURĂ DATĂ,
+în SQL, la interogare (`detailWithAuthorColumns`) — nu în componentele de afișare, altfel identitatea tot
+ar fi ajuns în payload-ul trimis clientului. Rândul expune două identități: `authorId` (mascată, `NULL`
+după retragere, sigură pentru client) și `ownerId` (reală, neschimbată, STRICT pentru autorizare
+server-side, niciodată trimisă clientului).
+**Consecințe:** orice verificare de ownership server-side NOUĂ trebuie să folosească `ownerId`, nu
+`authorId` — o confuzie ușor de făcut (patru cazuri reale găsite și reparate la audit, 2026-08-07: vezi
+`docs/SECURITATE.md` §„Audit țintit — retragerea autorului"). _(CHANGELOG 2026-08-06, ARHITECTURA §4)_
+
 ---
 
 > Deciziile noi sau schimbările se consemnează aici (formă scurtă) + în `CHANGELOG.md` (cronologic, cu dată).

@@ -83,6 +83,7 @@ export function DetailWorkspace({
   detailAuthor,
   detailValidation,
   isDetailAuthor,
+  deletionMode,
   annotations,
   sketches,
   comments,
@@ -99,6 +100,8 @@ export function DetailWorkspace({
   detailAuthor: Author;
   detailValidation: ValidationView;
   isDetailAuthor: boolean;
+  // Calculat pe server (`getDeletionPreview`): ce face „Șterge" pe acest detaliu ACUM.
+  deletionMode?: "HARD_DELETE" | "ANONYMIZE";
   // ADNOTĂRILE AUTORULUI peste propria imagine (nu sunt schițe din teanc — vezi `isSelfAnnotation`).
   // 0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării. Se randează peste imaginea de bază, UNA CÂTE UNA,
   // doar la cererea cititorului (2026-08-02: imaginea de bază se vede prima; adnotarea e opțională).
@@ -164,10 +167,9 @@ export function DetailWorkspace({
   }));
 
   const activeValidation = isBase ? detailValidation : activeSketch!.validation;
-  // Nu-ți poți valida propriul conținut: pe detaliu = ești autorul-mamă; pe schiță = ești autorul schiței.
-  const canValidate = isBase
-    ? !isDetailAuthor
-    : !!currentUserId && activeSketch!.author.id !== currentUserId;
+  // Din 2026-08-06: oricine autentificat poate lua poziție pe orice, INCLUSIV pe propriul conținut
+  // (decizie de produs — vezi nota din validationService.approve). Singura condiție rămasă e sesiunea.
+  const canValidate = !!currentUserId;
   // Ștergerea schiței active: autorul detaliului (moderare) SAU autorul schiței.
   const canDeleteActive =
     !!activeSketch &&
@@ -217,15 +219,26 @@ export function DetailWorkspace({
           </div>
 
           <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Link
-              href={`/profile/${detailAuthor.id}`}
-              className="flex items-center gap-2 no-underline"
-            >
-              <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />
-              <span className="font-heading text-[15.5px] font-bold hover:underline">
-                {detailAuthor.name ?? "Anonim"}
+            {/* Autor retras din detaliu: fără nume, poză sau link — doar rolul (din snapshot) rămâne,
+                ca discuția să păstreze contextul profesional. `id` null vine deja mascat de pe server. */}
+            {detailAuthor.id ? (
+              <Link
+                href={`/profile/${detailAuthor.id}`}
+                className="flex items-center gap-2 no-underline"
+              >
+                <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />
+                <span className="font-heading text-[15.5px] font-bold hover:underline">
+                  {detailAuthor.name ?? "Anonim"}
+                </span>
+              </Link>
+            ) : (
+              <span className="flex items-center gap-2">
+                <AvatarInitials name={null} imageUrl={null} size={38} />
+                <span className="font-heading text-[15.5px] font-bold text-muted-foreground">
+                  Anonim
+                </span>
               </span>
-            </Link>
+            )}
             <RolePill
               roleMain={detailAuthor.roleMain}
               subRole={detailAuthor.subRole}
@@ -251,6 +264,7 @@ export function DetailWorkspace({
                 canSendToCanvas={!!currentUserId}
                 activeSketchPublicId={isBase ? null : activeSketch!.id}
                 canDeleteActiveSketch={canDeleteActive}
+                deletionMode={deletionMode}
                 deleteSketchLabel={
                   !isBase && isDetailAuthor && activeSketch!.author.id !== currentUserId
                     ? "Șterge schița"

@@ -3,7 +3,8 @@
 > Acest fișier completează regulile globale (`C:\dev\persist\claude\CLAUDE.md` — proces, clasificare,
 > quality gates, securitate) cu **specificul DETALIA**: domeniu, model de date, reguli de business, structură.
 > Globalul câștigă pe proces/securitate; aici stă „ce înseamnă lucrurile" în acest produs.
-> Arhitectura completă: `docs/ARHITECTURA.md`. Varianta non-tehnică: `docs/plan nontehnic.md`.
+> Arhitectura completă: `docs/ARHITECTURA.md`. Varianta non-tehnică (arhivată, discuție inițială cu
+> clientul): `docs/_archive/documente_client/plan nontehnic-raspuns.md`.
 
 > **`CONTEXT.md`** (în același director) conține detaliile de domeniu/business: ce este DETALIA, stack,
 > glosarul de domeniu, regulile de business (validare pe roluri, schiță, acces & roluri), deciziile de
@@ -168,12 +169,22 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   trebuie montate PERMANENT (props stabile ca `isAuthor`/`canDeleteActiveSketch` sunt OK în bloc
   condiționat — nu comută niciodată; state togglabil NU e OK). Hook automat: `warn-conditional-ref.js`
   (heuristică, nu infailibil — verific manual dacă hook-ul tace, nu presupun automat că e sigur).
+- **Subquery corelat Drizzle cu coloană necalificată → corelare mereu falsă, silențios (RECIDIVĂ DE 3 ORI:
+  `profileRepo.ts` 2026-07-23, `detailsRepo.ts` `sketchCount` 2026-07-31, `detailsRepo.ts`
+  `comment/validation/sketchCount` 2026-08-06 — a treia oară cu impact REAL de producție, contoare 0 în
+  feed pentru toți userii, vezi `docs/INCIDENTS.md`).** Un `sql\`...\`` care referă `${tabel.coloană}` al
+  query-ului EXTERIOR, dintr-un subquery pe un tabel cu coloană omonimă (aproape orice tabel are `id`,
+  multe au `author_id`), se rezolvă de Postgres la coloana subquery-ului însuși, nu la exterior —
+  `x <> x`/`x = x`, mereu fals sau mereu adevărat, FĂRĂ eroare SQL, de regulă count 0 silențios. Orice
+  subquery corelat NOU → calificare explicită cu `sql.identifier("tabel")`, verificată cu `.toSQL()` +
+  date reale, niciodată presupusă din citit codul. Nu e o capcană „rezolvată o dată" — apare la fiecare
+  subquery corelat nou, în fiecare fișier.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul
   afectat + handoff. La PR, checklistul din `.github/pull_request_template.md` confirmă (docs, build, teste, securitate).
-- **`SCHEMA.md` / `API.md` = design docs; sursa de adevăr e CODUL.** La divergență câștigă codul; actualizează
-  docul sau marchează „verifică în cod".
+- **`SCHEMA.md` = design doc; sursa de adevăr e CODUL** (`db/schema.ts`). La divergență câștigă codul;
+  actualizează docul sau marchează „verifică în cod".
 - **CI** (`.github/workflows/ci.yml`): type-check + lint + build pe fiecare PR (dev/main). Build verde ≠ teste verzi.
 - **Hooks locale** (`.claude/`, NU în repo — opțiunea A): `block-pii-log`, `block-secrets`, `block-push-main`,
   `lint-web`, `warn-conditional-ref` (semnalează `ref` în bloc condiționat pe state togglabil — vezi

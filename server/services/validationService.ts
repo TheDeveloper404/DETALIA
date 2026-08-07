@@ -29,7 +29,6 @@ import {
 type ValidationError =
   | "NO_ROLE"
   | "TARGET_NOT_FOUND"
-  | "CANNOT_VALIDATE_OWN"
   | "JUSTIFICATION_REQUIRED"
   | "JUSTIFICATION_TOO_LONG"
   | "ALREADY_DISAPPROVED";
@@ -48,8 +47,10 @@ export async function targetExists(targetType: TargetType, targetId: string): Pr
   return sketch !== null && sketch.status === "PUBLISHED";
 }
 
-// Autorul țintei (DETAIL sau SKETCH PUBLISHED) sau null dacă nu există / nu e publică. Folosit pentru
-// regula „nu te validezi pe propriul conținut" (CANNOT_VALIDATE_OWN) — enforce pe SERVER, nu doar în UI.
+// Autorul țintei (DETAIL sau SKETCH PUBLISHED) sau null dacă nu există / nu e publică. Serveşte acum
+// doar ca verificare de existență/publicitate a țintei la validare — regula „nu te validezi pe propriul
+// conținut" a fost ELIMINATĂ din `approve`/`disapprove` (2026-08-06, decizie de produs). Rămâne activă
+// DOAR în `recordSketchDisapproval` (cale AUTOMATĂ, nu acțiune explicită — vezi nota de acolo).
 async function getTargetAuthorId(
   targetType: TargetType,
   targetId: string,
@@ -57,7 +58,10 @@ async function getTargetAuthorId(
   if (!isUuid(targetId)) return null; // SEC-11
   if (targetType === "DETAIL") {
     const detail = await getDetailById(targetId); // doar PUBLISHED
-    return detail?.authorId ?? null;
+    // `ownerId` (identitatea reală), NU `authorId` (mascat la null după anonimizare) — altfel guard-ul
+    // de auto-dezaprobare din recordSketchDisapproval nu s-ar mai declanșa NICIODATĂ pe un detaliu
+    // anonimizat, pentru NIMENI, nu doar pentru fostul autor (SEC-002, audit 2026-08-07).
+    return detail?.ownerId ?? null;
   }
   const sketch = await getSketchById(targetId);
   return sketch !== null && sketch.status === "PUBLISHED" ? sketch.authorId : null;
@@ -93,9 +97,12 @@ export async function approve(input: {
 }): Promise<ValidationResult> {
   const role = await getRoleByUserId(input.userId);
   if (!role) return { ok: false, error: "NO_ROLE" };
+  // Din 2026-08-06 (decizie de produs, Edi + Liviu): ORICINE poate lua poziție pe orice, INCLUSIV
+  // autorul pe propriul conținut. Guard-ul „nu te validezi singur" a fost eliminat DELIBERAT — cu
+  // prețul asumat că scorul de validare nu mai garantează că vine doar de la alții. Verificăm doar
+  // că ținta există și e publică.
   const authorId = await getTargetAuthorId(input.targetType, input.targetId);
   if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
-  if (authorId === input.userId) return { ok: false, error: "CANNOT_VALIDATE_OWN" };
 
   await upsertPosition({
     userId: input.userId,
@@ -125,9 +132,9 @@ export async function disapprove(input: {
     };
   }
 
+  // Vezi nota din `approve`: auto-validarea e PERMISĂ din 2026-08-06 (decizie de produs).
   const authorId = await getTargetAuthorId(input.targetType, input.targetId);
   if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
-  if (authorId === input.userId) return { ok: false, error: "CANNOT_VALIDATE_OWN" };
 
   // NU avem încredere în input.detailId (vine din client) — îl derivăm server-side din țintă, altfel un
   // user ar putea plasa comentariul-justificare pe un detaliu ARBITRAR (nu părintele real al schiței).
@@ -167,8 +174,13 @@ export async function disapprove(input: {
 // Materializează o dezaprobare pornită din „Dezaprob → fac o schiță" — apelată la PUBLICAREA schiței
 // (nu la click), ca să nu rămână o „dezaprobare mută" dacă autorul abandonează editorul. Înregistrează
 // poziția DISAPPROVE pe detaliul-mamă + un comentariu-justificare care trimite la schiță (originValidationId).
-// `userId` = autorul schiței (din sesiune). Cale internă (din sketchService) — guard-ul de auto-validare e
-// aplicat aici defensiv: autorul-mamă nu-și dezaprobă propriul detaliu.
+// `userId` = autorul schiței (din sesiune). Cale internă (din sketchService).
+//
+// ATENȚIE — guard-ul de auto-validare RĂMÂNE aici, deși a fost eliminat din `approve`/`disapprove`
+// (2026-08-06): acolo userul apasă un buton și își asumă poziția; AICI dezaprobarea se înregistrează
+// AUTOMAT, ca efect secundar al publicării unei schițe. Fără guard, autorul care își adnotează propriul
+// detaliu ar ajunge să-și dezaprobe singur detaliul fără să fi cerut asta nimeni — un efect pe care
+// decizia de produs nu-l acoperă.
 export async function recordSketchDisapproval(input: {
   userId: string;
   detailId: string;
