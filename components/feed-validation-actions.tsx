@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, ThumbsUp, X } from "lucide-react";
-import { startTransition, useActionState, useOptimistic, useRef, useState } from "react";
+import { ArrowBigDown, ArrowBigUp } from "lucide-react";
+import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import {
   approveAction,
@@ -19,13 +19,12 @@ import { computeOptimisticValidationCount } from "./validation-count";
 
 const initialState: DisapproveState = { error: null };
 
-// Validare inline din feed — UN SINGUR buton (2026-07-06, redesign cerut de Liviu, pattern „reacții
-// LinkedIn"): hover peste iconiță → mini-meniu cu Aprob/Dezaprob. Aprob = 1 click; Dezaprob = justificare
-// OBLIGATORIE (devine comentariu pe server, regulă non-negociabilă). După poziționare, butonul colapsează
-// la iconița stării (colorată) + „Retrage" apare la hover.
-// Mutat ÎN rândul de stats, lângă numărul de validări (2026-08-07, cerere Liviu: pattern „reacții
-// LinkedIn" — iconiță + count inline, consistent cu comentarii/schițe/vizualizări), nu mai stă separat
-// într-un rând de „Acțiuni" sub stats.
+// Validare inline din feed — widget vertical stil StackOverflow (2026-08-07, cerere Liviu, înlocuiește
+// reacția tip „Like"/meniu-pe-hover): săgeată sus (Aprob) / count / săgeată jos (Dezaprob). Aprob = 1
+// click; Dezaprob = justificare OBLIGATORIE (devine comentariu pe server, regulă non-negociabilă) — click
+// pe săgeata jos deschide modalul, nu trimite direct. Ca înainte: o singură poziție per user, comutare
+// doar via „Retrage" (click pe săgeata activă) — săgeata opusă e dezactivată cât ai o poziție, ca să nu
+// permită un switch direct fără retragere explicită.
 export function FeedValidationActions({
   detailId,
   myPosition,
@@ -35,9 +34,7 @@ export function FeedValidationActions({
   myPosition: ValidationPosition | null;
   validationCount: number;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showJustify, setShowJustify] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [state, formAction, pending] = useActionState(disapproveAction, initialState);
 
   // Optimistic UI: Aprob/Retrage reacționează INSTANT, apoi se reconciliază cu serverul (props revin după
@@ -57,7 +54,6 @@ export function FeedValidationActions({
     return fd;
   }
   function onApprove() {
-    setMenuOpen(false);
     startTransition(async () => {
       applyOpt("APPROVE");
       await approveAction(targetFormData());
@@ -68,16 +64,6 @@ export function FeedValidationActions({
       applyOpt("RETRACT");
       await retractAction(targetFormData());
     });
-  }
-
-  // Mic delay la închidere (mouse leave) ca mutarea cursorului spre meniu (dedesubt) să nu-l închidă
-  // instant — pattern standard pentru popover-e „reacții" pe hover.
-  function openMenu() {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setMenuOpen(true);
-  }
-  function scheduleClose() {
-    closeTimer.current = setTimeout(() => setMenuOpen(false), 150);
   }
 
   // Modalul e deschis doar cât NU ești dezaprobat: după o dezaprobare reușită (revalidare →
@@ -95,74 +81,35 @@ export function FeedValidationActions({
 
   return (
     <>
-    <span className="inline-flex items-center gap-1">
-      {!myPos ? (
-        <div className="relative inline-flex items-center" onMouseEnter={openMenu} onMouseLeave={scheduleClose}>
-          <button
-            type="button"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            title="Validează"
-            className="inline-flex items-center gap-1 rounded-full text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <ThumbsUp className="size-3.5 shrink-0" strokeWidth={2} />
-            <span className="sr-only">validări:</span>
-            {displayCount}
-          </button>
-
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute bottom-full left-0 z-20 mb-1.5 flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-card p-1 shadow-lg"
-            >
-              <button
-                type="button"
-                role="menuitem"
-                onClick={onApprove}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11.5px] font-semibold text-[#2f6b3f] transition-colors hover:bg-[#e9f2ea]"
-              >
-                <Check className="size-3.5" strokeWidth={2.4} />
-                Aprob
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setShowJustify(true);
-                  setMenuOpen(false);
-                }}
-                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[11.5px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
-              >
-                <X className="size-3.5" strokeWidth={2.4} />
-                Dezaprob
-              </button>
-            </div>
-          )}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onRetract}
-          title={approved ? "Ai aprobat — click pentru a retrage" : "Ai dezaprobat — click pentru a retrage"}
-          className={cn(
-            "group/valid relative inline-flex items-center gap-1 rounded-full font-semibold transition-colors",
-            approved ? "text-[#2f6b3f] hover:text-[#245132]" : "text-destructive hover:text-destructive/80",
-          )}
-        >
-          {approved ? (
-            <ThumbsUp className="size-3.5 shrink-0 fill-current" strokeWidth={2} />
-          ) : (
-            <X className="size-3.5 shrink-0" strokeWidth={2.6} />
-          )}
-          <span className="sr-only">validări:</span>
-          {displayCount}
-          {/* Tooltip absolut — nu împinge iconițele de lângă el (bug hover raportat, 2026-07-06). */}
-          <span className="pointer-events-none absolute left-full top-1/2 z-10 ml-1.5 -translate-y-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 font-mono text-[11px] font-semibold text-background opacity-0 transition-opacity duration-150 group-hover/valid:opacity-100">
-            Retrage
-          </span>
-        </button>
-      )}
+    <span className="inline-flex flex-col items-center leading-none">
+      <button
+        type="button"
+        onClick={approved ? onRetract : disapproved ? undefined : onApprove}
+        disabled={disapproved}
+        aria-label={approved ? "Retrage aprobarea" : "Aprobă"}
+        title={approved ? "Ai aprobat — click pentru a retrage" : "Aprob"}
+        className={cn(
+          "rounded transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+          approved ? "text-[#2f6b3f]" : "text-muted-foreground hover:text-[#2f6b3f]",
+        )}
+      >
+        <ArrowBigUp className="size-4 shrink-0" strokeWidth={2} fill={approved ? "currentColor" : "none"} />
+      </button>
+      <span className="sr-only">validări:</span>
+      <span className="px-0.5 font-mono text-[11px] font-semibold">{displayCount}</span>
+      <button
+        type="button"
+        onClick={disapproved ? onRetract : approved ? undefined : () => setShowJustify(true)}
+        disabled={approved}
+        aria-label={disapproved ? "Retrage dezaprobarea" : "Dezaprobă"}
+        title={disapproved ? "Ai dezaprobat — click pentru a retrage" : "Dezaprob"}
+        className={cn(
+          "rounded transition-colors disabled:cursor-not-allowed disabled:opacity-30",
+          disapproved ? "text-destructive" : "text-muted-foreground hover:text-destructive",
+        )}
+      >
+        <ArrowBigDown className="size-4 shrink-0" strokeWidth={2} fill={disapproved ? "currentColor" : "none"} />
+      </button>
     </span>
 
       {/* Modal de justificare — overlay fix, nu împinge layout-ul cardului. */}
