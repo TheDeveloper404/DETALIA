@@ -155,8 +155,12 @@ test.describe.serial("Schiță — stack de foi", () => {
     // sugereze că desenul dispare.
     await page.getByRole("button", { name: "Retrage-mă" }).click();
 
-    // Tab-ul NU dispare — desenul e parte din dezbaterea pe care foaia 2 a continuat-o.
-    await expect(page.getByTestId(`sketch-tab-${firstSketchId}`)).toBeVisible();
+    // Tab-ul NU dispare — desenul e parte din dezbaterea pe care foaia 2 a continuat-o. Verificăm și
+    // eticheta lui: devine „Autor șters" abia DUPĂ ce server action-ul + revalidarea se termină — clicul
+    // în sine nu așteaptă round-trip-ul, deci asta e ce forțează testul să nu verifice DB-ul prea devreme.
+    const sketchTab = page.getByTestId(`sketch-tab-${firstSketchId}`);
+    await expect(sketchTab).toBeVisible();
+    await expect(sketchTab).toHaveAttribute("aria-label", "Autor șters");
 
     // Dovada în DB: flagul e setat, dar desenul și rândul sunt intacte.
     const [row] = await db
