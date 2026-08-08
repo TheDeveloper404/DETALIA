@@ -33,6 +33,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // maxAge: mărginește fereastra în care un JWT cu status stale (ACTIVE la login) mai poate CITI
   // conținut protejat după o suspendare/ștergere de cont — mutațiile sunt oricum blocate imediat de
   // requireActiveUserId (re-check DB). Fără maxAge, default-ul Auth.js e 30 de zile.
+  //
+  // FIXĂ, nu culisantă (2026-08-09, decizie de produs după rescrierea proxy.ts): userul e delogat
+  // forțat la 7 zile de la ULTIMUL LOGIN, nu de la ultima activitate. Înainte, `proxy.ts` reîmprospăta
+  // cookie-ul la fiecare vizită (efect secundar al wrapper-ului `auth()`, eliminat pentru bug-ul de
+  // sesiune resuscitată după logout — vezi CHANGELOG 2026-08-09). Middleware-ul era SINGURUL loc care
+  // făcea asta — Server Actions/RSC nu pot scrie cookie-uri pe un GET, aplicația n-are `SessionProvider`
+  // client-side. Acceptat conștient: 7 zile fixe e generos, echivalent cu re-login săptămânal.
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
   trustHost: true,
   // Pagini custom: folosim ecrane proprii în limbajul vizual DETALIA în loc de cele default Auth.js.
