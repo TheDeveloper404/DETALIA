@@ -151,7 +151,9 @@ test.describe.serial("Schiță — stack de foi", () => {
     // Dialogul explică DINAINTE ce se întâmplă, ca userul să nu apese așteptând dispariția schiței.
     await expect(page.getByRole("dialog")).toBeVisible();
     await expect(page.getByText(/desenul rămâne/i)).toBeVisible();
-    await page.getByRole("button", { name: "Șterge" }).click();
+    // Buton dedicat pe ramura de retragere (confirmLabel="Retrage-mă") — NU "Șterge", ca să nu
+    // sugereze că desenul dispare.
+    await page.getByRole("button", { name: "Retrage-mă" }).click();
 
     // Tab-ul NU dispare — desenul e parte din dezbaterea pe care foaia 2 a continuat-o.
     await expect(page.getByTestId(`sketch-tab-${firstSketchId}`)).toBeVisible();
