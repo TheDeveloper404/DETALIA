@@ -14,7 +14,12 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
-import { composeStackStrokes, MAX_ANNOTATIONS_PER_DETAIL } from "@/server/domain/sketch";
+import {
+  composeStackStrokes,
+  MAX_ANNOTATIONS_PER_DETAIL,
+  REMOVED_AUTHOR_LABEL,
+  resolveSketchDeletionMode,
+} from "@/server/domain/sketch";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
@@ -73,6 +78,13 @@ export type WorkspaceSketch = {
   // Foile peste care s-a desenat această schiță, de jos în sus (stack de foi, 2026-08-08). Goală =
   // pornită de pe detaliul gol. Id-urile pot referi foi dispărute între timp — randarea le sare.
   baseSketchIds: string[];
+  // Identitatea autorului a fost RETRASĂ (ștergere parțială pe o foaie blocată). Numele/poza/id-ul vin
+  // deja mascate din repo; flagul spune UI-ului să afișeze „Autor șters" în loc de „Anonim", care ar
+  // sugera un cont fără nume, nu o retragere deliberată. Rolul rămâne, din snapshot.
+  authorRemoved: boolean;
+  // Setat când altcineva a publicat o schiță peste asta → ștergerea nu mai poate fi completă.
+  // UI-ul îl folosește ca să spună DINAINTE ce face butonul (aceeași regulă ca pe server).
+  lockedAt: Date | null;
 };
 
 // Workspace unificat cu taburi (model „GitHub PR"): tab 0 = detaliul de bază, tab i = schiță peste mamă.
@@ -168,6 +180,10 @@ export function DetailWorkspace({
   // autor, toate etichetele mai vechi s-ar renumerota (bug raportat 2026-07-07).
   // Folosită în DOUĂ locuri (taburi + bifele stack-ului) → o singură definiție, ca să nu divergă.
   function sketchLabel(s: WorkspaceSketch): string {
+    // Identitate retrasă → „Autor șters", nu „Anonim": al doilea ar sugera un cont fără nume, când de
+    // fapt cineva a cerut deliberat să nu mai fie legat de desen. Ordinalul dispare odată cu numele —
+    // „Autor șters — schița 2" ar reconstitui exact legătura pe care userul a retras-o.
+    if (s.authorRemoved) return REMOVED_AUTHOR_LABEL;
     const baseName = s.author.name ?? "Anonim";
     const sameAuthor = sketches
       .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
@@ -182,6 +198,7 @@ export function DetailWorkspace({
     authorName: s.author.name,
     authorImage: s.author.image,
     createdAt: s.createdAt,
+    authorRemoved: s.authorRemoved,
   }));
 
   // ── Stack de foi (2026-08-08) ──────────────────────────────────────────────────────────────────
@@ -245,10 +262,18 @@ export function DetailWorkspace({
   // Din 2026-08-06: oricine autentificat poate lua poziție pe orice, INCLUSIV pe propriul conținut
   // (decizie de produs — vezi nota din validationService.approve). Singura condiție rămasă e sesiunea.
   const canValidate = !!currentUserId;
-  // Ștergerea schiței active: autorul detaliului (moderare) SAU autorul schiței.
-  const canDeleteActive =
-    !!activeSketch &&
-    (isDetailAuthor || (!!currentUserId && activeSketch.author.id === currentUserId));
+  // Ștergerea schiței active: autorul detaliului (moderare) SAU autorul schiței. Modul se calculează cu
+  // ACEEAȘI funcție pură ca pe server (`resolveSketchDeletionMode`) — altfel dialogul ar promite altceva
+  // decât face acțiunea. Serverul rămâne sursa de adevăr; asta e doar ce-i spunem userului dinainte.
+  const activeDeletionMode = activeSketch
+    ? resolveSketchDeletionMode({
+        lockedAt: activeSketch.lockedAt,
+        isSketchAuthor: !!currentUserId && activeSketch.author.id === currentUserId,
+        isDetailAuthor,
+      })
+    : "FORBIDDEN";
+  // Pe o foaie blocată, moderatorul nu mai are ce acțiune să ceară → nu-i arătăm un buton care refuză.
+  const canDeleteActive = !!activeSketch && activeDeletionMode !== "FORBIDDEN";
 
   // Mutat sub imagine (nu mai suprapus peste ea) + colaps la iconiță — textul apare doar la HOVER
   // (mouse peste buton), nu la click (spre deosebire de taburile de mai sus, care se extind la click).
@@ -358,10 +383,15 @@ export function DetailWorkspace({
                 activeSketchPublicId={isBase ? null : activeSketch!.id}
                 canDeleteActiveSketch={canDeleteActive}
                 deletionMode={deletionMode}
+                sketchDeletionMode={activeDeletionMode}
                 deleteSketchLabel={
-                  !isBase && isDetailAuthor && activeSketch!.author.id !== currentUserId
-                    ? "Șterge schița"
-                    : "Șterge schița mea"
+                  // Pe o foaie blocată acțiunea nu mai e „ștergere", ci retragere din dezbatere —
+                  // eticheta din meniu trebuie să spună asta încă dinainte de dialogul de confirmare.
+                  activeDeletionMode === "PARTIAL"
+                    ? "Retrage-mă din schiță"
+                    : !isBase && isDetailAuthor && activeSketch!.author.id !== currentUserId
+                      ? "Șterge schița"
+                      : "Șterge schița mea"
                 }
               />
             </span>

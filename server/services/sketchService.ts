@@ -9,6 +9,7 @@ import { isUuid } from "@/server/domain/ids";
 import {
   canAddAnnotation,
   isSelfAnnotation,
+  resolveSketchDeletionMode,
   SKETCH_STATUS,
   type Stroke,
   validateBaseSketchIds,
@@ -26,6 +27,7 @@ import {
   filterPublishedSketchIds,
   getPublicSketchTeaser,
   lockStackBases,
+  markAuthorRemoved,
   updateBaseSketchIds,
   listAnnotationsByDetail,
   listDraftsByAuthor,
@@ -49,7 +51,10 @@ type SketchError =
   | "NOTE_TOO_LONG"
   | "ANNOTATION_LIMIT"
   | "INVALID_STACK"
-  | "STACK_TOO_DEEP";
+  | "STACK_TOO_DEEP"
+  // Foaie intrată într-o dezbatere (alții au construit peste ea): nu mai poate fi ștearsă. Distinct de
+  // FORBIDDEN — actorul ARE dreptul de moderare, dar regula stack-ului primează. UI-ul explică de ce.
+  | "SKETCH_LOCKED";
 
 export type SketchResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; value: T })
@@ -253,7 +258,29 @@ export async function deleteSketch(input: {
   // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
   // autorul unui detaliu retras pierde dreptul de moderare pe propriile schițe.
   const isDetailAuthor = detail?.ownerId === input.actorUserId;
-  if (!isSketchAuthor && !isDetailAuthor) return { ok: false, error: "FORBIDDEN" };
+
+  // STACK, Faza B: o foaie pe care alții au construit nu mai dispare complet. Regula (și cine ce poate
+  // face pe ea) e pură și trăiește în domain — vezi `resolveSketchDeletionMode`.
+  const mode = resolveSketchDeletionMode({
+    lockedAt: sketch.lockedAt,
+    isSketchAuthor,
+    isDetailAuthor,
+  });
+  if (mode === "FORBIDDEN") {
+    // Două cauze distincte, două erori distincte: un străin nu are ce căuta aici (FORBIDDEN), iar
+    // moderatorul unei foi blocate primește un refuz EXPLICABIL în UI, nu unul de permisiuni.
+    return {
+      ok: false,
+      error: !isSketchAuthor && !isDetailAuthor ? "FORBIDDEN" : "SKETCH_LOCKED",
+    };
+  }
+
+  if (mode === "PARTIAL") {
+    // Nu se șterge nimic: nici rândul, nici thumbnail-ul, nici validările/comentariile de pe foaie.
+    // Pozițiile altora rămân valide — desenul pe care s-au pronunțat e încă acolo, doar semnătura nu.
+    await markAuthorRemoved(input.sketchId);
+    return { ok: true };
+  }
 
   const thumbnailUrl = await deleteSketchCascade(input.sketchId);
   await deleteBlobs([thumbnailUrl]);

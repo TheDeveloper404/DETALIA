@@ -137,6 +137,44 @@ test.describe.serial("Schiță — stack de foi", () => {
     await expect(layerToggle).toHaveAttribute("aria-pressed", "true");
   });
 
+  // FAZA B — o foaie pe care alții au construit nu mai dispare complet: se retrage doar identitatea.
+  // Testul de după (bifele) rămâne valid: ștergerea parțială schimbă eticheta foii, nu prezența bifei.
+  test("ștergere pe foaie blocată → desenul rămâne, identitatea dispare", async ({ page }) => {
+    await page.goto(`${detailUrl()}?sketch=${firstSketchId}`);
+
+    // Eticheta din meniu spune deja că nu e o ștergere obișnuită.
+    await page.getByRole("button", { name: "Acțiuni detaliu" }).click();
+    const retractItem = page.getByRole("menuitem", { name: "Retrage-mă din schiță" });
+    await expect(retractItem).toBeVisible();
+    await retractItem.click();
+
+    // Dialogul explică DINAINTE ce se întâmplă, ca userul să nu apese așteptând dispariția schiței.
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByText(/desenul rămâne/i)).toBeVisible();
+    await page.getByRole("button", { name: "Șterge" }).click();
+
+    // Tab-ul NU dispare — desenul e parte din dezbaterea pe care foaia 2 a continuat-o.
+    await expect(page.getByTestId(`sketch-tab-${firstSketchId}`)).toBeVisible();
+
+    // Dovada în DB: flagul e setat, dar desenul și rândul sunt intacte.
+    const [row] = await db
+      .select({
+        authorRemoved: sketches.authorRemoved,
+        strokesJson: sketches.strokesJson,
+        roleSnapshot: sketches.roleSnapshot,
+      })
+      .from(sketches)
+      .where(eq(sketches.id, firstSketchId));
+    expect(row.authorRemoved).toBe(true);
+    expect(row.strokesJson).not.toBeNull();
+    // Rolul înghețat la publicare rămâne — e ce se afișează lângă „Autor șters".
+    expect(row.roleSnapshot).not.toBeNull();
+
+    // În teancul foii 2, foaia 1 apare acum ca „Autor șters", nu cu numele real.
+    await page.goto(`${detailUrl()}?sketch=${secondSketchId}`);
+    await expect(page.getByTestId(`stack-layer-${firstSketchId}`)).toContainText("Autor șters");
+  });
+
   test("starea bifelor NU se persistă — la reintrare teancul e din nou întreg", async ({ page }) => {
     await page.goto(`${detailUrl()}?sketch=${secondSketchId}`);
     const layerToggle = page.getByTestId(`stack-layer-${firstSketchId}`);

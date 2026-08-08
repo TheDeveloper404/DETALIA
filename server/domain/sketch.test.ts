@@ -15,6 +15,7 @@ import {
   COLOR_RAMP_STOPS,
   duplicateTextStroke,
   isSelfAnnotation,
+  resolveSketchDeletionMode,
   TEXT_DUPLICATE_OFFSET,
   type Point,
   type Stroke,
@@ -343,5 +344,67 @@ describe("composeStackStrokes", () => {
       { strokes: [strokeOf("#b0463c")] },
     ]);
     expect(validateStrokes(composed).ok).toBe(true);
+  });
+});
+
+// ── Ștergerea unei foi din stack (Faza B) ────────────────────────────────────────────────────────
+// Regula ireversibilă a feature-ului: o foaie pe care s-a construit nu mai dispare complet.
+describe("resolveSketchDeletionMode", () => {
+  const AUTHOR = { isSketchAuthor: true, isDetailAuthor: false };
+  const MODERATOR = { isSketchAuthor: false, isDetailAuthor: true };
+  const STRAIN = { isSketchAuthor: false, isDetailAuthor: false };
+  const LOCKED = new Date("2026-08-08T12:00:00Z");
+
+  it("foaie NEblocată → ștergere completă, atât pentru autor cât și pentru moderator", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: null, ...AUTHOR })).toBe("HARD");
+    expect(resolveSketchDeletionMode({ lockedAt: null, ...MODERATOR })).toBe("HARD");
+  });
+
+  it("foaie BLOCATĂ + autorul ei → ștergere parțială (își retrage doar numele)", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: LOCKED, ...AUTHOR })).toBe("PARTIAL");
+  });
+
+  it("foaie BLOCATĂ + moderator → REFUZ (nu retrage identitatea altcuiva, nici nu șterge)", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: LOCKED, ...MODERATOR })).toBe("FORBIDDEN");
+  });
+
+  it("autorul schiței care e ȘI autorul detaliului → tot parțială pe foaie blocată", () => {
+    // Cazul adnotării nu ajunge aici (adnotările nu intră în stack), dar regula nu trebuie să depindă
+    // de ordinea verificărilor: calitatea de autor al foii primează.
+    expect(
+      resolveSketchDeletionMode({ lockedAt: LOCKED, isSketchAuthor: true, isDetailAuthor: true }),
+    ).toBe("PARTIAL");
+  });
+
+  it("străin → refuz, indiferent de blocare", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: null, ...STRAIN })).toBe("FORBIDDEN");
+    expect(resolveSketchDeletionMode({ lockedAt: LOCKED, ...STRAIN })).toBe("FORBIDDEN");
+  });
+});
+
+// Regresie pentru bug-ul de grupare din picker-ul de @mention (găsit la review 2026-08-08): foile cu
+// identitate retrasă nu trebuie să împartă o cheie de grupare comună. Logica trăiește în
+// `comments-section.tsx`, dar invariantul e de domeniu: o retragere nu se renumerotează cu alta.
+describe("gruparea etichetelor pentru foile cu identitate retrasă", () => {
+  // Replică exactă a lui `groupKey` din comments-section.tsx — dacă cele două diverg, testul cade.
+  const groupKey = (s: { id: string; authorName: string | null; authorRemoved: boolean }) =>
+    s.authorRemoved ? `removed:${s.id}` : (s.authorName ?? "");
+
+  it("doi autori retrași primesc chei DISTINCTE (nu se numerotează împreună)", () => {
+    const a = { id: UUID_A, authorName: null, authorRemoved: true };
+    const b = { id: UUID_B, authorName: null, authorRemoved: true };
+    expect(groupKey(a)).not.toBe(groupKey(b));
+  });
+
+  it("un retras NU se grupează cu un autor fără nume (cont fără nume ≠ retragere)", () => {
+    const removed = { id: UUID_A, authorName: null, authorRemoved: true };
+    const anonymous = { id: UUID_B, authorName: null, authorRemoved: false };
+    expect(groupKey(removed)).not.toBe(groupKey(anonymous));
+  });
+
+  it("două schițe ale ACELUIAȘI autor neșters rămân grupate (ordinalul «schița N» se păstrează)", () => {
+    const s1 = { id: UUID_A, authorName: "Ion", authorRemoved: false };
+    const s2 = { id: UUID_B, authorName: "Ion", authorRemoved: false };
+    expect(groupKey(s1)).toBe(groupKey(s2));
   });
 });

@@ -18,6 +18,7 @@ vi.mock("@/server/repos/sketchesRepo", () => ({
   filterPublishedSketchIds: vi.fn(),
   lockStackBases: vi.fn(),
   updateBaseSketchIds: vi.fn(),
+  markAuthorRemoved: vi.fn(),
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ getNotificationActor: vi.fn() }));
 vi.mock("@/server/services/notificationService", () => ({
@@ -42,6 +43,7 @@ import {
   getSketchById,
   insertDraft,
   lockStackBases,
+  markAuthorRemoved,
   publishFromDraft,
   updateBaseSketchIds,
   updateStrokes,
@@ -79,6 +81,11 @@ function draft(over: Record<string, unknown> = {}) {
     strokesJson: validStrokes,
     disapprovesParent: false,
     thumbnailUrl: null,
+    // Coloanele de stack: DB-ul întoarce `null`, nu `undefined` — helper-ul trebuie să fie fidel, altfel
+    // testele ar trece pe forme de date care nu apar niciodată în realitate.
+    baseSketchIds: null,
+    lockedAt: null,
+    authorRemoved: false,
     ...over,
   };
 }
@@ -576,5 +583,81 @@ describe("Stack — blocarea foilor la publicare", () => {
       SKETCH_AUTHOR,
       expect.objectContaining({ roleSnapshot: null }),
     );
+  });
+});
+
+// ── Ștergere pe o foaie din stack (Faza B) ───────────────────────────────────────────────────────
+// Regula pură e testată în domain (`resolveSketchDeletionMode`); aici verificăm că serviciul CHIAR
+// ramifică pe ea — că foaia blocată nu ajunge niciodată la `deleteSketchCascade`.
+describe("Stack — ștergerea unei foi pe care alții au construit", () => {
+  const LOCKED = new Date("2026-08-08T12:00:00Z");
+
+  it("foaie NEblocată → ștergere completă, ca înainte", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: null }) as never,
+    );
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: true });
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
+    expect(markAuthorRemoved).not.toHaveBeenCalled();
+  });
+
+  it("foaie BLOCATĂ + autorul ei → doar identitatea se retrage, desenul RĂMÂNE", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: LOCKED }) as never,
+    );
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: true });
+    expect(markAuthorRemoved).toHaveBeenCalledWith(SID);
+    // Nimic nu se șterge: nici rândul, nici thumbnail-ul, nici validările/comentariile de pe foaie.
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+    expect(deleteBlobs).not.toHaveBeenCalled();
+    // Nici notificare: autorul și-a retras singur numele, n-are pe cine anunța.
+    expect(notifySketchDeleted).not.toHaveBeenCalled();
+  });
+
+  it("foaie BLOCATĂ + moderator (autorul detaliului) → SKETCH_LOCKED, nimic nu se schimbă", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: LOCKED }) as never,
+    );
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(res).toEqual({ ok: false, error: "SKETCH_LOCKED" });
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+    // Moderatorul NU capătă puterea de a retrage identitatea altcuiva.
+    expect(markAuthorRemoved).not.toHaveBeenCalled();
+  });
+
+  it("ADVERSARIAL — străin pe foaie blocată → FORBIDDEN, nu SKETCH_LOCKED", async () => {
+    // Distincția contează: SKETCH_LOCKED ar confirma unui străin că foaia există și e într-o dezbatere.
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: LOCKED }) as never,
+    );
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: ATTACKER });
+
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(markAuthorRemoved).not.toHaveBeenCalled();
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+  });
+
+  it("moderatorul șterge complet o foaie NEblocată (moderarea rămâne intactă)", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: null }) as never,
+    );
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(res).toEqual({ ok: true });
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
+    // Autorul schiței e anunțat că i-a fost ștearsă de altcineva.
+    expect(notifySketchDeleted).toHaveBeenCalled();
   });
 });

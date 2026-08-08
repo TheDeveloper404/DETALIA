@@ -21,8 +21,15 @@ export async function deleteSketchAction(formData: FormData): Promise<void> {
     redirect(`/details/${detailId}`);
   }
 
-  await deleteSketch({ sketchId, actorUserId: userId });
+  const result = await deleteSketch({ sketchId, actorUserId: userId });
   revalidatePath(`/details/${detailId}`);
+
+  // Foaie intrată într-o dezbatere: cererea a fost REFUZATĂ, nu executată. Fără mesaj, userul apasă
+  // „Șterge", pagina se reîncarcă neschimbată și pare o eroare tăcută — exact tiparul pe care îl
+  // evităm și la plafonul de adnotări (vezi `startSketchAction`).
+  if (!result.ok && result.error === "SKETCH_LOCKED") {
+    redirect(`/details/${detailId}?sketch-delete=locked`);
+  }
 }
 
 // Pornește o schiță peste detaliu: creează un DRAFT și duce autorul în editor.
