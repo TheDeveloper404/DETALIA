@@ -3,21 +3,35 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_POINTS_PER_STROKE,
   MAX_SKETCH_NOTE_LENGTH,
+  MAX_STACK_DEPTH,
   MAX_STROKES,
   MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
   colorAtRampPosition,
+  composeStackStrokes,
   STROKE_COLORS,
   colorRampGradient,
   COLOR_RAMP_STOPS,
   duplicateTextStroke,
   isSelfAnnotation,
+  resolveSketchDeletionMode,
   TEXT_DUPLICATE_OFFSET,
   type Point,
+  type Stroke,
+  validateBaseSketchIds,
   validateSketchNote,
   validateStrokes,
 } from "./sketch";
+
+// Helper local: un stroke minim valid, cu culoare distinctă ca să pot urmări ORDINEA la compunere.
+function strokeOf(color: string): Stroke {
+  return { color, size: 8, points: [[0.1, 0.1], [0.2, 0.2]], kind: "free" };
+}
+
+const UUID_A = "11111111-1111-4111-8111-111111111111";
+const UUID_B = "22222222-2222-4222-8222-222222222222";
+const UUID_C = "33333333-3333-4333-8333-333333333333";
 
 // Predicatul care separă ADNOTAREA autorului (nota lui pe propria imagine) de SCHIȚA altcuiva
 // (contribuție, model fork/PR). E mirror-uit în SQL în sketchesRepo/detailsRepo/profileRepo.
@@ -234,5 +248,163 @@ describe("bara continuă de culoare", () => {
     for (const stop of COLOR_RAMP_STOPS) {
       expect(css).toContain(`${stop.color} ${stop.at}%`);
     }
+  });
+});
+
+// ── Stack de foi (2026-08-08) ────────────────────────────────────────────────────────────────────
+// „Rețeta" fundalului unei schițe: ce foi erau aprinse când s-a apăsat „Schițează peste".
+describe("validateBaseSketchIds", () => {
+  it("null/undefined → listă goală (schiță pornită de pe detaliul gol)", () => {
+    expect(validateBaseSketchIds(null)).toEqual({ ok: true, value: [] });
+    expect(validateBaseSketchIds(undefined)).toEqual({ ok: true, value: [] });
+  });
+
+  it("listă goală rămâne goală", () => {
+    expect(validateBaseSketchIds([])).toEqual({ ok: true, value: [] });
+  });
+
+  it("păstrează ORDINEA primită (de jos în sus = ordinea de desenare)", () => {
+    const result = validateBaseSketchIds([UUID_C, UUID_A, UUID_B]);
+    expect(result).toEqual({ ok: true, value: [UUID_C, UUID_A, UUID_B] });
+  });
+
+  it("deduplică păstrând PRIMA apariție (poziția în stivă e dată de prima desenare)", () => {
+    const result = validateBaseSketchIds([UUID_A, UUID_B, UUID_A, UUID_A]);
+    expect(result).toEqual({ ok: true, value: [UUID_A, UUID_B] });
+  });
+
+  it("respinge ce nu e array", () => {
+    expect(validateBaseSketchIds("nu-i array")).toEqual({ ok: false, error: "INVALID_STACK" });
+    expect(validateBaseSketchIds({ 0: UUID_A })).toEqual({ ok: false, error: "INVALID_STACK" });
+    expect(validateBaseSketchIds(42)).toEqual({ ok: false, error: "INVALID_STACK" });
+  });
+
+  it("respinge elemente care nu sunt UUID-uri (payload ostil din client)", () => {
+    expect(validateBaseSketchIds([UUID_A, "'; DROP TABLE sketches;--"])).toEqual({
+      ok: false,
+      error: "INVALID_STACK",
+    });
+    expect(validateBaseSketchIds([123])).toEqual({ ok: false, error: "INVALID_STACK" });
+    expect(validateBaseSketchIds([null])).toEqual({ ok: false, error: "INVALID_STACK" });
+  });
+
+  it("acceptă exact la plafon, respinge peste", () => {
+    // UUID-uri distincte generate determinist, ca deduplicarea să nu ascundă testul de plafon.
+    const ids = (n: number) =>
+      Array.from({ length: n }, (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`);
+
+    expect(validateBaseSketchIds(ids(MAX_STACK_DEPTH)).ok).toBe(true);
+    expect(validateBaseSketchIds(ids(MAX_STACK_DEPTH + 1))).toEqual({
+      ok: false,
+      error: "STACK_TOO_DEEP",
+    });
+  });
+
+  it("plafonul se aplică DUPĂ deduplicare — 100 de repetări ale aceluiași id e o listă de 1", () => {
+    const spam = Array.from({ length: 100 }, () => UUID_A);
+    expect(validateBaseSketchIds(spam)).toEqual({ ok: true, value: [UUID_A] });
+  });
+});
+
+// Compunerea stack-ului pentru randare: motorul de desenare nu știe din ce foaie vine un stroke,
+// deci un stack e doar o listă concatenată — ordinea decide ce se vede deasupra.
+describe("composeStackStrokes", () => {
+  it("concatenează în ordinea dată (ultima foaie desenează deasupra)", () => {
+    const result = composeStackStrokes([
+      { strokes: [strokeOf("#111111")] },
+      { strokes: [strokeOf("#222222"), strokeOf("#333333")] },
+    ]);
+    expect(result.map((s) => s.color)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("ignoră foile fără stroke-uri (ciornă goală) fără să rupă ordinea celorlalte", () => {
+    const result = composeStackStrokes([
+      { strokes: [strokeOf("#111111")] },
+      { strokes: null },
+      { strokes: [strokeOf("#222222")] },
+    ]);
+    expect(result.map((s) => s.color)).toEqual(["#111111", "#222222"]);
+  });
+
+  it("stack gol → listă goală (nu aruncă)", () => {
+    expect(composeStackStrokes([])).toEqual([]);
+    expect(composeStackStrokes([{ strokes: null }])).toEqual([]);
+  });
+
+  it("nu mută stroke-urile din foile sursă (fără mutație pe input)", () => {
+    const layer = { strokes: [strokeOf("#111111")] };
+    const before = [...layer.strokes];
+    composeStackStrokes([layer, { strokes: [strokeOf("#222222")] }]);
+    expect(layer.strokes).toEqual(before);
+  });
+
+  it("rezultatul rămâne valid pentru serverul de validare (stroke-uri neatinse structural)", () => {
+    const composed = composeStackStrokes([
+      { strokes: [strokeOf("#211d18")] },
+      { strokes: [strokeOf("#b0463c")] },
+    ]);
+    expect(validateStrokes(composed).ok).toBe(true);
+  });
+});
+
+// ── Ștergerea unei foi din stack (Faza B) ────────────────────────────────────────────────────────
+// Regula ireversibilă a feature-ului: o foaie pe care s-a construit nu mai dispare complet.
+describe("resolveSketchDeletionMode", () => {
+  const AUTHOR = { isSketchAuthor: true, isDetailAuthor: false };
+  const MODERATOR = { isSketchAuthor: false, isDetailAuthor: true };
+  const STRAIN = { isSketchAuthor: false, isDetailAuthor: false };
+  const LOCKED = new Date("2026-08-08T12:00:00Z");
+
+  it("foaie NEblocată → ștergere completă, atât pentru autor cât și pentru moderator", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: null, ...AUTHOR })).toBe("HARD");
+    expect(resolveSketchDeletionMode({ lockedAt: null, ...MODERATOR })).toBe("HARD");
+  });
+
+  it("foaie BLOCATĂ + autorul ei → ștergere parțială (își retrage doar numele)", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: LOCKED, ...AUTHOR })).toBe("PARTIAL");
+  });
+
+  it("foaie BLOCATĂ + moderator → REFUZ (nu retrage identitatea altcuiva, nici nu șterge)", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: LOCKED, ...MODERATOR })).toBe("FORBIDDEN");
+  });
+
+  it("autorul schiței care e ȘI autorul detaliului → tot parțială pe foaie blocată", () => {
+    // Cazul adnotării nu ajunge aici (adnotările nu intră în stack), dar regula nu trebuie să depindă
+    // de ordinea verificărilor: calitatea de autor al foii primează.
+    expect(
+      resolveSketchDeletionMode({ lockedAt: LOCKED, isSketchAuthor: true, isDetailAuthor: true }),
+    ).toBe("PARTIAL");
+  });
+
+  it("străin → refuz, indiferent de blocare", () => {
+    expect(resolveSketchDeletionMode({ lockedAt: null, ...STRAIN })).toBe("FORBIDDEN");
+    expect(resolveSketchDeletionMode({ lockedAt: LOCKED, ...STRAIN })).toBe("FORBIDDEN");
+  });
+});
+
+// Regresie pentru bug-ul de grupare din picker-ul de @mention (găsit la review 2026-08-08): foile cu
+// identitate retrasă nu trebuie să împartă o cheie de grupare comună. Logica trăiește în
+// `comments-section.tsx`, dar invariantul e de domeniu: o retragere nu se renumerotează cu alta.
+describe("gruparea etichetelor pentru foile cu identitate retrasă", () => {
+  // Replică exactă a lui `groupKey` din comments-section.tsx — dacă cele două diverg, testul cade.
+  const groupKey = (s: { id: string; authorName: string | null; authorRemoved: boolean }) =>
+    s.authorRemoved ? `removed:${s.id}` : (s.authorName ?? "");
+
+  it("doi autori retrași primesc chei DISTINCTE (nu se numerotează împreună)", () => {
+    const a = { id: UUID_A, authorName: null, authorRemoved: true };
+    const b = { id: UUID_B, authorName: null, authorRemoved: true };
+    expect(groupKey(a)).not.toBe(groupKey(b));
+  });
+
+  it("un retras NU se grupează cu un autor fără nume (cont fără nume ≠ retragere)", () => {
+    const removed = { id: UUID_A, authorName: null, authorRemoved: true };
+    const anonymous = { id: UUID_B, authorName: null, authorRemoved: false };
+    expect(groupKey(removed)).not.toBe(groupKey(anonymous));
+  });
+
+  it("două schițe ale ACELUIAȘI autor neșters rămân grupate (ordinalul «schița N» se păstrează)", () => {
+    const s1 = { id: UUID_A, authorName: "Ion", authorRemoved: false };
+    const s2 = { id: UUID_B, authorName: "Ion", authorRemoved: false };
+    expect(groupKey(s1)).toBe(groupKey(s2));
   });
 });

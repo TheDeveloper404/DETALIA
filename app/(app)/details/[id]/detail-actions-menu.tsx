@@ -35,6 +35,7 @@ export function DetailActionsMenu({
   canDeleteActiveSketch,
   deleteSketchLabel,
   deletionMode = "HARD_DELETE",
+  sketchDeletionMode = "HARD",
 }: {
   detailId: string;
   isAuthor: boolean;
@@ -50,6 +51,10 @@ export function DetailActionsMenu({
   activeSketchPublicId?: string | null;
   canDeleteActiveSketch?: boolean;
   deleteSketchLabel?: string;
+  // Ce face efectiv „Șterge" pe SCHIȚA activă, calculat cu aceeași regulă ca pe server
+  // (`resolveSketchDeletionMode`): dispariție completă sau doar retragerea identității autorului,
+  // dacă alții au construit deja peste foaie.
+  sketchDeletionMode?: "HARD" | "PARTIAL" | "FORBIDDEN";
 }) {
   const [open, setOpen] = useState(false);
   const [sketchLinkCopied, setSketchLinkCopied] = useState(false);
@@ -229,10 +234,23 @@ export function DetailActionsMenu({
         </>
       )}
 
+      {/* Pe o foaie pe care ALȚII au construit, „Șterge" nu mai șterge desenul — retrage doar
+          identitatea autorului. Userul trebuie să știe asta ÎNAINTE de a confirma, altfel apasă
+          așteptând dispariția schiței și rămâne cu ea pe ecran. Același model ca la detaliu
+          (HARD_DELETE vs ANONYMIZE). */}
       <ConfirmDialog
         open={confirmDelete === "sketch"}
-        title="Ștergi această schiță?"
-        message="Validările și comentariile ei se șterg definitiv. Nu se poate reveni."
+        title={
+          sketchDeletionMode === "PARTIAL"
+            ? "Te retragi din această schiță?"
+            : "Ștergi această schiță?"
+        }
+        message={
+          sketchDeletionMode === "PARTIAL"
+            ? "Alții au desenat deja peste ea, așa că desenul rămâne — dispare doar legătura cu tine: numele, poza și link-ul spre profil. În locul lor va scrie «Autor șters», cu rolul tău de la momentul publicării. Nu se poate reveni."
+            : "Validările și comentariile ei se șterg definitiv. Nu se poate reveni."
+        }
+        confirmLabel={sketchDeletionMode === "PARTIAL" ? "Retrage-mă" : undefined}
         onCancel={() => setConfirmDelete(null)}
         onConfirm={() => {
           setConfirmDelete(null);

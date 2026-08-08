@@ -6,6 +6,8 @@
 // PENDING_ACCEPTANCE / REJECTED rămân în enum pentru date istorice, dar NU se mai produc.
 // Stroke-uri stocate VECTORIAL, coordonate normalizate 0..1 față de imaginea-mamă.
 
+import { isUuid } from "@/server/domain/ids";
+
 export const SKETCH_STATUS = {
   DRAFT: "DRAFT",
   PENDING_ACCEPTANCE: "PENDING_ACCEPTANCE", // moștenit (flux vechi) — nemaifolosit
@@ -41,6 +43,99 @@ export const MAX_ANNOTATIONS_PER_DETAIL = 3;
 export function canAddAnnotation(count: number): boolean {
   return count < MAX_ANNOTATIONS_PER_DETAIL;
 }
+
+// ── Stack de foi (2026-08-08) ───────────────────────────────────────────────────────────────────
+// „Schițează peste" îngheață EXACT ce e aprins pe ecran în momentul apăsării și folosește asta ca
+// fundal al foii noi. `baseSketchIds` = rețeta acelui fundal: lista ORDONATĂ (de jos în sus) a
+// schițelor care erau aprinse. Goală → s-a pornit de pe detaliul gol (comportamentul de dinainte,
+// și starea tuturor schițelor existente la migrare).
+//
+// Lista nu se rezolvă recursiv: la capturare e deja aplatizată — ce vedea userul ATUNCI era deja
+// „bază + tot ce era aprins", oricât de adânc era stack-ul lor. ATENȚIE, ce se îngheață aici e ORDINEA
+// și COMPONENȚA, nu conținutul: stroke-urile fiecărei foi se citesc după id la randare.
+//
+// De-aceea o foaie folosită ca fundal nu mai poate fi ștearsă complet: `lockedAt` se setează la
+// publicarea schiței de deasupra, iar `deleteSketch` îl citește și degradează ștergerea la una
+// parțială (vezi `resolveSketchDeletionMode` mai jos). Altfel desenul construit peste ea ar rămâne
+// suspendat peste un gol, tăcut — randarea sare pur și simplu foaia lipsă.
+export const MAX_STACK_DEPTH = 20;
+
+export type BaseSketchIdsError = "INVALID_STACK" | "STACK_TOO_DEEP";
+
+// Validează structural lista de id-uri de fundal: array de UUID-uri, deduplicat (păstrând prima
+// apariție, deci ordinea de desenare), sub plafon. NU verifică apartenența la detaliu sau statusul
+// schițelor — alea cer DB și se fac în service (`createDraft`).
+export function validateBaseSketchIds(
+  input: unknown,
+): { ok: true; value: string[] } | { ok: false; error: BaseSketchIdsError } {
+  if (input == null) return { ok: true, value: [] };
+  if (!Array.isArray(input)) return { ok: false, error: "INVALID_STACK" };
+
+  const seen = new Set<string>();
+  const value: string[] = [];
+  for (const raw of input) {
+    if (typeof raw !== "string" || !isUuid(raw)) return { ok: false, error: "INVALID_STACK" };
+    if (seen.has(raw)) continue;
+    seen.add(raw);
+    value.push(raw);
+    // Ieșire din buclă la depășire, nu după parcurgerea întregului array: cu `bodySizeLimit` de 4 MB
+    // un client poate trimite ~110k id-uri unice, iar respingerea abia la final ar însemna să le
+    // parcurgem și să ținem un Set de 110k intrări degeaba.
+    if (value.length > MAX_STACK_DEPTH) return { ok: false, error: "STACK_TOO_DEEP" };
+  }
+  // Plafonul se aplică DUPĂ deduplicare: un payload cu același id repetat de 100 de ori e o listă de 1.
+  return { ok: true, value };
+}
+
+// Compune stroke-urile de randat dintr-un stack: concatenare în ordinea dată (prima foaie = cea mai
+// de jos, ultima = deasupra tuturor). Motorul de randare (`renderStrokes`) nu știe și nu-i pasă din ce
+// foaie vine un stroke — de-aia un stack e doar o listă mai lungă, nu un mecanism nou de desenare.
+// Foile stinse din bife pur și simplu nu se dau aici.
+//
+// STRICT PENTRU RANDARE — rezultatul NU se salvează și NU trece prin `validateStrokes`: un stack plin
+// poate ajunge la MAX_STACK_DEPTH × MAX_STROKES (20 × 2000 = 40.000 stroke-uri), de ~20× peste plafonul
+// per-foaie și peste MAX_STROKES_BYTES odată serializat. Fiecare foaie rămâne validată individual, la
+// scrierea ei; compunerea e o vedere efemeră, nu un document nou.
+export function composeStackStrokes(layers: Array<{ strokes: Stroke[] | null }>): Stroke[] {
+  const out: Stroke[] = [];
+  for (const layer of layers) {
+    if (layer.strokes) out.push(...layer.strokes);
+  }
+  return out;
+}
+
+// ── Ștergerea unei foi din stack (2026-08-08, Faza B) ───────────────────────────────────────────
+// O foaie pe care ALTCINEVA a construit (`lockedAt` setat la publicarea schiței de deasupra) nu mai
+// poate dispărea complet — desenul de deasupra ar rămâne suspendat peste un gol. Ce se poate retrage
+// e IDENTITATEA autorului, nu contribuția: rămâne „Autor șters · rol", desenul rămâne pe masă.
+//
+// Regula se aplică TUTUROR, inclusiv autorului detaliului (decizie de produs 2026-08-08) — dar
+// moderatorul nici nu primește ștergerea parțială în loc: a retrage numele altcuiva nu e moderare,
+// e o pedeapsă. El primește refuz, iar retragerea identității rămâne strict a autorului.
+export type SketchDeletionMode =
+  | "HARD" // dispare complet (nimeni n-a construit peste ea)
+  | "PARTIAL" // rămâne desenul, dispare identitatea autorului
+  | "FORBIDDEN"; // foaie blocată, iar actorul nu e autorul ei
+
+export function resolveSketchDeletionMode(input: {
+  lockedAt: Date | null;
+  isSketchAuthor: boolean;
+  isDetailAuthor: boolean;
+}): SketchDeletionMode {
+  if (!input.isSketchAuthor && !input.isDetailAuthor) return "FORBIDDEN";
+  // Nimeni n-a construit peste ea → comportamentul dinainte, pentru ambii.
+  // `== null` intenționat (nu `===`): prinde și `undefined`, care apare când rândul vine dintr-un
+  // select parțial fără coloana asta. Un `undefined` tratat ca „blocat" ar refuza tăcut ștergeri
+  // perfect legitime — mai bine strict pe prezența unei date reale.
+  if (input.lockedAt == null) return "HARD";
+  // Blocată: doar autorul ei poate retrage ce e al lui — numele.
+  return input.isSketchAuthor ? "PARTIAL" : "FORBIDDEN";
+}
+
+// Numele afișabil al autorului unei foi din care identitatea a fost retrasă. Rolul vine din snapshot-ul
+// înghețat LA PUBLICARE (`roleSnapshot`), nu din rolul curent — userul poate să-l fi schimbat între timp,
+// iar ce contează istoric e cine era când a desenat.
+export const REMOVED_AUTHOR_LABEL = "Autor șters";
 
 // Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie luată după ce
 // tool-ul de Text cu ancoră în margine a arătat prost în practică — un câmp dedicat e mai clar decât text

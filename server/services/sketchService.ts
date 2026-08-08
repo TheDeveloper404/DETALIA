@@ -9,8 +9,10 @@ import { isUuid } from "@/server/domain/ids";
 import {
   canAddAnnotation,
   isSelfAnnotation,
+  resolveSketchDeletionMode,
   SKETCH_STATUS,
   type Stroke,
+  validateBaseSketchIds,
   validateSketchNote,
   validateStrokes,
 } from "@/server/domain/sketch";
@@ -22,13 +24,18 @@ import {
   countAnnotationsByDetail,
   deleteDraftByAuthor,
   deleteSketchCascade,
+  filterPublishedSketchIds,
   getPublicSketchTeaser,
+  lockStackBases,
+  markAuthorRemoved,
+  updateBaseSketchIds,
   listAnnotationsByDetail,
   listDraftsByAuthor,
   listPublishedByDetail,
   publishFromDraft,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
+import { snapshotFromRole } from "@/server/domain/validation";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import { notifySketchDeleted, notifySketchProposed } from "@/server/services/notificationService";
 import { recordSketchDisapproval } from "@/server/services/validationService";
@@ -42,7 +49,12 @@ type SketchError =
   | "EMPTY_STROKES"
   | "INVALID_STROKES"
   | "NOTE_TOO_LONG"
-  | "ANNOTATION_LIMIT";
+  | "ANNOTATION_LIMIT"
+  | "INVALID_STACK"
+  | "STACK_TOO_DEEP"
+  // Foaie intrată într-o dezbatere (alții au construit peste ea): nu mai poate fi ștearsă. Distinct de
+  // FORBIDDEN — actorul ARE dreptul de moderare, dar regula stack-ului primează. UI-ul explică de ce.
+  | "SKETCH_LOCKED";
 
 export type SketchResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; value: T })
@@ -55,18 +67,33 @@ export async function createDraft(input: {
   detailId: string;
   authorId: string;
   disapprovesParent?: boolean;
+  // Foile aprinse pe ecran în momentul apăsării — devin fundalul înghețat al noii schițe.
+  baseSketchIds?: unknown;
 }): Promise<SketchResult<{ sketchId: string }>> {
   if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" }; // SEC-11
   if (!(await getRoleByUserId(input.authorId))) return { ok: false, error: "NO_ROLE" };
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
 
+  // Rețeta stack-ului vine din CLIENT → validată structural (domain), apoi confruntată cu DB-ul:
+  // id-urile trebuie să fie schițe PUBLISHED de pe ACEST detaliu. Fără verificarea de apartenență,
+  // cineva ar putea trimite id-uri de pe alt detaliu și randa conținut străin peste imaginea asta.
+  const stackValidation = validateBaseSketchIds(input.baseSketchIds);
+  if (!stackValidation.ok) return { ok: false, error: stackValidation.error };
+  const baseSketchIds = stackValidation.value.length
+    ? await filterPublishedSketchIds(input.detailId, stackValidation.value)
+    : [];
+
   // AUTORUL pe PROPRIUL detaliu: „Schițează peste" înseamnă o ADNOTARE NOUĂ, pornită de la zero
   // (decizie de produs 2026-08-02). Adnotările existente rămân neatinse — se corectează prin ȘTERGERE +
   // desenare din nou, nu prin editare. Plafonul se verifică și AICI ca să nu deschidem un editor în
   // care userul desenează degeaba; `publish` îl reverifică oricum și el e sursa de adevăr.
   // (Între 2026-07-31 și 2026-08-01 draftul pornea din adnotarea curentă, iar publicarea o înlocuia.)
-  if (isSelfAnnotation({ sketchAuthorId: input.authorId, detailAuthorId: detail.ownerId })) {
+  const selfAnnotation = isSelfAnnotation({
+    sketchAuthorId: input.authorId,
+    detailAuthorId: detail.ownerId,
+  });
+  if (selfAnnotation) {
     const count = await countAnnotationsByDetail(input.detailId);
     if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
   }
@@ -76,6 +103,10 @@ export async function createDraft(input: {
     authorId: input.authorId,
     strokesJson: null,
     disapprovesParent: input.disapprovesParent ?? false,
+    // ADNOTAREA autorului pornește MEREU de la detaliul gol, chiar dacă a fost declanșată dintr-un tab
+    // cu stack aprins (decizie de produs 2026-08-08): o adnotare e nota autorului pe imaginea LUI, nu
+    // un răspuns într-o dezbatere. Un răspuns în dezbatere e o schiță normală, ca a oricui altcuiva.
+    baseSketchIds: selfAnnotation ? [] : baseSketchIds,
   });
   return { ok: true, value: { sketchId: sketch.id } };
 }
@@ -162,11 +193,30 @@ export async function publish(input: {
 
   // Tranziție atomică DRAFT → PUBLISHED (guard pe status + autor). Două PUBLISH concurente: doar primul prinde
   // rândul → doar el notifică / materializează. Al doilea iese cu INVALID_STATE, fără efecte duble.
+  const authorRole = await getRoleByUserId(sketch.authorId);
   const transitioned = await publishFromDraft(input.sketchId, input.authorId, {
     thumbnailUrl: input.thumbnailUrl ?? null,
     publishedAt: new Date(),
+    roleSnapshot: authorRole ? snapshotFromRole(authorRole) : null,
   });
   if (!transitioned) return { ok: false, error: "INVALID_STATE" };
+
+  // STACK: foile pe care s-a construit devin BLOCATE acum — din acest moment intră într-o dezbatere
+  // și nu mai pot dispărea complet de sub desenul de deasupra.
+  //
+  // Între apăsarea „Schițează peste" (când s-a înghețat rețeta) și publicare pot trece ore, iar o foaie
+  // din fundal poate fi ștearsă între timp — încă nu era blocată, deci ștergerea era permisă. Reverificăm
+  // ACUM ce mai există și curățăm rețeta, ca schița publicată să nu rămână cu referințe moarte pe care
+  // randarea le-ar sări tăcut. Se face DUPĂ tranziția atomică: dacă publicarea eșuează, n-am blocat
+  // degeaba foile altcuiva.
+  const declaredBases = (sketch.baseSketchIds as string[] | null) ?? [];
+  if (declaredBases.length > 0) {
+    const aliveBases = await filterPublishedSketchIds(sketch.detailId, declaredBases);
+    if (aliveBases.length !== declaredBases.length) {
+      await updateBaseSketchIds(sketch.id, aliveBases);
+    }
+    await lockStackBases(aliveBases, new Date());
+  }
 
   // Dezaprobare-prin-schiță: acum (la publicare) materializăm poziția + justificarea pe detaliul-mamă.
   // Dacă userul abandonase editorul, nu se ajungea aici → nicio dezaprobare „mută".
@@ -208,7 +258,29 @@ export async function deleteSketch(input: {
   // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
   // autorul unui detaliu retras pierde dreptul de moderare pe propriile schițe.
   const isDetailAuthor = detail?.ownerId === input.actorUserId;
-  if (!isSketchAuthor && !isDetailAuthor) return { ok: false, error: "FORBIDDEN" };
+
+  // STACK, Faza B: o foaie pe care alții au construit nu mai dispare complet. Regula (și cine ce poate
+  // face pe ea) e pură și trăiește în domain — vezi `resolveSketchDeletionMode`.
+  const mode = resolveSketchDeletionMode({
+    lockedAt: sketch.lockedAt,
+    isSketchAuthor,
+    isDetailAuthor,
+  });
+  if (mode === "FORBIDDEN") {
+    // Două cauze distincte, două erori distincte: un străin nu are ce căuta aici (FORBIDDEN), iar
+    // moderatorul unei foi blocate primește un refuz EXPLICABIL în UI, nu unul de permisiuni.
+    return {
+      ok: false,
+      error: !isSketchAuthor && !isDetailAuthor ? "FORBIDDEN" : "SKETCH_LOCKED",
+    };
+  }
+
+  if (mode === "PARTIAL") {
+    // Nu se șterge nimic: nici rândul, nici thumbnail-ul, nici validările/comentariile de pe foaie.
+    // Pozițiile altora rămân valide — desenul pe care s-au pronunțat e încă acolo, doar semnătura nu.
+    await markAuthorRemoved(input.sketchId);
+    return { ok: true };
+  }
 
   const thumbnailUrl = await deleteSketchCascade(input.sketchId);
   await deleteBlobs([thumbnailUrl]);

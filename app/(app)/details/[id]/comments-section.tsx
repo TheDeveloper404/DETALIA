@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format";
 import { mentionsToDisplay, parseMentions, replaceLabelsWithTokens } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
+import { REMOVED_AUTHOR_LABEL } from "@/server/domain/sketch";
 import { COMMENT_MAX_LENGTH } from "@/server/domain/validation";
 import type { TargetType } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
@@ -42,6 +43,8 @@ export type MentionSketch = {
   authorName: string | null;
   authorImage: string | null;
   createdAt: Date;
+  // Identitate retrasă → eticheta e „Autor șters", iar foaia NU se mai grupează cu alte foi fără nume.
+  authorRemoved: boolean;
 };
 
 export function CommentsSection({
@@ -82,16 +85,21 @@ export function CommentsSection({
   // scrise de pe tabul unei schițe (sketchContextId) — IDENTIC cu eticheta din taburi/mențiuni, ca
   // cititorul să le poată corela. Ordinal STABIL după data creării (nu ordinea taburilor).
   const sketchLabelById = useMemo(() => {
+    // Cheia de grupare: numele autorului, DAR pentru foile cu identitate retrasă e id-ul foii. Altfel
+    // toate ar cădea în aceeași cheie („") și ar primi un ordinal comun — „Autor șters — schița 2" ar
+    // sugera un singur autor cu două schițe și ar trimite cititorul la foaia greșită. Fiecare retragere
+    // e o entitate separată, nenumerotată: ordinalul ar reconstitui exact legătura care s-a retras.
+    const groupKey = (s: MentionSketch) => (s.authorRemoved ? `removed:${s.id}` : (s.authorName ?? ""));
     const counts = new Map<string, number>();
-    for (const s of mentionSketches) counts.set(s.authorName ?? "", (counts.get(s.authorName ?? "") ?? 0) + 1);
+    for (const s of mentionSketches) counts.set(groupKey(s), (counts.get(groupKey(s)) ?? 0) + 1);
     const byAuthorAsc = [...mentionSketches].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
     const seen = new Map<string, number>();
     const labels = new Map<string, string>();
     for (const s of byAuthorAsc) {
-      const key = s.authorName ?? "";
+      const key = groupKey(s);
       const n = (seen.get(key) ?? 0) + 1;
       seen.set(key, n);
-      const baseName = s.authorName ?? "Anonim";
+      const baseName = s.authorRemoved ? REMOVED_AUTHOR_LABEL : (s.authorName ?? "Anonim");
       labels.set(s.id, (counts.get(key) ?? 1) > 1 ? `${baseName} — schița ${n}` : baseName);
     }
     return labels;
