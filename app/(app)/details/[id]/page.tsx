@@ -33,6 +33,7 @@ type SketchRow = {
   authorRoleMain: string | null;
   authorSubRole: string | null;
   authorVerification: string | null;
+  baseSketchIds: unknown;
 };
 
 // Mapează un rând de schiță (cu strokesJson jsonb) la forma serializabilă pt workspace (autor + stroke-uri).
@@ -51,6 +52,9 @@ function toWorkspaceSketch(r: SketchRow, validation: WorkspaceSketch["validation
     note: r.note,
     validation,
     createdAt: r.createdAt,
+    // Rețeta stack-ului: foile peste care s-a desenat, de jos în sus. Goală = schiță pornită de pe
+    // detaliul gol (inclusiv toate schițele de dinaintea feature-ului).
+    baseSketchIds: (r.baseSketchIds as string[] | null) ?? [],
   };
 }
 

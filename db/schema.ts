@@ -303,6 +303,21 @@ export const sketches = pgTable(
     disapprovesParent: boolean().notNull().default(false),
     // Moment publicare (DRAFT→PUBLISHED). Numele „acceptedAt" e moștenit din fluxul vechi cu acceptare.
     acceptedAt: timestamp({ withTimezone: true }),
+    // ── Stack de foi (2026-08-08) ─────────────────────────────────────────────────────────────
+    // Rețeta fundalului: id-urile schițelor care erau APRINSE pe ecran când s-a apăsat „Schițează
+    // peste", în ordine de jos în sus. Null/gol = pornită de pe detaliul gol (și starea tuturor
+    // schițelor dinaintea migrării). Nu se rezolvă recursiv — lista e deja aplatizată la capturare.
+    baseSketchIds: jsonb(),
+    // Rolul autorului la momentul PUBLICĂRII, pentru afișare istorică după ce identitatea dispare
+    // („Autor șters · rol"). Model copiat de la `validations.roleSnapshot`. Se capturează la publish,
+    // nu la ștergere: altfel schițele publicate înainte de a exista regula ar rămâne fără rol.
+    roleSnapshot: jsonb(),
+    // Ștergere „parțială": identitatea autorului a fost retrasă, desenul rămâne pe masă.
+    authorRemoved: boolean().notNull().default(false),
+    // Setat o SINGURĂ dată, când o ALTĂ schiță care o conține în `baseSketchIds` e PUBLICATĂ (nu la
+    // simpla apăsare a butonului). Rămâne setat definitiv, chiar dacă schița care a blocat-o e
+    // ștearsă ulterior — altfel ștergerea ar redeveni posibilă retroactiv peste o dezbatere reală.
+    lockedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
