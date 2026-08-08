@@ -36,3 +36,18 @@ export type RoleSnapshot = {
   subRole: string | null;
   verificationStatus: string;
 };
+
+// Extrage snapshot-ul dintr-un rând de rol. Definiție UNICĂ: se folosește și la validări, și la
+// publicarea unei schițe (rolul înghețat pentru „Autor șters · rol") — două copii ar diverge tăcut
+// când se adaugă un câmp în snapshot.
+export function snapshotFromRole(role: {
+  roleMain: string;
+  subRole: string | null;
+  verificationStatus: string;
+}): RoleSnapshot {
+  return {
+    roleMain: role.roleMain,
+    subRole: role.subRole,
+    verificationStatus: role.verificationStatus,
+  };
+}

@@ -1,15 +1,18 @@
 // Repo schițe — singurul loc cu acces Drizzle pentru tabelul `sketches`.
-import { and, asc, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
 import { type SketchStatus, type Stroke } from "@/server/domain/sketch";
+import type { RoleSnapshot } from "@/server/domain/validation";
 
 export async function insertDraft(input: {
   detailId: string;
   authorId: string;
   strokesJson: Stroke[] | null;
   disapprovesParent?: boolean;
+  // Rețeta stack-ului înghețat la apăsarea „Schițează peste". Gol = pornită de pe detaliul gol.
+  baseSketchIds?: string[];
 }) {
   const [row] = await db
     .insert(sketches)
@@ -18,10 +21,58 @@ export async function insertDraft(input: {
       authorId: input.authorId,
       strokesJson: input.strokesJson,
       disapprovesParent: input.disapprovesParent ?? false,
+      // Lista goală se stochează ca NULL, nu ca `[]`: o singură reprezentare pentru „fără fundal",
+      // aceeași cu a schițelor de dinaintea feature-ului. Altfel ar exista două forme de „gol".
+      baseSketchIds: input.baseSketchIds?.length ? input.baseSketchIds : null,
       // status rămâne pe default „DRAFT".
     })
     .returning();
   return row;
+}
+
+// Din `ids`, care mai există ACUM ca schițe PUBLISHED pe acest detaliu — în ORDINEA cerută de apelant
+// (Postgres nu garantează ordinea unui `IN`, iar ordinea e chiar semantica stack-ului: jos → sus).
+// Folosit în două locuri: la creare (validarea rețetei primite din client) și la publicare (curățarea
+// foilor dispărute între timp).
+export async function filterPublishedSketchIds(detailId: string, ids: string[]): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ id: sketches.id })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .where(
+      and(
+        inArray(sketches.id, ids),
+        eq(sketches.detailId, detailId),
+        eq(sketches.status, "PUBLISHED"),
+        // Aceeași excludere ca în `listByDetailAndStatus`: ADNOTĂRILE autorului nu sunt foi din teanc.
+        // Fără ea, un id de adnotare ar trece validarea și s-ar bloca la publicare, dar UI-ul nu l-ar
+        // găsi niciodată în teanc → foaie acceptată de server, imposibil de randat.
+        ne(sketches.authorId, details.authorId),
+      ),
+    );
+  const alive = new Set(rows.map((r) => r.id));
+  return ids.filter((id) => alive.has(id));
+}
+
+// Blochează definitiv foile folosite ca fundal de o schiță tocmai publicată: din acest moment nu mai
+// pot fi șterse complet, doar li se poate retrage identitatea autorului (vezi `deleteSketch`).
+// `isNull(lockedAt)` face operația idempotentă și păstrează PRIMA blocare — momentul în care foaia a
+// intrat efectiv într-o dezbatere, nu al ultimei schițe construite peste ea.
+export async function lockStackBases(ids: string[], at: Date): Promise<void> {
+  if (ids.length === 0) return;
+  await db
+    .update(sketches)
+    .set({ lockedAt: at })
+    .where(and(inArray(sketches.id, ids), isNull(sketches.lockedAt)));
+}
+
+// Rescrie rețeta stack-ului (la publicare, după eliminarea foilor dispărute între timp).
+export async function updateBaseSketchIds(id: string, ids: string[]): Promise<void> {
+  await db
+    .update(sketches)
+    .set({ baseSketchIds: ids.length ? ids : null })
+    .where(eq(sketches.id, id));
 }
 
 export async function getSketchById(id: string) {
@@ -42,11 +93,22 @@ export async function updateStrokes(id: string, strokesJson: Stroke[], note?: st
 export async function publishFromDraft(
   id: string,
   authorId: string,
-  input: { thumbnailUrl: string | null; publishedAt: Date },
+  input: {
+    thumbnailUrl: string | null;
+    publishedAt: Date;
+    // Rolul autorului ÎNGHEȚAT acum, nu la ștergere: dacă îl capturăm abia când identitatea se retrage,
+    // schițele publicate înainte de a exista regula rămân fără rol de afișat.
+    roleSnapshot: RoleSnapshot | null;
+  },
 ): Promise<boolean> {
   const rows = await db
     .update(sketches)
-    .set({ status: "PUBLISHED", thumbnailUrl: input.thumbnailUrl, acceptedAt: input.publishedAt })
+    .set({
+      status: "PUBLISHED",
+      thumbnailUrl: input.thumbnailUrl,
+      acceptedAt: input.publishedAt,
+      roleSnapshot: input.roleSnapshot,
+    })
     .where(and(eq(sketches.id, id), eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
     .returning({ id: sketches.id });
   return rows.length > 0;
@@ -79,6 +141,8 @@ const sketchWithAuthorColumns = {
   createdAt: sketches.createdAt,
   detailId: sketches.detailId,
   authorId: sketches.authorId,
+  // Rețeta stack-ului: UI-ul o folosește ca să știe ce foi să aprindă implicit sub schița activă.
+  baseSketchIds: sketches.baseSketchIds,
   authorName: users.name,
   authorImage: users.image,
   authorRoleMain: roles.roleMain,

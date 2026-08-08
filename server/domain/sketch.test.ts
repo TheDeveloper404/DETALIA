@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_POINTS_PER_STROKE,
   MAX_SKETCH_NOTE_LENGTH,
+  MAX_STACK_DEPTH,
   MAX_STROKES,
   MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
   colorAtRampPosition,
+  composeStackStrokes,
   STROKE_COLORS,
   colorRampGradient,
   COLOR_RAMP_STOPS,
@@ -15,9 +17,20 @@ import {
   isSelfAnnotation,
   TEXT_DUPLICATE_OFFSET,
   type Point,
+  type Stroke,
+  validateBaseSketchIds,
   validateSketchNote,
   validateStrokes,
 } from "./sketch";
+
+// Helper local: un stroke minim valid, cu culoare distinctă ca să pot urmări ORDINEA la compunere.
+function strokeOf(color: string): Stroke {
+  return { color, size: 8, points: [[0.1, 0.1], [0.2, 0.2]], kind: "free" };
+}
+
+const UUID_A = "11111111-1111-4111-8111-111111111111";
+const UUID_B = "22222222-2222-4222-8222-222222222222";
+const UUID_C = "33333333-3333-4333-8333-333333333333";
 
 // Predicatul care separă ADNOTAREA autorului (nota lui pe propria imagine) de SCHIȚA altcuiva
 // (contribuție, model fork/PR). E mirror-uit în SQL în sketchesRepo/detailsRepo/profileRepo.
@@ -234,5 +247,101 @@ describe("bara continuă de culoare", () => {
     for (const stop of COLOR_RAMP_STOPS) {
       expect(css).toContain(`${stop.color} ${stop.at}%`);
     }
+  });
+});
+
+// ── Stack de foi (2026-08-08) ────────────────────────────────────────────────────────────────────
+// „Rețeta" fundalului unei schițe: ce foi erau aprinse când s-a apăsat „Schițează peste".
+describe("validateBaseSketchIds", () => {
+  it("null/undefined → listă goală (schiță pornită de pe detaliul gol)", () => {
+    expect(validateBaseSketchIds(null)).toEqual({ ok: true, value: [] });
+    expect(validateBaseSketchIds(undefined)).toEqual({ ok: true, value: [] });
+  });
+
+  it("listă goală rămâne goală", () => {
+    expect(validateBaseSketchIds([])).toEqual({ ok: true, value: [] });
+  });
+
+  it("păstrează ORDINEA primită (de jos în sus = ordinea de desenare)", () => {
+    const result = validateBaseSketchIds([UUID_C, UUID_A, UUID_B]);
+    expect(result).toEqual({ ok: true, value: [UUID_C, UUID_A, UUID_B] });
+  });
+
+  it("deduplică păstrând PRIMA apariție (poziția în stivă e dată de prima desenare)", () => {
+    const result = validateBaseSketchIds([UUID_A, UUID_B, UUID_A, UUID_A]);
+    expect(result).toEqual({ ok: true, value: [UUID_A, UUID_B] });
+  });
+
+  it("respinge ce nu e array", () => {
+    expect(validateBaseSketchIds("nu-i array")).toEqual({ ok: false, error: "INVALID_STACK" });
+    expect(validateBaseSketchIds({ 0: UUID_A })).toEqual({ ok: false, error: "INVALID_STACK" });
+    expect(validateBaseSketchIds(42)).toEqual({ ok: false, error: "INVALID_STACK" });
+  });
+
+  it("respinge elemente care nu sunt UUID-uri (payload ostil din client)", () => {
+    expect(validateBaseSketchIds([UUID_A, "'; DROP TABLE sketches;--"])).toEqual({
+      ok: false,
+      error: "INVALID_STACK",
+    });
+    expect(validateBaseSketchIds([123])).toEqual({ ok: false, error: "INVALID_STACK" });
+    expect(validateBaseSketchIds([null])).toEqual({ ok: false, error: "INVALID_STACK" });
+  });
+
+  it("acceptă exact la plafon, respinge peste", () => {
+    // UUID-uri distincte generate determinist, ca deduplicarea să nu ascundă testul de plafon.
+    const ids = (n: number) =>
+      Array.from({ length: n }, (_, i) => `${String(i).padStart(8, "0")}-1111-4111-8111-111111111111`);
+
+    expect(validateBaseSketchIds(ids(MAX_STACK_DEPTH)).ok).toBe(true);
+    expect(validateBaseSketchIds(ids(MAX_STACK_DEPTH + 1))).toEqual({
+      ok: false,
+      error: "STACK_TOO_DEEP",
+    });
+  });
+
+  it("plafonul se aplică DUPĂ deduplicare — 100 de repetări ale aceluiași id e o listă de 1", () => {
+    const spam = Array.from({ length: 100 }, () => UUID_A);
+    expect(validateBaseSketchIds(spam)).toEqual({ ok: true, value: [UUID_A] });
+  });
+});
+
+// Compunerea stack-ului pentru randare: motorul de desenare nu știe din ce foaie vine un stroke,
+// deci un stack e doar o listă concatenată — ordinea decide ce se vede deasupra.
+describe("composeStackStrokes", () => {
+  it("concatenează în ordinea dată (ultima foaie desenează deasupra)", () => {
+    const result = composeStackStrokes([
+      { strokes: [strokeOf("#111111")] },
+      { strokes: [strokeOf("#222222"), strokeOf("#333333")] },
+    ]);
+    expect(result.map((s) => s.color)).toEqual(["#111111", "#222222", "#333333"]);
+  });
+
+  it("ignoră foile fără stroke-uri (ciornă goală) fără să rupă ordinea celorlalte", () => {
+    const result = composeStackStrokes([
+      { strokes: [strokeOf("#111111")] },
+      { strokes: null },
+      { strokes: [strokeOf("#222222")] },
+    ]);
+    expect(result.map((s) => s.color)).toEqual(["#111111", "#222222"]);
+  });
+
+  it("stack gol → listă goală (nu aruncă)", () => {
+    expect(composeStackStrokes([])).toEqual([]);
+    expect(composeStackStrokes([{ strokes: null }])).toEqual([]);
+  });
+
+  it("nu mută stroke-urile din foile sursă (fără mutație pe input)", () => {
+    const layer = { strokes: [strokeOf("#111111")] };
+    const before = [...layer.strokes];
+    composeStackStrokes([layer, { strokes: [strokeOf("#222222")] }]);
+    expect(layer.strokes).toEqual(before);
+  });
+
+  it("rezultatul rămâne valid pentru serverul de validare (stroke-uri neatinse structural)", () => {
+    const composed = composeStackStrokes([
+      { strokes: [strokeOf("#211d18")] },
+      { strokes: [strokeOf("#b0463c")] },
+    ]);
+    expect(validateStrokes(composed).ok).toBe(true);
   });
 });

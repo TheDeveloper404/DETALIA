@@ -1,10 +1,10 @@
 "use client";
 
-import { Activity, MapPin, Pencil, Snowflake, Trash2 } from "lucide-react";
+import { Activity, Check, MapPin, Pencil, Snowflake, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
-import { MAX_ANNOTATIONS_PER_DETAIL } from "@/server/domain/sketch";
+import { composeStackStrokes, MAX_ANNOTATIONS_PER_DETAIL } from "@/server/domain/sketch";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
@@ -70,6 +70,9 @@ export type WorkspaceSketch = {
   // Ordinalul „schița N" trebuie să fie STABIL în timp (prima creată = 1, mereu) — vezi comentariul de
   // la calculul `label` mai jos. Nu confunda cu ordinea de afișare a taburilor (cea mai nouă primă).
   createdAt: Date;
+  // Foile peste care s-a desenat această schiță, de jos în sus (stack de foi, 2026-08-08). Goală =
+  // pornită de pe detaliul gol. Id-urile pot referi foi dispărute între timp — randarea le sare.
+  baseSketchIds: string[];
 };
 
 // Workspace unificat cu taburi (model „GitHub PR"): tab 0 = detaliul de bază, tab i = schiță peste mamă.
@@ -159,12 +162,84 @@ export function DetailWorkspace({
     if (idx >= 0) setTabAndUrl(idx + 1);
   }
 
+  // Eticheta unei schițe: „Nume" sau „Nume — schița N" când același autor are mai multe. Ordinalul e
+  // după data creării (prima = 1, FIX, nu se renumerotează niciodată) — NU după ordinea din `sketches`
+  // (cea mai nouă primă, doar pentru afișarea taburilor). Altfel, la fiecare schiță nouă a aceluiași
+  // autor, toate etichetele mai vechi s-ar renumerota (bug raportat 2026-07-07).
+  // Folosită în DOUĂ locuri (taburi + bifele stack-ului) → o singură definiție, ca să nu divergă.
+  function sketchLabel(s: WorkspaceSketch): string {
+    const baseName = s.author.name ?? "Anonim";
+    const sameAuthor = sketches
+      .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return sameAuthor.length > 1
+      ? `${baseName} — schița ${sameAuthor.findIndex((x) => x.id === s.id) + 1}`
+      : baseName;
+  }
+
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
     id: s.id,
     authorName: s.author.name,
     authorImage: s.author.image,
     createdAt: s.createdAt,
   }));
+
+  // ── Stack de foi (2026-08-08) ──────────────────────────────────────────────────────────────────
+  // Foile din fundalul schiței active care sunt APRINSE acum. Pornesc toate aprinse (= exact ce vedea
+  // autorul când a desenat), iar cititorul le poate stinge liber, oricare, în orice ordine (bife
+  // NEierarhice). Detaliul de bază nu are bifă — e mereu aprins.
+  //
+  // Stare DOAR de vizualizare, resetată la schimbarea tabului (`key`-ul derivat de mai jos): nu se
+  // persistă per user — la fiecare deschidere vezi stack-ul întreg, nu o preferință veche.
+  const [hiddenLayerIds, setHiddenLayerIds] = useState<Set<string>>(new Set());
+  const activeSketchId = activeSketch?.id ?? null;
+  // Resetăm bifele când se schimbă schița activă. Comparăm cu id-ul, nu cu indexul: după o ștergere,
+  // același index poate însemna altă schiță.
+  const [layersOwnerId, setLayersOwnerId] = useState<string | null>(activeSketchId);
+  if (layersOwnerId !== activeSketchId) {
+    setLayersOwnerId(activeSketchId);
+    setHiddenLayerIds(new Set());
+  }
+
+  // Foile de fundal ale schiței active, rezolvate din id-uri în ordinea din rețetă (jos → sus).
+  // `filter` scoate foile dispărute între timp: `publish` curăță rețeta, dar o foaie poate fi ștearsă
+  // și DUPĂ publicare (moderare), până când Faza B blochează ștergerea.
+  const stackLayers = useMemo(
+    () =>
+      (activeSketch?.baseSketchIds ?? [])
+        .map((id) => sketches.find((s) => s.id === id))
+        .filter((s): s is WorkspaceSketch => !!s),
+    [activeSketch, sketches],
+  );
+
+  // Ce se randează efectiv: foile de fundal aprinse, în ordine, apoi schița activă DEASUPRA tuturor.
+  //
+  // `useMemo` NU e opțional aici: `SketchViewer` are `useEffect` pe `[rect, strokes, veil]`, deci un
+  // array nou la fiecare render ar reface clear + `renderStrokes` complet la ORICE re-render al
+  // workspace-ului (tastare în comentarii, deschiderea unui dialog). Înainte se pasa direct
+  // `activeSketch.strokes` — referință stabilă, efectul nu se re-rula. Cu un stack plin ar însemna
+  // zeci de mii de stroke-uri redesenate la fiecare tastă.
+  const composedStrokes = useMemo(
+    () =>
+      activeSketch
+        ? composeStackStrokes([
+            ...stackLayers
+              .filter((l) => !hiddenLayerIds.has(l.id))
+              .map((l) => ({ strokes: l.strokes })),
+            { strokes: activeSketch.strokes },
+          ])
+        : [],
+    [activeSketch, hiddenLayerIds, stackLayers],
+  );
+
+  function toggleLayer(id: string) {
+    setHiddenLayerIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const activeValidation = isBase ? detailValidation : activeSketch!.validation;
   // Din 2026-08-06: oricine autentificat poate lua poziție pe orice, INCLUSIV pe propriul conținut
@@ -181,8 +256,21 @@ export function DetailWorkspace({
   // ADNOTARE NOUĂ, de la zero (2026-08-02). Corectarea uneia existente = o ștergi și desenezi alta.
   // La plafon butonul se dezactivează, cu explicație — dar adevărul e pe server (`publish`), nu aici.
   const atAnnotationLimit = isDetailAuthor && annotations.length >= MAX_ANNOTATIONS_PER_DETAIL;
+  // STACK: ce se îngheață ca fundal = EXACT ce e aprins pe ecran acum. Pe un tab de schiță asta
+  // înseamnă foile de fundal încă bifate PLUS schița activă (peste care desenezi). Pe tabul de bază,
+  // nimic — pornești de pe detaliul gol, ca înainte.
+  // Autorul pe propriul detaliu face o ADNOTARE, care pornește mereu de la zero (server-ul ignoră
+  // oricum rețeta în acel caz — vezi `createDraft`); nu o trimitem, ca UI-ul să nu sugereze altceva.
+  const capturedStack =
+    isBase || isDetailAuthor
+      ? []
+      : [...stackLayers.filter((l) => !hiddenLayerIds.has(l.id)).map((l) => l.id), activeSketch!.id];
+
   const startSketchLabel = !isDetailAuthor
-    ? "Schițează peste detaliu"
+    ? isBase
+      ? "Schițează peste detaliu"
+      : // Pe un tab de schiță, butonul continuă dezbaterea: desenul nou păstrează ca fundal ce vezi.
+        "Schițează peste ce vezi acum"
     : atAnnotationLimit
       ? `Ai deja ${MAX_ANNOTATIONS_PER_DETAIL} adnotări — șterge una ca să adaugi alta`
       : annotations.length > 0
@@ -191,6 +279,11 @@ export function DetailWorkspace({
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
+      {/* Rețeta stack-ului, ca JSON. Serverul o revalidează integral (structură + apartenență la
+          detaliu + status) — clientul nu e sursă de adevăr, doar propune ce avea pe ecran. */}
+      {capturedStack.length > 0 && (
+        <input type="hidden" name="baseSketchIds" value={JSON.stringify(capturedStack)} />
+      )}
       <Button
         type="submit"
         size="icon"
@@ -362,20 +455,9 @@ export function DetailWorkspace({
             )}
           </button>
           {sketches.map((s, i) => {
-            // Autor cu mai multe schițe → eticheta primește ordinalul („Nume — schița 2"), IDENTIC cu
-            // eticheta mențiunilor din dezbatere (comments-section) — cititorul le poate corela.
-            // Ordinalul e după data creării (prima schiță = 1, FIX, nu se renumerotează niciodată) — NU
-            // după ordinea din `sketches` (cea mai nouă primă, doar pt afișarea taburilor). Altfel, la
-            // fiecare schiță nouă a aceluiași autor, toate etichetele mai vechi s-ar renumerota (bug
-            // raportat 2026-07-07: schița de azi devenea „1", cea de ieri „2").
-            const baseName = s.author.name ?? "Anonim";
-            const sameAuthor = sketches
-              .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
-              .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-            const label =
-              sameAuthor.length > 1
-                ? `${baseName} — schița ${sameAuthor.findIndex((x) => x.id === s.id) + 1}`
-                : baseName;
+            // Eticheta e IDENTICĂ cu cea a mențiunilor din dezbatere (comments-section) — cititorul
+            // le poate corela. Vezi `sketchLabel` pentru regula ordinalului stabil.
+            const label = sketchLabel(s);
             const isActive = safeTab === i + 1;
             return (
               <button
@@ -495,7 +577,7 @@ export function DetailWorkspace({
               />
               {!isBase && (
                 <div key={`sketch-${safeTab}`} className="absolute inset-0 animate-in fade-in duration-200">
-                  <SketchViewer imageUrl={imageUrl} strokes={activeSketch!.strokes} />
+                  <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
                 </div>
               )}
               {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, fără văl (sunt notițele autorului pe propria
@@ -523,6 +605,54 @@ export function DetailWorkspace({
             <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
               {openAnnotation.note}
             </p>
+          </div>
+        )}
+
+        {/* TEANCUL DE FOI (2026-08-08) — doar când schița activă s-a construit peste altele. Fiecare
+            foaie are o bifă LIBERĂ (nu ierarhică): poți stinge oricare, în orice ordine, ca să vezi
+            ce a adus fiecare peste ce. Detaliul de bază NU are bifă — e mereu aprins, e subiectul. */}
+        {!isBase && stackLayers.length > 0 && (
+          <div
+            key={`stack-${activeSketch!.id}`}
+            className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6"
+          >
+            <div className="mb-2 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
+              Foi în teanc
+            </div>
+            <ul className="flex flex-wrap gap-2">
+              <li>
+                <span className="inline-flex cursor-default items-center gap-2 rounded-full border border-[#e2d8c8] bg-white/60 px-3 py-1.5 text-[13px] text-muted-foreground">
+                  <Check className="size-3.5 shrink-0 opacity-40" aria-hidden />
+                  Detaliul de bază
+                </span>
+              </li>
+              {stackLayers.map((layer) => {
+                const visible = !hiddenLayerIds.has(layer.id);
+                const label = sketchLabel(layer);
+                return (
+                  <li key={layer.id}>
+                    <button
+                      type="button"
+                      data-testid={`stack-layer-${layer.id}`}
+                      onClick={() => toggleLayer(layer.id)}
+                      aria-pressed={visible}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-[13px] transition-colors",
+                        visible
+                          ? "border-primary/40 bg-white text-foreground"
+                          : "border-[#e2d8c8] bg-transparent text-muted-foreground line-through",
+                      )}
+                    >
+                      <Check
+                        className={cn("size-3.5 shrink-0", visible ? "opacity-100" : "opacity-25")}
+                        aria-hidden
+                      />
+                      {label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 
