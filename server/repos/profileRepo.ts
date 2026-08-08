@@ -50,7 +50,14 @@ export async function getContributionCounts(
       .select({ day: sDay, c: count() })
       .from(sketches)
       .where(
-        and(eq(sketches.authorId, userId), ne(sketches.status, "DRAFT"), gte(sketches.createdAt, since)),
+        and(
+          eq(sketches.authorId, userId),
+          ne(sketches.status, "DRAFT"),
+          gte(sketches.createdAt, since),
+          // Identitate retrasă → nici în heatmap. Altfel ar rămâne o zi de activitate fără corespondent
+          // nici în contor, nici în listă (ambele filtrează deja) — o urmă a legăturii tocmai retrase.
+          eq(sketches.authorRemoved, false),
+        ),
       )
       .groupBy(sDay),
   ]);
@@ -97,6 +104,9 @@ export async function getProfileStats(userId: string) {
           eq(sketches.authorId, userId),
           ne(sketches.status, "DRAFT"),
           ne(sketches.authorId, details.authorId),
+          // Identitate retrasă → nu se mai numără ca realizare a userului (mirror al filtrului din
+          // `listAuthorSketches`; altfel contorul ar contrazice lista de sub el).
+          eq(sketches.authorRemoved, false),
         ),
       ),
     db.select({ c: count() }).from(validations).where(eq(validations.userId, userId)),
@@ -203,6 +213,10 @@ export function listAuthorSketches(userId: string) {
         ne(sketches.status, "DRAFT"),
         // Adnotarea pe propriul detaliu se vede pe detaliu (tabul Detalii), nu ca schiță separată aici.
         ne(sketches.authorId, details.authorId),
+        // Identitate RETRASĂ (ștergere parțială, 2026-08-08): desenul rămâne pe detaliu ca parte din
+        // dezbatere, dar legătura cu autorul dispare — inclusiv de pe profilul lui, unde userul se
+        // așteaptă cel mai tare să nu mai apară. `author_id` rămâne în DB doar ca ancoră tehnică.
+        eq(sketches.authorRemoved, false),
       ),
     )
     .orderBy(desc(sketches.createdAt));

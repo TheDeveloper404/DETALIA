@@ -33,6 +33,9 @@ type SketchRow = {
   authorRoleMain: string | null;
   authorSubRole: string | null;
   authorVerification: string | null;
+  baseSketchIds: unknown;
+  authorRemoved: boolean;
+  lockedAt: Date | null;
 };
 
 // Mapează un rând de schiță (cu strokesJson jsonb) la forma serializabilă pt workspace (autor + stroke-uri).
@@ -51,6 +54,11 @@ function toWorkspaceSketch(r: SketchRow, validation: WorkspaceSketch["validation
     note: r.note,
     validation,
     createdAt: r.createdAt,
+    // Rețeta stack-ului: foile peste care s-a desenat, de jos în sus. Goală = schiță pornită de pe
+    // detaliul gol (inclusiv toate schițele de dinaintea feature-ului).
+    baseSketchIds: (r.baseSketchIds as string[] | null) ?? [],
+    authorRemoved: r.authorRemoved,
+    lockedAt: r.lockedAt,
   };
 }
 
@@ -70,7 +78,7 @@ export default async function DetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ annotation?: string }>;
+  searchParams: Promise<{ annotation?: string; "sketch-delete"?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -82,7 +90,9 @@ export default async function DetailPage({
   // stare de formular): `failed` = publicarea a reușit dar adnotarea nu (`createDetailAction`);
   // `limit` = s-a apăsat „adnotează" cu plafonul deja atins, dintr-o filă cu stare veche
   // (`startSketchAction`). Fără ele, ambele situații sunt tăcute și userul nu are cum să le înțeleagă.
-  const annotationNotice = (await searchParams).annotation;
+  const query = await searchParams;
+  const annotationNotice = query.annotation;
+  const sketchDeleteNotice = query["sketch-delete"];
   const detail = await getDetail(id);
   if (!detail) {
     notFound();
@@ -167,6 +177,20 @@ export default async function DetailPage({
             {annotationNotice === "failed"
               ? "Detaliul e publicat, dar desenul tău peste imagine nu a apucat să fie salvat. Îl poți face din nou cu butonul de adnotare de sub imagine."
               : `Un detaliu poate avea cel mult ${MAX_ANNOTATIONS_PER_DETAIL} adnotări. Deschide una dintre cele existente și șterge-o dacă vrei să adaugi alta.`}
+          </p>
+        </div>
+      )}
+
+      {/* Ștergere refuzată: foaia intrase într-o dezbatere între încărcarea paginii și click (tab vechi).
+          Fără mesaj, pagina se reîncarcă neschimbată și pare o eroare tăcută. */}
+      {sketchDeleteNotice === "locked" && (
+        <div className="mb-5 rounded-xl border border-[#e3c9b4] bg-[#fdf4ec] px-5 py-4">
+          <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-[#95492e]">
+            Schița nu mai poate fi ștearsă
+          </div>
+          <p className="text-[14.5px] leading-relaxed text-foreground">
+            Altcineva a desenat deja peste ea, iar desenul lui s-ar rupe dacă foaia ar dispărea. Autorul
+            ei își poate retrage doar numele, din meniul schiței.
           </p>
         </div>
       )}

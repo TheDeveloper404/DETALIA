@@ -21,8 +21,15 @@ export async function deleteSketchAction(formData: FormData): Promise<void> {
     redirect(`/details/${detailId}`);
   }
 
-  await deleteSketch({ sketchId, actorUserId: userId });
+  const result = await deleteSketch({ sketchId, actorUserId: userId });
   revalidatePath(`/details/${detailId}`);
+
+  // Foaie intrată într-o dezbatere: cererea a fost REFUZATĂ, nu executată. Fără mesaj, userul apasă
+  // „Șterge", pagina se reîncarcă neschimbată și pare o eroare tăcută — exact tiparul pe care îl
+  // evităm și la plafonul de adnotări (vezi `startSketchAction`).
+  if (!result.ok && result.error === "SKETCH_LOCKED") {
+    redirect(`/details/${detailId}?sketch-delete=locked`);
+  }
 }
 
 // Pornește o schiță peste detaliu: creează un DRAFT și duce autorul în editor.
@@ -33,11 +40,24 @@ export async function startSketchAction(formData: FormData): Promise<void> {
 
   const detailId = String(formData.get("detailId") ?? "");
 
+  // STACK: foile aprinse pe ecran la apăsare, trimise ca JSON. Parsarea nu poate arunca — un payload
+  // stricat devine `undefined` și se comportă ca „fără fundal"; serviciul revalidează oricum totul
+  // (structură, apartenență la detaliu, status), clientul nu e sursă de adevăr.
+  const rawStack = formData.get("baseSketchIds");
+  let baseSketchIds: unknown;
+  if (typeof rawStack === "string" && rawStack.length > 0) {
+    try {
+      baseSketchIds = JSON.parse(rawStack);
+    } catch {
+      baseSketchIds = undefined;
+    }
+  }
+
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
     redirect(`/details/${detailId}`);
   }
 
-  const draft = await createDraft({ detailId, authorId: userId });
+  const draft = await createDraft({ detailId, authorId: userId, baseSketchIds });
   if (!draft.ok) {
     if (draft.error === "NO_ROLE") redirect("/onboarding");
     // Plafonul de adnotări atins. Butonul e dezactivat în UI, deci normal nu se ajunge aici — DAR cu o
