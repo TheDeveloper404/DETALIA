@@ -8,7 +8,7 @@
 
 import { isUuid } from "@/server/domain/ids";
 import {
-  type RoleSnapshot,
+  snapshotFromRole,
   type TargetType,
   type ValidationPosition,
   validateJustification,
@@ -77,17 +77,6 @@ async function getRealDetailId(targetType: TargetType, targetId: string): Promis
   return sketch?.detailId ?? null;
 }
 
-function snapshotFromRole(role: {
-  roleMain: string;
-  subRole: string | null;
-  verificationStatus: string;
-}): RoleSnapshot {
-  return {
-    roleMain: role.roleMain,
-    subRole: role.subRole,
-    verificationStatus: role.verificationStatus,
-  };
-}
 
 // APROB = 1 click. Idempotent (re-apăsarea rămâne APPROVE; retragerea se face explicit).
 export async function approve(input: {

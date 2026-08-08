@@ -33,11 +33,24 @@ export async function startSketchAction(formData: FormData): Promise<void> {
 
   const detailId = String(formData.get("detailId") ?? "");
 
+  // STACK: foile aprinse pe ecran la apăsare, trimise ca JSON. Parsarea nu poate arunca — un payload
+  // stricat devine `undefined` și se comportă ca „fără fundal"; serviciul revalidează oricum totul
+  // (structură, apartenență la detaliu, status), clientul nu e sursă de adevăr.
+  const rawStack = formData.get("baseSketchIds");
+  let baseSketchIds: unknown;
+  if (typeof rawStack === "string" && rawStack.length > 0) {
+    try {
+      baseSketchIds = JSON.parse(rawStack);
+    } catch {
+      baseSketchIds = undefined;
+    }
+  }
+
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
     redirect(`/details/${detailId}`);
   }
 
-  const draft = await createDraft({ detailId, authorId: userId });
+  const draft = await createDraft({ detailId, authorId: userId, baseSketchIds });
   if (!draft.ok) {
     if (draft.error === "NO_ROLE") redirect("/onboarding");
     // Plafonul de adnotări atins. Butonul e dezactivat în UI, deci normal nu se ajunge aici — DAR cu o
