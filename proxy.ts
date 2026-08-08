@@ -2,14 +2,16 @@
 // public cere sesiune. Frontend-ul NU e sursa de adevăr; asta e doar prima poartă
 // (gating de rute). Authz fină (rol, ownership) se face în services pe server, nu aici.
 //
-// Rulează configul Auth.js complet (edge-safe — vezi lib/auth.ts).
+// Citește token-ul de sesiune direct cu `getToken()` (edge-safe) — NU cu wrapper-ul `auth()` din
+// lib/auth.ts (vezi comentariul CRITIC de mai jos, la definiția funcției).
 
+import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 import { isAdminEmail } from "@/lib/admin-allowlist";
 import { hashToken } from "@/lib/admin-token-hash";
 import { audit } from "@/lib/audit";
-import { auth } from "@/lib/auth";
 import { createCachedSettingsReader } from "@/lib/cached-settings-reader";
 import { buildCspHeader } from "@/lib/csp";
 import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
@@ -54,9 +56,29 @@ const isCronPath = (pathname: string) => CRON_PATHS.some((p) => pathname === p |
 const SETTINGS_CACHE_TTL_MS = Number(process.env.SETTINGS_CACHE_TTL_MS ?? 30_000);
 const getSettingsForGate = createCachedSettingsReader(getSettingsRow, SETTINGS_CACHE_TTL_MS);
 
-export default auth(async (req) => {
+// CRITIC (2026-08-09, cauză confirmată din trace.zip + sursa @auth/core): NU mai folosim wrapper-ul
+// `auth()` aici. `auth()` „rotește" (re-emite) cookie-ul de sesiune ca efect secundar al citirii —
+// pe ORICE request care trece prin acest middleware, inclusiv trafic de fundal (prefetch-uri Next.js
+// pentru linkurile din header). Concurent cu un `signOut()` real (chiar mutat pe `/logout`, izolat de
+// restul), un asemenea request putea RESUSCITA o sesiune tocmai delogată, re-emițând un cookie valid
+// DUPĂ ștergerea deliberată — reprodus direct în e2e (`account-deletion.spec.ts`), nu teoretizat.
+//
+// `getToken()` doar CITEȘTE token-ul (decriptează cookie-ul existent), fără să scrie niciun Set-Cookie —
+// elimină sursa rotirii la rădăcină, pentru tot middleware-ul, nu doar pentru fluxul de logout.
+export default async function proxy(req: NextRequest) {
   const { pathname, origin } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+
+  const authToken = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    // Determinat din protocolul REAL al requestului (ca în e2e/auth.setup.ts), NU din NODE_ENV. Verificat
+    // direct în sursa @auth/core/jwt.js: `secureCookie` implicit e `false` — omis pe https, getToken ar
+    // căuta cookie-ul FĂRĂ prefixul `__Secure-`, nu l-ar găsi și ar delogă silențios TOȚI userii.
+    secureCookie: req.nextUrl.protocol === "https:",
+  });
+  const isLoggedIn = !!authToken;
+  // Aceeași regulă de fallback ca fostul callback `session()` din lib/auth.ts (id, cu sub ca rezervă).
+  const userId = authToken?.id ?? authToken?.sub;
 
   // Scurtătură: /admin → login-ul de admin (panou separat). Comod de tastat.
   if (pathname === "/admin") {
@@ -72,11 +94,11 @@ export default auth(async (req) => {
       pathname === "/admin-page/verify" || // pagina click-through anti-prefetch (GET inofensiv)
       pathname === "/admin-page/verify/confirm"; // consumul real al tokenului (declanșat din JS de pagina de mai sus)
     if (!adminPublic) {
-      const token = req.cookies.get("detalia-admin-session")?.value;
+      const adminToken = req.cookies.get("detalia-admin-session")?.value;
       // Cookie-ul poartă tokenul BRUT, coloana stochează hash-ul (SEC-01) → căutarea trebuie hash-uită.
       // Fără `hashToken` aici, poarta nu recunoștea nicio sesiune validă și redirecta la login, iar
       // pagina de login (care hash-uia corect) redirecta înapoi → buclă infinită, panou inaccesibil.
-      const email = token ? await getValidAdminSessionEmail(hashToken(token)) : null;
+      const email = adminToken ? await getValidAdminSessionEmail(hashToken(adminToken)) : null;
       if (!email || !isAdminEmail(email)) {
         return Response.redirect(new URL("/admin-page/login", origin));
       }
@@ -110,11 +132,11 @@ export default auth(async (req) => {
   // (înghețat la login; un cont nu se poate loga suspendat → în practică e mereu ACTIVE aici). Deci acest gate
   // e SOFT. Blocarea TARE a suspendării se face pe mutații, cu re-check proaspăt din DB + signOut real —
   // vezi lib/require-active-user.ts. Păstrăm gate-ul aici ca plasă (dacă vreodată punem status proaspăt în token).
-  if (isLoggedIn && !isPublic && req.auth?.user?.status && req.auth.user.status !== "ACTIVE") {
+  if (isLoggedIn && !isPublic && authToken?.status && authToken.status !== "ACTIVE") {
     // SEC-14: cont non-ACTIVE a încercat o rută protejată → audit (userId = uuid intern, fără PII brut).
     audit(
       "access_denied_suspended",
-      { userId: req.auth.user.id, status: req.auth.user.status, path: pathname },
+      { userId, status: authToken.status, path: pathname },
       "warning",
     );
     return Response.redirect(new URL("/login?error=AccessDenied", origin));
@@ -131,8 +153,6 @@ export default auth(async (req) => {
   // `app/(app)/layout.tsx` — din EXACT același motiv ca redirect-ul de landing de mai sus:
   // un `redirect()` din layout în timpul streaming-ului RSC degenerează în meta-refresh →
   // buclă de loading (onboarding ⇄ feed). Proxy-ul dă un 307 curat, fără buclă.
-  // Sesiune `database` + driver Neon edge-safe (vezi lib/auth.ts) → putem citi rolul aici.
-  const userId = req.auth?.user?.id;
   if (isLoggedIn && userId) {
     const onOnboarding = pathname === "/onboarding";
     const hasRole = await userHasRole(userId);
@@ -182,7 +202,7 @@ export default auth(async (req) => {
   // asta acoperă și citirea tranzitorie).
   if (!isPublic) res.headers.set("Cache-Control", "no-store, must-revalidate");
   return res;
-});
+}
 
 // Matcher: aplicăm peste tot, MAI PUȚIN rutele Auth.js (/api/auth/*), asset-urile Next și fișierele
 // statice. SEC-13: excludem extensii statice EXPLICITE (la finalul căii), NU orice cale care conține un
