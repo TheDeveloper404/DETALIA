@@ -7,6 +7,7 @@ import { notFound, redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { RolePill } from "@/components/role-pill";
 import { auth } from "@/lib/auth";
+import { REMOVED_AUTHOR_LABEL } from "@/server/domain/sketch";
 import { getPublicSketch } from "@/server/services/sketchService";
 
 // Pagină PUBLICĂ (fără cont) pt o schiță anume — teaser READ-ONLY (decizie confirmată 2026-07-05,
@@ -25,7 +26,8 @@ export async function generateMetadata({
   if (!sketch) return { title: "Schiță indisponibilă — DETALIA" };
   return {
     title: `Schiță peste „${sketch.detailTitle}” — DETALIA`,
-    description: `O schiță de ${sketch.authorName ?? "un membru al comunității"} peste „${sketch.detailTitle}”, pe DETALIA.`,
+    // Descrierea intră în OG și ajunge indexată — o identitate retrasă nu are ce căuta aici.
+    description: `O schiță de ${sketch.authorRemoved ? "un autor retras" : (sketch.authorName ?? "un membru al comunității")} peste „${sketch.detailTitle}”, pe DETALIA.`,
   };
 }
 
@@ -75,7 +77,9 @@ export default async function PublicSketchPage({
         </h1>
 
         <div className="mb-5 flex items-center gap-2.5">
-          <span className="text-[15px] font-semibold">{sketch.authorName ?? "Anonim"}</span>
+          <span className="text-[15px] font-semibold">
+            {sketch.authorRemoved ? REMOVED_AUTHOR_LABEL : (sketch.authorName ?? "Anonim")}
+          </span>
           <RolePill
             roleMain={sketch.authorRoleMain}
             subRole={sketch.authorSubRole}

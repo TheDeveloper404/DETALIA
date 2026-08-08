@@ -54,11 +54,10 @@ export function canAddAnnotation(count: number): boolean {
 // „bază + tot ce era aprins", oricât de adânc era stack-ul lor. ATENȚIE, ce se îngheață aici e ORDINEA
 // și COMPONENȚA, nu conținutul: stroke-urile fiecărei foi se citesc după id la randare.
 //
-// ⚠️ INVARIANTĂ ÎNCĂ NEAPLICATĂ (Faza B): o foaie folosită ca fundal ar trebui să nu mai poată fi
-// ștearsă complet — `lockedAt` se SCRIE deja la publicare, dar `deleteSketch` nu-l citește încă, deci
-// ștergerea rămâne hard delete. Până se închide, o foaie ștearsă lasă desenul construit peste ea
-// suspendat peste un gol, tăcut (randarea sare foaia lipsă). De-aceea Faza A NU se promovează singură
-// în producție — vezi docs/BACKLOG.md.
+// De-aceea o foaie folosită ca fundal nu mai poate fi ștearsă complet: `lockedAt` se setează la
+// publicarea schiței de deasupra, iar `deleteSketch` îl citește și degradează ștergerea la una
+// parțială (vezi `resolveSketchDeletionMode` mai jos). Altfel desenul construit peste ea ar rămâne
+// suspendat peste un gol, tăcut — randarea sare pur și simplu foaia lipsă.
 export const MAX_STACK_DEPTH = 20;
 
 export type BaseSketchIdsError = "INVALID_STACK" | "STACK_TOO_DEEP";
@@ -104,6 +103,39 @@ export function composeStackStrokes(layers: Array<{ strokes: Stroke[] | null }>)
   }
   return out;
 }
+
+// ── Ștergerea unei foi din stack (2026-08-08, Faza B) ───────────────────────────────────────────
+// O foaie pe care ALTCINEVA a construit (`lockedAt` setat la publicarea schiței de deasupra) nu mai
+// poate dispărea complet — desenul de deasupra ar rămâne suspendat peste un gol. Ce se poate retrage
+// e IDENTITATEA autorului, nu contribuția: rămâne „Autor șters · rol", desenul rămâne pe masă.
+//
+// Regula se aplică TUTUROR, inclusiv autorului detaliului (decizie de produs 2026-08-08) — dar
+// moderatorul nici nu primește ștergerea parțială în loc: a retrage numele altcuiva nu e moderare,
+// e o pedeapsă. El primește refuz, iar retragerea identității rămâne strict a autorului.
+export type SketchDeletionMode =
+  | "HARD" // dispare complet (nimeni n-a construit peste ea)
+  | "PARTIAL" // rămâne desenul, dispare identitatea autorului
+  | "FORBIDDEN"; // foaie blocată, iar actorul nu e autorul ei
+
+export function resolveSketchDeletionMode(input: {
+  lockedAt: Date | null;
+  isSketchAuthor: boolean;
+  isDetailAuthor: boolean;
+}): SketchDeletionMode {
+  if (!input.isSketchAuthor && !input.isDetailAuthor) return "FORBIDDEN";
+  // Nimeni n-a construit peste ea → comportamentul dinainte, pentru ambii.
+  // `== null` intenționat (nu `===`): prinde și `undefined`, care apare când rândul vine dintr-un
+  // select parțial fără coloana asta. Un `undefined` tratat ca „blocat" ar refuza tăcut ștergeri
+  // perfect legitime — mai bine strict pe prezența unei date reale.
+  if (input.lockedAt == null) return "HARD";
+  // Blocată: doar autorul ei poate retrage ce e al lui — numele.
+  return input.isSketchAuthor ? "PARTIAL" : "FORBIDDEN";
+}
+
+// Numele afișabil al autorului unei foi din care identitatea a fost retrasă. Rolul vine din snapshot-ul
+// înghețat LA PUBLICARE (`roleSnapshot`), nu din rolul curent — userul poate să-l fi schimbat între timp,
+// iar ce contează istoric e cine era când a desenat.
+export const REMOVED_AUTHOR_LABEL = "Autor șters";
 
 // Notă a autorului — explicație în cuvinte pt schiță, SEPARATĂ de desen (2026-07-16, decizie luată după ce
 // tool-ul de Text cu ancoră în margine a arătat prost în practică — un câmp dedicat e mai clar decât text
