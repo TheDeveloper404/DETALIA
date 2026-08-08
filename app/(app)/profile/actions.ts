@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { auth, signOut } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
@@ -145,9 +145,22 @@ export async function requestVerificationAction(
   return { error: "Verificarea rolului nu este încă disponibilă.", ok: false };
 }
 
-// Sign out → înapoi la landing.
+// CRITIC (2026-08-09, cauză confirmată din trace.zip — vezi CHANGELOG): `signOut()` NU se mai apelă
+// direct dintr-un server action care rulează în spatele proxy.ts. `proxy.ts` cheamă `auth()` pe ORICE
+// request protejat (e wrapper-ul middleware-ului însuși) — iar Auth.js reîmprospătează („rotește")
+// cookie-ul de sesiune ca efect secundar al citirii. Rezultă DOUĂ Set-Cookie conflictuale în ACELAȘI
+// răspuns: unul valid (rotit), unul de ștergere (`signOut()`) — care câștigă la client nu e determinist
+// prin edge-ul Vercel (dovadă directă: capturat în trace.zip, 2 Set-Cookie pentru același cookie).
+//
+// Fix: ștergerea REALĂ a cookie-ului se mută pe `/logout`, o rută sub `/api/auth/*`-adiacentă (exclusă
+// explicit din matcher-ul proxy.ts — vezi PUBLIC_PATHS), pe care `auth()`-ul middleware-ului NU rulează
+// deloc. Server action-ul de-aici doar redirecționează; clientul ajunge pe `/logout`, care apelează
+// `signOut()` din `next-auth/react` — un request separat, fără nimic altceva concurent pe el.
+const SIGN_OUT_REDIRECT = "/logout";
+
+// Sign out → pagina dedicată care face delogarea reală (vezi comentariul de mai sus).
 export async function signOutAction() {
-  await signOut({ redirectTo: "/" });
+  redirect(SIGN_OUT_REDIRECT);
 }
 
 // Ștergere cont (GDPR) — anonimizează contul (șterge PII, păstrează conținutul) + revocă accesul, apoi logout.
@@ -160,5 +173,5 @@ export async function deleteAccountAction(): Promise<void> {
   posthog.capture({ distinctId: userId, event: "account_deleted" });
   await posthog.flush();
 
-  await signOut({ redirectTo: "/" });
+  redirect(SIGN_OUT_REDIRECT);
 }

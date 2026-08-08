@@ -26,6 +26,10 @@ const CRON_PATHS = ["/api/cron/cleanup-notifications"];
 const PUBLIC_PATHS = [
   "/", // landing
   "/login", // autentificare (magic link)
+  // Delogare reală (2026-08-09) — vezi comentariul din app/(app)/profile/actions.ts. Public INTENȚIONAT:
+  // pagina trebuie să funcționeze indiferent de starea sesiunii (inclusiv cont tocmai șters, cu JWT stale
+  // dar tehnic încă „valid" până la clear-ul real de-acolo) — nicio poartă de-aici nu trebuie s-o blocheze.
+  "/logout",
   "/signup", // înregistrare publică (magic link)
   "/verify-request", // „verifică-ți email-ul" după cererea magic link-ului (pre-auth)
   "/verify", // auto-confirmare magic link (JS redirect → callback); inertă la GET automat de scanner (pre-auth)
