@@ -1,7 +1,14 @@
 import type { Ratelimit } from "@upstash/ratelimit";
-import { describe, expect, it } from "vitest";
+import type { Redis } from "@upstash/redis";
+import { describe, expect, it, vi } from "vitest";
 
-import { checkLimit, hashEmail } from "./rate-limit";
+import { checkLimit, hashEmail, shouldCountView } from "./rate-limit";
+
+// Fake minimal — shouldCountView apelează doar `.set(key, value, opts)`. Vezi comentariul de la
+// fakeLimiter mai jos pentru de ce nu testăm cu Redis real.
+function fakeRedis(impl: (...args: unknown[]) => Promise<unknown>): Redis {
+  return { set: impl } as unknown as Redis;
+}
 
 // Fake minimal — checkLimit apelează doar `.limit(identifier)` pe obiectul primit. Un test cu Redis REAL
 // ar necesita credențiale Upstash (nedisponibile la `npm test` local, vezi vitest.config.ts — fără
@@ -63,5 +70,42 @@ describe("checkLimit — limiter activ (cazurile netestate până acum: succes/r
     });
     // NODE_ENV la `npm test` nu e "production" → FAIL_OPEN=true (vezi rate-limit.ts) → nu blochează.
     expect(await checkLimit(limiter, "user-1")).toEqual({ ok: true });
+  });
+});
+
+describe("shouldCountView — dedup vizualizări (SEC/2026-08-09)", () => {
+  it("client null (Redis neconfigurat) → fail-open, numără oricum", async () => {
+    expect(await shouldCountView("detail-1:user-1", null)).toBe(true);
+  });
+
+  it("SET NX reușește (cheia nu exista) → primă vizualizare din fereastră, numără", async () => {
+    const client = fakeRedis(async () => "OK");
+    expect(await shouldCountView("detail-1:user-1", client)).toBe(true);
+  });
+
+  it("SET NX eșuează (cheia exista deja, întoarce null) → vizualizare duplicată, NU numără", async () => {
+    const client = fakeRedis(async () => null);
+    expect(await shouldCountView("detail-1:user-1", client)).toBe(false);
+  });
+
+  it("cheia include exact detailId:userId — chei diferite pentru useri diferiți pe același detaliu", async () => {
+    const setSpy = vi.fn(async (..._args: unknown[]) => "OK");
+    const client = fakeRedis(setSpy);
+
+    await shouldCountView("detail-1:user-1", client);
+    await shouldCountView("detail-1:user-2", client);
+
+    const [keyA] = setSpy.mock.calls[0]!;
+    const [keyB] = setSpy.mock.calls[1]!;
+    expect(keyA).not.toBe(keyB);
+    expect(keyA).toContain("detail-1:user-1");
+    expect(keyB).toContain("detail-1:user-2");
+  });
+
+  it("outage Redis (set aruncă) → fail-open, numără oricum", async () => {
+    const client = fakeRedis(async () => {
+      throw new Error("Redis unavailable");
+    });
+    expect(await shouldCountView("detail-1:user-1", client)).toBe(true);
   });
 });

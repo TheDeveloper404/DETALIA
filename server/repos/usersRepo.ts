@@ -3,7 +3,7 @@
 import { and, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { accounts, details, roles, sessions, users } from "@/db/schema";
+import { accounts, details, roles, sessions, userStatus, users } from "@/db/schema";
 
 export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
@@ -26,6 +26,22 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
 export async function userExistsById(userId: string): Promise<boolean> {
   const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
   return !!row;
+}
+
+// Poarta de sesiune din proxy.ts (SEC-002, 2026-08-09) — status + rol PROASPETE din DB, într-un
+// singur SELECT (LEFT JOIN pe roles, care oricum e unic per user). Înlocuiește gating-ul anterior pe
+// `authToken.status` (înghețat la login, poate fi ore/zile stale) cu o verificare reală, la costul unui
+// query deja plătit oricum de poarta de onboarding (userHasRole) — nu adaugă round-trip nou.
+export async function getUserGateInfo(
+  userId: string,
+): Promise<{ status: (typeof userStatus.enumValues)[number]; hasRole: boolean } | null> {
+  const [row] = await db
+    .select({ status: users.status, hasRole: sql<boolean>`${roles.userId} is not null` })
+    .from(users)
+    .leftJoin(roles, eq(roles.userId, users.id))
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row ?? null;
 }
 
 // Datele de profil colectate la onboarding (text). Imaginile (image/coverImage) se setează separat,

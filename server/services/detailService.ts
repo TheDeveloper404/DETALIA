@@ -16,6 +16,7 @@ import {
   resolveDeletionMode,
   validateDetailInput,
 } from "@/server/domain/detail";
+import { shouldCountView } from "@/lib/rate-limit";
 import { deleteBlobs } from "@/lib/storage";
 import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
 import {
@@ -406,16 +407,19 @@ export async function getDetail(id: string) {
 
 // Înregistrează o vizualizare a unui detaliu.
 //
-// „Vizualizare" = FIECARE încărcare a paginii detaliului, nu vizitator unic (decizie de produs,
-// 2026-08-06, modelul StackOverflow). Nu deduplicăm pe user/sesiune — ar cere un tabel în plus fără
-// beneficiu la faza actuală.
+// „Vizualizare" = prima încărcare a paginii de către un user într-o fereastră de 30 min (decizie de
+// produs, 2026-08-09 — înlocuiește decizia anterioară din 2026-08-06 de a NU deduplica deloc). Fără
+// dedup, un autor care revine la propriul detaliu de 20 de ori arăta ca 20 de vizitatori diferiți.
+// Dedup pe Redis (shouldCountView, vezi lib/rate-limit.ts) — fail-open dacă Redis lipsește/pică,
+// niciun tabel nou în DB.
 //
 // Best-effort: un contor de afișări nu are voie să strice pagina. Dacă write-ul eșuează (DB lentă,
 // rând inexistent), înghițim eroarea — pagina e deja randată oricum, apelantul rulează asta prin
 // `after()`, după răspuns.
-export async function recordDetailView(detailId: string): Promise<void> {
+export async function recordDetailView(detailId: string, userId: string): Promise<void> {
   if (!isUuid(detailId)) return;
   try {
+    if (!(await shouldCountView(`${detailId}:${userId}`))) return;
     await incrementDetailViews(detailId);
   } catch {
     // intenționat tăcut — vezi comentariul de mai sus

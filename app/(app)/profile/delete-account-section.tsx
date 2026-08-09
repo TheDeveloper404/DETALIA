@@ -11,12 +11,10 @@ import { deleteAccountAction } from "./actions";
 // Ștergere cont (GDPR) — ireversibilă. Confirmare în 2 pași + tastarea cuvântului „ȘTERGE" ca să nu fie accidentală.
 // La confirmare, server action-ul anonimizează contul (șterge PII, păstrează conținutul) și face logout (redirect).
 //
-// CRITIC: submit prin <form action={...}>, NU onClick+startTransition apelând acțiunea direct (2026-08-08,
-// bug real reprodus în CI de 2 ori: signOut() nu golea cookie-ul de sesiune, intermitent). Cauză documentată
-// în comunitatea Next.js/next-auth: când un server action e apelat direct (nu ca submit de <form>), ștergerea
-// de cookie din signOut() poate să nu se aplice pe răspuns — HTTP nu mai poate seta cookie-uri după ce
-// streaming-ul a început, iar apelul direct nu garantează timing-ul corect. Fix documentat: submit real de
-// formular, nu apel direct al acțiunii.
+// Submit prin <form action={...}>, NU onClick+startTransition apelând acțiunea direct — rămâne o practică
+// bună (server action-urile cu redirect() se comportă mai predictibil ca submit real de formular).
+// Ștergerea cookie-ului se face SERVER-SIDE, în deleteAccountAction (vezi actions.ts, SEC-001) — nu mai
+// depinde de JS client. `/logout` (app/logout/page.tsx) rămâne ca pas secundar, nu ca singura garanție.
 const CONFIRM_WORD = "ȘTERGE";
 
 function ConfirmSubmitButton({ disabled }: { disabled: boolean }) {
