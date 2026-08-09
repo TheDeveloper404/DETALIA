@@ -1,10 +1,11 @@
 // SEC-04 (varianta JWT, 2026-07-02) — blocare TARE a conturilor suspendate pe mutații.
 //
-// Cu sesiune `jwt` (vezi lib/auth.ts), `session.user.status` vine din token și e stale (înghețat la
-// login). Reads/render-ele NU plătesc niciun query de sesiune — acolo e câștigul de performanță.
-// Dar un cont suspendat NU trebuie să mai poată PRODUCE conținut din secunda suspendării. De aceea,
-// pe mutațiile care produc/modifică conținut (comentarii, validări, detalii, schițe) re-verificăm
-// status-ul PROASPĂT din DB — un singur SELECT ușor, plătit doar de acele acțiuni rare.
+// SEC-002 (2026-08-09): `proxy.ts` verifică ACUM status proaspăt din DB pe fiecare request protejat,
+// inclusiv citiri — un cont suspendat e delogat la prima vizită, nu doar la prima mutație (decizie de
+// produs confirmată explicit, înlocuiește vechiul gate soft pe token stale). Acest fișier rămâne ca a
+// DOUA plasă, specifică server actions: proxy-ul gatează RUTE (pathname), dar un server action poate
+// fi apelat dintr-o pagină deja randată înainte de suspendare (ex. tab deschis, formular vechi în DOM) —
+// re-verificăm status-ul chiar pe mutație, nu doar la navigare.
 //
 // Întoarce userId dacă sesiunea e validă ȘI contul e ACTIVE. Altfel face redirect (nu întoarce).
 
