@@ -27,7 +27,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
     // Non-autor pe un detaliu PUBLICAT (existența e deja publică, în feed) → redirect spre pagina
     // de vizualizare, nu 404 (comportamentul de dinainte). Un DRAFT al altui user tot dă notFound —
     // getDetail e PUBLISHED-only, deci nu-l „vede" aici, păstrând privacy-ul strict al ciornelor.
-    const publicDetail = await getDetail(id);
+    const publicDetail = await getDetail(id, session.user.id);
     if (publicDetail) redirect(`/details/${id}`);
     notFound();
   }

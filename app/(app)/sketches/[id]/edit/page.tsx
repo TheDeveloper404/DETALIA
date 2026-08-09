@@ -20,7 +20,7 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
     notFound();
   }
 
-  const detail = await getDetail(draft.value.detailId);
+  const detail = await getDetail(draft.value.detailId, session.user.id);
   if (!detail) {
     notFound();
   }

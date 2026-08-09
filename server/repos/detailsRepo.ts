@@ -9,6 +9,8 @@ import {
   detailCategories,
   detailResources,
   details,
+  projectMembers,
+  projects,
   roles,
   savedDetails,
   sketches,
@@ -39,6 +41,9 @@ export async function insertDetailWithRelations(input: {
   resources: DetailResourceInput[];
   // Implicit PUBLISHED (moderare post-publicare) — DRAFT doar la „Salvează ciornă".
   status?: typeof DETAIL_STATUS.DRAFT | typeof DETAIL_STATUS.PUBLISHED;
+  // Proiecte (2026-08-09): setat DOAR când detaliul se publică într-un proiect (vezi
+  // server/domain/project.ts, resolveDetailPlacement) — validat de apelant (membru activ), nu aici.
+  projectId?: string | null;
 }): Promise<{ id: string }> {
   const id = crypto.randomUUID();
 
@@ -57,6 +62,7 @@ export async function insertDetailWithRelations(input: {
       snowLoad: input.snowLoad,
       windLoad: input.windLoad,
       status: input.status ?? DETAIL_STATUS.PUBLISHED,
+      projectId: input.projectId ?? null,
     })
     .returning({ id: details.id });
 
@@ -197,6 +203,10 @@ const detailWithAuthorColumns = {
   windLoad: details.windLoad,
   status: details.status,
   views: details.views,
+  // Proiecte (2026-08-09): NU se maschează — un detaliu de proiect NU ar trebui să ajungă aici
+  // pentru un non-membru (poarta de acces se verifică în service, ÎNAINTE de a expune restul
+  // câmpurilor), dar coloana rămâne vizibilă la nivel de repo ca serviciul să poată decide.
+  projectId: details.projectId,
   createdAt: details.createdAt,
   categories: detailCategoriesJson,
   // ── Autor, cu anonimizarea impusă ÎN SQL ──
@@ -291,6 +301,42 @@ export async function publishDetailRow(detailId: string) {
     .update(details)
     .set({ status: DETAIL_STATUS.PUBLISHED, updatedAt: new Date() })
     .where(and(eq(details.id, detailId), eq(details.status, DETAIL_STATUS.DRAFT)));
+}
+
+// Detaliile PUBLICATE ale unui proiect — „feed"-ul intern, vizibil doar membrilor (autorizarea se
+// verifică ÎNAINTE, în service — acest query nu ia userId, doar proiectul). Strict cronologic, ca
+// listFeed.
+export async function listProjectDetails(projectId: string) {
+  return db
+    .select({
+      ...detailWithAuthorColumns,
+      validationCount,
+      commentCount,
+      sketchCount,
+    })
+    .from(details)
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), eq(details.projectId, projectId)))
+    .orderBy(desc(details.createdAt));
+}
+
+// Toate detaliile unui proiect, INDIFERENT de status (inclusiv DRAFT) — folosit la ștergerea
+// proiectului. Nu se poate folosi `listProjectDetails` (filtrează PUBLISHED): un draft rămas în proiect
+// trebuie și el trecut prin cascada completă. `imageUrl` vine odată cu id-ul, ca să nu se piardă
+// fișierul din Blob după ce rândul dispare.
+export async function listAllProjectDetails(projectId: string) {
+  return db
+    .select({ id: details.id, imageUrl: details.imageUrl })
+    .from(details)
+    .where(eq(details.projectId, projectId));
+}
+
+// „Scoate în comunitate" — mutație ireversibilă (regulă de business, nu constrângere DB; vezi
+// resolveDetailPlacement în server/domain/project.ts). Autorizarea (regula „orfan") se verifică
+// ÎNAINTE, în service.
+export async function releaseDetailToCommunity(detailId: string) {
+  await db.update(details).set({ projectId: null }).where(eq(details.id, detailId));
 }
 
 // Șterge un detaliu + tot ce atârnă de el, ATOMIC. `detail_resources` și `sketches` cad în cascadă
@@ -462,7 +508,10 @@ const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
 // (listTopDebated) e cel care sortează pe scor de interacțiune, global, independent de acest feed.
 export async function listFeed(input: { categoryId?: string | null; q?: string | null; limit: number }) {
-  const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED)];
+  // Proiecte (2026-08-09): feed-ul comunității nu include NICIODATĂ detalii de proiect, indiferent
+  // cine e viewer-ul — asta e explicit vederea PUBLICĂ. Membrii unui proiect îl văd pe pagina lui,
+  // nu aici (vezi projectService.listProjectDetails).
+  const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)];
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
   // Căutare simplă pe titlu (ILIKE, case-insensitive). `%` din input e escapat ca să fie literal.
   if (input.q) {
@@ -515,7 +564,8 @@ export async function listTopDebated(limit: number) {
     .from(details)
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(eq(details.status, DETAIL_STATUS.PUBLISHED))
+    // Proiecte (2026-08-09): rail public, exclude detaliile de proiect — vezi nota de la listFeed.
+    .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)))
     .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
     .limit(limit);
 }
@@ -549,6 +599,8 @@ export async function listRelatedDetails(input: {
     .where(
       and(
         eq(details.status, DETAIL_STATUS.PUBLISHED),
+        // Proiecte (2026-08-09): sidebar public, exclude detaliile de proiect — vezi nota de la listFeed.
+        isNull(details.projectId),
         hasAnyCategory(input.categoryIds),
         ne(details.id, input.detailId),
       ),
@@ -595,6 +647,35 @@ export async function listSavedDetailIds(userId: string, detailIds: string[]): P
   return rows.map((r) => r.detailId);
 }
 
+// Proiecte (2026-08-09): „acest user mai are voie să vadă acest detaliu?" — pentru liste PRIVATE ale
+// userului (/saved, „Ofertele mele") unde un detaliu de proiect e legitim dacă userul ÎNCĂ e owner/
+// membru activ al proiectului lui. Un detaliu în comunitate (projectId null) trece mereu. Diferit de
+// listFeed/listTopDebated/listRelatedDetails (acelea sunt PUBLICE, orice detaliu de proiect e exclus
+// necondiționat, indiferent de viewer) — aici viewerul e chiar proprietarul listei.
+function hasProjectAccessForUser(userId: string) {
+  return or(
+    isNull(details.projectId),
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(projects)
+        .where(and(eq(projects.id, details.projectId), eq(projects.ownerId, userId))),
+    ),
+    exists(
+      db
+        .select({ one: sql`1` })
+        .from(projectMembers)
+        .where(
+          and(
+            eq(projectMembers.projectId, details.projectId),
+            eq(projectMembers.userId, userId),
+            isNull(projectMembers.removedAt),
+          ),
+        ),
+    ),
+  );
+}
+
 // Detaliile salvate de un user, în forma de card (FeedItem) — refolosește DetailCard din feed.
 // Doar PUBLISHED (un detaliu șters cade oricum din saved_details prin FK cascade). Ordine: cele mai
 // recent salvate primele (după saved_details.created_at, nu după data detaliului).
@@ -612,7 +693,14 @@ export async function listSavedDetails(userId: string) {
     .innerJoin(details, eq(details.id, savedDetails.detailId))
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(and(eq(savedDetails.userId, userId), eq(details.status, DETAIL_STATUS.PUBLISHED)))
+    .where(
+      and(
+        eq(savedDetails.userId, userId),
+        eq(details.status, DETAIL_STATUS.PUBLISHED),
+        // Proiecte: un membru eliminat nu mai vede pe /saved ce a salvat cât era încă membru.
+        hasProjectAccessForUser(userId),
+      ),
+    )
     .orderBy(desc(savedDetails.createdAt));
 }
 
@@ -633,7 +721,14 @@ export async function listOfferedDetails(userId: string) {
     .innerJoin(details, eq(details.id, supplierOffers.detailId))
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(and(eq(supplierOffers.userId, userId), eq(details.status, DETAIL_STATUS.PUBLISHED)))
+    .where(
+      and(
+        eq(supplierOffers.userId, userId),
+        eq(details.status, DETAIL_STATUS.PUBLISHED),
+        // Proiecte: idem — vezi hasProjectAccessForUser / listSavedDetails.
+        hasProjectAccessForUser(userId),
+      ),
+    )
     .orderBy(desc(supplierOffers.createdAt));
 }
 
