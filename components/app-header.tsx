@@ -1,4 +1,4 @@
-import { House } from "lucide-react";
+import { FolderKanban, House } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
@@ -65,6 +65,14 @@ export async function AppHeader() {
             className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
           >
             <House className="size-5" strokeWidth={2} />
+          </Link>
+          <Link
+            href="/projects"
+            aria-label="Proiecte"
+            title="Proiecte"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+          >
+            <FolderKanban className="size-5" strokeWidth={2} />
           </Link>
           <NotificationBell notifications={notifications} count={unread} />
           <UserMenu
