@@ -31,9 +31,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     sessionsTable: sessions,
     verificationTokensTable: verificationTokens,
   }),
-  // maxAge: mărginește fereastra în care un JWT cu status stale (ACTIVE la login) mai poate CITI
-  // conținut protejat după o suspendare/ștergere de cont — mutațiile sunt oricum blocate imediat de
-  // requireActiveUserId (re-check DB). Fără maxAge, default-ul Auth.js e 30 de zile.
+  // maxAge: mărginește fereastra maximă a unui JWT (7 zile, vezi mai jos). Suspendarea/ștergerea unui
+  // cont e oricum blocată IMEDIAT, nu doar la expirarea tokenului — proxy.ts verifică status proaspăt
+  // din DB pe fiecare request protejat (SEC-002), iar requireActiveUserId re-verifică pe mutații.
+  // Fără maxAge, default-ul Auth.js e 30 de zile.
   //
   // FIXĂ, nu culisantă (2026-08-09, decizie de produs după rescrierea proxy.ts): userul e delogat
   // forțat la 7 zile de la ULTIMUL LOGIN, nu de la ultima activitate. Înainte, `proxy.ts` reîmprospăta
@@ -97,8 +98,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     // Cu strategie `jwt`, callback-ul primește `token` (din cookie), NU user-ul din DB.
-    // Expunem `user.id` (authz server, deny-by-default) și `user.status` (SEC-04: gating SOFT în proxy;
-    // status-ul poate fi stale — blocarea tare a suspendării se face pe mutații, vezi require-active-user.ts).
+    // Expunem `user.id` (authz server, deny-by-default) și `user.status`. `status` NU mai e citit din
+    // token pentru gating (SEC-002, 2026-08-09: proxy.ts verifică status proaspăt din DB pe fiecare
+    // request protejat, inclusiv citiri — vezi proxy.ts) — rămâne aici doar ca fallback afișat în UI.
     session({ session, token }) {
       if (session.user) {
         session.user.id = (token.id as string | undefined) ?? (token.sub as string);

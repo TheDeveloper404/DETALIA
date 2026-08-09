@@ -6,10 +6,11 @@ import { db } from "../db";
 import { roles, users } from "../db/schema";
 import { getSeed } from "./seed";
 
-// SEC-04 / SEC-S1 (docs/SECURITATE.md): un cont SUSPENDAT cu sesiune JWT vie (status stale în token)
-// nu trebuie să poată executa NICIO mutație — prima încercare trebuie să-l delogheze real
-// (`requireActiveUserId` → signOut). User DEDICAT (nu `testerUserId` din seed) ca să nu invalideze
-// storageState-ul folosit de authed.spec.ts / sketch.spec.ts în paralel.
+// SEC-04 / SEC-002 (docs/SECURITATE.md, decizie de produs 2026-08-09): un cont SUSPENDAT cu sesiune JWT
+// vie (status stale în token) nu trebuie să mai aibă NICIUN acces la zona protejată — nici măcar citire.
+// `proxy.ts` verifică status proaspăt din DB pe fiecare request protejat → prima vizită (nu doar prima
+// mutație) delogează real. User DEDICAT (nu `testerUserId` din seed) ca să nu invalideze storageState-ul
+// folosit de authed.spec.ts / sketch.spec.ts în paralel.
 
 const SUSPENDED_EMAIL = "e2e-suspended@detalia.test";
 const SUSPENDED_NAME = "E2E Suspended";
@@ -47,7 +48,7 @@ async function ensureSuspendedUser(): Promise<string> {
   return user.id;
 }
 
-test("cont SUSPENDAT cu token JWT viu → mutație blocată + delogare reală", async ({ browser, baseURL }) => {
+test("cont SUSPENDAT cu token JWT viu → acces blocat din prima vizită + delogare reală", async ({ browser, baseURL }) => {
   const userId = await ensureSuspendedUser();
   const { detailId } = getSeed();
 
@@ -86,26 +87,16 @@ test("cont SUSPENDAT cu token JWT viu → mutație blocată + delogare reală", 
   try {
     const page = await context.newPage();
 
-    // Citirea trece (token stale = ACTIVE) — asta e comportamentul AȘTEPTAT, nu bug.
+    // Prima vizită pe o rută protejată (chiar și CITIRE) trebuie blocată + delogare reală → redirect
+    // la /login?error=AccessDenied. proxy.ts verifică status proaspăt din DB (SEC-002), nu tokenul stale.
     await page.goto(`/details/${detailId}`);
-    await expect(page).toHaveURL(new RegExp(`/details/${detailId}`));
+    await expect(page).toHaveURL(/\/login\?error=AccessDenied/);
+    await expect(page.getByText(SUSPENDED_NAME)).not.toBeVisible();
 
-    // Prima MUTAȚIE (comentariu) trebuie blocată + delogare reală → redirect la /login.
-    const body = `E2E suspended ${Date.now()}`;
-    await page.getByPlaceholder(/Adaugă la dezbatere/).fill(body);
-    await page.getByRole("button", { name: "Comentează" }).click();
-
+    // Cookie-ul de sesiune s-a șters pe răspunsul proxy-ului (Set-Cookie Max-Age=0) — o a doua vizită
+    // pe orice rută protejată trebuie tratată ca neautentificat (nu ca „stale, dar tot logat").
+    await page.goto(`/details/${detailId}`);
     await expect(page).toHaveURL(/\/login/);
-    await expect(page.getByText(body)).not.toBeVisible();
-
-    // Cookie-ul de sesiune se șterge explicit (signOut real, nu doar redirect) pe RĂSPUNSUL mutației blocate
-    // — verificat prin garanția care contează (redirect + mutație respinsă, de mai sus). NU mai asertăm
-    // "cookie mereu absent la finalul testului": strategia JWT (Auth.js) reîmprospătează cookie-ul de sesiune
-    // pe ORICE citire reușită (design intenționat: citirea trece cu token stale) — un prefetch automat de
-    // Link (navbar) concurent cu delogarea poate re-emite cookie-ul DUPĂ ștergerea noastră (cursă confirmată
-    // din trace Playwright, 2026-07-08). JWT nu poate fi invalidat server-side înainte de expirare fără o
-    // listă neagră (Auth.js docs) — limitare de arhitectură, nu bug. Impactul real e nul: orice mutație
-    // ulterioară tot va fi blocată de `requireActiveUserId` (re-check DB pe fiecare mutație).
   } finally {
     await context.close();
     await db.delete(users).where(eq(users.id, userId));
