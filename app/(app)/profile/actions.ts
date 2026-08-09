@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
+import { auth, clearSessionCookie, signOut } from "@/lib/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
@@ -145,26 +145,35 @@ export async function requestVerificationAction(
   return { error: "Verificarea rolului nu este încă disponibilă.", ok: false };
 }
 
-// CRITIC (2026-08-09, cauză confirmată din trace.zip — vezi CHANGELOG): `signOut()` NU se mai apelă
-// direct dintr-un server action care rulează în spatele proxy.ts. `proxy.ts` cheamă `auth()` pe ORICE
-// request protejat (e wrapper-ul middleware-ului însuși) — iar Auth.js reîmprospătează („rotește")
-// cookie-ul de sesiune ca efect secundar al citirii. Rezultă DOUĂ Set-Cookie conflictuale în ACELAȘI
-// răspuns: unul valid (rotit), unul de ștergere (`signOut()`) — care câștigă la client nu e determinist
-// prin edge-ul Vercel (dovadă directă: capturat în trace.zip, 2 Set-Cookie pentru același cookie).
+// Delogarea REALĂ se face AICI, server-side, înainte de orice redirect — nu mai depinde de un
+// `useEffect` client care poate să nu apuce să ruleze (tab închis, POST eșuat, lockdown de mentenanță
+// pe `/logout`). SEC-001 (2026-08-09, security-engineer review PR #215): varianta anterioară muta toată
+// ștergerea cookie-ului pe `/logout` (client, `next-auth/react`), motivată de un conflict real de
+// Set-Cookie cu `proxy.ts` — dar acel conflict venea din wrapper-ul `auth()` din middleware, care
+// rescria cookie-ul pe ORICE request (inclusiv prefetch). `proxy.ts` a trecut între timp pe `getToken()`
+// (strict read-only, vezi comentariul din proxy.ts) — sursa conflictului a dispărut din toată aplicația,
+// deci `signOut()` poate rula direct aici, în siguranță.
 //
-// Fix: ștergerea REALĂ a cookie-ului se mută pe `/logout`, o rută sub `/api/auth/*`-adiacentă (exclusă
-// explicit din matcher-ul proxy.ts — vezi PUBLIC_PATHS), pe care `auth()`-ul middleware-ului NU rulează
-// deloc. Server action-ul de-aici doar redirecționează; clientul ajunge pe `/logout`, care apelează
-// `signOut()` din `next-auth/react` — un request separat, fără nimic altceva concurent pe el.
+// `/logout` rămâne ca pas secundar (client), nu ca singura garanție — vezi app/logout/page.tsx.
 const SIGN_OUT_REDIRECT = "/logout";
 
-// Sign out → pagina dedicată care face delogarea reală (vezi comentariul de mai sus).
+// Sign out — șterge cookie-ul de sesiune pe server (signOut() din lib/auth, care scrie Set-Cookie
+// corect din răspunsul intern Auth.js), apoi trimite clientul pe /logout ca al doilea pas.
 export async function signOutAction() {
+  // clearSessionCookie() în `finally`: cookie-ul trebuie șters chiar dacă signOut() (Auth.js) eșuează —
+  // e operația care contează pentru securitate, nu poate depinde de succesul celeilalte.
+  try {
+    await signOut({ redirect: false });
+  } finally {
+    await clearSessionCookie();
+  }
   redirect(SIGN_OUT_REDIRECT);
 }
 
 // Ștergere cont (GDPR) — anonimizează contul (șterge PII, păstrează conținutul) + revocă accesul, apoi logout.
-// Ireversibilă. userId vine din sesiune (anti-IDOR).
+// Ireversibilă. userId vine din sesiune (anti-IDOR). Cookie-ul se șterge server-side ÎNAINTE de redirect —
+// contul e deja anonimizat în DB la acest punct, deci sesiunea NU trebuie să supraviețuiască sub nicio formă
+// unui client care nu apucă să ruleze JS (vezi SEC-001 mai sus).
 export async function deleteAccountAction(): Promise<void> {
   const userId = await requireUserId();
   await deleteAccount(userId);
@@ -173,5 +182,10 @@ export async function deleteAccountAction(): Promise<void> {
   posthog.capture({ distinctId: userId, event: "account_deleted" });
   await posthog.flush();
 
+  try {
+    await signOut({ redirect: false });
+  } finally {
+    await clearSessionCookie();
+  }
   redirect(SIGN_OUT_REDIRECT);
 }

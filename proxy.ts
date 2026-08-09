@@ -16,8 +16,7 @@ import { createCachedSettingsReader } from "@/lib/cached-settings-reader";
 import { buildCspHeader } from "@/lib/csp";
 import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
-import { userExistsById } from "@/server/repos/usersRepo";
-import { userHasRole } from "@/server/services/roleService";
+import { getUserGateInfo } from "@/server/repos/usersRepo";
 
 // Rutele de cron invocate de Vercel (fără sesiune de user) — autorizare reală prin CRON_SECRET, în
 // handler. EXACTE (nu un prefix larg gen "/api/cron"), ca o rută cron nouă să NU devină public/scutită de
@@ -68,14 +67,23 @@ const getSettingsForGate = createCachedSettingsReader(getSettingsRow, SETTINGS_C
 export default async function proxy(req: NextRequest) {
   const { pathname, origin } = req.nextUrl;
 
-  const authToken = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-    // Determinat din protocolul REAL al requestului (ca în e2e/auth.setup.ts), NU din NODE_ENV. Verificat
-    // direct în sursa @auth/core/jwt.js: `secureCookie` implicit e `false` — omis pe https, getToken ar
-    // căuta cookie-ul FĂRĂ prefixul `__Secure-`, nu l-ar găsi și ar delogă silențios TOȚI userii.
-    secureCookie: req.nextUrl.protocol === "https:",
-  });
+  // SEC-003: aplicația nu folosește deloc autentificare Bearer — doar cookie HttpOnly. `getToken()`
+  // citește implicit și header-ul `Authorization: Bearer <jwt>` dacă cookie-ul lipsește (spre deosebire
+  // de vechiul `auth()`, care citea strict cookie-uri). Tăiem header-ul explicit înainte de citire, ca
+  // un token exfiltrat separat de cookie (log, trace, mașină partajată) să nu poată fi refolosit ca
+  // bearer token cross-origin, fără protecția SameSite a cookie-ului.
+  const tokenHeaders = new Headers(req.headers);
+  tokenHeaders.delete("authorization");
+  const tokenReq = { headers: tokenHeaders };
+  // SEC-04 (secureCookie, determinat din protocolul REAL al requestului, ca în e2e/auth.setup.ts, NU din
+  // NODE_ENV — verificat direct în sursa @auth/core/jwt.js: implicit e `false`, omis pe https ar căuta
+  // cookie-ul FĂRĂ prefixul `__Secure-` și ar delogă silențios TOȚI userii) determină și numele cookie-ului
+  // citit. SEC-004: dacă requestul intern nu are `x-forwarded-proto` corect (proxy/health-check), încercăm
+  // și varianta cealaltă înainte să tratăm userul ca delogat — fail-closed doar dacă ambele lipsesc.
+  const isHttps = req.nextUrl.protocol === "https:";
+  const authToken =
+    (await getToken({ req: tokenReq, secret: process.env.AUTH_SECRET, secureCookie: isHttps })) ??
+    (await getToken({ req: tokenReq, secret: process.env.AUTH_SECRET, secureCookie: !isHttps }));
   const isLoggedIn = !!authToken;
   // Aceeași regulă de fallback ca fostul callback `session()` din lib/auth.ts (id, cu sub ca rezervă).
   const userId = authToken?.id ?? authToken?.sub;
@@ -128,20 +136,6 @@ export default async function proxy(req: NextRequest) {
     (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
   );
 
-  // SEC-04: cont suspendat (status ≠ ACTIVE). Strategie `jwt` → status-ul de aici vine din TOKEN și e stale
-  // (înghețat la login; un cont nu se poate loga suspendat → în practică e mereu ACTIVE aici). Deci acest gate
-  // e SOFT. Blocarea TARE a suspendării se face pe mutații, cu re-check proaspăt din DB + signOut real —
-  // vezi lib/require-active-user.ts. Păstrăm gate-ul aici ca plasă (dacă vreodată punem status proaspăt în token).
-  if (isLoggedIn && !isPublic && authToken?.status && authToken.status !== "ACTIVE") {
-    // SEC-14: cont non-ACTIVE a încercat o rută protejată → audit (userId = uuid intern, fără PII brut).
-    audit(
-      "access_denied_suspended",
-      { userId, status: authToken.status, path: pathname },
-      "warning",
-    );
-    return Response.redirect(new URL("/login?error=AccessDenied", origin));
-  }
-
   // Neautentificat pe rută protejată → redirect la login, cu callback de revenire.
   if (!isPublic && !isLoggedIn) {
     const loginUrl = new URL("/login", origin);
@@ -149,39 +143,48 @@ export default async function proxy(req: NextRequest) {
     return Response.redirect(loginUrl);
   }
 
-  // POARTA DE ONBOARDING (a doua poartă, deny-by-default). Făcută AICI — nu în
-  // `app/(app)/layout.tsx` — din EXACT același motiv ca redirect-ul de landing de mai sus:
-  // un `redirect()` din layout în timpul streaming-ului RSC degenerează în meta-refresh →
-  // buclă de loading (onboarding ⇄ feed). Proxy-ul dă un 307 curat, fără buclă.
-  if (isLoggedIn && userId) {
+  // POARTA DE STATUS + ONBOARDING (deny-by-default), pe date PROASPETE din DB, nu din token.
+  // Făcută AICI — nu în `app/(app)/layout.tsx` — din EXACT același motiv ca redirect-ul de landing de mai
+  // sus: un `redirect()` din layout în timpul streaming-ului RSC degenerează în meta-refresh → buclă de
+  // loading (onboarding ⇄ feed). Proxy-ul dă un 307 curat, fără buclă.
+  //
+  // SEC-002 (2026-08-09, security-engineer review PR #215): gate-ul de status era pe `authToken.status`,
+  // înghețat la login și stale până la max 7 zile (vezi lib/auth.ts). Poarta de onboarding făcea deja un
+  // query (`userHasRole`) pe fiecare request al unui user logat pe zonă protejată — costul marginal al
+  // unui status proaspăt în ACELAȘI SELECT (LEFT JOIN, vezi getUserGateInfo) e ~zero, deci nu mai există
+  // motiv să rămână pe date stale. Închide și cazul „cont DELETED cu rol încă în DB" (vechiul check de
+  // existență rula DOAR pe ramura `!hasRole` — un cont șters care păstra un rând `roles` orfan trecea
+  // nedetectat de poarta veche).
+  if (isLoggedIn && userId && !isPublic) {
+    const gate = await getUserGateInfo(userId);
+
+    // Cont dispărut din DB (curățare/GDPR) cu JWT încă tehnic valid → delogare directă, nu buclă de
+    // onboarding (declareRole ar respinge oricum, dar userul nu vede de ce).
+    if (!gate || gate.status !== "ACTIVE") {
+      if (gate) {
+        // SEC-14: cont non-ACTIVE a încercat o rută protejată → audit (userId = uuid intern, fără PII brut).
+        audit("access_denied_suspended", { userId, status: gate.status, path: pathname }, "warning");
+      }
+      const res = Response.redirect(new URL("/login?error=AccessDenied", origin));
+      for (const name of ["authjs.session-token", "__Secure-authjs.session-token"]) {
+        res.headers.append(
+          "Set-Cookie",
+          `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${name.startsWith("__Secure-") ? "; Secure" : ""}`,
+        );
+      }
+      return res;
+    }
+
     const onOnboarding = pathname === "/onboarding";
-    const hasRole = await userHasRole(userId);
     // Excepție la poarta de rol: uploadul de imagine (avatar/cover) se face CHIAR în onboarding,
     // înainte de a avea rol. Ruta `/api/blob/upload` cere oricum sesiune (deny-by-default în handler),
     // deci e sigur s-o lăsăm să treacă fără rol — altfel poza din onboarding e redirectată (302) și eșuează.
     const onboardingAllowedApi = pathname === "/api/blob/upload";
-    // Logat fără rol, oriunde în zona protejată (INCLUSIV chiar pe /onboarding) → verificăm întâi dacă
-    // userul chiar mai există în DB. Fără acest check, un cont șters (curățare/GDPR) cu JWT stale încă
-    // viu rămânea „blocat" vizual logat pe /onboarding, într-o buclă fără ieșire (declareRole ar respinge
-    // oricum, dar userul nu vede de ce). Delogare directă în loc de onboarding-loop.
-    if (!hasRole && !isPublic && !onboardingAllowedApi) {
-      const exists = await userExistsById(userId);
-      if (!exists) {
-        const res = Response.redirect(new URL("/login", origin));
-        for (const name of ["authjs.session-token", "__Secure-authjs.session-token"]) {
-          res.headers.append(
-            "Set-Cookie",
-            `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${name.startsWith("__Secure-") ? "; Secure" : ""}`,
-          );
-        }
-        return res;
-      }
-      if (!onOnboarding) {
-        return Response.redirect(new URL("/onboarding", origin));
-      }
+    if (!gate.hasRole && !onboardingAllowedApi && !onOnboarding) {
+      return Response.redirect(new URL("/onboarding", origin));
     }
     // Logat cu rol care nimerește pe onboarding → direct în feed (nu mai are ce căuta acolo).
-    if (hasRole && onOnboarding) {
+    if (gate.hasRole && onOnboarding) {
       return Response.redirect(new URL("/feed", origin));
     }
   }

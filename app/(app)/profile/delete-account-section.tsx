@@ -12,12 +12,9 @@ import { deleteAccountAction } from "./actions";
 // La confirmare, server action-ul anonimizează contul (șterge PII, păstrează conținutul) și face logout (redirect).
 //
 // Submit prin <form action={...}>, NU onClick+startTransition apelând acțiunea direct — rămâne o practică
-// bună (server action-urile cu redirect() se comportă mai predictibil ca submit real de formular), dar NU
-// a fost cauza reală a intermitenței de la `signOut()` (2026-08-08). Cauza CONFIRMATĂ (2026-08-09, din
-// trace.zip): `proxy.ts` cheamă `auth()` pe orice request protejat, iar Auth.js reîmprospătează cookie-ul
-// de sesiune ca efect secundar al citirii — concurent cu clear-ul lui `signOut()`, în ACELAȘI răspuns.
-// Fix real: delogarea nu mai are loc aici, ci pe `/logout` (vezi actions.ts + app/logout/page.tsx), o rută
-// pe care `proxy.ts` n-o atinge deloc.
+// bună (server action-urile cu redirect() se comportă mai predictibil ca submit real de formular).
+// Ștergerea cookie-ului se face SERVER-SIDE, în deleteAccountAction (vezi actions.ts, SEC-001) — nu mai
+// depinde de JS client. `/logout` (app/logout/page.tsx) rămâne ca pas secundar, nu ca singura garanție.
 const CONFIRM_WORD = "ȘTERGE";
 
 function ConfirmSubmitButton({ disabled }: { disabled: boolean }) {

@@ -14,6 +14,7 @@
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
 import NextAuth, { type Session } from "next-auth";
 import Resend from "next-auth/providers/resend";
+import { cookies } from "next/headers";
 
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
@@ -38,7 +39,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // forțat la 7 zile de la ULTIMUL LOGIN, nu de la ultima activitate. Înainte, `proxy.ts` reîmprospăta
   // cookie-ul la fiecare vizită (efect secundar al wrapper-ului `auth()`, eliminat pentru bug-ul de
   // sesiune resuscitată după logout — vezi CHANGELOG 2026-08-09). Middleware-ul era SINGURUL loc care
-  // făcea asta — Server Actions/RSC nu pot scrie cookie-uri pe un GET, aplicația n-are `SessionProvider`
+  // făcea asta — CONFIRMAT (CR-001, code-review PR #215) în docs Auth.js (authjs.dev/guides/upgrade-to-v5):
+  // rotația de `exp` se întâmplă doar când `auth()` e apelat CU un `res`/context de scris răspunsul (API
+  // routes, `getServerSideProps`, middleware). În App Router, Server Actions/RSC apelează `auth()` FĂRĂ
+  // argumente — n-au niciun `res` la care să atașeze un `Set-Cookie` nou, deci nu rotesc nimic. Aplicația
+  // n-are `SessionProvider`
   // client-side. Acceptat conștient: 7 zile fixe e generos, echivalent cu re-login săptămânal.
   session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
   trustHost: true,
@@ -103,3 +108,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
   },
 });
+
+// SEC-001 (2026-08-09): ștergere EXPLICITĂ a cookie-ului de sesiune, apelabilă din orice server action
+// care trebuie să garanteze delogarea (nu doar redirecționeze spre o pagină client care o face).
+// `cookieStore.delete(name)` NU acceptă opțiuni → Set-Cookie-ul de ștergere iese FĂRĂ `Secure`, iar un
+// cookie cu prefix `__Secure-` e respins de browser dacă Set-Cookie-ul care-l atinge nu are `Secure`
+// (regulă de spec) → ștergerea era ignorată silențios (bug confirmat prin trace, 2026-07-08). Fix:
+// `set()` cu `maxAge: 0` + aceleași atribute ca la emitere. Extras din lib/require-active-user.ts,
+// unde acest pattern era deja verificat, ca să nu se dubleze la fiecare punct nou de logout.
+export async function clearSessionCookie() {
+  const cookieStore = await cookies();
+  for (const c of cookieStore.getAll()) {
+    if (c.name.startsWith("authjs.session-token") || c.name.startsWith("__Secure-authjs.session-token")) {
+      cookieStore.set(c.name, "", {
+        path: "/",
+        maxAge: 0,
+        httpOnly: true,
+        secure: c.name.startsWith("__Secure-"),
+        sameSite: "lax",
+      });
+    }
+  }
+}
