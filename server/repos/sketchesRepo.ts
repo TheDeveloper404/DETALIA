@@ -310,7 +310,16 @@ export async function getPublicSketchTeaser(id: string) {
     .innerJoin(details, eq(details.id, sketches.detailId))
     .leftJoin(users, eq(users.id, sketches.authorId))
     .leftJoin(roles, eq(roles.userId, sketches.authorId))
-    .where(and(eq(sketches.id, id), eq(sketches.status, "PUBLISHED")))
+    .where(
+      and(
+        eq(sketches.id, id),
+        eq(sketches.status, "PUBLISHED"),
+        // Proiecte (2026-08-09): `/s/[id]` e PUBLIC, fără cont — o schiță pe un detaliu de proiect nu
+        // trebuie să apară aici NICIODATĂ, indiferent de viewer (nici măcar membrii proiectului; ei o
+        // văd pe pagina proiectului, nu pe teaser-ul public).
+        isNull(details.projectId),
+      ),
+    )
     .limit(1);
   if (!row) return null;
 

@@ -40,6 +40,8 @@ vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/categoriesRepo", () => ({ countExistingCategoryIds: vi.fn() }));
 vi.mock("@/server/services/roleService", () => ({ userHasRole: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
+const { canAccessProjectDetail } = vi.hoisted(() => ({ canAccessProjectDetail: vi.fn() }));
+vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail }));
 
 import { updateDetail } from "./detailService";
 
@@ -109,5 +111,48 @@ describe("updateDetail — autorizare (SEC-001 / SEC-002 regression)", () => {
 
     expect(res.ok).toBe(true);
     expect(repo.updateDetailRow).toHaveBeenCalled();
+  });
+});
+
+// Proiecte (gol găsit la /code-review, 2026-08-09): ownership singur nu ajunge — un autor eliminat
+// dintr-un proiect nu mai are voie să editeze detaliul, chiar dacă a rămas ownerId real.
+describe("updateDetail — proiecte", () => {
+  it("autor eliminat din proiect → NOT_FOUND (anti-enumerare), fără update", async () => {
+    repo.getDetailById.mockResolvedValue({
+      id: DETAIL,
+      ownerId: AUTHOR,
+      authorId: AUTHOR,
+      isAnonymized: false,
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(false);
+
+    const res = await updateDetail({ ...baseInput, userId: AUTHOR });
+
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(repo.updateDetailRow).not.toHaveBeenCalled();
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: AUTHOR });
+  });
+
+  it("autor tot membru activ al proiectului → merge normal", async () => {
+    repo.getDetailById.mockResolvedValue({
+      id: DETAIL,
+      ownerId: AUTHOR,
+      authorId: AUTHOR,
+      isAnonymized: false,
+      projectId: "proj-1",
+      imageUrl: baseInput.imageUrl,
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(true);
+    const { countExistingCategoryIds } = await import("@/server/repos/categoriesRepo");
+    vi.mocked(countExistingCategoryIds).mockResolvedValue(baseInput.categoryIds.length as never);
+    repo.updateDetailRow.mockResolvedValue(undefined as never);
+    repo.getDetailResources.mockResolvedValue([] as never);
+    repo.replaceDetailResources.mockResolvedValue(undefined as never);
+    repo.replaceDetailCategories.mockResolvedValue(undefined as never);
+
+    const res = await updateDetail({ ...baseInput, userId: AUTHOR });
+
+    expect(res.ok).toBe(true);
   });
 });

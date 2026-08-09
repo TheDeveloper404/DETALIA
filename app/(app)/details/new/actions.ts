@@ -71,6 +71,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   TOO_MANY_RESOURCES: "Prea multe resurse atașate (max 3).",
   INVALID_RESOURCE: "O resursă atașată e invalidă.",
   RATE_LIMITED: "Prea multe detalii publicate într-un timp scurt. Încearcă mai târziu.",
+  NOT_PROJECT_MEMBER: "Nu mai ești membru al acestui proiect.",
 };
 
 export async function createDetailAction(
@@ -96,6 +97,10 @@ export async function createDetailAction(
   const snowLoad = String(formData.get("snowLoad") ?? "");
   const windLoad = String(formData.get("windLoad") ?? "");
   const resources = readResources(formData);
+  // Proiecte (2026-08-09): prezent doar când formularul vine din /details/new?projectId=X — vezi
+  // detail-form.tsx (câmp ascuns) și DetailService.createDetail (re-verifică apartenența pe server).
+  const rawProjectId = String(formData.get("projectId") ?? "");
+  const projectId = rawProjectId.length > 0 ? rawProjectId : null;
 
   // Guard ieftin înainte de upload — evită blob-uri orfane dacă lipsesc câmpurile text.
   if (title.trim().length === 0) return { error: ERROR_MESSAGES.TITLE_REQUIRED };
@@ -124,6 +129,7 @@ export async function createDetailAction(
     snowLoad,
     windLoad,
     resources,
+    projectId,
   });
 
   if (!result.ok) {
@@ -171,8 +177,14 @@ export async function createDetailAction(
   });
   await posthog.flush();
 
-  // Detaliul nou apare în feed (listă + counts pe categorie) → invalidează cache-ul feed-ului.
-  revalidatePath("/feed");
+  // Detaliul nou apare în feed (listă + counts pe categorie) → invalidează cache-ul feed-ului. Un
+  // detaliu de proiect nu ajunge în feed-ul comunității (vezi detailsRepo.listFeed), dar apare pe
+  // pagina proiectului — invalidăm și pe aia.
+  if (projectId) {
+    revalidatePath(`/projects/${projectId}`);
+  } else {
+    revalidatePath("/feed");
+  }
 
   // Publicat → ducem userul direct la pagina noului detaliu. `?annotation=failed` doar dacă adnotarea
   // (pas OPȚIONAL) n-a apucat să se salveze — pagina afișează un mesaj, detaliul rămâne publicat.

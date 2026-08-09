@@ -5,9 +5,11 @@ vi.mock("@/server/repos/commentsRepo", () => ({
   toggleCommentLike: vi.fn(),
 }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
+vi.mock("@/server/services/validationService", () => ({ targetExists: vi.fn() }));
 
 import { getCommentTarget, toggleCommentLike as toggleCommentLikeRepo } from "@/server/repos/commentsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { targetExists } from "@/server/services/validationService";
 
 import { toggleCommentLike } from "./commentService";
 
@@ -24,6 +26,7 @@ beforeEach(() => {
     authorId: "owner-x",
   } as never);
   vi.mocked(toggleCommentLikeRepo).mockResolvedValue(true);
+  vi.mocked(targetExists).mockResolvedValue(true);
 });
 
 describe("SEC-11 — commentId malformat → NOT_FOUND, fără atingere DB", () => {
@@ -78,5 +81,17 @@ describe("toggle — o singură poziție per user per comentariu, reversibilă",
     vi.mocked(toggleCommentLikeRepo).mockResolvedValue(false);
     const r = await toggleCommentLike(input);
     expect(r).toEqual({ ok: true, liked: false });
+  });
+});
+
+// Proiecte (2026-08-09, gol găsit la /code-review): un like pe un comentariu de pe un detaliu de
+// proiect e interacțiune cu conținut privat — aceeași poartă ca la addComment.
+describe("Proiecte — non-membru nu poate aprecia un comentariu de pe un detaliu de proiect", () => {
+  it("targetExists (poarta de proiect) respinge → NOT_FOUND, fără toggle", async () => {
+    vi.mocked(targetExists).mockResolvedValueOnce(false);
+    const r = await toggleCommentLike(input);
+    expect(r).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(toggleCommentLikeRepo).not.toHaveBeenCalled();
+    expect(targetExists).toHaveBeenCalledWith("DETAIL", "d-1", input.userId);
   });
 });

@@ -26,6 +26,7 @@ vi.mock("@/server/services/notificationService", () => ({
   notifySketchDeleted: vi.fn(),
 }));
 vi.mock("@/server/services/validationService", () => ({ recordSketchDisapproval: vi.fn() }));
+vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 
 import { deleteBlobs } from "@/lib/storage";
@@ -53,6 +54,7 @@ import {
   notifySketchDeleted,
   notifySketchProposed,
 } from "@/server/services/notificationService";
+import { canAccessProjectDetail } from "@/server/services/projectService";
 import { recordSketchDisapproval } from "@/server/services/validationService";
 
 import {
@@ -659,5 +661,179 @@ describe("Stack — ștergerea unei foi pe care alții au construit", () => {
     expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
     // Autorul schiței e anunțat că i-a fost ștearsă de altcineva.
     expect(notifySketchDeleted).toHaveBeenCalled();
+  });
+});
+
+// Proiecte (2026-08-09, gol găsit la /code-review): createDraft ocolea complet poarta de acces —
+// un non-membru cu detailId-ul putea porni o schiță pe un detaliu de proiect.
+describe("Proiecte — non-membru nu poate porni o schiță pe un detaliu de proiect", () => {
+  it("createDraft: fără acces la proiect → DETAIL_NOT_FOUND, fără insert", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "EXECUTANT" } as never);
+
+    const res = await createDraft({ detailId: DID, authorId: ATTACKER });
+
+    expect(res).toEqual({ ok: false, error: "DETAIL_NOT_FOUND" });
+    expect(insertDraft).not.toHaveBeenCalled();
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: ATTACKER });
+  });
+
+  it("createDraft: cu acces la proiect → merge normal", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(true);
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "EXECUTANT" } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+
+    const res = await createDraft({ detailId: DID, authorId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: true, value: { sketchId: SID } });
+  });
+});
+
+// Gol găsit la a treia trecere de /code-review: autorul putea fi eliminat din proiect ÎNTRE
+// createDraft (gardat) și publish — draftul rămas i-ar fi permis să injecteze conținut PUBLICAT
+// într-un proiect din care nu mai face parte.
+describe("Proiecte — publish re-verifică accesul (autor eliminat între createDraft și publish)", () => {
+  it("autor fără acces la proiect (eliminat între timp) → DETAIL_NOT_FOUND, fără publishFromDraft", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft() as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
+
+    const res = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: false, error: "DETAIL_NOT_FOUND" });
+    expect(publishFromDraft).not.toHaveBeenCalled();
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: SKETCH_AUTHOR });
+  });
+
+  it("autor tot membru activ → publică normal", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft() as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(true);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+
+    const res = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: true });
+  });
+});
+
+// Aceeași scurgere ca la publish, pe calea de ȘTERGERE: destinatarul e autorul schiței, iar actorul e
+// autorul detaliului — două persoane diferite. Gol găsit la a șasea trecere de /code-review, 2026-08-09.
+describe("Proiecte — notificarea de ștergere nu scurge titlul unui detaliu privat către un autor eliminat", () => {
+  it("autorul schiței eliminat din proiect → ștergerea reușește, dar FĂRĂ notifySketchDeleted", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: null }) as never,
+    );
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(false);
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(res).toEqual({ ok: true });
+    // Ștergerea în sine NU e blocată — doar notificarea către cel fără acces.
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
+    expect(notifySketchDeleted).not.toHaveBeenCalled();
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({
+      projectId: "proj-1",
+      userId: SKETCH_AUTHOR,
+    });
+  });
+
+  it("autorul schiței încă membru activ → primește notificarea", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: null }) as never,
+    );
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(true);
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(res).toEqual({ ok: true });
+    expect(notifySketchDeleted).toHaveBeenCalledTimes(1);
+  });
+
+  it("detaliu din comunitate (fără proiect) → notificare fără verificare de acces", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: null }) as never,
+    );
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: null,
+    } as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(res).toEqual({ ok: true });
+    expect(notifySketchDeleted).toHaveBeenCalledTimes(1);
+    expect(canAccessProjectDetail).not.toHaveBeenCalled();
+  });
+});
+
+// Gol găsit la /code-review, 2026-08-09: destinatarul notificării (detail.ownerId) e o persoană
+// DIFERITĂ de autorul care publică — accesul lui trebuie verificat separat, nu dedus din al publisher-ului.
+describe("Proiecte — notificarea de publish nu scurge titlul unui detaliu privat către un owner eliminat", () => {
+  it("owner-ul detaliului eliminat din proiect → publish reușește, dar FĂRĂ notifySketchProposed", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft() as never);
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockImplementation(async ({ userId }: { userId: string }) =>
+      userId === SKETCH_AUTHOR,
+    );
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+
+    const res = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: true });
+    expect(notifySketchProposed).not.toHaveBeenCalled();
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: OWNER });
   });
 });

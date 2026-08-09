@@ -18,6 +18,9 @@ import { getUserRole } from "@/server/services/roleService";
 import { getAnnotations, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
 import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
+import { canReleaseDetailToCommunity, getProject } from "@/server/services/projectService";
+
+import { ReleaseToCommunityButton } from "./release-to-community-button";
 
 import { DetailWorkspace, type WorkspaceSketch } from "./detail-workspace";
 import { ResourceImage } from "./resource-image";
@@ -93,7 +96,7 @@ export default async function DetailPage({
   const query = await searchParams;
   const annotationNotice = query.annotation;
   const sketchDeleteNotice = query["sketch-delete"];
-  const detail = await getDetail(id);
+  const detail = await getDetail(id, session.user.id);
   if (!detail) {
     notFound();
   }
@@ -103,6 +106,23 @@ export default async function DetailPage({
   after(() => recordDetailView(detail.id, session.user.id));
 
   const userId = session.user.id;
+
+  // Proiecte (2026-08-09): dreptul de a scoate detaliul în comunitate — regula „orfan", verificată
+  // pe server (vezi server/domain/project.ts). `false` dacă detaliul nu e în niciun proiect.
+  let canReleaseToCommunity = false;
+  if (detail.projectId) {
+    const project = await getProject(detail.projectId);
+    if (project) {
+      const check = await canReleaseDetailToCommunity({
+        projectId: detail.projectId,
+        detailAuthorId: detail.ownerId,
+        projectOwnerId: project.ownerId,
+        requesterId: userId,
+      });
+      canReleaseToCommunity = check.allowed;
+    }
+  }
+
   const validation = await getTargetValidationView("DETAIL", detail.id, userId);
   const comments = await getComments("DETAIL", detail.id, userId);
 
@@ -167,6 +187,18 @@ export default async function DetailPage({
         <span className="text-[#cabfac]">/</span>
         <span className="truncate text-foreground/70">{detail.title}</span>
       </nav>
+
+      {/* Banner „e într-un proiect privat" — vizibil oricui a ajuns aici (poarta de la getDetail deja
+          a verificat accesul). „Scoate în comunitate" apare doar dacă serverul confirmă dreptul
+          (regula „orfan", server/domain/project.ts) — nu doar un check vizual de UI. */}
+      {detail.projectId && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#e3c9b4] bg-[#fdf4ec] px-5 py-4">
+          <p className="text-[14.5px] text-foreground">
+            Acest detaliu e într-un <strong>proiect privat</strong> — vizibil doar membrilor.
+          </p>
+          {canReleaseToCommunity && <ReleaseToCommunityButton detailId={detail.id} />}
+        </div>
+      )}
 
       {(annotationNotice === "failed" || annotationNotice === "limit") && (
         <div className="mb-5 rounded-xl border border-[#e3c9b4] bg-[#fdf4ec] px-5 py-4">

@@ -179,6 +179,32 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   subquery corelat NOU → calificare explicită cu `sql.identifier("tabel")`, verificată cu `.toSQL()` +
   date reale, niciodată presupusă din citit codul. Nu e o capcană „rezolvată o dată" — apare la fiecare
   subquery corelat nou, în fiecare fișier.
+- **Cascada de FK NU acoperă tabelele polimorfice și nici Blob-ul** *(gol găsit 2026-08-09,
+  `projectsRepo.deleteProject`)*: `validations` și `comments` referă ținta prin `target_type`+`target_id`,
+  FĂRĂ FK spre `details`/`sketches` → `ON DELETE CASCADE` nu le atinge, iar fișierele din Blob n-au cum să
+  cadă în cascadă. Orice ștergere NOUĂ de entitate-părinte (proiect, planșă, orice container viitor) trece
+  prin `deleteDetailCascade`/`deleteSketchCascade`, care le șterg manual ȘI colectează URL-urile pentru
+  `deleteBlobs`. „Am pus `onDelete: cascade`, deci e rezolvat" e fals aici — rezultatul e rânduri orfane
+  spre UUID-uri moarte + fișiere plătite la nesfârșit, ambele complet silențioase.
+- **La notificări, verifică accesul DESTINATARULUI, nu al actorului** *(RECIDIVĂ DE 3 ORI în aceeași zi,
+  2026-08-09: `notifySketchProposed`, `notifySupplierOffered`, `notifySketchDeleted`)*: gardul de acces
+  scris pentru cel care ACȚIONEAZĂ (publisher, furnizor, moderator) nu spune nimic despre cel care
+  PRIMEȘTE notificarea — de regulă altă persoană (owner-ul detaliului, autorul schiței), care poate fi
+  între timp eliminat din proiect. Fără verificare separată, emailul + notificarea persistată din clopoțel
+  îi scurg titlul unui detaliu la care nu mai are acces. Orice `notify*` nou pe un traseu cu proiecte:
+  `recipientHasAccess` explicit, pe `recipientUserId`.
+- **Un invariant transversal nou nu produce un bug, ci câte unul în fiecare loc care nu trece prin poartă**
+  *(lecție 2026-08-09, feature „Proiect": 14 goluri reale în 6 runde de review)*. Când adaugi o regulă de
+  vizibilitate/acces peste cod existent scris sub presupunerea opusă, enumeră EXHAUSTIV căile înainte de
+  a repara ceva — nu una câte una, pe măsură ce le găsește review-ul. Lista de locuri cu risc în DETALIA:
+  feed + rail-uri (`detailsRepo`, `usersRepo.listTopAuthors`), profil public (`profileRepo`: heatmap,
+  statistici `given`/`received`, taburile Detalii/Schițe/Activitate), teasere publice (`/s/[id]`), toate
+  `notify*`, listele private (`/saved`, „Ofertele mele"), planșele (`plansaService`), și fiecare mutație
+  care citește un detaliu direct din `detailsRepo.getDetailById`, ocolind poarta.
+- **`Response.redirect()` întoarce headers IMUABILE** *(bug de producție 2026-08-09, `proxy.ts`)*: orice
+  `res.headers.append("Set-Cookie", ...)` pe rezultatul lui aruncă `TypeError: immutable` → 500 în loc de
+  redirect. În middleware/proxy folosește `NextResponse.redirect()` + `res.cookies.set()`. Bug-ul poate sta
+  ascuns luni pe o ramură rar-lovită și să explodeze când o schimbare o pune pe calea principală.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul

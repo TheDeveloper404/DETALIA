@@ -36,6 +36,10 @@ const PUBLIC_PATHS = [
   "/verify", // auto-confirmare magic link (JS redirect → callback); inertă la GET automat de scanner (pre-auth)
   "/maintenance", // ecranul „site în lucru" (ținta rewrite-ului de lockdown) — public by design
   "/s", // teaser PUBLIC read-only al unei schițe (decizie 2026-07-05) — vezi app/s/[id]/page.tsx
+  // Invitație de proiect (2026-08-09) — public INTENȚIONAT: un vizitator FĂRĂ cont trebuie să vadă
+  // „ai fost invitat în X" înainte de autentificare. STRICT „/projects/join" (nu "/projects" simplu —
+  // acela rămâne protejat, e lista proiectelor userului).
+  "/projects/join",
   "/termeni", // Termeni și condiții — public, linkuit din footer
   "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
   "/ingest", // proxy PostHog (evită ad-blockere) — trebuie accesibil pre-auth (pageview pe landing/login/signup)
