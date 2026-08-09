@@ -147,9 +147,12 @@ export async function getPublicProfile(userId: string) {
 
 // Autori activi — userii cu cele mai multe detalii PUBLISHED (+ rol), pentru rail-ul din feed.
 // FĂRĂ email/PII. Doar cei cu cel puțin un detaliu.
+// `project_id is null` = suprafață PUBLICĂ: un detaliu dintr-un proiect privat nu se numără aici, la
+// fel ca în feed/profil/statistici (altfel contorul public ar trăda volumul de activitate privată).
 export async function listTopAuthors(limit: number) {
   const detailCount = sql<number>`(select count(*)::int from ${details}
-     where ${details.authorId} = ${users.id} and ${details.status} = 'PUBLISHED')`;
+     where ${details.authorId} = ${users.id} and ${details.status} = 'PUBLISHED'
+       and ${details.projectId} is null)`;
   return db
     .select({
       id: users.id,

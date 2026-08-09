@@ -33,6 +33,8 @@ vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/categoriesRepo", () => ({ countExistingCategoryIds: vi.fn() }));
 vi.mock("@/server/services/roleService", () => ({ userHasRole: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
+const { canAccessProjectDetail } = vi.hoisted(() => ({ canAccessProjectDetail: vi.fn() }));
+vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail }));
 
 import { deleteBlobs } from "@/lib/storage";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
@@ -61,6 +63,21 @@ beforeEach(() => {
     subRole: "Structurist",
     verificationStatus: "VERIFIED",
   } as never);
+});
+
+// Proiecte (gol găsit la /code-review, 2026-08-09): vezi comentariul identic din updateDetail.
+describe("deleteDetail — proiecte", () => {
+  it("autor eliminat din proiect → NOT_FOUND (anti-enumerare), fără ștergere/anonimizare", async () => {
+    repo.getDetailById.mockResolvedValue({ ...detailRow, projectId: "proj-1" } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(false);
+
+    const res = await deleteDetail({ detailId: DETAIL, userId: AUTHOR });
+
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(repo.deleteDetailCascade).not.toHaveBeenCalled();
+    expect(repo.anonymizeDetailAuthor).not.toHaveBeenCalled();
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: AUTHOR });
+  });
 });
 
 describe("deleteDetail — detaliu FĂRĂ interacțiuni", () => {

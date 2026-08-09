@@ -231,6 +231,15 @@ export const details = pgTable(
     // detaliului, ca la StackOverflow — NU vizitatori unici (decizie de produs).
     // Incrementat atomic (`views = views + 1`), deci fără condiție de cursă la acces concurent.
     views: integer().notNull().default(0),
+    // Proiecte — colaborare restrânsă (2026-08-09). Un detaliu stă mereu într-un SINGUR loc din trei,
+    // combinând `status` (existent) cu această coloană: DRAFT+null = ciornă; PUBLISHED+<id> = vizibil
+    // DOAR membrilor proiectului; PUBLISHED+null = public, comunitate (ca azi). „Scoate în comunitate"
+    // = `projectId = null`, mutație ireversibilă (regulă de business, nu constrângere DB). `onDelete:
+    // cascade` prinde doar rândul din `details` (cele deja scoase în comunitate au `projectId = null`,
+    // deci nu sunt atinse) — NU e suficient la ștergerea proiectului: validările și comentariile sunt
+    // polimorfice (fără FK) și fișierele din Blob nu au cum să cadă în cascadă. Ștergerea completă e
+    // orchestrată în projectService.deleteProject, prin deleteDetailCascade pentru fiecare detaliu.
+    projectId: uuid().references(() => projects.id, { onDelete: "cascade" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -239,11 +248,13 @@ export const details = pgTable(
   },
   (t) => [
     index("details_author_id_idx").on(t.authorId),
+    index("details_project_id_idx").on(t.projectId),
     // Index parțial: acoperă direct feed-ul (listFeed, cronologic pe PUBLISHED) — scan pe index, nu
-    // pe tot tabelul, și mai mic decât un index complet (exclude rândurile DRAFT).
+    // pe tot tabelul, și mai mic decât un index complet (exclude rândurile DRAFT). Feed-ul comunității
+    // filtrează ȘI pe `project_id IS NULL` — detaliile de proiect nu trebuie să apară acolo.
     index("details_published_created_idx")
       .on(t.createdAt.desc())
-      .where(sql`${t.status} = 'PUBLISHED'`),
+      .where(sql`${t.status} = 'PUBLISHED' AND ${t.projectId} IS NULL`),
   ],
 );
 
@@ -330,6 +341,65 @@ export const sketches = pgTable(
     // Acoperă sketchCount din listFeed/listTopDebated/listRelatedDetails: WHERE detailId = ? AND
     // status = 'PUBLISHED' — indexul single-column pe detailId nu include filtrul de status.
     index("sketches_detail_status_idx").on(t.detailId, t.status),
+  ],
+);
+
+// ── Proiecte — colaborare restrânsă (2026-08-09) ──────────────────────────────────────────────
+// Al treilea strat, pe lângă Detaliu (public) și Planșă (strict privată): un spațiu de colaborare
+// restrânsă, tip Google Drive — userul invită oameni printr-un link și lucrează cu ei la detalii
+// înainte de a le scoate (opțional, ireversibil) în comunitate. Doar 2 poziții: Autor (owner) și
+// Invitați — Invitații se comportă identic cu owner-ul, în rest (nu există Viewer/Editor).
+export const projects = pgTable(
+  "projects",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    ownerId: uuid()
+      .notNull()
+      .references(() => users.id),
+    name: text().notNull(),
+    // Token opac de invitație — stocat BRUT, intenționat (nu hash, spre deosebire de
+    // admin_sessions/admin_login_tokens): e un link de partajare persistent (owner-ul trebuie să-l
+    // poată revedea/recopia oricând din pagina proiectului, ca la Slack/Notion/GitHub — nu o
+    // credențială de autentificare one-time). Entropie mare (32 bytes random, lib/invite-token.ts)
+    // ține locul unde hash-ul ar fi protejat: un token neghicibil, nu unul needevoalabil.
+    // Regenerare link = UPDATE pe această coloană (vechiul token devine instant invalid).
+    inviteToken: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    unique("projects_invite_token_unique").on(t.inviteToken),
+    index("projects_owner_id_idx").on(t.ownerId),
+  ],
+);
+
+// Membru al unui proiect. UN SINGUR rând per (project, user) — nu istoric de intrări/ieșiri multiple:
+// la eliminare, `removedAt` se setează; la re-alăturare (link nou/vechi), ACELAȘI rând se reactivează
+// (`removedAt = null`), nu se inserează unul nou. „Autor eliminat" pe conținut se decide prin verificare
+// LIVE (există un rând ACTIV pentru acel user+proiect?) — dacă userul revine, redevine automat vizibil
+// cu numele lui pe TOT ce a scris în proiect, inclusiv conținut vechi (comportament dorit: e din nou
+// membru). Owner-ul NU are neapărat un rând aici — verificarea de acces e membru activ SAU
+// `projects.ownerId`, vezi server/services/projectService.ts.
+export const projectMembers = pgTable(
+  "project_members",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id),
+    joinedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    unique("project_members_project_user_unique").on(t.projectId, t.userId),
+    index("project_members_project_id_idx").on(t.projectId),
+    index("project_members_user_id_idx").on(t.userId),
   ],
 );
 

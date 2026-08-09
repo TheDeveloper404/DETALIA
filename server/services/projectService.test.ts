@@ -1,0 +1,401 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/invite-token", () => ({ generateInviteToken: vi.fn(() => "new-token-abc") }));
+vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
+vi.mock("@/server/repos/detailsRepo", () => ({
+  deleteDetailCascade: vi.fn(),
+  listAllProjectDetails: vi.fn(),
+  listProjectDetails: vi.fn(),
+}));
+vi.mock("@/server/repos/projectMembersRepo", () => ({
+  getMembership: vi.fn(),
+  isActiveMember: vi.fn(),
+  listActiveMembers: vi.fn(),
+  removeMembership: vi.fn(),
+  upsertActiveMembership: vi.fn(),
+}));
+vi.mock("@/server/repos/projectsRepo", () => ({
+  deleteProject: vi.fn(),
+  getProjectById: vi.fn(),
+  getProjectByInviteToken: vi.fn(),
+  insertProject: vi.fn(),
+  listProjectsForUser: vi.fn(),
+  updateInviteToken: vi.fn(),
+}));
+
+import { generateInviteToken } from "@/lib/invite-token";
+import { deleteBlobs } from "@/lib/storage";
+import {
+  deleteDetailCascade,
+  listAllProjectDetails,
+  listProjectDetails,
+} from "@/server/repos/detailsRepo";
+import {
+  isActiveMember,
+  listActiveMembers,
+  removeMembership,
+  upsertActiveMembership,
+} from "@/server/repos/projectMembersRepo";
+import {
+  deleteProject as deleteProjectRow,
+  getProjectById,
+  getProjectByInviteToken,
+  insertProject,
+  updateInviteToken,
+} from "@/server/repos/projectsRepo";
+
+import {
+  canAccessProjectDetail,
+  canReleaseDetailToCommunity,
+  createProject,
+  deleteProject,
+  getProject,
+  getProjectAccess,
+  getProjectForViewer,
+  joinProjectByToken,
+  listProjectDetailsForViewer,
+  regenerateInviteLink,
+  removeMember,
+} from "./projectService";
+
+const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
+const OWNER_ID = "owner-1";
+// UUID valid — removeMember validează targetUserId cu isUuid (SEC-11).
+const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
+const STRANGER_ID = "stranger-1";
+
+function projectRow(overrides: Partial<{ id: string; ownerId: string; name: string; inviteToken: string }> = {}) {
+  return { id: PROJECT_ID, ownerId: OWNER_ID, name: "Renovare bloc A", inviteToken: "tok-abc", ...overrides };
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("createProject", () => {
+  it("nume gol → EMPTY, nu atinge DB-ul", async () => {
+    const res = await createProject({ ownerId: OWNER_ID, name: "" });
+    expect(res).toEqual({ ok: false, error: "EMPTY" });
+    expect(insertProject).not.toHaveBeenCalled();
+  });
+
+  it("nume valid → inserează cu un token generat, întoarce id + token", async () => {
+    vi.mocked(insertProject).mockResolvedValueOnce(
+      projectRow({ name: "Renovare bloc A", inviteToken: "new-token-abc" }) as never,
+    );
+    const res = await createProject({ ownerId: OWNER_ID, name: "  Renovare bloc A  " });
+    expect(generateInviteToken).toHaveBeenCalled();
+    expect(insertProject).toHaveBeenCalledWith({
+      ownerId: OWNER_ID,
+      name: "Renovare bloc A",
+      inviteToken: "new-token-abc",
+    });
+    expect(res).toEqual({ ok: true, projectId: PROJECT_ID, inviteToken: "new-token-abc" });
+  });
+});
+
+describe("getProjectAccess — poarta de acces", () => {
+  it("proiect inexistent → totul fals", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    const res = await getProjectAccess({ projectId: PROJECT_ID, userId: STRANGER_ID });
+    expect(res).toEqual({ isOwner: false, isActiveMember: false, hasAccess: false });
+  });
+
+  it("owner → acces, FĂRĂ să mai verifice tabelul de membri (owner nu are neapărat rând acolo)", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await getProjectAccess({ projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({ isOwner: true, isActiveMember: false, hasAccess: true });
+    expect(isActiveMember).not.toHaveBeenCalled();
+  });
+
+  it("membru activ, nu owner → acces", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    const res = await getProjectAccess({ projectId: PROJECT_ID, userId: MEMBER_ID });
+    expect(res).toEqual({ isOwner: false, isActiveMember: true, hasAccess: true });
+  });
+
+  it("nici owner, nici membru activ → refuz", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(false);
+    const res = await getProjectAccess({ projectId: PROJECT_ID, userId: STRANGER_ID });
+    expect(res).toEqual({ isOwner: false, isActiveMember: false, hasAccess: false });
+  });
+});
+
+describe("canAccessProjectDetail — SINGURUL punct de control pentru vizibilitatea de proiect", () => {
+  it("deleagă la getProjectAccess.hasAccess", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    expect(await canAccessProjectDetail({ projectId: PROJECT_ID, userId: OWNER_ID })).toBe(true);
+
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    expect(await canAccessProjectDetail({ projectId: PROJECT_ID, userId: STRANGER_ID })).toBe(false);
+  });
+});
+
+describe("getProjectForViewer — anti-enumerare", () => {
+  it("fără acces → null (aceeași formă ca la proiect inexistent)", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    expect(await getProjectForViewer({ projectId: PROJECT_ID, userId: STRANGER_ID })).toBeNull();
+  });
+
+  it("cu acces → project + members + isOwner", async () => {
+    vi.mocked(getProjectById)
+      .mockResolvedValueOnce(projectRow() as never) // getProjectAccess
+      .mockResolvedValueOnce(projectRow() as never); // getProjectById direct
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([{ id: "m1", userId: MEMBER_ID }] as never);
+
+    const res = await getProjectForViewer({ projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({
+      project: projectRow(),
+      members: [{ id: "m1", userId: MEMBER_ID }],
+      isOwner: true,
+    });
+  });
+});
+
+describe("joinProjectByToken", () => {
+  it("token invalid/inexistent → INVALID_TOKEN, nu inserează membru", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(null as never);
+    const res = await joinProjectByToken({ token: "ghicit", userId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "INVALID_TOKEN" });
+    expect(upsertActiveMembership).not.toHaveBeenCalled();
+  });
+
+  it("token valid → membership upsert (idempotent și pt re-alăturare)", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
+    const res = await joinProjectByToken({ token: "tok-abc", userId: MEMBER_ID });
+    expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(res).toEqual({ ok: true, projectId: PROJECT_ID, projectName: "Renovare bloc A" });
+  });
+});
+
+describe("removeMember — DOAR owner", () => {
+  it("proiect inexistent → NOT_FOUND", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    const res = await removeMember({ projectId: PROJECT_ID, requesterId: OWNER_ID, targetUserId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+  });
+
+  it("requester NU e owner → FORBIDDEN, nu elimină pe nimeni", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await removeMember({ projectId: PROJECT_ID, requesterId: MEMBER_ID, targetUserId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(removeMembership).not.toHaveBeenCalled();
+  });
+
+  it("owner elimină un membru → ok", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await removeMember({ projectId: PROJECT_ID, requesterId: OWNER_ID, targetUserId: MEMBER_ID });
+    expect(removeMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(res).toEqual({ ok: true });
+  });
+});
+
+describe("regenerateInviteLink — DOAR owner", () => {
+  it("requester NU e owner → FORBIDDEN, nu regenerează", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await regenerateInviteLink({ projectId: PROJECT_ID, requesterId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(updateInviteToken).not.toHaveBeenCalled();
+  });
+
+  it("owner → token nou, suprascrie vechiul", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await regenerateInviteLink({ projectId: PROJECT_ID, requesterId: OWNER_ID });
+    expect(updateInviteToken).toHaveBeenCalledWith(PROJECT_ID, "new-token-abc");
+    expect(res).toEqual({ ok: true, inviteToken: "new-token-abc" });
+  });
+});
+
+describe("deleteProject — DOAR owner", () => {
+  beforeEach(() => {
+    vi.mocked(listAllProjectDetails).mockResolvedValue([] as never);
+    vi.mocked(deleteDetailCascade).mockResolvedValue([] as never);
+  });
+
+  it("requester NU e owner → FORBIDDEN, nu șterge", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await deleteProject({ projectId: PROJECT_ID, requesterId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(deleteProjectRow).not.toHaveBeenCalled();
+    expect(deleteDetailCascade).not.toHaveBeenCalled();
+  });
+
+  it("owner → șterge proiectul", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await deleteProject({ projectId: PROJECT_ID, requesterId: OWNER_ID });
+    expect(deleteProjectRow).toHaveBeenCalledWith(PROJECT_ID);
+    expect(res).toEqual({ ok: true });
+  });
+
+  // Gol găsit la /code-review (2026-08-09): ștergerea se baza doar pe cascada de FK, care NU atinge
+  // validările/comentariile (polimorfice, fără FK) și nici fișierele din Blob.
+  it("fiecare detaliu din proiect trece prin cascada completă, nu doar prin FK", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(listAllProjectDetails).mockResolvedValue([
+      { id: "detail-1", imageUrl: "blob://d1.webp" },
+      { id: "detail-2", imageUrl: null },
+    ] as never);
+    vi.mocked(deleteDetailCascade)
+      .mockResolvedValueOnce(["blob://thumb-1.png"] as never)
+      .mockResolvedValueOnce(["blob://resursa.pdf", "blob://comentariu.webp"] as never);
+
+    const res = await deleteProject({ projectId: PROJECT_ID, requesterId: OWNER_ID });
+
+    expect(res).toEqual({ ok: true });
+    expect(deleteDetailCascade).toHaveBeenCalledWith("detail-1");
+    expect(deleteDetailCascade).toHaveBeenCalledWith("detail-2");
+    // Toate fișierele — thumbnail-uri, resurse, poze din comentarii ȘI imaginea detaliului însuși.
+    expect(deleteBlobs).toHaveBeenCalledWith([
+      "blob://thumb-1.png",
+      "blob://d1.webp",
+      "blob://resursa.pdf",
+      "blob://comentariu.webp",
+      null,
+    ]);
+  });
+
+  it("detaliile se șterg ÎNAINTE de rândul proiectului", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(listAllProjectDetails).mockResolvedValue([
+      { id: "detail-1", imageUrl: null },
+    ] as never);
+    const order: string[] = [];
+    vi.mocked(deleteDetailCascade).mockImplementation(async () => {
+      order.push("cascade");
+      return [];
+    });
+    vi.mocked(deleteProjectRow).mockImplementation(async () => {
+      order.push("project");
+    });
+
+    await deleteProject({ projectId: PROJECT_ID, requesterId: OWNER_ID });
+
+    expect(order).toEqual(["cascade", "project"]);
+  });
+
+  it("proiect fără detalii → nu apelează cascada degeaba", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await deleteProject({ projectId: PROJECT_ID, requesterId: OWNER_ID });
+    expect(deleteDetailCascade).not.toHaveBeenCalled();
+    expect(deleteProjectRow).toHaveBeenCalledWith(PROJECT_ID);
+    expect(res).toEqual({ ok: true });
+  });
+});
+
+describe("canReleaseDetailToCommunity — regula «orfan», parte DB", () => {
+  it("autorul detaliului cere → allowed, indiferent de restul", async () => {
+    const res = await canReleaseDetailToCommunity({
+      projectId: PROJECT_ID,
+      detailAuthorId: MEMBER_ID,
+      projectOwnerId: OWNER_ID,
+      requesterId: MEMBER_ID,
+    });
+    expect(res).toEqual({ allowed: true });
+  });
+
+  it("autorul detaliului E owner-ul proiectului → allowed prin isDetailAuthor, fără query de membru", async () => {
+    // autorul == owner → e cazul „autorul cere", nu regula orfan
+    const res = await canReleaseDetailToCommunity({
+      projectId: PROJECT_ID,
+      detailAuthorId: OWNER_ID,
+      projectOwnerId: OWNER_ID,
+      requesterId: OWNER_ID,
+    });
+    expect(res).toEqual({ allowed: true });
+    expect(isActiveMember).not.toHaveBeenCalled();
+  });
+
+  it("owner cere pe detaliul ALTCUIVA, autorul ÎNCĂ membru activ → refuz (nu e moderare)", async () => {
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    const res = await canReleaseDetailToCommunity({
+      projectId: PROJECT_ID,
+      detailAuthorId: MEMBER_ID,
+      projectOwnerId: OWNER_ID,
+      requesterId: OWNER_ID,
+    });
+    expect(isActiveMember).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(res).toEqual({ allowed: false, error: "FORBIDDEN" });
+  });
+
+  it("owner cere pe detaliul unui autor care NU mai e membru activ → allowed (detaliu orfan)", async () => {
+    vi.mocked(isActiveMember).mockResolvedValueOnce(false);
+    const res = await canReleaseDetailToCommunity({
+      projectId: PROJECT_ID,
+      detailAuthorId: MEMBER_ID,
+      projectOwnerId: OWNER_ID,
+      requesterId: OWNER_ID,
+    });
+    expect(res).toEqual({ allowed: true });
+  });
+
+  it("un membru oarecare (nici autor, nici owner) → refuz", async () => {
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    const res = await canReleaseDetailToCommunity({
+      projectId: PROJECT_ID,
+      detailAuthorId: MEMBER_ID,
+      projectOwnerId: OWNER_ID,
+      requesterId: STRANGER_ID,
+    });
+    expect(res).toEqual({ allowed: false, error: "FORBIDDEN" });
+  });
+});
+
+describe("listProjectDetailsForViewer — anti-enumerare", () => {
+  it("fără acces → null, nu interoghează detaliile", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    const res = await listProjectDetailsForViewer({ projectId: PROJECT_ID, userId: STRANGER_ID });
+    expect(res).toBeNull();
+    expect(listProjectDetails).not.toHaveBeenCalled();
+  });
+
+  it("cu acces → deleagă la detailsRepo.listProjectDetails", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(listProjectDetails).mockResolvedValueOnce([{ id: "d1" }] as never);
+    const res = await listProjectDetailsForViewer({ projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(listProjectDetails).toHaveBeenCalledWith(PROJECT_ID);
+    expect(res).toEqual([{ id: "d1" }]);
+  });
+});
+
+// SEC-11 (2026-08-09, gol găsit la /code-review): un projectId malformat trebuie tratat „nu există",
+// niciodată lăsat să lovească Postgres direct (eroare 22P02 pe coloana uuid → 500 în loc de notFound()).
+describe("SEC-11 — projectId malformat → «nu există», fără query pe DB", () => {
+  it("getProjectAccess: id ne-UUID → totul fals, fără getProjectById", async () => {
+    const res = await getProjectAccess({ projectId: "not-a-uuid", userId: OWNER_ID });
+    expect(res).toEqual({ isOwner: false, isActiveMember: false, hasAccess: false });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  it("removeMember: id ne-UUID → NOT_FOUND, fără query", async () => {
+    const res = await removeMember({ projectId: "not-a-uuid", requesterId: OWNER_ID, targetUserId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  // gol găsit la /code-review, 2026-08-09: targetUserId nu era validat cu isUuid, spre deosebire de
+  // orice alt id din acest fișier — un targetUserId malformat lovea direct Postgres.
+  it("removeMember: targetUserId ne-UUID → NOT_FOUND, fără query", async () => {
+    const res = await removeMember({ projectId: PROJECT_ID, requesterId: OWNER_ID, targetUserId: "not-a-uuid" });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  it("deleteProject: id ne-UUID → NOT_FOUND, fără query", async () => {
+    const res = await deleteProject({ projectId: "not-a-uuid", requesterId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  it("regenerateInviteLink: id ne-UUID → NOT_FOUND, fără query", async () => {
+    const res = await regenerateInviteLink({ projectId: "not-a-uuid", requesterId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  it("getProject: id ne-UUID → null, fără query", async () => {
+    expect(await getProject("not-a-uuid")).toBeNull();
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+});

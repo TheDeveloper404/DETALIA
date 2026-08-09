@@ -35,6 +35,7 @@ import {
   updateThumbnailOwned,
 } from "@/server/repos/plansaRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
+import { canAccessProjectDetail } from "@/server/services/projectService";
 
 type CanvasError =
   | "NOT_FOUND"
@@ -161,6 +162,14 @@ export async function addDetailToCanvas(input: {
 
   const detail = await getDetailById(input.detailId); // null dacă șters/nepublicat
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
+  // Proiecte (2026-08-09): non-membru „nu vede" detaliul deloc — nu-i poate copia imaginea pe propria
+  // planșă (altfel conținut privat de proiect ar ieși pe o planșă STRICT PRIVATĂ, dar a altcuiva).
+  if (
+    detail.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.ownerId }))
+  ) {
+    return { ok: false, error: "DETAIL_NOT_FOUND" };
+  }
 
   // getDetailById e PUBLISHED-only (comentariul de mai sus) → imageUrl mereu setat.
   let imageUrl = detail.imageUrl!;
@@ -240,6 +249,15 @@ export async function getCanvasForEdit(input: {
       const sketch = await getSketchById(row.sketchId);
       if (!sketch || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl) continue; // șters/retras → placeholder
       const detail = await getDetailById(row.detailId);
+      // Proiecte (2026-08-09, gol găsit la /code-review): un membru ELIMINAT din proiect nu mai
+      // trebuie să vadă, la fiecare reîncărcare a planșei, titlul/thumbnailul unui detaliu care a
+      // rămas privat — tratat ca „dispărut", la fel ca un detaliu șters/nepublicat.
+      if (
+        detail?.projectId &&
+        !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.ownerId }))
+      ) {
+        continue;
+      }
       items.push({
         detailId: row.detailId,
         sketchId: row.sketchId,
@@ -248,6 +266,12 @@ export async function getCanvasForEdit(input: {
       });
     } else {
       const detail = await getDetailById(row.detailId); // null dacă șters/nepublicat → rămâne placeholder
+      if (
+        detail?.projectId &&
+        !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.ownerId }))
+      ) {
+        continue;
+      }
       if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: detail.imageUrl!, title: detail.title });
     }
   }

@@ -4,6 +4,7 @@ vi.mock("@/server/repos/commentsRepo", () => ({ insertComment: vi.fn() }));
 vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({ getSketchById: vi.fn() }));
+vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail: vi.fn() }));
 vi.mock("@/server/repos/validationsRepo", () => ({
   deletePosition: vi.fn(),
   listPositionsForTarget: vi.fn(),
@@ -17,8 +18,9 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
 import { upsertDisapprovalIfTransition, upsertPosition } from "@/server/repos/validationsRepo";
+import { canAccessProjectDetail } from "@/server/services/projectService";
 
-import { approve, disapprove, recordSketchDisapproval } from "./validationService";
+import { approve, disapprove, recordSketchDisapproval, targetExists } from "./validationService";
 
 const ROLE = { roleMain: "EXECUTANT", subRole: null, verificationStatus: "UNVERIFIED" };
 const target = {
@@ -221,5 +223,44 @@ describe("recordSketchDisapproval — materializarea dezaprobării la publicarea
     } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
     expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
+  });
+});
+
+// Proiecte (2026-08-09, gol găsit la /code-review): un detaliu de proiect fără acces trebuie tratat
+// „nu există" pe TOATE căile care ating validarea/comentariile — nu doar la citirea paginii.
+describe("Proiecte — non-membru nu poate vota/comenta pe un detaliu de proiect", () => {
+  beforeEach(() => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: target.targetId,
+      ownerId: "owner-x",
+      authorId: "owner-x",
+      title: "T",
+      projectId: "proj-1",
+    } as never);
+  });
+
+  it("targetExists: fără acces la proiect → false, NU adevărat doar pentru că detaliul e PUBLISHED", async () => {
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
+    expect(await targetExists("DETAIL", target.targetId, target.userId)).toBe(false);
+    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: target.userId });
+  });
+
+  it("targetExists: cu acces la proiect → true", async () => {
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(true);
+    expect(await targetExists("DETAIL", target.targetId, target.userId)).toBe(true);
+  });
+
+  it("approve: non-membru → TARGET_NOT_FOUND (anti-enumerare, nu FORBIDDEN)", async () => {
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
+    const res = await approve(target);
+    expect(res).toEqual({ ok: false, error: "TARGET_NOT_FOUND" });
+    expect(upsertPosition).not.toHaveBeenCalled();
+  });
+
+  it("disapprove: non-membru → TARGET_NOT_FOUND, fără comentariu-justificare creat", async () => {
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
+    const res = await disapprove({ ...target, justification: "Motiv valid aici" });
+    expect(res).toEqual({ ok: false, error: "TARGET_NOT_FOUND" });
+    expect(insertComment).not.toHaveBeenCalled();
   });
 });

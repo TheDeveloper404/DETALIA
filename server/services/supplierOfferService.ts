@@ -13,6 +13,7 @@ import {
 } from "@/server/repos/supplierOffersRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import { notifySupplierOffered } from "@/server/services/notificationService";
+import { canAccessProjectDetail } from "@/server/services/projectService";
 
 type SupplierOfferError = "NO_ROLE" | "NOT_FURNIZOR" | "TARGET_NOT_FOUND" | "CANNOT_OFFER_OWN";
 export type SupplierOfferResult =
@@ -32,6 +33,11 @@ export async function toggleSupplierOffer(input: {
 
   const detail = await getDetailById(input.detailId); // doar PUBLISHED
   if (!detail) return { ok: false, error: "TARGET_NOT_FOUND" };
+  // Proiecte (2026-08-09): non-membru „nu vede" detaliul deloc (anti-enumerare) — altfel un FURNIZOR
+  // din afara proiectului ar putea oferta pe conținut privat.
+  if (detail.projectId && !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.userId }))) {
+    return { ok: false, error: "TARGET_NOT_FOUND" };
+  }
   // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
   // regula "nu-ți oferi singur" devine inertă pe un detaliu din care autorul s-a retras.
   if (detail.ownerId === input.userId) return { ok: false, error: "CANNOT_OFFER_OWN" };
@@ -65,13 +71,21 @@ export async function toggleSupplierOffer(input: {
   }
 
   try {
-    const actor = await getNotificationActor(input.userId);
-    await notifySupplierOffered({
-      recipientUserId: detail.ownerId,
-      detailId: input.detailId,
-      detailTitle: detail.title,
-      supplierName: actor?.name ?? null,
-    });
+    // Proiecte (gol găsit la /code-review, 2026-08-09): destinatarul e detail.ownerId, NU input.userId
+    // (furnizorul) verificat mai sus — dacă owner-ul a fost între timp eliminat din proiect, notificarea
+    // i-ar scurge titlul unui detaliu la care nu mai are acces.
+    const recipientHasAccess =
+      !detail.projectId ||
+      (await canAccessProjectDetail({ projectId: detail.projectId, userId: detail.ownerId }));
+    if (recipientHasAccess) {
+      const actor = await getNotificationActor(input.userId);
+      await notifySupplierOffered({
+        recipientUserId: detail.ownerId,
+        detailId: input.detailId,
+        detailTitle: detail.title,
+        supplierName: actor?.name ?? null,
+      });
+    }
   } catch (err) {
     console.error("[supplierOfferService] notifySupplierOffered eșuat (non-fatal)", {
       userId: input.userId,

@@ -38,6 +38,7 @@ import {
 import { snapshotFromRole } from "@/server/domain/validation";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import { notifySketchDeleted, notifySketchProposed } from "@/server/services/notificationService";
+import { canAccessProjectDetail } from "@/server/services/projectService";
 import { recordSketchDisapproval } from "@/server/services/validationService";
 
 type SketchError =
@@ -74,6 +75,11 @@ export async function createDraft(input: {
   if (!(await getRoleByUserId(input.authorId))) return { ok: false, error: "NO_ROLE" };
   const detail = await getDetailById(input.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
+  // Proiecte (2026-08-09): non-membru „nu vede" detaliul deloc (anti-enumerare) — altfel ar putea
+  // porni o schiță pe conținut din afara graniței de acces a proiectului.
+  if (detail.projectId && !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.authorId }))) {
+    return { ok: false, error: "DETAIL_NOT_FOUND" };
+  }
 
   // Rețeta stack-ului vine din CLIENT → validată structural (domain), apoi confruntată cu DB-ul:
   // id-urile trebuie să fie schițe PUBLISHED de pe ACEST detaliu. Fără verificarea de apartenență,
@@ -179,6 +185,15 @@ export async function publish(input: {
 
   const detail = await getDetailById(sketch.detailId);
   if (!detail) return { ok: false, error: "DETAIL_NOT_FOUND" };
+  // Proiecte (2026-08-09, gol găsit la /code-review): autorul putea fi eliminat din proiect ÎNTRE
+  // createDraft (gardat) și publish — draftul rămas i-ar fi permis să injecteze conținut PUBLICAT
+  // într-un proiect din care nu mai face parte. Re-verificăm la fiecare tranziție DRAFT→PUBLISHED.
+  if (
+    detail.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.authorId }))
+  ) {
+    return { ok: false, error: "DETAIL_NOT_FOUND" };
+  }
 
   // PLAFONUL de adnotări — impus pe server, ÎNAINTE de tranziție: n-are sens să publicăm și abia apoi să
   // ne plângem. Draftul curent e încă DRAFT, deci nu se numără pe el însuși. Un draft început când erau 2
@@ -226,7 +241,13 @@ export async function publish(input: {
 
   // ADNOTARE (autorul pe propriul detaliu) → nimeni de anunțat: destinatarul ar fi chiar el. Notificarea
   // are sens doar la o contribuție PRIMITĂ de la altcineva. Vezi `isSelfAnnotation` (domain/sketch.ts).
-  if (!isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
+  //
+  // Proiecte (gol găsit la /code-review, 2026-08-09): destinatarul e `detail.ownerId`, NU cel verificat
+  // mai sus (publisher-ul schiței) — dacă owner-ul detaliului a fost între timp eliminat din proiect,
+  // notificarea (email + clopoțel persistat) i-ar scurge titlul unui detaliu la care nu mai are acces.
+  const recipientHasAccess =
+    !detail.projectId || (await canAccessProjectDetail({ projectId: detail.projectId, userId: detail.ownerId }));
+  if (recipientHasAccess && !isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
     const author = await getNotificationActor(sketch.authorId);
     await notifySketchProposed({
       recipientUserId: detail.ownerId,
@@ -286,7 +307,15 @@ export async function deleteSketch(input: {
   await deleteBlobs([thumbnailUrl]);
 
   // Autorul-mamă a șters schița altui user → îl anunțăm. Dacă autorul și-a șters propria schiță, fără notificare.
-  if (isDetailAuthor && !isSketchAuthor && detail) {
+  //
+  // Proiecte (2026-08-09): destinatarul e `sketch.authorId`, NU actorul verificat mai sus — aceeași
+  // gardă ca la notifySketchProposed/notifySupplierOffered. Autorul schiței poate fi între timp eliminat
+  // din proiect; fără verificare, notificarea (email + clopoțel persistat) i-ar scurge titlul unui
+  // detaliu la care nu mai are acces.
+  const recipientHasAccess =
+    !detail?.projectId ||
+    (await canAccessProjectDetail({ projectId: detail.projectId, userId: sketch.authorId }));
+  if (isDetailAuthor && !isSketchAuthor && detail && recipientHasAccess) {
     await notifySketchDeleted({
       recipientUserId: sketch.authorId,
       detailId: sketch.detailId,
