@@ -99,8 +99,8 @@ export default async function DetailPage({
   }
 
   // Contorul de vizualizări: DUPĂ răspuns (`after`), ca un write de statistică să nu întârzie
-  // randarea paginii. „Vizualizare" = fiecare încărcare a paginii, nu vizitator unic.
-  after(() => recordDetailView(detail.id));
+  // randarea paginii. Dedup pe user+detaliu într-o fereastră scurtă — vezi recordDetailView.
+  after(() => recordDetailView(detail.id, session.user.id));
 
   const userId = session.user.id;
   const validation = await getTargetValidationView("DETAIL", detail.id, userId);

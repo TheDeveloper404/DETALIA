@@ -119,6 +119,36 @@ export async function checkLimit(
   }
 }
 
+// Dedup vizualizări (2026-08-09, decizie de produs): dacă ACELAȘI user reîncarcă ACELAȘI detaliu în
+// mai puțin de VIEW_DEDUP_WINDOW_SECONDS, nu numărăm a doua oară — altfel un user care revine des la
+// propriul draft/detaliu umflă contorul fără ca autorul să știe că a fost un singur om, nu 20.
+// SET NX + TTL (atomic în Redis, fără condiție de cursă): prima vizualizare din fereastră reușește să
+// scrie cheia (răspuns diferit de null) → o numărăm; următoarele din aceeași fereastră găsesc cheia deja
+// scrisă (NX eșuează, răspuns null) → le ignorăm. Fail-OPEN dacă Redis lipsește/pică: preferăm să
+// supranumărăm ocazional decât să pierdem tot semnalul de vizualizări (nesensibil la securitate, spre
+// deosebire de limiterele de mai sus).
+const VIEW_DEDUP_WINDOW_SECONDS = 30 * 60;
+
+// `client` injectabil (default: singleton-ul modulului) — același motiv ca la `checkLimit(limiter, id)`
+// mai jos: un test cu Redis REAL ar cere credențiale Upstash indisponibile la `npm test` local; injecția
+// lasă testele să acopere toate cele 3 ramuri (fără client / NX reușit / NX eșuat sau eroare) cu un fake.
+export async function shouldCountView(key: string, client: Redis | null = redis): Promise<boolean> {
+  if (!client) return true;
+  try {
+    const result = await client.set(`detalia:view:${ENV_NS}:${key}`, "1", {
+      nx: true,
+      ex: VIEW_DEDUP_WINDOW_SECONDS,
+    });
+    return result !== null;
+  } catch (err) {
+    console.error(
+      "view-dedup: eroare Redis, fail-open (numărăm oricum):",
+      err instanceof Error ? err.message : String(err),
+    );
+    return true;
+  }
+}
+
 // Hash SHA-256 pentru email — nu stocăm PII în Redis. Normalizăm (lowercase/trim) ca să fie stabil.
 export function hashEmail(email: string): string {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");

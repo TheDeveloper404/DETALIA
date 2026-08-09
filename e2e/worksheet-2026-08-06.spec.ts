@@ -138,7 +138,7 @@ test.describe.serial("Item 10 — imagine atașată la comentariu", () => {
   });
 });
 
-test.describe("Itemii 3 și 4 — data publicării și contorul de vizualizări", () => {
+test.describe("Item 3 — data publicării", () => {
   test("cardul din feed arată data publicării", async ({ page }) => {
     const { detailId, detailTitle } = getSeed();
     await page.goto(`/feed?q=${encodeURIComponent(detailTitle.split(" ")[0])}`);
@@ -149,10 +149,34 @@ test.describe("Itemii 3 și 4 — data publicării și contorul de vizualizări"
     await expect(card.locator("time")).toBeVisible();
     await expect(card.locator("time")).toHaveAttribute("datetime", /\d{4}-\d{2}-\d{2}/);
   });
+});
 
-  test("fiecare încărcare a paginii detaliului incrementează contorul", async ({ page }) => {
-    const { detailId } = getSeed();
+// Item 4 — contorul de vizualizări. Detaliu DEDICAT (nu cel comun din getSeed()): restul suitei
+// navighează des la /details/{detailId}-ul comun cu ACELAȘI testerUserId, deci până ajunge acest bloc
+// să ruleze, dedup-ul de 30 min (2026-08-09, vezi lib/rate-limit.ts) a văzut deja o vizualizare recentă
+// și n-ar mai incrementa la vizualizarea din test — fals negativ, nu regresie. Cu un detaliu proaspăt,
+// prima vizualizare din test e garantat prima reală.
+test.describe.serial("Item 4 — contorul de vizualizări (dedup 30 min, 2026-08-09)", () => {
+  let detailId = "";
+  let detailTitle = "";
 
+  test.beforeAll(async () => {
+    const { testerUserId, categoryId } = getSeed();
+    detailTitle = `E2E views-dedup ${Date.now()}`;
+    const [row] = await db
+      .insert(details)
+      .values({ title: detailTitle, authorId: testerUserId, imageUrl: IMAGE_URL, status: "PUBLISHED" })
+      .returning({ id: details.id });
+    await db.insert(detailCategories).values({ detailId: row.id, categoryId });
+    detailId = row.id;
+  });
+
+  test.afterAll(async () => {
+    if (!detailId) return;
+    await db.delete(details).where(eq(details.id, detailId));
+  });
+
+  test("prima încărcare a paginii detaliului incrementează contorul", async ({ page }) => {
     const before = (
       await db.select({ views: details.views }).from(details).where(eq(details.id, detailId))
     )[0].views;
@@ -170,48 +194,82 @@ test.describe("Itemii 3 și 4 — data publicării și contorul de vizualizări"
       .toBeGreaterThan(before);
   });
 
-  // 2026-08-07 — RefreshOnBack (components/refresh-on-back.tsx): navigarea Back din browser în App
-  // Router ignoră intenționat staleness-ul Client Router Cache-ului → fără fix, feed-ul arăta
-  // contorul VECHI (de dinainte de vizualizare) după ce reveneai cu Back de pe pagina detaliului.
-  test("Back din pagina de detaliu → cardul din feed arată contorul de vizualizări proaspăt, nu pe cel din cache", async ({
+  test("a doua încărcare imediată (aceeași fereastră de 30 min) NU mai incrementează contorul", async ({
     page,
   }) => {
-    const { detailId, detailTitle } = getSeed();
-    const term = detailTitle.split(" ")[0];
-
-    await page.goto(`/feed?q=${encodeURIComponent(term)}`);
-    const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
-    await expect(card).toBeVisible();
-
     const before = (
       await db.select({ views: details.views }).from(details).where(eq(details.id, detailId))
     )[0].views;
 
-    await card.getByRole("link", { name: detailTitle, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`));
+    await page.goto(`/details/${detailId}`);
+    await expect(page.getByRole("button", { name: "Acțiuni detaliu" })).toBeVisible();
 
-    // Așteptăm ca incrementul (after(), best-effort) să fi ajuns efectiv în DB înainte de Back —
-    // altfel testăm doar dacă UI-ul se reîmprospătează, nu dacă are ce numere proaspete de arătat.
-    await expect
-      .poll(
-        async () =>
-          (await db.select({ views: details.views }).from(details).where(eq(details.id, detailId)))[0].views,
-        { timeout: 10_000 },
-      )
-      .toBeGreaterThan(before);
+    // Verificăm STABILITATEA valorii, nu doar absența unei creșteri imediate — un `expect.poll` care
+    // aștepta o creștere ar trece "din greșeală" prin timeout; aici confirmăm explicit că rămâne fixă
+    // pe fereastra în care rulează suita (secunde, nu minute).
+    await page.waitForTimeout(2_000);
+    const after = (
+      await db.select({ views: details.views }).from(details).where(eq(details.id, detailId))
+    )[0].views;
+    expect(after).toBe(before);
+  });
 
-    await page.goBack();
-    await expect(page).toHaveURL(/\/feed/);
+  // 2026-08-07 — RefreshOnBack (components/refresh-on-back.tsx): navigarea Back din browser în App
+  // Router ignoră intenționat staleness-ul Client Router Cache-ului → fără fix, feed-ul arăta
+  // contorul VECHI (de dinainte de vizualizare) după ce reveneai cu Back de pe pagina detaliului.
+  // Al TREILEA detaliu dedicat (nu cel de mai sus, deja "consumat" de dedup în testul anterior) — altfel
+  // acest test ar pica din același motiv structural, nu ar mai testa RefreshOnBack.
+  test("Back din pagina de detaliu → cardul din feed arată contorul de vizualizări proaspăt, nu pe cel din cache", async ({
+    page,
+  }) => {
+    const { testerUserId, categoryId } = getSeed();
+    const freshTitle = `E2E views-back ${Date.now()}`;
+    const [row] = await db
+      .insert(details)
+      .values({ title: freshTitle, authorId: testerUserId, imageUrl: IMAGE_URL, status: "PUBLISHED" })
+      .returning({ id: details.id });
+    await db.insert(detailCategories).values({ detailId: row.id, categoryId });
+    const freshDetailId = row.id;
 
-    const refreshedCard = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
-    await expect
-      .poll(
-        async () => {
-          const text = await refreshedCard.getByTitle("Vizualizări").textContent();
-          return Number((text ?? "").replace(/\D/g, ""));
-        },
-        { timeout: 10_000 },
-      )
-      .toBeGreaterThan(before);
+    try {
+      const term = freshTitle.split(" ")[0];
+      await page.goto(`/feed?q=${encodeURIComponent(term)}`);
+      const card = page.locator(`article:has(a[href="/details/${freshDetailId}"])`).first();
+      await expect(card).toBeVisible();
+
+      const before = (
+        await db.select({ views: details.views }).from(details).where(eq(details.id, freshDetailId))
+      )[0].views;
+
+      await card.getByRole("link", { name: freshTitle, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/details/${freshDetailId}$`));
+
+      // Așteptăm ca incrementul (after(), best-effort) să fi ajuns efectiv în DB înainte de Back —
+      // altfel testăm doar dacă UI-ul se reîmprospătează, nu dacă are ce numere proaspete de arătat.
+      await expect
+        .poll(
+          async () =>
+            (await db.select({ views: details.views }).from(details).where(eq(details.id, freshDetailId)))[0]
+              .views,
+          { timeout: 10_000 },
+        )
+        .toBeGreaterThan(before);
+
+      await page.goBack();
+      await expect(page).toHaveURL(/\/feed/);
+
+      const refreshedCard = page.locator(`article:has(a[href="/details/${freshDetailId}"])`).first();
+      await expect
+        .poll(
+          async () => {
+            const text = await refreshedCard.getByTitle("Vizualizări").textContent();
+            return Number((text ?? "").replace(/\D/g, ""));
+          },
+          { timeout: 10_000 },
+        )
+        .toBeGreaterThan(before);
+    } finally {
+      await db.delete(details).where(eq(details.id, freshDetailId));
+    }
   });
 });

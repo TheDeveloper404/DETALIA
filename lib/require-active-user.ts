@@ -1,20 +1,20 @@
 // SEC-04 (varianta JWT, 2026-07-02) — blocare TARE a conturilor suspendate pe mutații.
 //
-// Cu sesiune `jwt` (vezi lib/auth.ts), `session.user.status` vine din token și e stale (înghețat la
-// login). Reads/render-ele NU plătesc niciun query de sesiune — acolo e câștigul de performanță.
-// Dar un cont suspendat NU trebuie să mai poată PRODUCE conținut din secunda suspendării. De aceea,
-// pe mutațiile care produc/modifică conținut (comentarii, validări, detalii, schițe) re-verificăm
-// status-ul PROASPĂT din DB — un singur SELECT ușor, plătit doar de acele acțiuni rare.
+// SEC-002 (2026-08-09): `proxy.ts` verifică ACUM status proaspăt din DB pe fiecare request protejat,
+// inclusiv citiri — un cont suspendat e delogat la prima vizită, nu doar la prima mutație (decizie de
+// produs confirmată explicit, înlocuiește vechiul gate soft pe token stale). Acest fișier rămâne ca a
+// DOUA plasă, specifică server actions: proxy-ul gatează RUTE (pathname), dar un server action poate
+// fi apelat dintr-o pagină deja randată înainte de suspendare (ex. tab deschis, formular vechi în DOM) —
+// re-verificăm status-ul chiar pe mutație, nu doar la navigare.
 //
 // Întoarce userId dacă sesiunea e validă ȘI contul e ACTIVE. Altfel face redirect (nu întoarce).
 
 import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { auth, signOut } from "@/lib/auth";
+import { auth, clearSessionCookie, signOut } from "@/lib/auth";
 
 export async function requireActiveUserId(): Promise<string> {
   const session = await auth();
@@ -39,22 +39,7 @@ export async function requireActiveUserId(): Promise<string> {
     try {
       await signOut({ redirectTo: "/login?error=AccessDenied" });
     } finally {
-      // `cookieStore.delete(name)` NU acceptă opțiuni → Set-Cookie-ul de ștergere iese FĂRĂ `Secure`.
-      // Un cookie cu prefix `__Secure-` e respins de browser dacă Set-Cookie-ul care-l atinge nu are
-      // `Secure` (regulă de spec) → ștergerea era ignorată silențios (bug confirmat prin trace, 2026-07-08).
-      // Fix: `set()` cu `maxAge: 0` + aceleași atribute ca la login (vezi cookie-ul emis de Auth.js).
-      const cookieStore = await cookies();
-      for (const c of cookieStore.getAll()) {
-        if (c.name.startsWith("authjs.session-token") || c.name.startsWith("__Secure-authjs.session-token")) {
-          cookieStore.set(c.name, "", {
-            path: "/",
-            maxAge: 0,
-            httpOnly: true,
-            secure: c.name.startsWith("__Secure-"),
-            sameSite: "lax",
-          });
-        }
-      }
+      await clearSessionCookie();
     }
   }
 
