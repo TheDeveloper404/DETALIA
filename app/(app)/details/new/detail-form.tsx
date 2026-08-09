@@ -311,6 +311,7 @@ export function DetailForm({
   saveDraftAction,
   initial,
   submitLabel = "Publică detaliul",
+  projectId,
 }: {
   categories: CategoryOption[];
   action?: (prev: FormState, formData: FormData) => Promise<FormState>;
@@ -318,6 +319,10 @@ export function DetailForm({
   saveDraftAction?: (prev: FormState, formData: FormData) => Promise<FormState>;
   initial?: DetailFormInitial;
   submitLabel?: string;
+  // Proiecte (2026-08-09): publicare într-un proiect în loc de comunitate — vezi /details/new/page.tsx.
+  // Un detaliu de proiect NU poate fi ciornă (invarianta din server/domain/project.ts), deci pagina
+  // apelantă nu mai dă `saveDraftAction` când `projectId` e prezent.
+  projectId?: string;
 }) {
   const isEdit = !!initial;
   const [state, formAction, pending] = useActionState(action, initialState);
@@ -592,6 +597,7 @@ export function DetailForm({
       {/* Editare: id-ul detaliului + semnal dacă imaginea s-a schimbat (pt reprocesare pe server). */}
       {isEdit && <input type="hidden" name="detailId" value={initial.detailId} />}
       {isEdit && <input type="hidden" name="imageChanged" value={imageChanged ? "1" : "0"} />}
+      {projectId && <input type="hidden" name="projectId" value={projectId} />}
 
       {(clientError ?? state.error ?? draftState.error) && (
         <p

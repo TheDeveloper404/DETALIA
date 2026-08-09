@@ -39,6 +39,7 @@ import {
   listOfferedDetails,
   listSavedDetails,
   publishDetailRow,
+  releaseDetailToCommunity as releaseDetailToCommunityRow,
   replaceDetailCategories,
   replaceDetailResources,
   updateDetailRow,
@@ -47,8 +48,14 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { listTopAuthors } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
+import {
+  canAccessProjectDetail,
+  canReleaseDetailToCommunity,
+  getProject,
+  getProjectAccess,
+} from "@/server/services/projectService";
 
-type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY";
+type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_PROJECT_MEMBER";
 
 export type CreateDetailResult =
   | { ok: true; detailId: string }
@@ -67,10 +74,20 @@ export async function createDetail(input: {
   snowLoad?: string | null;
   windLoad?: string | null;
   resources?: DetailResourceInput[];
+  // Proiecte (2026-08-09): publicare într-un proiect în loc de comunitate. `null`/absent = comunitate
+  // (comportamentul de azi). Verificat AICI (nu doar în UI) — un userId care nu mai e membru (eliminat
+  // între încărcarea formularului și submit) nu poate publica în proiect prin apel direct de acțiune.
+  projectId?: string | null;
 }): Promise<CreateDetailResult> {
   // 1) Poarta de business: doar useri cu rol declarat pot publica detalii.
   if (!(await userHasRole(input.authorId))) {
     return { ok: false, error: "NO_ROLE" };
+  }
+
+  // 1b) Proiect: doar owner/membru activ poate publica în el.
+  if (input.projectId) {
+    const access = await getProjectAccess({ projectId: input.projectId, userId: input.authorId });
+    if (!access.hasAccess) return { ok: false, error: "NOT_PROJECT_MEMBER" };
   }
 
   // 2) Validare + normalizare input (titlu/imagine/resurse/categorii/parametri tehnici).
@@ -110,6 +127,7 @@ export async function createDetail(input: {
     windLoad: value.windLoad,
     categoryIds: value.categoryIds,
     resources: value.resources,
+    projectId: input.projectId ?? null,
   });
 
   return { ok: true, detailId: detail.id };
@@ -153,6 +171,15 @@ export async function updateDetail(input: {
   // anonimizare, deci fostul autor ar trece de ea. Poarta de pe /edit (getDetailForEditing) blochează
   // navigarea, dar acțiunea de server e o cale separată, apelabilă direct — trebuie blocată și aici.
   if (existing.isAnonymized) return { ok: false, error: "FORBIDDEN" };
+  // Proiecte (gol găsit la /code-review, 2026-08-09): ownership singur nu ajunge — un autor eliminat
+  // dintr-un proiect poate rămâne owner al detaliului, dar nu mai are voie să-l editeze/șteargă (aceeași
+  // poartă ca la citire, getDetail).
+  if (
+    existing.projectId &&
+    !(await canAccessProjectDetail({ projectId: existing.projectId, userId: input.userId }))
+  ) {
+    return { ok: false, error: "NOT_FOUND" };
+  }
 
   // 2) Validare + normalizare (aceleași reguli ca la creare).
   const validation = validateDetailInput({
@@ -370,6 +397,14 @@ export async function getDetailForEditing(detailId: string, authorId: string) {
   if (!isUuid(detailId)) return null;
   const detail = await getDetailForEdit(detailId, authorId);
   if (!detail) return null;
+  // Proiecte (gol găsit la /code-review, 2026-08-09): vezi comentariul identic din updateDetail —
+  // owner rămas fără acces la proiect nu mai are voie nici să vadă formularul de editare.
+  if (
+    detail.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: authorId }))
+  ) {
+    return null;
+  }
   const resources = await getDetailResources(detailId);
   return { ...detail, resources };
 }
@@ -396,13 +431,56 @@ export async function deleteDetailDraft(input: {
   return { ok: true };
 }
 
-// Citire pagină de detaliu (doar PUBLISHED) + resursele atașate. null dacă nu există / id invalid.
-export async function getDetail(id: string) {
+// Citire pagină de detaliu (doar PUBLISHED) + resursele atașate. null dacă nu există / id invalid /
+// (proiect) requester-ul n-are acces — ACEEAȘI formă în toate cazurile (anti-enumerare: pagina face
+// notFound() la fel, un non-membru nu poate distinge „nu există" de „e privat").
+//
+// SINGURUL loc din care se citește un detaliu pentru afișare (page.tsx-urile de detaliu/editare/schiță
+// îl cheamă pe ăsta, nu getDetailById direct) — de-aia poarta de acces la proiect stă aici, o dată.
+export async function getDetail(id: string, requesterId: string) {
   if (!isUuid(id)) return null;
   const detail = await getDetailById(id);
   if (!detail) return null;
+  if (detail.projectId) {
+    const allowed = await canAccessProjectDetail({ projectId: detail.projectId, userId: requesterId });
+    if (!allowed) return null;
+  }
   const resources = await getDetailResources(id);
   return { ...detail, resources };
+}
+
+export type ReleaseToCommunityResult =
+  | { ok: true; projectId: string }
+  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" | "NOT_IN_PROJECT" };
+
+// „Scoate în comunitate" — mutație ireversibilă (regula „orfan", vezi projectService). userId vine
+// din sesiune (anti-IDOR).
+export async function releaseDetailToCommunity(input: {
+  detailId: string;
+  userId: string;
+}): Promise<ReleaseToCommunityResult> {
+  if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
+  const detail = await getDetailById(input.detailId);
+  if (!detail) return { ok: false, error: "NOT_FOUND" };
+  if (!detail.projectId) return { ok: false, error: "NOT_IN_PROJECT" };
+
+  const project = await getProject(detail.projectId);
+  if (!project) return { ok: false, error: "NOT_FOUND" };
+
+  // NU verificăm getProjectAccess aici — regula „orfan" (canReleaseDetailToCommunity) permite EXPLICIT
+  // autorului detaliului să-l scoată în comunitate chiar dacă a fost între timp eliminat din proiect
+  // (asta e tot rostul regulii). Un gate suplimentar aici bloca exact cazul pe care orfanul trebuia să-l
+  // rezolve (gol găsit la /code-review, 2026-08-09).
+  const check = await canReleaseDetailToCommunity({
+    projectId: detail.projectId,
+    detailAuthorId: detail.ownerId,
+    projectOwnerId: project.ownerId,
+    requesterId: input.userId,
+  });
+  if (!check.allowed) return { ok: false, error: "FORBIDDEN" };
+
+  await releaseDetailToCommunityRow(input.detailId);
+  return { ok: true, projectId: detail.projectId };
 }
 
 // Înregistrează o vizualizare a unui detaliu.
@@ -450,6 +528,13 @@ export async function deleteDetail(input: {
   if (detail.ownerId !== input.userId) return { ok: false, error: "FORBIDDEN" };
   // Deja retras: nu mai are ce anonimiza și nu mai poate șterge (s-a desprins de detaliu).
   if (detail.isAnonymized) return { ok: false, error: "ALREADY_ANONYMIZED" };
+  // Proiecte (gol găsit la /code-review, 2026-08-09): vezi comentariul identic din updateDetail.
+  if (
+    detail.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.userId }))
+  ) {
+    return { ok: false, error: "NOT_FOUND" };
+  }
 
   // Ce se întâmplă efectiv depinde de urma lăsată de ceilalți (decizie de produs 2026-08-06):
   // fără nicio interacțiune → dispare tot; cu interacțiuni → conținutul rămâne, autorul se retrage.
@@ -526,6 +611,12 @@ export async function toggleSavedDetail(input: {
   if (!isUuid(input.detailId)) return { saved: false };
   const detail = await getDetailById(input.detailId);
   if (!detail) return { saved: false };
+  // Proiecte (2026-08-09): non-membru „nu vede" detaliul deloc — nu-l poate nici salva. Fără asta,
+  // titlul/imaginea lui ar ajunge pe /saved al userului, în afara graniței proiectului (vezi și
+  // listSavedDetails/listOfferedDetails în detailsRepo.ts, filtrate acum la fel).
+  if (detail.projectId && !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.userId }))) {
+    return { saved: false };
+  }
 
   const already = await isDetailSavedByUser(input.userId, input.detailId);
   if (already) {

@@ -57,7 +57,7 @@ export async function addComment(input: {
     return { ok: false, error: v.error === "REQUIRED" ? "BODY_REQUIRED" : "BODY_TOO_LONG" };
   }
 
-  if (!(await targetExists(input.targetType, input.targetId))) {
+  if (!(await targetExists(input.targetType, input.targetId, input.userId))) {
     return { ok: false, error: "TARGET_NOT_FOUND" };
   }
 
@@ -166,6 +166,11 @@ export async function toggleCommentLike(input: {
 
   const target = await getCommentTarget(input.commentId);
   if (!target) return { ok: false, error: "NOT_FOUND" };
+  // Proiecte (2026-08-09, gol găsit la /code-review): un like pe un comentariu de pe un detaliu de
+  // proiect e tot o interacțiune cu conținut privat — aceeași poartă ca la addComment/targetExists.
+  if (!(await targetExists(target.targetType, target.targetId, input.userId))) {
+    return { ok: false, error: "NOT_FOUND" };
+  }
   if (target.authorId === input.userId) return { ok: false, error: "CANNOT_LIKE_OWN" };
 
   const liked = await toggleCommentLikeRepo(input.commentId, input.userId);

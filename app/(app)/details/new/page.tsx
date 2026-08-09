@@ -1,15 +1,23 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { listCategories } from "@/server/services/categoryService";
 import { userHasRole } from "@/server/services/roleService";
+import { getProjectForViewer } from "@/server/services/projectService";
 
 import { DetailForm } from "./detail-form";
 import { saveNewDetailDraftAction } from "./actions";
 
 // „Adaugă detaliu" — orice user autentificat cu ROL DECLARAT poate publica (moderare post-publicare).
-export default async function NewDetailPage() {
+// `?projectId=X` (2026-08-09): publicare într-un proiect în loc de comunitate — vezi
+// server/domain/project.ts. Fără rol în URL: o ciornă nu poate avea proiect (invarianta), deci
+// butonul „Salvează ciornă" dispare complet în acest mod (vezi mai jos).
+export default async function NewDetailPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
@@ -19,14 +27,23 @@ export default async function NewDetailPage() {
     redirect("/onboarding");
   }
 
+  const { projectId } = await searchParams;
+  // Re-verificare pe server (nu doar UI): un userId care nu mai e membru (link vechi, eliminat între
+  // timp) nu ajunge nici măcar la formular — createDetailAction verifică din nou la submit oricum,
+  // dar aici evităm să arătăm formularul degeaba.
+  const project = projectId
+    ? await getProjectForViewer({ projectId, userId: session.user.id })
+    : null;
+  if (projectId && !project) notFound();
+
   const categories = await listCategories();
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
       {/* breadcrumb */}
       <nav className="mb-[18px] flex items-center gap-2 font-mono text-xs text-muted-foreground">
-        <Link href="/feed" className="hover:text-foreground">
-          Detalii
+        <Link href={project ? `/projects/${project.project.id}` : "/feed"} className="hover:text-foreground">
+          {project ? project.project.name : "Detalii"}
         </Link>
         <span className="text-[#cabfac]">/</span>
         <span className="text-foreground/70">Adaugă un detaliu</span>
@@ -36,8 +53,14 @@ export default async function NewDetailPage() {
         Adaugă un detaliu
       </h1>
       <p className="mb-7 mx-auto max-w-[58ch] text-center text-[15px] leading-relaxed text-muted-foreground">
-        Pui un detaliu de execuție la dezbatere. Publici desenul cu o descriere, breasla îl
-        cântărește pe roluri — fără coadă de aprobare.
+        {project ? (
+          <>
+            Publici în proiectul <strong>{project.project.name}</strong> — vizibil doar membrilor,
+            nu în comunitate.
+          </>
+        ) : (
+          "Pui un detaliu de execuție la dezbatere. Publici desenul cu o descriere, breasla îl cântărește pe roluri — fără coadă de aprobare."
+        )}
       </p>
 
       {categories.length === 0 ? (
@@ -48,7 +71,11 @@ export default async function NewDetailPage() {
       ) : (
         <DetailForm
           categories={categories.map((c) => ({ id: c.id, name: c.name, parentId: c.parentId, isGroup: c.isGroup }))}
-          saveDraftAction={saveNewDetailDraftAction}
+          // Ciornă = mereu personală (invarianta din server/domain/project.ts) — butonul dispare
+          // complet când publicăm într-un proiect.
+          saveDraftAction={project ? undefined : saveNewDetailDraftAction}
+          projectId={project?.project.id}
+          submitLabel={project ? "Publică în proiect" : undefined}
         />
       )}
     </main>

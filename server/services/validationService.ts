@@ -17,6 +17,7 @@ import { insertComment } from "@/server/repos/commentsRepo";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
+import { canAccessProjectDetail } from "@/server/services/projectService";
 import {
   deletePosition,
   listPositionsForTarget,
@@ -36,15 +37,29 @@ type ValidationError =
 export type ValidationResult = { ok: true } | { ok: false; error: ValidationError };
 
 // Ținta trebuie să existe (și să fie publică) înainte de a accepta o poziție / un comentariu.
-export async function targetExists(targetType: TargetType, targetId: string): Promise<boolean> {
+// Proiecte (2026-08-09): un detaliu de proiect „nu există" (SEC-14 anti-enumerare) pentru cine nu are
+// acces — altfel un non-membru cu UUID-ul (leak dintr-un screenshot, istoric browser, alt membru) ar
+// putea vota/comenta pe conținut care ar trebui invizibil în afara proiectului.
+export async function targetExists(
+  targetType: TargetType,
+  targetId: string,
+  userId: string,
+): Promise<boolean> {
   // SEC-11: id malformat → „not found" (nu eroare SQL pe coloana uuid). Gate central pt approve/disapprove/comment.
   if (!isUuid(targetId)) return false;
   if (targetType === "DETAIL") {
-    return (await getDetailById(targetId)) !== null; // getDetailById întoarce doar PUBLISHED
+    const detail = await getDetailById(targetId); // getDetailById întoarce doar PUBLISHED
+    if (!detail) return false;
+    if (detail.projectId) return canAccessProjectDetail({ projectId: detail.projectId, userId });
+    return true;
   }
   // SKETCH: poziții/comentarii doar pe schițe PUBLISHED (dezbaterea per schiță vine gratis, polimorfic).
   const sketch = await getSketchById(targetId);
-  return sketch !== null && sketch.status === "PUBLISHED";
+  if (!sketch || sketch.status !== "PUBLISHED") return false;
+  const parentDetail = await getDetailById(sketch.detailId);
+  if (!parentDetail) return false;
+  if (parentDetail.projectId) return canAccessProjectDetail({ projectId: parentDetail.projectId, userId });
+  return true;
 }
 
 // Autorul țintei (DETAIL sau SKETCH PUBLISHED) sau null dacă nu există / nu e publică. Serveşte acum
@@ -54,17 +69,30 @@ export async function targetExists(targetType: TargetType, targetId: string): Pr
 async function getTargetAuthorId(
   targetType: TargetType,
   targetId: string,
+  userId: string,
 ): Promise<string | null> {
   if (!isUuid(targetId)) return null; // SEC-11
   if (targetType === "DETAIL") {
     const detail = await getDetailById(targetId); // doar PUBLISHED
+    if (!detail) return null;
+    // Proiecte (2026-08-09): un detaliu de proiect fără acces = „nu există" aici, la fel ca la
+    // targetExists — altfel autorul lui ar ieși la iveală (ownerId) pentru un non-membru.
+    if (detail.projectId && !(await canAccessProjectDetail({ projectId: detail.projectId, userId }))) {
+      return null;
+    }
     // `ownerId` (identitatea reală), NU `authorId` (mascat la null după anonimizare) — altfel guard-ul
     // de auto-dezaprobare din recordSketchDisapproval nu s-ar mai declanșa NICIODATĂ pe un detaliu
     // anonimizat, pentru NIMENI, nu doar pentru fostul autor (SEC-002, audit 2026-08-07).
-    return detail?.ownerId ?? null;
+    return detail.ownerId;
   }
   const sketch = await getSketchById(targetId);
-  return sketch !== null && sketch.status === "PUBLISHED" ? sketch.authorId : null;
+  if (!sketch || sketch.status !== "PUBLISHED") return null;
+  const parentDetail = await getDetailById(sketch.detailId);
+  if (!parentDetail) return null;
+  if (parentDetail.projectId && !(await canAccessProjectDetail({ projectId: parentDetail.projectId, userId }))) {
+    return null;
+  }
+  return sketch.authorId;
 }
 
 // Detaliul-părinte REAL al unei ținte — NU se are încredere în `detailId` trimis de client (hidden input,
@@ -90,7 +118,7 @@ export async function approve(input: {
   // autorul pe propriul conținut. Guard-ul „nu te validezi singur" a fost eliminat DELIBERAT — cu
   // prețul asumat că scorul de validare nu mai garantează că vine doar de la alții. Verificăm doar
   // că ținta există și e publică.
-  const authorId = await getTargetAuthorId(input.targetType, input.targetId);
+  const authorId = await getTargetAuthorId(input.targetType, input.targetId, input.userId);
   if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
 
   await upsertPosition({
@@ -122,7 +150,7 @@ export async function disapprove(input: {
   }
 
   // Vezi nota din `approve`: auto-validarea e PERMISĂ din 2026-08-06 (decizie de produs).
-  const authorId = await getTargetAuthorId(input.targetType, input.targetId);
+  const authorId = await getTargetAuthorId(input.targetType, input.targetId, input.userId);
   if (!authorId) return { ok: false, error: "TARGET_NOT_FOUND" };
 
   // NU avem încredere în input.detailId (vine din client) — îl derivăm server-side din țintă, altfel un
@@ -177,7 +205,7 @@ export async function recordSketchDisapproval(input: {
   if (!isUuid(input.detailId)) return; // SEC-11
   const role = await getRoleByUserId(input.userId);
   if (!role) return; // fără rol nu se înregistrează poziție (regula de validare pe roluri)
-  const authorId = await getTargetAuthorId("DETAIL", input.detailId);
+  const authorId = await getTargetAuthorId("DETAIL", input.detailId, input.userId);
   if (!authorId || authorId === input.userId) return; // țintă inexistentă sau propriul detaliu
 
   // Aceeași fereastră de race ca la disapprove (dublu-publish) → aceeași tranziție atomică în DB.

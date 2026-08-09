@@ -19,6 +19,8 @@
   "detailsRepo.ts::validations::users.name::0": true,
   "detailsRepo.ts::validations::users.image::0": true,
   "detailsRepo.ts::validations::users.id::0": true,
+  "profileRepo.ts::details::sketches.detailId::0": true,
+  "profileRepo.ts::details::sketches.id::0": true,
   "profileRepo.ts::detailCategories::categories.name::0": true,
   "profileRepo.ts::detailCategories::categories.id::0": true,
   "profileRepo.ts::detailCategories::categories.name::1": true,
