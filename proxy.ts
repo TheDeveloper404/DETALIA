@@ -165,12 +165,20 @@ export default async function proxy(req: NextRequest) {
         // SEC-14: cont non-ACTIVE a încercat o rută protejată → audit (userId = uuid intern, fără PII brut).
         audit("access_denied_suspended", { userId, status: gate.status, path: pathname }, "warning");
       }
-      const res = Response.redirect(new URL("/login?error=AccessDenied", origin));
+      // BUG confirmat din Vercel runtime logs (2026-08-09): `Response.redirect()` întoarce un Response cu
+      // headers IMUABILE (guard din spec Fetch) — `res.headers.append("Set-Cookie", ...)` arunca
+      // `TypeError: immutable`, proxy-ul crăpa cu 500 în loc să redirecteze, iar userul suspendat rămânea
+      // pe pagina protejată (500 ≠ navigare, browserul nu schimbă URL-ul). `NextResponse.redirect()` +
+      // `res.cookies` NU au acest guard — API idiomatic Next.js, nu construim Set-Cookie de mână.
+      const res = NextResponse.redirect(new URL("/login?error=AccessDenied", origin));
       for (const name of ["authjs.session-token", "__Secure-authjs.session-token"]) {
-        res.headers.append(
-          "Set-Cookie",
-          `${name}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax${name.startsWith("__Secure-") ? "; Secure" : ""}`,
-        );
+        res.cookies.set(name, "", {
+          path: "/",
+          maxAge: 0,
+          httpOnly: true,
+          sameSite: "lax",
+          secure: name.startsWith("__Secure-"),
+        });
       }
       return res;
     }
