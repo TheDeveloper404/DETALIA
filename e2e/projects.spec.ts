@@ -212,11 +212,19 @@ test.describe.serial("Proiecte — colaborare restrânsă", () => {
     }
 
     // Stranger: nici acces direct la detaliu, nici prezență în feed-ul public.
+    //
+    // Statusul HTTP NU se verifică aici: `app/(app)/details/[id]/loading.tsx` pune segmentul într-un
+    // Suspense boundary → streaming-ul pornește ÎNAINTE ca `getDetail` să apuce să cheme `notFound()`,
+    // iar Next.js comite deja 200 (+ noindex) în acel moment — comportament documentat (streaming.mdx,
+    // not-found.mdx), nu un bug. `/projects/[id]` n-are `loading.tsx` → acolo 404 e real și rămâne
+    // testat ca atare mai sus. Ce contează efectiv aici e că poarta de acces ține: pagina 404 se
+    // randează și titlul detaliului NU ajunge în payload.
     const strangerCtx = await sessionContextFor(browser, baseURL, strangerUserId, "E2E Stranger", STRANGER_EMAIL);
     try {
       const spage = await strangerCtx.newPage();
-      const res = await spage.goto(`/details/${projectDetailId}`);
-      expect(res?.status()).toBe(404);
+      await spage.goto(`/details/${projectDetailId}`);
+      await expect(spage.getByText("Nu găsim pagina")).toBeVisible();
+      await expect(spage.getByText(title)).not.toBeVisible();
 
       await spage.goto(`/feed?q=${encodeURIComponent(title.split(" ")[0])}`);
       await expect(spage.getByText(title)).not.toBeVisible();
