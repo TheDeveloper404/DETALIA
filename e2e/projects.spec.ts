@@ -233,13 +233,23 @@ test.describe.serial("Proiecte — colaborare restrânsă", () => {
     }
   });
 
-  test("owner scoate detaliul în comunitate → devine public (regula ireversibilă)", async ({ page, browser, baseURL }) => {
+  // Regula „orfan" (server/domain/project.ts, canReleaseToCommunity): autorul poate ORICÂND, owner-ul
+  // DOAR dacă autorul nu mai e membru activ. `page` (fixture implicit) e OWNER-ul proiectului — dar
+  // autorul detaliului e membrul, încă activ — deci owner-ul NU ar avea dreptul aici. Testăm calea
+  // mereu-permisă: autorul își scoate propriul detaliu.
+  test("autorul scoate propriul detaliu în comunitate → devine public (regula ireversibilă)", async ({
+    browser,
+    baseURL,
+  }) => {
+    const memberCtx = await sessionContextFor(browser, baseURL, memberUserId, "E2E Member", MEMBER_EMAIL);
+    const page = await memberCtx.newPage();
     await page.goto(`/details/${projectDetailId}`);
     await expect(page.getByText("proiect privat")).toBeVisible();
 
     await page.getByRole("button", { name: "Scoate în comunitate" }).click();
     await page.getByRole("button", { name: "Da, scoate în comunitate" }).click();
     await expect(page.getByText("proiect privat")).not.toBeVisible({ timeout: 10_000 });
+    await memberCtx.close();
 
     // Acum e cu adevărat public — stranger-ul (care nu a fost NICIODATĂ membru) îl poate vedea.
     const strangerCtx = await sessionContextFor(browser, baseURL, strangerUserId, "E2E Stranger", STRANGER_EMAIL);
