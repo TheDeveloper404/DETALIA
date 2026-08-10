@@ -59,16 +59,33 @@ export async function filterPublishedSketchIds(detailId: string, ids: string[]):
   return ids.filter((id) => alive.has(id));
 }
 
-// Blochează definitiv foile folosite ca fundal de o schiță tocmai publicată: din acest moment nu mai
-// pot fi șterse complet, doar li se poate retrage identitatea autorului (vezi `deleteSketch`).
-// `isNull(lockedAt)` face operația idempotentă și păstrează PRIMA blocare — momentul în care foaia a
-// intrat efectiv într-o dezbatere, nu al ultimei schițe construite peste ea.
-export async function lockStackBases(ids: string[], at: Date): Promise<void> {
-  if (ids.length === 0) return;
-  await db
+// La publicarea unei schițe cu fundal: rescrie rețeta (după eliminarea foilor dispărute între timp) ȘI
+// blochează definitiv foile rămase (nu mai pot fi șterse complet, doar li se poate retrage identitatea
+// autorului — vezi `deleteSketch`), ATOMIC într-un singur `db.batch` (fix 2026-08-11, backlog: cele două
+// scrieri rulau separat — un crash exact între ele lăsa o rețetă rescrisă cu foi ÎNCĂ neblocate, o
+// fereastră de milisecunde în care foaia de dedesubt putea fi ștearsă complet de sub schița publicată).
+// `isNull(lockedAt)` pe blocare face operația idempotentă și păstrează PRIMA blocare — momentul în care
+// foaia a intrat efectiv într-o dezbatere, nu al ultimei schițe construite peste ea.
+export async function finalizeStackBases(sketchId: string, aliveBases: string[], lockedAt: Date): Promise<void> {
+  const rewriteRecipe = db
     .update(sketches)
-    .set({ lockedAt: at })
-    .where(and(inArray(sketches.id, ids), isNull(sketches.lockedAt)));
+    .set({ baseSketchIds: aliveBases.length ? aliveBases : null })
+    .where(eq(sketches.id, sketchId));
+
+  // Toate foile din rețetă au dispărut între capturare și publicare (caz limită, rar): nimic de blocat,
+  // doar rescriem rețeta golită — un singur UPDATE, nimic de coordonat atomic cu el.
+  if (aliveBases.length === 0) {
+    await rewriteRecipe;
+    return;
+  }
+
+  await db.batch([
+    rewriteRecipe,
+    db
+      .update(sketches)
+      .set({ lockedAt })
+      .where(and(inArray(sketches.id, aliveBases), isNull(sketches.lockedAt))),
+  ]);
 }
 
 // ȘTERGERE PARȚIALĂ: retrage IDENTITATEA autorului, păstrează contribuția. `strokes_json`,
@@ -77,14 +94,6 @@ export async function lockStackBases(ids: string[], at: Date): Promise<void> {
 // unde e în teancurile altora. Idempotentă (a doua apelare nu schimbă nimic).
 export async function markAuthorRemoved(id: string): Promise<void> {
   await db.update(sketches).set({ authorRemoved: true }).where(eq(sketches.id, id));
-}
-
-// Rescrie rețeta stack-ului (la publicare, după eliminarea foilor dispărute între timp).
-export async function updateBaseSketchIds(id: string, ids: string[]): Promise<void> {
-  await db
-    .update(sketches)
-    .set({ baseSketchIds: ids.length ? ids : null })
-    .where(eq(sketches.id, id));
 }
 
 export async function getSketchById(id: string) {

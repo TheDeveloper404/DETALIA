@@ -25,10 +25,9 @@ import {
   deleteDraftByAuthor,
   deleteSketchCascade,
   filterPublishedSketchIds,
+  finalizeStackBases,
   getPublicSketchTeaser,
-  lockStackBases,
   markAuthorRemoved,
-  updateBaseSketchIds,
   listAnnotationsByDetail,
   listDraftsByAuthor,
   listPublishedByDetail,
@@ -224,10 +223,8 @@ export async function publish(input: {
   const declaredBases = (sketch.baseSketchIds as string[] | null) ?? [];
   if (declaredBases.length > 0) {
     const aliveBases = await filterPublishedSketchIds(sketch.detailId, declaredBases);
-    if (aliveBases.length !== declaredBases.length) {
-      await updateBaseSketchIds(sketch.id, aliveBases);
-    }
-    await lockStackBases(aliveBases, new Date());
+    // Rescrierea rețetei + blocarea foilor rămase, ATOMIC (fix 2026-08-11) — vezi `finalizeStackBases`.
+    await finalizeStackBases(sketch.id, aliveBases, new Date());
   }
 
   // Dezaprobare-prin-schiță: acum (la publicare) materializăm poziția + justificarea pe detaliul-mamă.
