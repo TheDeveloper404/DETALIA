@@ -16,8 +16,7 @@ vi.mock("@/server/repos/sketchesRepo", () => ({
   publishFromDraft: vi.fn(),
   updateStrokes: vi.fn(),
   filterPublishedSketchIds: vi.fn(),
-  lockStackBases: vi.fn(),
-  updateBaseSketchIds: vi.fn(),
+  finalizeStackBases: vi.fn(),
   markAuthorRemoved: vi.fn(),
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ getNotificationActor: vi.fn() }));
@@ -41,12 +40,11 @@ import {
   countAnnotationsByDetail,
   deleteSketchCascade,
   filterPublishedSketchIds,
+  finalizeStackBases,
   getSketchById,
   insertDraft,
-  lockStackBases,
   markAuthorRemoved,
   publishFromDraft,
-  updateBaseSketchIds,
   updateStrokes,
 } from "@/server/repos/sketchesRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
@@ -632,13 +630,13 @@ describe("Stack — blocarea foilor la publicare", () => {
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
   });
 
-  it("publicarea blochează exact foile din rețetă", async () => {
+  it("publicarea blochează exact foile din rețetă (rescriere + blocare ATOMIC, un singur apel)", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft({ baseSketchIds: [BASE_A, BASE_B] }) as never);
 
     const res = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
 
     expect(res).toEqual({ ok: true });
-    expect(lockStackBases).toHaveBeenCalledWith([BASE_A, BASE_B], expect.any(Date));
+    expect(finalizeStackBases).toHaveBeenCalledWith(SID, [BASE_A, BASE_B], expect.any(Date));
   });
 
   it("schiță fără fundal → nu blochează nimic", async () => {
@@ -646,8 +644,7 @@ describe("Stack — blocarea foilor la publicare", () => {
 
     await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
 
-    expect(lockStackBases).not.toHaveBeenCalled();
-    expect(updateBaseSketchIds).not.toHaveBeenCalled();
+    expect(finalizeStackBases).not.toHaveBeenCalled();
   });
 
   it("CURSĂ — o foaie ștearsă între capturare și publicare e curățată din rețetă, nu lăsată moartă", async () => {
@@ -658,18 +655,8 @@ describe("Stack — blocarea foilor la publicare", () => {
     const res = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
 
     expect(res).toEqual({ ok: true });
-    // Rețeta se rescrie fără referința moartă — altfel randarea ar sări tăcut o foaie.
-    expect(updateBaseSketchIds).toHaveBeenCalledWith(SID, [BASE_A]);
-    // Se blochează doar ce mai există.
-    expect(lockStackBases).toHaveBeenCalledWith([BASE_A], expect.any(Date));
-  });
-
-  it("rețetă neschimbată → nu se rescrie degeaba", async () => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ baseSketchIds: [BASE_A] }) as never);
-
-    await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
-
-    expect(updateBaseSketchIds).not.toHaveBeenCalled();
+    // Rețeta curățată de referința moartă + blocarea foilor rămase, într-un singur apel atomic.
+    expect(finalizeStackBases).toHaveBeenCalledWith(SID, [BASE_A], expect.any(Date));
   });
 
   it("publicare eșuată (cursă pe status) → NU blochează foile altcuiva", async () => {
@@ -679,7 +666,7 @@ describe("Stack — blocarea foilor la publicare", () => {
     const res = await publish({ sketchId: SID, authorId: SKETCH_AUTHOR });
 
     expect(res).toEqual({ ok: false, error: "INVALID_STATE" });
-    expect(lockStackBases).not.toHaveBeenCalled();
+    expect(finalizeStackBases).not.toHaveBeenCalled();
   });
 
   it("rolul autorului se îngheață la publicare (pentru «Autor șters · rol» de mai târziu)", async () => {
