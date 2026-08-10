@@ -325,6 +325,11 @@ export const sketches = pgTable(
     roleSnapshot: jsonb(),
     // Ștergere „parțială": identitatea autorului a fost retrasă, desenul rămâne pe masă.
     authorRemoved: boolean().notNull().default(false),
+    // Setat o SINGURĂ dată, la „Scoate în comunitate" (SEC-002, 2026-08-10): schițele altor membri decât
+    // autorul detaliului NU devin publice odată cu detaliul — regula „release publică doar conținutul
+    // autorului". Rămâne setat definitiv (nu se poate reintra în proiect din detaliu de comunitate),
+    // altfel n-are efect pe schițele autorului sau pe cele create ulterior pe un detaliu deja public.
+    hiddenAfterRelease: boolean().notNull().default(false),
     // Setat o SINGURĂ dată, când o ALTĂ schiță care o conține în `baseSketchIds` e PUBLICATĂ (nu la
     // simpla apăsare a butonului). Rămâne setat definitiv, chiar dacă schița care a blocat-o e
     // ștearsă ulterior — altfel ștergerea ar redeveni posibilă retroactiv peste o dezbatere reală.

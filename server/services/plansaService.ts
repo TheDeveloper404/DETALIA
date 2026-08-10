@@ -179,7 +179,9 @@ export async function addDetailToCanvas(input: {
       !sketch ||
       sketch.status !== "PUBLISHED" ||
       sketch.detailId !== input.detailId ||
-      !sketch.thumbnailUrl
+      !sketch.thumbnailUrl ||
+      // SEC-002: schiță ascunsă la „Scoate în comunitate" — nu poate fi copiată pe o planșă nouă.
+      sketch.hiddenAfterRelease
     ) {
       return { ok: false, error: "DETAIL_NOT_FOUND" };
     }
@@ -247,7 +249,9 @@ export async function getCanvasForEdit(input: {
   for (const row of rows) {
     if (row.sketchId) {
       const sketch = await getSketchById(row.sketchId);
-      if (!sketch || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl) continue; // șters/retras → placeholder
+      // SEC-002: schiță ascunsă la release → tratată ca dispărută, la fel ca ștearsă/retrasă.
+      if (!sketch || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl || sketch.hiddenAfterRelease)
+        continue;
       const detail = await getDetailById(row.detailId);
       // Proiecte (2026-08-09, gol găsit la /code-review): un membru ELIMINAT din proiect nu mai
       // trebuie să vadă, la fiecare reîncărcare a planșei, titlul/thumbnailul unui detaliu care a
