@@ -20,6 +20,7 @@ import {
   type NotificationType,
 } from "@/server/repos/notificationsRepo";
 import { getUserContact } from "@/server/repos/usersRepo";
+import { isUuid } from "@/server/domain/ids";
 
 function detailUrl(detailId: string): string {
   const base = process.env.AUTH_URL ?? "http://localhost:3000";
@@ -68,8 +69,10 @@ export function markNotificationsRead(userId: string) {
   return markAllRead(userId);
 }
 
-export function markNotificationRead(userId: string, id: string) {
-  return markOneRead(userId, id);
+export async function markNotificationRead(userId: string, id: string) {
+  // SEC-006: gardă isUuid (SEC-11), lipsea aici — id malformat cade direct în cast Postgres, altfel.
+  if (!isUuid(id)) return;
+  await markOneRead(userId, id);
 }
 
 // Către autorul detaliului-mamă: cineva a publicat o schiță peste detaliul lui (intră direct în teanc).

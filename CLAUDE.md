@@ -33,10 +33,11 @@
 - **`AUTH_SECRET` — rotire trimestrială.** Rotirea invalidează instant TOATE sesiunile active (JWT semnate cu
   secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din greșeală. Schimbi valoarea în
   Vercel (env, ambele scope-uri Preview + Production) → redeploy.
-- **`next-auth` (Auth.js v5) — verificare periodică de versiune** *(confirmat 2026-07-13, audit securitate)*:
-  proiectul rulează pe `5.0.0-beta.31` — librăria de autentificare e încă oficial BETA. La checkpoint-ul
-  lunar (sau când apare un motiv), verifică `npm view next-auth versions` pentru o beta mai nouă cu fix-uri
-  de securitate; folosește context7 dacă ai nevoie de detalii de migrare API.
+- **`next-auth` (Auth.js v5) — verificare periodică de versiune** *(actualizat 2026-08-10, audit securitate
+  13 categorii)*: proiectul rulează pe `5.0.0-beta.32` + `@auth/core` `0.41.3` (release de securitate iulie
+  2026, include GHSA-8fpg-xm3f-6cx3 — fail-open pe middleware v5) — librăria e încă oficial BETA. La
+  checkpoint-ul lunar (sau când apare un motiv), verifică `npm view next-auth versions` pentru o beta mai
+  nouă cu fix-uri de securitate; folosește context7 dacă ai nevoie de detalii de migrare API.
 - **Scanare periodică de cod mort cu `knip`** *(regulă 2026-07-13)*: Sentry/PostHog arată doar ce a crăpat
   vreodată, nu cod mort care n-a aruncat nicio eroare. Rulează `npx knip` ~lunar — fișiere/exporturi
   neutilizate + dependențe nedeclarate. **Nu șterge orbește din rezultat:** Server Actions (`"use server"`)

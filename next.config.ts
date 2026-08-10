@@ -31,7 +31,16 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // robots.txt/sitemap.xml sunt excluse din matcher-ul proxy.ts (nu au nevoie de nonce, sunt text simplu,
+      // nu HTML) → CSP-ul dinamic din lib/csp.ts nu ajunge la ele. Politică statică minimă, doar ca headerul
+      // să existe (ZAP: "CSP Header Not Set", risc real aproape nul, dar ieftin de închis).
+      {
+        source: "/(robots.txt|sitemap.xml)",
+        headers: [{ key: "Content-Security-Policy", value: "default-src 'none'" }],
+      },
+    ];
   },
   async rewrites() {
     return [

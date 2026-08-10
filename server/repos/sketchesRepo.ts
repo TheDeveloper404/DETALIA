@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
+import { hasProjectAccessForUser } from "@/server/repos/detailsRepo";
 import { type SketchStatus, type Stroke } from "@/server/domain/sketch";
 import type { RoleSnapshot } from "@/server/domain/validation";
 
@@ -49,6 +50,8 @@ export async function filterPublishedSketchIds(detailId: string, ids: string[]):
         // Fără ea, un id de adnotare ar trece validarea și s-ar bloca la publicare, dar UI-ul nu l-ar
         // găsi niciodată în teanc → foaie acceptată de server, imposibil de randat.
         ne(sketches.authorId, details.authorId),
+        // SEC-002: o foaie ascunsă la release nu mai e „vie" — nu poate fi bază pentru un stack nou.
+        eq(sketches.hiddenAfterRelease, false),
       ),
     );
   const alive = new Set(rows.map((r) => r.id));
@@ -180,6 +183,9 @@ function selectByDetailAndStatus(detailId: string, status: SketchStatus) {
         // Exclude ADNOTAREA autorului (schiță pe propriul detaliu) — vezi `isSelfAnnotation`
         // (server/domain/sketch.ts). Teancul = contribuțiile ALTORA, model fork/PR.
         ne(sketches.authorId, details.authorId),
+        // SEC-002: schițele altor membri, ascunse definitiv la „Scoate în comunitate" (vezi
+        // hiddenAfterRelease în schema). False pentru orice schiță nescoasă încă dintr-un proiect.
+        eq(sketches.hiddenAfterRelease, false),
       ),
     )
     .orderBy(desc(sketches.createdAt));
@@ -281,6 +287,8 @@ export async function filterSketchIdsByDetail(
         eq(sketches.detailId, detailId),
         eq(sketches.status, "PUBLISHED"),
         inArray(sketches.id, ids),
+        // SEC-002: nu poți @menționa o schiță ascunsă la release.
+        eq(sketches.hiddenAfterRelease, false),
       ),
     );
   return new Set(rows.map((r) => r.id));
@@ -318,6 +326,8 @@ export async function getPublicSketchTeaser(id: string) {
         // trebuie să apară aici NICIODATĂ, indiferent de viewer (nici măcar membrii proiectului; ei o
         // văd pe pagina proiectului, nu pe teaser-ul public).
         isNull(details.projectId),
+        // SEC-002: și după „Scoate în comunitate", schița altui membru rămâne ascunsă — vezi hiddenAfterRelease.
+        eq(sketches.hiddenAfterRelease, false),
       ),
     )
     .limit(1);
@@ -349,7 +359,14 @@ export function listDraftsByAuthor(authorId: string) {
     })
     .from(sketches)
     .innerJoin(details, eq(details.id, sketches.detailId))
-    .where(and(eq(sketches.authorId, authorId), eq(sketches.status, "DRAFT")))
+    .where(
+      and(
+        eq(sketches.authorId, authorId),
+        eq(sketches.status, "DRAFT"),
+        // Proiecte: un membru eliminat nu-și mai vede ciornele peste detalii private ale foștilor colegi.
+        hasProjectAccessForUser(authorId),
+      ),
+    )
     .orderBy(desc(sketches.createdAt));
 }
 
