@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canAddAnnotation,
+  MAX_ANNOTATIONS_PER_DETAIL,
   MAX_POINTS_PER_STROKE,
   MAX_SKETCH_NOTE_LENGTH,
   MAX_STACK_DEPTH,
@@ -33,15 +35,32 @@ const UUID_A = "11111111-1111-4111-8111-111111111111";
 const UUID_B = "22222222-2222-4222-8222-222222222222";
 const UUID_C = "33333333-3333-4333-8333-333333333333";
 
-// Predicatul care separă ADNOTAREA autorului (nota lui pe propria imagine) de SCHIȚA altcuiva
-// (contribuție, model fork/PR). E mirror-uit în SQL în sketchesRepo/detailsRepo/profileRepo.
+// Predicat de identitate: „acest actor e AUTORUL detaliului?" — folosit la authz-ul adnotării și la
+// suprimarea notificării „nu te anunț pe tine". NU mai decide ce rând E adnotare (2026-08-11) — aia
+// stă în `sketches.isAnnotation`, coloană DB, nu identitate.
 describe("isSelfAnnotation", () => {
-  it("autorul schiței == autorul detaliului → adnotare", () => {
+  it("autorul schiței == autorul detaliului", () => {
     expect(isSelfAnnotation({ sketchAuthorId: "u1", detailAuthorId: "u1" })).toBe(true);
   });
 
-  it("autori diferiți → schiță din teanc, nu adnotare", () => {
+  it("autori diferiți", () => {
     expect(isSelfAnnotation({ sketchAuthorId: "u2", detailAuthorId: "u1" })).toBe(false);
+  });
+});
+
+// Plafonul de adnotări (2026-08-11: MAX_ANNOTATIONS_PER_DETAIL = 1, coborât de la 3) — verificat pe
+// `isAnnotation`, nu pe identitatea autorului.
+describe("canAddAnnotation", () => {
+  it("MAX_ANNOTATIONS_PER_DETAIL e 1", () => {
+    expect(MAX_ANNOTATIONS_PER_DETAIL).toBe(1);
+  });
+
+  it("0 adnotări existente → mai încape una", () => {
+    expect(canAddAnnotation(0)).toBe(true);
+  });
+
+  it("la plafon → nu mai încape", () => {
+    expect(canAddAnnotation(MAX_ANNOTATIONS_PER_DETAIL)).toBe(false);
   });
 });
 
