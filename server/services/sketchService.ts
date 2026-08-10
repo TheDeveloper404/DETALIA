@@ -70,6 +70,9 @@ export async function createDraft(input: {
   disapprovesParent?: boolean;
   // Foile aprinse pe ecran în momentul apăsării — devin fundalul înghețat al noii schițe.
   baseSketchIds?: unknown;
+  // INTERN, folosit DOAR de `createAnnotation()` — niciun apel public (server action) nu-l setează.
+  // Vezi `isAnnotation` (db/schema.ts) și redefinirea din domain/sketch.ts (2026-08-11).
+  isAnnotation?: boolean;
 }): Promise<SketchResult<{ sketchId: string }>> {
   if (!isUuid(input.detailId)) return { ok: false, error: "DETAIL_NOT_FOUND" }; // SEC-11
   if (!(await getRoleByUserId(input.authorId))) return { ok: false, error: "NO_ROLE" };
@@ -90,16 +93,10 @@ export async function createDraft(input: {
     ? await filterPublishedSketchIds(input.detailId, stackValidation.value)
     : [];
 
-  // AUTORUL pe PROPRIUL detaliu: „Schițează peste" înseamnă o ADNOTARE NOUĂ, pornită de la zero
-  // (decizie de produs 2026-08-02). Adnotările existente rămân neatinse — se corectează prin ȘTERGERE +
-  // desenare din nou, nu prin editare. Plafonul se verifică și AICI ca să nu deschidem un editor în
-  // care userul desenează degeaba; `publish` îl reverifică oricum și el e sursa de adevăr.
-  // (Între 2026-07-31 și 2026-08-01 draftul pornea din adnotarea curentă, iar publicarea o înlocuia.)
-  const selfAnnotation = isSelfAnnotation({
-    sketchAuthorId: input.authorId,
-    detailAuthorId: detail.ownerId,
-  });
-  if (selfAnnotation) {
+  // Plafonul de adnotări se verifică DOAR pentru `isAnnotation` (nu mai e derivat din identitatea
+  // autorului, 2026-08-11 — vezi domain/sketch.ts). Un desen normal al autorului pe propriul detaliu,
+  // prin „Schițează peste", NU mai e limitat și NU mai pornește forțat de la detaliul gol.
+  if (input.isAnnotation) {
     const count = await countAnnotationsByDetail(input.detailId);
     if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
   }
@@ -109,10 +106,10 @@ export async function createDraft(input: {
     authorId: input.authorId,
     strokesJson: null,
     disapprovesParent: input.disapprovesParent ?? false,
-    // ADNOTAREA autorului pornește MEREU de la detaliul gol, chiar dacă a fost declanșată dintr-un tab
-    // cu stack aprins (decizie de produs 2026-08-08): o adnotare e nota autorului pe imaginea LUI, nu
-    // un răspuns într-o dezbatere. Un răspuns în dezbatere e o schiță normală, ca a oricui altcuiva.
-    baseSketchIds: selfAnnotation ? [] : baseSketchIds,
+    // ADNOTAREA pornește MEREU de la detaliul gol: e nota autorului pe imaginea LUI, nu un răspuns
+    // într-o dezbatere.
+    baseSketchIds: input.isAnnotation ? [] : baseSketchIds,
+    isAnnotation: input.isAnnotation ?? false,
   });
   return { ok: true, value: { sketchId: sketch.id } };
 }
@@ -195,13 +192,13 @@ export async function publish(input: {
     return { ok: false, error: "DETAIL_NOT_FOUND" };
   }
 
-  // PLAFONUL de adnotări — impus pe server, ÎNAINTE de tranziție: n-are sens să publicăm și abia apoi să
-  // ne plângem. Draftul curent e încă DRAFT, deci nu se numără pe el însuși. Un draft început când erau 2
-  // adnotări poate ajunge la publicare când sunt 3 (altă filă) → refuzăm aici, nu la deschiderea editorului.
-  // Cursă acceptată conștient: două publicări simultane ale ACELUIAȘI autor pot trece amândouă de check și
-  // duce la 4. E o cursă cu sine însuși, fără consecință distructivă (nimic nu se șterge), iar remediul —
-  // blocare la nivel de rând — nu justifică complexitatea. Ștergerea rămâne oricând la îndemâna autorului.
-  if (isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
+  // PLAFONUL de adnotări — impus pe server, ÎNAINTE de tranziție, DOAR pentru draftul creat prin
+  // `createAnnotation()` (`sketch.isAnnotation`, 2026-08-11 — nu mai e derivat din identitatea autorului:
+  // un desen normal ulterior al autorului pe propriul detaliu nu e limitat). Draftul curent e încă DRAFT,
+  // deci nu se numără pe el însuși. Cursă acceptată conștient: două publicări simultane ale ACELUIAȘI
+  // draft de adnotare pot trece amândouă de check — fără consecință distructivă, remediul (blocare la
+  // nivel de rând) nu justifică complexitatea. Ștergerea rămâne oricând la îndemâna autorului.
+  if (sketch.isAnnotation) {
     const count = await countAnnotationsByDetail(sketch.detailId);
     if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
   }
@@ -353,7 +350,11 @@ export async function createAnnotation(input: {
     return { ok: false, error: "FORBIDDEN" };
   }
 
-  const created = await createDraft({ detailId: input.detailId, authorId: input.authorId });
+  const created = await createDraft({
+    detailId: input.detailId,
+    authorId: input.authorId,
+    isAnnotation: true,
+  });
   if (!created.ok) return created;
 
   // Fără thumbnail: adnotarea nu apare în liste/teanc/teaser public (singurii consumatori de
@@ -366,6 +367,43 @@ export async function createAnnotation(input: {
   });
   if (!published.ok) return published;
   return { ok: true, value: { sketchId: created.value.sketchId } };
+}
+
+// Editează adnotarea EXISTENTĂ (din pagina de Editare detaliu) — singura schiță care rămâne editabilă
+// după publicare: e parte din datele detaliului (ca titlu/descriere), nu o contribuție imuabilă într-o
+// dezbatere. Nu creează un rând nou — înlocuiește desenul/nota PE LOC (2026-08-11, decizie de produs:
+// se editează la fel ca nume/descriere/date tehnice, nu doar prin ștergere + redesenare).
+export async function updateAnnotation(input: {
+  detailId: string;
+  sketchId: string;
+  authorId: string;
+  strokes: unknown;
+  note?: unknown;
+}): Promise<SketchResult> {
+  if (!isUuid(input.sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
+  const sketch = await getSketchById(input.sketchId);
+  if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
+  if (sketch.authorId !== input.authorId) return { ok: false, error: "FORBIDDEN" };
+  // `annotationSketchId` vine dintr-un câmp ascuns, client-controlat (formularul de Editare detaliu) —
+  // fără verificarea asta, un autor cu MAI MULTE detalii ar putea trimite id-ul adnotării de pe alt
+  // detaliu al lui și i-ar suprascrie silențios desenul cu cel de aici (găsit la /code-review, 2026-08-11).
+  if (sketch.detailId !== input.detailId) return { ok: false, error: "FORBIDDEN" };
+  // Doar rândul de adnotare e editabil așa — o schiță normală rămâne imuabilă după publicare.
+  if (!sketch.isAnnotation) return { ok: false, error: "FORBIDDEN" };
+  if (sketch.status !== SKETCH_STATUS.PUBLISHED) return { ok: false, error: "INVALID_STATE" };
+
+  const validation = validateStrokes(input.strokes);
+  if (!validation.ok) {
+    return { ok: false, error: validation.error === "EMPTY" ? "EMPTY_STROKES" : "INVALID_STROKES" };
+  }
+  let note: string | null | undefined;
+  if (input.note !== undefined) {
+    const noteValidation = validateSketchNote(input.note);
+    if (!noteValidation.ok) return { ok: false, error: "NOTE_TOO_LONG" };
+    note = noteValidation.value;
+  }
+  await updateStrokes(input.sketchId, validation.value, note);
+  return { ok: true };
 }
 
 // ── Citiri ──────────────────────────────────────────────────────────────────

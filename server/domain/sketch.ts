@@ -16,28 +16,33 @@ export const SKETCH_STATUS = {
 } as const;
 export type SketchStatus = (typeof SKETCH_STATUS)[keyof typeof SKETCH_STATUS];
 
-// ── Adnotarea autorului (2026-07-31) ────────────────────────────────────────────────────────────
-// O schiță făcută de AUTORUL detaliului pe PROPRIUL lui detaliu nu e un „fork/PR" (contribuția altcuiva) —
-// e autorul care se explică singur pe imaginea lui. Structural e tot un rând în `sketches` (același desen,
-// aceleași stroke-uri normalizate, același thumbnail), dar SEMANTIC e altceva → nu intră în teanc, nu se
-// numără ca „schiță primită", nu apare ca tab separat cu avatarul autorului lângă el însuși. Se afișează
-// ca adnotare peste imaginea de bază a detaliului.
-//
-// Predicat unic (mirror-uit în SQL acolo unde filtrarea se face în DB — vezi sketchesRepo/detailsRepo/
-// profileRepo: `sketches.author_id = details.author_id`). Schimbi regula aici → schimbi și SQL-ul.
+// ── Adnotarea autorului (2026-07-31, redefinită 2026-08-11) ────────────────────────────────────
+// O schiță făcută de AUTORUL detaliului pe PROPRIUL lui detaliu, DAR DOAR cea creată explicit prin
+// `createAnnotation()` (din formularul de Adaugă/Editează detaliu) e o „adnotare" — explicația
+// autorului pe propria imagine, parte din datele detaliului (ca titlu/descriere), nu o contribuție
+// primită. Identitatea ei e coloana `sketches.isAnnotation`, NU mai e derivată din egalitatea de autor:
+// până la 2026-08-11, ORICE desen al autorului pe propriul detaliu (inclusiv unul făcut mai târziu,
+// prin „Schițează peste" normal, în plină dezbatere) era tratat ca adnotare — bug real: îngropa
+// desenele ulterioare ale autorului sub un plafon greșit și le excludea din teanc/stack.
+// ACUM: doar rândul cu `isAnnotation = true` e adnotare; orice alt desen al autorului pe propriul
+// detaliu, făcut prin fluxul normal de schițat, e o schiță obișnuită — intră în teanc, se numără, poate
+// fi bază de stack pentru alții.
+export const MAX_ANNOTATIONS_PER_DETAIL = 1;
+
+// Adnotarea poate fi folosită ca fundal pentru schițele altora (2026-08-11, decizie de produs: e
+// „startul dezbaterii", cititorii trebuie să poată construi peste ea) — spre deosebire de perioada
+// 07-31→08-11, când era exclusă explicit din `filterPublishedSketchIds`.
+
+// Predicat de identitate: „acest actor e AUTORUL detaliului?" — folosit la (1) authz-ul creării/editării
+// adnotării (doar autorul detaliului poate face una), și (2) suprimarea notificării „nu te anunț pe tine
+// pentru propriul desen". NU mai decide ce rând E adnotare — aia stă în `isAnnotation` (coloană DB),
+// tocmai ca să nu mai confunde „e autorul" cu „e desenul de la publicare".
 export function isSelfAnnotation(input: {
   sketchAuthorId: string;
   detailAuthorId: string;
 }): boolean {
   return input.sketchAuthorId === input.detailAuthorId;
 }
-
-// Câte adnotări poate avea un detaliu (decizie de produs 2026-08-02). Autorul poate explica mai multe lucruri
-// separat, dar nu la nesfârșit: peste 3, selectorul devine nefolosibil și imaginea de bază dispare sub
-// desene. Plafonul se impune pe SERVER (`publish`) — UI-ul doar dezactivează butonul, nu e sursă de adevăr.
-// Istoric: 2026-07-31→2026-08-01 regula era „exact o adnotare, re-adnotarea o ÎNLOCUIEȘTE"; înlocuită aici
-// cu „până la 3, fiecare distinctă, ștergere explicită din UI". Vezi CHANGELOG 2026-08-02.
-export const MAX_ANNOTATIONS_PER_DETAIL = 3;
 
 // Mai încape o adnotare pe acest detaliu? (`count` = adnotările PUBLISHED existente.)
 export function canAddAnnotation(count: number): boolean {

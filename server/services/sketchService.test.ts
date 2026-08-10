@@ -64,6 +64,7 @@ import {
   getDraftForEdit,
   publish,
   saveStrokes,
+  updateAnnotation,
 } from "./sketchService";
 
 const OWNER = "owner-1"; // autorul detaliului-mamă
@@ -88,6 +89,7 @@ function draft(over: Record<string, unknown> = {}) {
     baseSketchIds: null,
     lockedAt: null,
     authorRemoved: false,
+    isAnnotation: false,
     ...over,
   };
 }
@@ -108,35 +110,57 @@ beforeEach(() => {
   vi.mocked(filterPublishedSketchIds).mockImplementation(async (_detailId, ids) => ids);
 });
 
-// Un detaliu poate avea până la MAX_ANNOTATIONS_PER_DETAIL adnotări (decizie 2026-08-02). Fiecare
-// „Schițează peste" al AUTORULUI pe propriul detaliu începe una NOUĂ, de la zero; cele existente rămân
-// neatinse (se corectează prin ștergere + desenare din nou). Plafonul se impune pe server, în `publish`.
-describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server", () => {
-  it("AUTORUL, cu adnotări existente → draftul pornește GOL (nu continuă adnotarea veche)", async () => {
+// 2026-08-11: plafonul de adnotări (MAX_ANNOTATIONS_PER_DETAIL = 1) NU mai e derivat din identitatea
+// autorului (authorId === detail.ownerId) — e explicit, pe `isAnnotation` (createDraft) / `sketch.isAnnotation`
+// (publish). Un desen NORMAL al autorului pe propriul detaliu, prin „Schițează peste" fără flag, NU mai
+// e limitat și NU mai pornește forțat de la detaliul gol — exact bug-ul real reparat aici.
+describe("Adnotare — plafon pe `isAnnotation`, NU pe identitatea autorului", () => {
+  it("createDraft({isAnnotation:true}) sub plafon → pornește GOL, insertDraft cu isAnnotation:true", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
-    vi.mocked(countAnnotationsByDetail).mockResolvedValue(1);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(0);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
 
-    await createDraft({ detailId: DID, authorId: OWNER });
+    await createDraft({ detailId: DID, authorId: OWNER, isAnnotation: true });
 
     expect(insertDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ authorId: OWNER, strokesJson: null }),
+      expect.objectContaining({
+        authorId: OWNER,
+        strokesJson: null,
+        baseSketchIds: [],
+        isAnnotation: true,
+      }),
     );
   });
 
-  it("AUTORUL la plafon → createDraft refuză, fără să deschidă un editor inutil", async () => {
+  it("createDraft({isAnnotation:true}) la plafon (1/1) → ANNOTATION_LIMIT, fără insert", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
     vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL);
 
-    const res = await createDraft({ detailId: DID, authorId: OWNER });
+    const res = await createDraft({ detailId: DID, authorId: OWNER, isAnnotation: true });
 
     expect(res).toEqual({ ok: false, error: "ANNOTATION_LIMIT" });
     expect(insertDraft).not.toHaveBeenCalled();
   });
 
+  it("createDraft FĂRĂ isAnnotation, chiar de la AUTORUL detaliului → NU e limitat, stack-ul NU se golește", async () => {
+    vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
+    vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
+    const baseId = "33333333-3333-4333-8333-333333333333";
+    vi.mocked(filterPublishedSketchIds).mockResolvedValue([baseId]);
+
+    const res = await createDraft({ detailId: DID, authorId: OWNER, baseSketchIds: [baseId] });
+
+    expect(res.ok).toBe(true);
+    // Bug reparat 2026-08-11: până acum ORICE desen al autorului pe propriul detaliu era tratat ca
+    // adnotare (identitate = plafon), inclusiv unul normal, ulterior publicării.
+    expect(countAnnotationsByDetail).not.toHaveBeenCalled();
+    expect(insertDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ baseSketchIds: [baseId], isAnnotation: false }),
+    );
+  });
+
   it("ALT user nu e limitat de plafonul de adnotări (teancul e alt concept)", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ main: "PROIECTANT" } as never);
-    vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
 
     const res = await createDraft({ detailId: DID, authorId: SKETCH_AUTHOR });
@@ -146,10 +170,12 @@ describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server
     expect(insertDraft).toHaveBeenCalledWith(expect.objectContaining({ strokesJson: null }));
   });
 
-  it("publicarea NU mai șterge adnotările existente (se acumulează, nu se înlocuiesc)", async () => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+  it("publish pe draftul de adnotare (isAnnotation:true) → nu notifică autorul pe sine", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, isAnnotation: true }) as never,
+    );
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
-    vi.mocked(countAnnotationsByDetail).mockResolvedValue(1);
+    vi.mocked(countAnnotationsByDetail).mockResolvedValue(0);
 
     const res = await publish({ sketchId: SID, authorId: OWNER });
 
@@ -160,8 +186,10 @@ describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server
     expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 
-  it("publish la plafon → ANNOTATION_LIMIT, FĂRĂ tranziție (draftul rămâne draft)", async () => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+  it("publish la plafon (isAnnotation:true) → ANNOTATION_LIMIT, FĂRĂ tranziție", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, isAnnotation: true }) as never,
+    );
     vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL);
 
     const res = await publish({ sketchId: SID, authorId: OWNER });
@@ -170,17 +198,20 @@ describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server
     expect(publishFromDraft).not.toHaveBeenCalled();
   });
 
-  it("publish sub plafon (2 din 3) → trece", async () => {
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+  it("publish pe un desen NORMAL al autorului (isAnnotation:false) → NU verifică plafonul, dar tot nu se anunță pe sine", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, isAnnotation: false }) as never,
+    );
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
-    vi.mocked(countAnnotationsByDetail).mockResolvedValue(MAX_ANNOTATIONS_PER_DETAIL - 1);
 
     const res = await publish({ sketchId: SID, authorId: OWNER });
 
     expect(res.ok).toBe(true);
+    expect(countAnnotationsByDetail).not.toHaveBeenCalled();
+    expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 
-  it("schița ALTUIA nu e supusă plafonului și nu atinge adnotările autorului", async () => {
+  it("schița ALTUIA nu e supusă plafonului și notifică normal", async () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
 
@@ -188,11 +219,12 @@ describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server
 
     expect(countAnnotationsByDetail).not.toHaveBeenCalled();
     expect(deleteSketchCascade).not.toHaveBeenCalled();
+    expect(notifySketchProposed).toHaveBeenCalled();
   });
 
   it("AUTORUL își poate ȘTERGE propria adnotare (singura cale de a scăpa de ea)", async () => {
     vi.mocked(getSketchById).mockResolvedValue(
-      draft({ authorId: OWNER, status: "PUBLISHED" }) as never,
+      draft({ authorId: OWNER, status: "PUBLISHED", isAnnotation: true }) as never,
     );
     vi.mocked(deleteSketchCascade).mockResolvedValue("https://blob/annotation.png" as never);
 
@@ -203,6 +235,83 @@ describe("Adnotări multiple — fiecare începe de la zero, cu plafon pe server
     expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/annotation.png"]);
     // Ștergerea propriei adnotări nu notifică pe nimeni — nu e moderarea muncii altcuiva.
     expect(notifySketchDeleted).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateAnnotation — editarea adnotării existente din pagina de Editare detaliu", () => {
+  it("autor diferit → FORBIDDEN", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "PUBLISHED", isAnnotation: true }) as never,
+    );
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: ATTACKER,
+      strokes: validStrokes,
+    });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(updateStrokes).not.toHaveBeenCalled();
+  });
+
+  it("rând care NU e adnotare (schiță normală) → FORBIDDEN, chiar dacă autorul se potrivește", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "PUBLISHED", isAnnotation: false }) as never,
+    );
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: OWNER,
+      strokes: validStrokes,
+    });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(updateStrokes).not.toHaveBeenCalled();
+  });
+
+  // Găsit la /code-review (2026-08-11): `annotationSketchId` vine dintr-un câmp ascuns, client-controlat
+  // — un autor cu MAI MULTE detalii ar putea trimite id-ul adnotării de pe ALT detaliu al lui.
+  it("adnotarea aparține unui ALT detaliu → FORBIDDEN, chiar dacă autorul+isAnnotation se potrivesc", async () => {
+    const OTHER_DETAIL_ID = "44444444-4444-4444-8444-444444444444";
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ detailId: OTHER_DETAIL_ID, authorId: OWNER, status: "PUBLISHED", isAnnotation: true }) as never,
+    );
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: OWNER,
+      strokes: validStrokes,
+    });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(updateStrokes).not.toHaveBeenCalled();
+  });
+
+  it("adnotare încă DRAFT (nepublicată) → INVALID_STATE", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "DRAFT", isAnnotation: true }) as never,
+    );
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: OWNER,
+      strokes: validStrokes,
+    });
+    expect(res).toEqual({ ok: false, error: "INVALID_STATE" });
+  });
+
+  it("autorul, pe propria adnotare PUBLISHED → înlocuiește desenul + nota pe loc", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "PUBLISHED", isAnnotation: true }) as never,
+    );
+
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: OWNER,
+      strokes: validStrokes,
+      note: "explicație nouă",
+    });
+
+    expect(res).toEqual({ ok: true });
+    expect(updateStrokes).toHaveBeenCalledWith(SID, validStrokes, "explicație nouă");
   });
 });
 
@@ -316,7 +425,7 @@ describe("createAnnotation — doar autorul își adnotează propriul detaliu", 
     // `createDraft` cere rol declarat (poartă de business moștenită) — fără el iese NO_ROLE.
     vi.mocked(getRoleByUserId).mockResolvedValue({ roleMain: "PROIECTANT" } as never);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER, isAnnotation: true }) as never);
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
     const r = await createAnnotation({ detailId: DID, authorId: OWNER, strokes: validStrokes });
     expect(r).toEqual({ ok: true, value: { sketchId: SID } });
@@ -329,7 +438,7 @@ describe("createAnnotation — doar autorul își adnotează propriul detaliu", 
   it("nota adnotării ajunge validată în DB, nu brută de la client", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ roleMain: "PROIECTANT" } as never);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER, isAnnotation: true }) as never);
     vi.mocked(publishFromDraft).mockResolvedValue(true as never);
 
     const r = await createAnnotation({
@@ -350,7 +459,7 @@ describe("createAnnotation — doar autorul își adnotează propriul detaliu", 
   it("notă peste limita de lungime → NOTE_TOO_LONG, adnotarea nu se publică", async () => {
     vi.mocked(getRoleByUserId).mockResolvedValue({ roleMain: "PROIECTANT" } as never);
     vi.mocked(insertDraft).mockResolvedValue({ id: SID } as never);
-    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER }) as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ authorId: OWNER, isAnnotation: true }) as never);
 
     const r = await createAnnotation({
       detailId: DID,
@@ -484,12 +593,26 @@ describe("Stack — capturarea rețetei la createDraft", () => {
     expect(insertDraft).not.toHaveBeenCalled();
   });
 
-  it("ADNOTAREA autorului ignoră stack-ul activ — pornește mereu de pe detaliul gol", async () => {
-    // OWNER desenează pe PROPRIUL detaliu, dintr-un tab cu foi aprinse.
+  it("2026-08-11: un desen NORMAL al autorului (fără isAnnotation) NU mai ignoră stack-ul activ", async () => {
+    // OWNER desenează pe PROPRIUL detaliu, dintr-un tab cu foi aprinse — NU mai e o adnotare specială
+    // (bug reparat: până acum ORICE desen al autorului pe propriul detaliu pornea forțat gol).
     await createDraft({ detailId: DID, authorId: OWNER, baseSketchIds: [BASE_A, BASE_B] });
 
     expect(insertDraft).toHaveBeenCalledWith(
-      expect.objectContaining({ authorId: OWNER, baseSketchIds: [] }),
+      expect.objectContaining({ authorId: OWNER, baseSketchIds: [BASE_A, BASE_B] }),
+    );
+  });
+
+  it("ADNOTAREA (isAnnotation:true) ignoră stack-ul activ — pornește mereu de pe detaliul gol", async () => {
+    await createDraft({
+      detailId: DID,
+      authorId: OWNER,
+      baseSketchIds: [BASE_A, BASE_B],
+      isAnnotation: true,
+    });
+
+    expect(insertDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ authorId: OWNER, baseSketchIds: [], isAnnotation: true }),
     );
   });
 });

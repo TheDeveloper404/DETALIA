@@ -10,6 +10,8 @@ import { deleteBlobs } from "@/lib/storage";
 import { isUsersBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { publishDetailDraft, saveDetailDraft, updateDetail } from "@/server/services/detailService";
+import { parseAnnotationStrokes } from "@/lib/annotation-form";
+import { createAnnotation, deleteSketch, updateAnnotation } from "@/server/services/sketchService";
 
 export type EditDetailState = { error: string | null };
 
@@ -123,6 +125,38 @@ export async function updateDetailAction(
   // Imaginea s-a schimbat → curăță blob-ul vechi (best-effort, după commit-ul DB).
   if (result.oldImageUrl) {
     await deleteBlobs([result.oldImageUrl]);
+  }
+
+  // ADNOTAREA (2026-08-11): editabilă din pagina de Editare detaliu, ca titlul/descrierea. Detaliul e
+  // DEJA salvat aici — o adnotare care eșuează NU trebuie să piardă restul editării (best-effort, ca la
+  // creare — vezi app/(app)/details/new/actions.ts). `annotationSketchId` gol = nu exista încă una
+  // (`createAnnotation`); altfel înlocuiește pe loc rândul existent (`updateAnnotation`).
+  const annotationStrokes = parseAnnotationStrokes(formData.get("annotationStrokes"));
+  const annotationSketchId = String(formData.get("annotationSketchId") ?? "");
+  if (annotationStrokes !== null) {
+    if (annotationSketchId.length > 0) {
+      await updateAnnotation({
+        detailId,
+        sketchId: annotationSketchId,
+        authorId: userId,
+        strokes: annotationStrokes,
+        note: formData.get("annotationNote"),
+      });
+    } else {
+      await createAnnotation({
+        detailId,
+        authorId: userId,
+        strokes: annotationStrokes,
+        note: formData.get("annotationNote"),
+      });
+    }
+  } else if (annotationSketchId.length > 0) {
+    // Golit complet la „Gata" (0 trasee → `annotationStrokes` gol în formular): fără ramura asta,
+    // câmpul gol se confunda cu „nicio adnotare atinsă" și rândul vechi rămânea neschimbat, silențios
+    // (găsit la /code-review, 2026-08-11) — userul vedea „Adnotează" pe buton, credea că a șters, dar
+    // desenul vechi supraviețuia neatins. Ștergerea reală trece prin `deleteSketch` — respectă regula
+    // de stack (o adnotare pe care alții au construit nu dispare complet, ca orice altă foaie blocată).
+    await deleteSketch({ sketchId: annotationSketchId, actorUserId: userId });
   }
 
   // Detaliul editat: reîmprospătează pagina lui + feed-ul (titlu/categorii se pot fi schimbat).

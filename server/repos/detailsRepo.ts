@@ -367,9 +367,12 @@ export async function releaseDetailToCommunity(detailId: string, detailAuthorId:
 // (nu 3 round-trip-uri).
 //
 // Toate trei exclud autorul (`<> details.author_id`): comentariile lui pe propriul detaliu, pozițiile
-// lui (posibile din 2026-08-06, item 6) și adnotările lui nu sunt interacțiuni PRIMITE. Fără excluderea
-// asta, autorul care își dă Aprob pe propriul detaliu și-ar bloca singur ștergerea completă, ireversibil
-// (decizie de produs 2026-08-06). Aceeași regulă ca la `sketchCount` din feed — vezi `isSelfAnnotation`.
+// lui (posibile din 2026-08-06, item 6) și ORICE desen al lui pe propriul detaliu (adnotare SAU
+// self-sketch ulterior) nu sunt interacțiuni PRIMITE. Fără excluderea asta, autorul care își dă Aprob pe
+// propriul detaliu și-ar bloca singur ștergerea completă, ireversibil (decizie de produs 2026-08-06).
+// RĂMÂNE pe identitate, INTENȚIONAT NESCHIMBAT de redefinirea `isAnnotation` (2026-08-11): scopul aici
+// e „a interacționat ALTCINEVA", nu „e adnotarea" — diferă de `sketchCount`/teanc, unde swap-ul spre
+// `isAnnotation` e corect. Vezi comentariul din `sketchCount` mai jos în acest fișier.
 export async function countDetailInteractions(detailId: string): Promise<{
   comments: number;
   validations: number;
@@ -496,11 +499,12 @@ const validationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
    where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
-// „N schițe" = contribuțiile ALTORA (model fork/PR). Adnotarea autorului pe propriul detaliu nu e o
-// contribuție primită → exclusă (mirror SQL al `isSelfAnnotation`, server/domain/sketch.ts).
+// „N schițe" = ce apare ca tab în teanc. Adnotarea (isAnnotation=true, 2026-08-11 — vezi
+// server/domain/sketch.ts) e exclusă; un desen ULTERIOR al autorului pe propriul detaliu, prin
+// „Schițează peste" normal, INTRĂ aici (nu mai e derivat din identitatea autorului).
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
-     and ${sketches.authorId} <> ${detailsAuthorId})`;
+     and ${sketches.isAnnotation} = false)`;
 
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
 const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${sketchCount})`;

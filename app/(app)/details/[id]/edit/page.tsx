@@ -3,8 +3,10 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { DETAIL_STATUS } from "@/server/domain/detail";
+import type { Stroke } from "@/server/domain/sketch";
 import { listCategories } from "@/server/services/categoryService";
 import { getDetail, getDetailForEditing } from "@/server/services/detailService";
+import { getAnnotations } from "@/server/services/sketchService";
 
 import { DetailForm, type DetailFormInitial } from "../../new/detail-form";
 import { publishDraftDetailAction, saveDraftDetailAction, updateDetailAction } from "./actions";
@@ -35,6 +37,18 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
 
   const categories = await listCategories();
 
+  // Adnotarea existentă (2026-08-11) — doar pt un detaliu deja PUBLICAT (o ciornă n-are încă una,
+  // `createAnnotation` se apelează abia după publicare — vezi app/(app)/details/new/actions.ts).
+  const existingAnnotation = isDraft ? [] : await getAnnotations(detail.id);
+  const firstAnnotation = existingAnnotation[0];
+  const annotation: DetailFormInitial["annotation"] = firstAnnotation
+    ? {
+        id: firstAnnotation.id,
+        strokes: (firstAnnotation.strokesJson as Stroke[] | null) ?? [],
+        note: firstAnnotation.note,
+      }
+    : null;
+
   const initial: DetailFormInitial = {
     detailId: detail.id,
     title: detail.title,
@@ -50,6 +64,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
     resources: detail.resources
       .filter((r) => EDITABLE_RESOURCE_TYPES.has(r.type) && !!r.url)
       .map((r) => ({ type: r.type as "IMAGE" | "LINK" | "PDF" | "CAD", value: r.url as string })),
+    annotation,
   };
 
   return (

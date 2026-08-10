@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
 import {
   composeStackStrokes,
-  MAX_ANNOTATIONS_PER_DETAIL,
   REMOVED_AUTHOR_LABEL,
   resolveSketchDeletionMode,
 } from "@/server/domain/sketch";
@@ -141,11 +140,12 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === wanted);
     return idx >= 0 ? idx + 1 : 0;
   });
-  // Adnotările pornesc TOATE ÎNCHISE (decizie de produs 2026-08-02): imaginea de bază e subiectul, adnotarea
-  // e o explicație pe care o ceri. Se deschide UNA singură — două desene suprapuse s-ar amesteca vizual.
-  // `null` = niciuna deschisă. Doar afișare, fără persistență.
-  // (Între 2026-07-31 și 2026-08-01 exista o singură adnotare, pornită vizibilă.)
-  const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(null);
+  // Adnotarea pornește DESCHISĂ implicit (2026-08-11, decizie Liviu: e „startul dezbaterii", trebuie
+  // vizibilă din prima, nu ascunsă după un click). Cel mult UNA (MAX_ANNOTATIONS_PER_DETAIL = 1) —
+  // `annotations[0]` dacă există. Cititorul o poate închide din butonul din colț; starea e doar de
+  // afișare, fără persistență (revine deschisă la un reload).
+  // (Istoric: 2026-07-31→2026-08-01 pornea vizibilă; 2026-08-02→2026-08-11 pornea închisă, până la 3.)
+  const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(annotations[0]?.id ?? null);
   // Ștergerea unei adnotări (doar autorul): id-ul în așteptare de confirmare.
   const [pendingDeleteAnnotationId, setPendingDeleteAnnotationId] = useState<string | null>(null);
   // Formular MONTAT PERMANENT, în afara oricărui bloc condiționat pe stare togglabilă: dacă ar sta în
@@ -277,30 +277,26 @@ export function DetailWorkspace({
 
   // Mutat sub imagine (nu mai suprapus peste ea) + colaps la iconiță — textul apare doar la HOVER
   // (mouse peste buton), nu la click (spre deosebire de taburile de mai sus, care se extind la click).
-  // Pentru AUTOR, pe propriul detaliu, acțiunea nu e „încă o schiță" (nu-și poate face fork sieși) — e o
-  // ADNOTARE NOUĂ, de la zero (2026-08-02). Corectarea uneia existente = o ștergi și desenezi alta.
-  // La plafon butonul se dezactivează, cu explicație — dar adevărul e pe server (`publish`), nu aici.
-  const atAnnotationLimit = isDetailAuthor && annotations.length >= MAX_ANNOTATIONS_PER_DETAIL;
-  // STACK: ce se îngheață ca fundal = EXACT ce e aprins pe ecran acum. Pe un tab de schiță asta
-  // înseamnă foile de fundal încă bifate PLUS schița activă (peste care desenezi). Pe tabul de bază,
-  // nimic — pornești de pe detaliul gol, ca înainte.
-  // Autorul pe propriul detaliu face o ADNOTARE, care pornește mereu de la zero (server-ul ignoră
-  // oricum rețeta în acel caz — vezi `createDraft`); nu o trimitem, ca UI-ul să nu sugereze altceva.
-  const capturedStack =
-    isBase || isDetailAuthor
-      ? []
-      : [...stackLayers.filter((l) => !hiddenLayerIds.has(l.id)).map((l) => l.id), activeSketch!.id];
+  // 2026-08-11: „Schițează peste" e IDENTIC pentru toată lumea, INCLUSIV autorul detaliului pe propriul
+  // lui detaliu — un desen al lui aici e o schiță normală (intră în teanc), nu mai e o adnotare specială
+  // (vezi domain/sketch.ts). Adnotarea propriu-zisă se creează/editează DOAR din formularul de
+  // Adaugă/Editează detaliu (`createAnnotation`/`updateAnnotation`), nu de aici.
+  //
+  // STACK: ce se îngheață ca fundal = EXACT ce e aprins pe ecran acum. Pe tabul de bază asta poate fi
+  // DOAR adnotarea, dacă e deschisă (2026-08-11, decizie de produs: e „startul dezbaterii", trebuie să
+  // poată fi bază pentru o schiță nouă) — adnotarea NU se randează pe tab-urile de schiță (doar pe
+  // `isBase`, vezi randarea de mai jos), deci NU intră în capturedStack de-acolo: altfel am trimite ceva
+  // ce userul nu a văzut deloc pe ecran, contrazicând exact regula „ce e aprins acum".
+  const capturedStack = isBase
+    ? openAnnotationId
+      ? [openAnnotationId]
+      : []
+    : [...stackLayers.filter((l) => !hiddenLayerIds.has(l.id)).map((l) => l.id), activeSketch!.id];
 
-  const startSketchLabel = !isDetailAuthor
-    ? isBase
-      ? "Schițează peste detaliu"
-      : // Pe un tab de schiță, butonul continuă dezbaterea: desenul nou păstrează ca fundal ce vezi.
-        "Schițează peste ce vezi acum"
-    : atAnnotationLimit
-      ? `Ai deja ${MAX_ANNOTATIONS_PER_DETAIL} adnotări — șterge una ca să adaugi alta`
-      : annotations.length > 0
-        ? "Adnotează din nou"
-        : "Adnotează detaliul";
+  const startSketchLabel = isBase
+    ? "Schițează peste detaliu"
+    : // Pe un tab de schiță, butonul continuă dezbaterea: desenul nou păstrează ca fundal ce vezi.
+      "Schițează peste ce vezi acum";
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
@@ -313,7 +309,6 @@ export function DetailWorkspace({
         type="submit"
         size="icon"
         title={startSketchLabel}
-        disabled={atAnnotationLimit}
         className="group/button !w-auto gap-0 overflow-hidden !px-2.5 shadow-md"
       >
         <Pencil className="size-4 shrink-0" strokeWidth={2} />
@@ -556,7 +551,7 @@ export function DetailWorkspace({
                 (închizându-le pe celelalte), al doilea click pe aceeași = o închide → imaginea curată. */}
             {isBase && annotations.length > 0 && (
               <div className="absolute left-3 top-3 z-[3] flex flex-wrap items-center gap-1.5">
-                {annotations.map((a, i) => {
+                {annotations.map((a) => {
                   const isOpen = a.id === openAnnotationId;
                   return (
                     <button
@@ -564,7 +559,7 @@ export function DetailWorkspace({
                       type="button"
                       onClick={() => setOpenAnnotationId(isOpen ? null : a.id)}
                       aria-pressed={isOpen}
-                      data-testid={`annotation-toggle-${i + 1}`}
+                      data-testid="annotation-toggle-1"
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 font-mono text-[10px] uppercase tracking-wide transition-colors",
                         isOpen
@@ -573,7 +568,7 @@ export function DetailWorkspace({
                       )}
                     >
                       <Pencil className="size-3" strokeWidth={2} />
-                      {annotations.length === 1 ? "adnotarea autorului" : `adnotarea ${i + 1}`}
+                      adnotarea autorului
                     </button>
                   );
                 })}
@@ -610,15 +605,18 @@ export function DetailWorkspace({
                   <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
                 </div>
               )}
-              {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, fără văl (sunt notițele autorului pe propria
-                  imagine, nu o foaie a altcuiva peste ea). Implicit niciuna: imaginea de bază se vede
-                  prima, adnotarea o ceri (2026-08-02). `key` pe id → fade-in la comutarea între ele. */}
+              {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, CU văl semitransparent (2026-08-11: o
+                  adnotare e o schiță ca oricare alta — fundalul translucid o face lizibilă peste
+                  imaginea de bază, la fel ca la orice altă schiță). Pornește DESCHISĂ implicit
+                  (2026-08-11, decizie Liviu: „e startul dezbaterii" — vezi `openAnnotationId`
+                  mai sus); cititorul o poate închide din butonul din colț. `key` pe id → fade-in
+                  la comutarea între ele. */}
               {isBase && openAnnotation && (
                 <div
                   key={`annotation-${openAnnotation.id}`}
                   className="absolute inset-0 animate-in fade-in duration-200"
                 >
-                  <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} veil={false} />
+                  <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} />
                 </div>
               )}
             </div>
