@@ -335,8 +335,25 @@ export async function listAllProjectDetails(projectId: string) {
 // „Scoate în comunitate" — mutație ireversibilă (regulă de business, nu constrângere DB; vezi
 // resolveDetailPlacement în server/domain/project.ts). Autorizarea (regula „orfan") se verifică
 // ÎNAINTE, în service.
-export async function releaseDetailToCommunity(detailId: string) {
-  await db.update(details).set({ projectId: null }).where(eq(details.id, detailId));
+//
+// SEC-002 (2026-08-10): release publică DOAR conținutul autorului detaliului. Schițele PUBLISHED ale
+// altor membri se marchează `hiddenAfterRelease` ÎN ACELAȘI batch, atomic cu nularea `projectId` —
+// altfel ar exista o fereastră (sau, la eroare pe jumătate, o stare permanentă) cu detaliul deja public
+// și contribuțiile altora încă vizibile nefiltrat.
+export async function releaseDetailToCommunity(detailId: string, detailAuthorId: string) {
+  await db.batch([
+    db.update(details).set({ projectId: null }).where(eq(details.id, detailId)),
+    db
+      .update(sketches)
+      .set({ hiddenAfterRelease: true })
+      .where(
+        and(
+          eq(sketches.detailId, detailId),
+          eq(sketches.status, "PUBLISHED"),
+          ne(sketches.authorId, detailAuthorId),
+        ),
+      ),
+  ]);
 }
 
 // Șterge un detaliu + tot ce atârnă de el, ATOMIC. `detail_resources` și `sketches` cad în cascadă
@@ -652,7 +669,7 @@ export async function listSavedDetailIds(userId: string, detailIds: string[]): P
 // membru activ al proiectului lui. Un detaliu în comunitate (projectId null) trece mereu. Diferit de
 // listFeed/listTopDebated/listRelatedDetails (acelea sunt PUBLICE, orice detaliu de proiect e exclus
 // necondiționat, indiferent de viewer) — aici viewerul e chiar proprietarul listei.
-function hasProjectAccessForUser(userId: string) {
+export function hasProjectAccessForUser(userId: string) {
   return or(
     isNull(details.projectId),
     exists(

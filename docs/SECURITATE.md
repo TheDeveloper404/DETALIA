@@ -313,6 +313,29 @@ explicit obiecte reduse pentru componentele client, nu face spread pe obiectul `
 
 ---
 
+## Scan ZAP (DAST) — 2026-08-10
+
+Rulat de Liviu, ZAP by Checkmarx 2.17.0, Scan Policy `QA Standard`, țintă `https://detalia.ro`
+(producție reală, nu preview). Un prim scan pe URL-ul de preview Vercel a fost invalid — Deployment
+Protection (SSO) a servit pagina de gate Vercel, nu aplicația; findings-urile de acolo (CSP cu
+`stripe.com`/`twitter.com`, cookie `_vercel_sso_nonce`) erau despre infra Vercel, nu despre cod.
+
+**Rezultat pe producție: 0 High, 5 Medium, 0 Low, 2 Informational.**
+
+- **Content Security Policy (CSP) Header Not Set** pe `/robots.txt` + `/sitemap.xml` (2 instanțe) —
+  ✅ **fixat** 2026-08-10: matcher-ul din `proxy.ts` exclude aceste rute (text simplu, nu au nevoie de
+  nonce) → CSP dinamic din `lib/csp.ts` nu ajungea la ele. Adăugat `default-src 'none'` static în
+  `next.config.ts` `headers()`, doar pentru aceste 2 rute.
+- Restul (4 Medium + 2 Informational) — backlog, niciunul urgent, detaliu în `docs/BACKLOG.md`
+  §„Următor": CSRF absence pe `/login` (fals-pozitiv, Auth.js), `style-src unsafe-inline` (decizie
+  deliberată), CORS pe `_next/static/*` (assets publice, fără risc), SRI missing pe Turnstile
+  (imposibil tehnic — Cloudflare nu publică hash).
+
+Rapoartele HTML complete (preview invalid + producție) nu sunt comise în repo (`.gitignore`) — conțin
+detalii de reconnaissance ale infrastructurii, iar repo-ul e PUBLIC.
+
+---
+
 ## Nota onestă
 
 > **Corectat 2026-07-09 (a doua trecere):** prima variantă a acestei secțiuni dădea 7/10, amestecând în

@@ -63,6 +63,11 @@ export async function updateDetailAction(
   // Deny-by-default: doar useri autentificați. userId vine EXCLUSIV din sesiune.
   // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate edita detalii.
   const userId = await requireActiveUserId();
+  // SEC-003: fără limită, imageChanged=1 declanșează reprocesare sharp + scriere/ștergere Blob la
+  // nesfârșit — singura acțiune din fișier fără checkLimit (vezi saveDraftDetailAction/publishDraftDetailAction).
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { error: "Prea multe salvări într-un timp scurt." };
+  }
 
   const detailId = String(formData.get("detailId") ?? "");
   if (detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
