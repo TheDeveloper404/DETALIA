@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { parseAnnotationStrokes } from "@/lib/annotation-form";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
@@ -13,19 +14,6 @@ import { createDetail, createDetailDraft } from "@/server/services/detailService
 import { createAnnotation } from "@/server/services/sketchService";
 
 export type CreateDetailState = { error: string | null };
-
-// Stroke-urile adnotării vin ca JSON dintr-un câmp ascuns (desenate pe client peste previzualizare).
-// Aici doar decodăm forma brută — structura o validează `validateStrokes` din domain, pe server.
-// null = fără adnotare (câmp gol/absent/malformat) → publicarea decurge normal, e un pas OPȚIONAL.
-function parseAnnotationStrokes(raw: FormDataEntryValue | null): unknown[] | null {
-  if (typeof raw !== "string" || raw.trim().length === 0) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
-  } catch {
-    return null;
-  }
-}
 
 // Resursele suplimentare vin ca JSON dintr-un câmp ascuns (repeater pe client). Parsare defensivă:
 // ignorăm orice e malformat sau cu valoare goală; validarea finală o face DetailService.

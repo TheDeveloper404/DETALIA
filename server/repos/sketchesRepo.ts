@@ -1,5 +1,5 @@
 // Repo schițe — singurul loc cu acces Drizzle pentru tabelul `sketches`.
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
@@ -14,6 +14,8 @@ export async function insertDraft(input: {
   disapprovesParent?: boolean;
   // Rețeta stack-ului înghețat la apăsarea „Schițează peste". Gol = pornită de pe detaliul gol.
   baseSketchIds?: string[];
+  // Setat DOAR de `createAnnotation()` (server/services/sketchService.ts) — vezi `isAnnotation` în schema.
+  isAnnotation?: boolean;
 }) {
   const [row] = await db
     .insert(sketches)
@@ -25,6 +27,7 @@ export async function insertDraft(input: {
       // Lista goală se stochează ca NULL, nu ca `[]`: o singură reprezentare pentru „fără fundal",
       // aceeași cu a schițelor de dinaintea feature-ului. Altfel ar exista două forme de „gol".
       baseSketchIds: input.baseSketchIds?.length ? input.baseSketchIds : null,
+      isAnnotation: input.isAnnotation ?? false,
       // status rămâne pe default „DRAFT".
     })
     .returning();
@@ -40,16 +43,14 @@ export async function filterPublishedSketchIds(detailId: string, ids: string[]):
   const rows = await db
     .select({ id: sketches.id })
     .from(sketches)
-    .innerJoin(details, eq(details.id, sketches.detailId))
     .where(
       and(
         inArray(sketches.id, ids),
         eq(sketches.detailId, detailId),
         eq(sketches.status, "PUBLISHED"),
-        // Aceeași excludere ca în `listByDetailAndStatus`: ADNOTĂRILE autorului nu sunt foi din teanc.
-        // Fără ea, un id de adnotare ar trece validarea și s-ar bloca la publicare, dar UI-ul nu l-ar
-        // găsi niciodată în teanc → foaie acceptată de server, imposibil de randat.
-        ne(sketches.authorId, details.authorId),
+        // Adnotarea (isAnnotation=true) e un fundal VALID de stack (2026-08-11, decizie de produs: e
+        // „startul dezbaterii", trebuie să se poată construi peste ea) — spre deosebire de teanc
+        // (`selectByDetailAndStatus`), unde rămâne exclusă ca tab separat. Deci NICIO excludere aici.
         // SEC-002: o foaie ascunsă la release nu mai e „vie" — nu poate fi bază pentru un stack nou.
         eq(sketches.hiddenAfterRelease, false),
       ),
@@ -58,16 +59,33 @@ export async function filterPublishedSketchIds(detailId: string, ids: string[]):
   return ids.filter((id) => alive.has(id));
 }
 
-// Blochează definitiv foile folosite ca fundal de o schiță tocmai publicată: din acest moment nu mai
-// pot fi șterse complet, doar li se poate retrage identitatea autorului (vezi `deleteSketch`).
-// `isNull(lockedAt)` face operația idempotentă și păstrează PRIMA blocare — momentul în care foaia a
-// intrat efectiv într-o dezbatere, nu al ultimei schițe construite peste ea.
-export async function lockStackBases(ids: string[], at: Date): Promise<void> {
-  if (ids.length === 0) return;
-  await db
+// La publicarea unei schițe cu fundal: rescrie rețeta (după eliminarea foilor dispărute între timp) ȘI
+// blochează definitiv foile rămase (nu mai pot fi șterse complet, doar li se poate retrage identitatea
+// autorului — vezi `deleteSketch`), ATOMIC într-un singur `db.batch` (fix 2026-08-11, backlog: cele două
+// scrieri rulau separat — un crash exact între ele lăsa o rețetă rescrisă cu foi ÎNCĂ neblocate, o
+// fereastră de milisecunde în care foaia de dedesubt putea fi ștearsă complet de sub schița publicată).
+// `isNull(lockedAt)` pe blocare face operația idempotentă și păstrează PRIMA blocare — momentul în care
+// foaia a intrat efectiv într-o dezbatere, nu al ultimei schițe construite peste ea.
+export async function finalizeStackBases(sketchId: string, aliveBases: string[], lockedAt: Date): Promise<void> {
+  const rewriteRecipe = db
     .update(sketches)
-    .set({ lockedAt: at })
-    .where(and(inArray(sketches.id, ids), isNull(sketches.lockedAt)));
+    .set({ baseSketchIds: aliveBases.length ? aliveBases : null })
+    .where(eq(sketches.id, sketchId));
+
+  // Toate foile din rețetă au dispărut între capturare și publicare (caz limită, rar): nimic de blocat,
+  // doar rescriem rețeta golită — un singur UPDATE, nimic de coordonat atomic cu el.
+  if (aliveBases.length === 0) {
+    await rewriteRecipe;
+    return;
+  }
+
+  await db.batch([
+    rewriteRecipe,
+    db
+      .update(sketches)
+      .set({ lockedAt })
+      .where(and(inArray(sketches.id, aliveBases), isNull(sketches.lockedAt))),
+  ]);
 }
 
 // ȘTERGERE PARȚIALĂ: retrage IDENTITATEA autorului, păstrează contribuția. `strokes_json`,
@@ -76,14 +94,6 @@ export async function lockStackBases(ids: string[], at: Date): Promise<void> {
 // unde e în teancurile altora. Idempotentă (a doua apelare nu schimbă nimic).
 export async function markAuthorRemoved(id: string): Promise<void> {
   await db.update(sketches).set({ authorRemoved: true }).where(eq(sketches.id, id));
-}
-
-// Rescrie rețeta stack-ului (la publicare, după eliminarea foilor dispărute între timp).
-export async function updateBaseSketchIds(id: string, ids: string[]): Promise<void> {
-  await db
-    .update(sketches)
-    .set({ baseSketchIds: ids.length ? ids : null })
-    .where(eq(sketches.id, id));
 }
 
 export async function getSketchById(id: string) {
@@ -180,9 +190,10 @@ function selectByDetailAndStatus(detailId: string, status: SketchStatus) {
       and(
         eq(sketches.detailId, detailId),
         eq(sketches.status, status),
-        // Exclude ADNOTAREA autorului (schiță pe propriul detaliu) — vezi `isSelfAnnotation`
-        // (server/domain/sketch.ts). Teancul = contribuțiile ALTORA, model fork/PR.
-        ne(sketches.authorId, details.authorId),
+        // Exclude ADNOTAREA (isAnnotation=true, 2026-08-11) — rândul creat prin `createAnnotation()`.
+        // NU mai e derivat din identitatea autorului: un desen ULTERIOR al autorului pe propriul
+        // detaliu, prin „Schițează peste" normal, e o schiță obișnuită și INTRĂ aici (vezi domain/sketch.ts).
+        eq(sketches.isAnnotation, false),
         // SEC-002: schițele altor membri, ascunse definitiv la „Scoate în comunitate" (vezi
         // hiddenAfterRelease în schema). False pentru orice schiță nescoasă încă dintr-un proiect.
         eq(sketches.hiddenAfterRelease, false),
@@ -226,13 +237,10 @@ export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
 }
 
-// ADNOTĂRILE autorului: schițele PUBLISHED făcute de autorul detaliului pe PROPRIUL lui detaliu.
-// Se afișează peste imaginea de bază (una câte una, la cerere), nu ca taburi în teanc. Un detaliu poate
-// avea până la MAX_ANNOTATIONS_PER_DETAIL (domain/sketch.ts) — decizie 2026-08-02, înainte era una singură.
-// ORDINE ASCENDENTĂ după `created_at`: numerotarea din UI („adnotarea 1/2/3") urmează ordinea în care
-// autorul le-a desenat. ATENȚIE: e o POZIȚIE în listă, nu un ordinal persistat — la ștergerea uneia din
-// mijloc, cele de după se renumerotează. Un ordinal stabil ar cere o coloană dedicată (vezi CHANGELOG
-// 2026-08-02); acceptat conștient, adnotările nu sunt referite după număr nicăieri (nu sunt @mention-abile).
+// ADNOTAREA autorului: schița PUBLISHED cu `isAnnotation = true` de pe acest detaliu (2026-08-11: cel
+// mult UNA — MAX_ANNOTATIONS_PER_DETAIL, domain/sketch.ts). Se afișează peste imaginea de bază, nu ca
+// tab în teanc. Rămâne listă (nu un singur rând opțional) ca să nu forțăm o migrare de tip prin tot UI-ul
+// care încă iterează `annotations` — practic va avea mereu 0 sau 1 element.
 export async function listAnnotationsByDetail(detailId: string) {
   return db
     .select({
@@ -243,29 +251,28 @@ export async function listAnnotationsByDetail(detailId: string) {
       authorId: sketches.authorId,
     })
     .from(sketches)
-    .innerJoin(details, eq(details.id, sketches.detailId))
     .where(
       and(
         eq(sketches.detailId, detailId),
         eq(sketches.status, "PUBLISHED"),
-        eq(sketches.authorId, details.authorId),
+        eq(sketches.isAnnotation, true),
       ),
     )
     .orderBy(asc(sketches.createdAt));
 }
 
-// Câte adnotări PUBLISHED are detaliul — pentru plafonul impus în `publish`. Numărat în DB, nu prin
-// `listAnnotationsByDetail(...).length`: la verificarea plafonului nu ne trebuie payload-ul de stroke-uri.
+// Câte adnotări PUBLISHED are detaliul — pentru plafonul impus în `publish`/`createDraft`. Numărat în
+// DB, nu prin `listAnnotationsByDetail(...).length`: la verificarea plafonului nu ne trebuie payload-ul
+// de stroke-uri.
 export async function countAnnotationsByDetail(detailId: string): Promise<number> {
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(sketches)
-    .innerJoin(details, eq(details.id, sketches.detailId))
     .where(
       and(
         eq(sketches.detailId, detailId),
         eq(sketches.status, "PUBLISHED"),
-        eq(sketches.authorId, details.authorId),
+        eq(sketches.isAnnotation, true),
       ),
     );
   return row?.count ?? 0;

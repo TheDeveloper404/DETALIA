@@ -79,6 +79,10 @@ export type DetailFormInitial = {
   snowLoad: string;
   windLoad: string;
   resources: ResourceRow[];
+  // Adnotarea EXISTENTĂ (2026-08-11) — doar în modul editare, doar dacă detaliul are deja una
+  // (MAX_ANNOTATIONS_PER_DETAIL = 1, domain/sketch.ts). Prezența ei distinge create vs update în
+  // acțiunea de submit (vezi `annotationSketchId` mai jos).
+  annotation: { id: string; strokes: Stroke[]; note: string | null } | null;
 };
 
 const RESOURCE_LABEL: Record<ResourceType, string> = {
@@ -325,6 +329,11 @@ export function DetailForm({
   projectId?: string;
 }) {
   const isEdit = !!initial;
+  // Adnotarea se trimite DOAR spre `createDetailAction` (creare) sau `updateDetailAction` (editarea
+  // unui detaliu PUBLICAT) — vezi 2026-08-11. Fluxul de „Continuă ciorna" (`publishDraftDetailAction`,
+  // recunoscut aici prin prezența `saveDraftAction`) NU citește `annotationStrokes`/`annotationSketchId`
+  // deloc; a arăta butonul acolo ar pierde desenul silențios la submit. Rămâne scop separat.
+  const canAnnotate = !isEdit || !saveDraftAction;
   const [state, formAction, pending] = useActionState(action, initialState);
   const [draftState, draftFormAction, draftPending] = useActionState(
     saveDraftAction ?? noopDraftAction,
@@ -345,12 +354,17 @@ export function DetailForm({
   // explice ceva. `annotating` = editorul e deschis; `annotationStrokes` = ce a confirmat cu „Gata"
   // (sursa de adevăr trimisă la server — nu citim ref-ul canvasului după ce se demontează).
   const [annotating, setAnnotating] = useState(false);
-  const [annotationStrokes, setAnnotationStrokes] = useState<Stroke[] | null>(null);
-  const [annotationCount, setAnnotationCount] = useState(0);
+  // La editare, cu adnotare EXISTENTĂ (2026-08-11): pornim din desenul/nota deja salvate — „Editează
+  // adnotarea" nu pleacă de la zero. `annotationSketchId` (hidden field mai jos) distinge pt server
+  // create vs update: gol = adnotare nouă (`createAnnotation`), altfel = înlocuiește pe loc (`updateAnnotation`).
+  const [annotationStrokes, setAnnotationStrokes] = useState<Stroke[] | null>(
+    initial?.annotation?.strokes ?? null,
+  );
+  const [annotationCount, setAnnotationCount] = useState(initial?.annotation?.strokes.length ?? 0);
   // Explicația în CUVINTE a adnotării, separată de desen (același model ca `note` la schițe, 2026-07-16).
   // Până la 2026-08-02 se putea scrie doar din editorul de schiță, deși coloana exista și se afișa —
   // autorul care adnota la publicare nu avea unde s-o scrie. `annotating` o ține în editor, lângă desen.
-  const [annotationNote, setAnnotationNote] = useState("");
+  const [annotationNote, setAnnotationNote] = useState(initial?.annotation?.note ?? "");
   const [categoryIds, setCategoryIds] = useState<string[]>(initial?.categoryIds ?? []);
   // Pill „România" / „Altă locație" — la editare, dacă locația salvată nu e România, pornim direct
   // pe pillul „Altă locație" cu textul deja completat (formularul reflectă starea reală salvată).
@@ -597,6 +611,11 @@ export function DetailForm({
       {/* Editare: id-ul detaliului + semnal dacă imaginea s-a schimbat (pt reprocesare pe server). */}
       {isEdit && <input type="hidden" name="detailId" value={initial.detailId} />}
       {isEdit && <input type="hidden" name="imageChanged" value={imageChanged ? "1" : "0"} />}
+      {/* Distinge create vs update pt adnotare (2026-08-11): gol = adnotare nouă, altfel = înlocuiește
+          pe loc rândul existent (`updateAnnotation`, nu poate crea al doilea — MAX_ANNOTATIONS_PER_DETAIL). */}
+      {isEdit && (
+        <input type="hidden" name="annotationSketchId" value={initial.annotation?.id ?? ""} />
+      )}
       {projectId && <input type="hidden" name="projectId" value={projectId} />}
 
       {(clientError ?? state.error ?? draftState.error) && (
@@ -832,10 +851,11 @@ export function DetailForm({
               />
               {!annotating && (
                 <div className="absolute right-3 top-3 z-[2] flex gap-2">
-                  {/* Adnotarea se atașează DOAR la creare: `updateDetailAction` (modul editare) nu
-                      citește câmpul → afișat acolo, butonul ar desena degeaba, cu salvare silențios
-                      pierdută. Editarea adnotării unui detaliu existent = separat, nu în acest task. */}
-                  {!isEdit && (
+                  {/* 2026-08-11: adnotarea e editabilă și la editarea unui detaliu PUBLICAT
+                      (`updateDetailAction` citește `annotationStrokes`/`annotationSketchId` — vezi
+                      edit/actions.ts), la fel ca titlul/descrierea. Vezi `canAnnotate` mai sus pt de ce
+                      fluxul de „Continuă ciorna" rămâne exclus. */}
+                  {canAnnotate && (
                     <button
                       type="button"
                       onClick={() => setAnnotating(true)}
@@ -941,8 +961,8 @@ export function DetailForm({
                   {/* Previzualizarea arată imaginea CU adnotarea suprapusă, prin exact componenta care
                       randează adnotarea pe pagina detaliului publicat (SketchViewer) — altfel, după
                       „Gata", userul vedea poza goală și credea că desenul s-a pierdut (nu se pierduse,
-                      doar nu se randa). `veil={false}`: sunt notițele autorului pe propria imagine, nu
-                      foaia altcuiva peste ea — aceeași regulă ca pe pagina finală.
+                      doar nu se randa). Fundal semitransparent implicit (2026-08-11): adnotarea e o
+                      schiță ca oricare alta — aceeași regulă ca pe pagina finală.
                       Wrapper-ul `relative inline-block` se mulează exact pe imaginea randată, deci
                       dreptunghiul măsurat de SketchViewer coincide cu imaginea. */}
                   <span className="relative inline-block max-w-full">
@@ -953,7 +973,7 @@ export function DetailForm({
                       className="max-h-80 w-auto max-w-full object-contain"
                     />
                     {annotationStrokes && annotationStrokes.length > 0 && (
-                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} veil={false} />
+                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
                     )}
                   </span>
                 </div>
@@ -966,7 +986,7 @@ export function DetailForm({
                   </span>
                   {/* DE CE să adnotezi — scris explicit, nu lăsat pe seama iconiței: fără asta userul
                       vede un buton „Adnotează" și nu știe la ce i-ar folosi. Dispare odată adnotat. */}
-                  {!isEdit &&
+                  {canAnnotate &&
                     (annotationStrokes ? (
                       <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11.5px] text-[#95492e]">
                         <Pencil className="size-3" strokeWidth={2} />

@@ -154,8 +154,11 @@ export async function getProfileStats(userId: string) {
           isNull(details.projectId),
         ),
       ),
-    // „Schițe propuse" = trimise (orice în afară de DRAFT), pe detaliile ALTORA. Adnotarea pe
-    // propriul detaliu nu e o propunere către cineva → exclusă (mirror SQL al `isSelfAnnotation`).
+    // „Schițe propuse" = trimise (orice în afară de DRAFT), pe detaliile ALTORA. RĂMÂNE pe identitate
+    // (`authorId <> details.authorId`), INTENȚIONAT NESCHIMBAT de redefinirea `isAnnotation` din
+    // 2026-08-11: orice desen al userului pe PROPRIUL lui detaliu — adnotare sau schiță normală
+    // ulterioară — tot nu e o „propunere către cineva". Diferă de `sketchCount`/teanc (acolo swap-ul e
+    // corect: doar adnotarea se exclude din tab-uri, un self-sketch ulterior intră ca tab normal).
     db
       .select({ c: count() })
       .from(sketches)
@@ -224,10 +227,11 @@ const detailValidationCount = sql<number>`(select count(*)::int from ${validatio
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
 const detailCommentCount = sql<number>`(select count(*)::int from ${comments}
    where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
-// Ca în detailsRepo: contorul arată contribuțiile ALTORA, nu adnotarea proprie a autorului.
+// Ca în detailsRepo: „N schițe" = ce apare ca tab în teanc (exclude doar adnotarea, isAnnotation=true,
+// 2026-08-11 — un desen ulterior al autorului pe propriul detaliu, prin „Schițează peste" normal, INTRĂ).
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
-     and ${sketches.authorId} <> ${detailsAuthorId}
+     and ${sketches.isAnnotation} = false
      and ${sketches.hiddenAfterRelease} = false)`;
 
 // Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (regula e „bifezi oricâte",
@@ -285,7 +289,10 @@ export function listAuthorSketches(userId: string) {
       and(
         eq(sketches.authorId, userId),
         ne(sketches.status, "DRAFT"),
-        // Adnotarea pe propriul detaliu se vede pe detaliu (tabul Detalii), nu ca schiță separată aici.
+        // RĂMÂNE pe identitate — vezi comentariul identic de la „Schițe propuse" mai sus în acest
+        // fișier (INTENȚIONAT neschimbat de redefinirea `isAnnotation`, 2026-08-11). Orice desen al
+        // userului pe PROPRIUL lui detaliu se vede pe detaliu (tabul Detalii), nu aici, indiferent
+        // dacă e adnotarea sau un self-sketch ulterior.
         ne(sketches.authorId, details.authorId),
         // Identitate RETRASĂ (ștergere parțială, 2026-08-08): desenul rămâne pe detaliu ca parte din
         // dezbatere, dar legătura cu autorul dispare — inclusiv de pe profilul lui, unde userul se
