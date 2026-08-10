@@ -312,6 +312,11 @@ export const sketches = pgTable(
     // DISAPPROVE pe detaliul-mamă + comentariul-justificare (vezi sketchService.publish). Altfel rămâne
     // o simplă contribuție (fără poziție). Default false = schiță neutră.
     disapprovesParent: boolean().notNull().default(false),
+    // Adnotarea autorului (2026-08-11): TRUE doar pe rândul creat prin `createAnnotation()`, din
+    // formularul de Adaugă/Editează detaliu — explicația autorului pe propria imagine, nu o schiță
+    // primită. Înlocuiește derivarea veche din `authorId = detail.authorId` (adevărată pentru ORICE
+    // desen al autorului pe propriul detaliu, oricând, nu doar cel de la publicare — bug real).
+    isAnnotation: boolean().notNull().default(false),
     // Moment publicare (DRAFT→PUBLISHED). Numele „acceptedAt" e moștenit din fluxul vechi cu acceptare.
     acceptedAt: timestamp({ withTimezone: true }),
     // ── Stack de foi (2026-08-08) ─────────────────────────────────────────────────────────────
