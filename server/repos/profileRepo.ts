@@ -95,6 +95,8 @@ export async function getContributionCounts(
           // Identitate retrasă → nici în heatmap. Altfel ar rămâne o zi de activitate fără corespondent
           // nici în contor, nici în listă (ambele filtrează deja) — o urmă a legăturii tocmai retrase.
           eq(sketches.authorRemoved, false),
+          // SEC-002 (2026-08-10): schiță ascunsă la „Scoate în comunitate" → nu apare în heatmap-ul public.
+          eq(sketches.hiddenAfterRelease, false),
           // Proiecte (2026-08-09): schiță pe un detaliu de proiect → nu apare în heatmap-ul public.
           exists(
             db.select({ one: sql`1` }).from(details).where(
@@ -128,7 +130,14 @@ export async function getProfileStats(userId: string) {
     .select({ id: sketches.id })
     .from(sketches)
     .innerJoin(details, eq(details.id, sketches.detailId))
-    .where(and(eq(sketches.authorId, userId), isNull(details.projectId)));
+    .where(
+      and(
+        eq(sketches.authorId, userId),
+        isNull(details.projectId),
+        // SEC-002: validările primite pe o schiță ascunsă la release nu se numără public.
+        eq(sketches.hiddenAfterRelease, false),
+      ),
+    );
 
   const [published, sketchesProposed, given, received] = await Promise.all([
     db
@@ -159,6 +168,8 @@ export async function getProfileStats(userId: string) {
           // Identitate retrasă → nu se mai numără ca realizare a userului (mirror al filtrului din
           // `listAuthorSketches`; altfel contorul ar contrazice lista de sub el).
           eq(sketches.authorRemoved, false),
+          // SEC-002: schiță ascunsă la release → nu se numără printre „Schițe propuse".
+          eq(sketches.hiddenAfterRelease, false),
           // Proiecte (2026-08-09): schiță pe un detaliu de proiect → nu se numără public.
           isNull(details.projectId),
         ),
@@ -216,7 +227,8 @@ const detailCommentCount = sql<number>`(select count(*)::int from ${comments}
 // Ca în detailsRepo: contorul arată contribuțiile ALTORA, nu adnotarea proprie a autorului.
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
-     and ${sketches.authorId} <> ${detailsAuthorId})`;
+     and ${sketches.authorId} <> ${detailsAuthorId}
+     and ${sketches.hiddenAfterRelease} = false)`;
 
 // Prima categorie (alfabetic) bifată pe detaliu — suficient pt badge-ul de card (regula e „bifezi oricâte",
 // dar cardul de profil arată doar un rezumat, nu toate categoriile).
@@ -279,6 +291,8 @@ export function listAuthorSketches(userId: string) {
         // dezbatere, dar legătura cu autorul dispare — inclusiv de pe profilul lui, unde userul se
         // așteaptă cel mai tare să nu mai apară. `author_id` rămâne în DB doar ca ancoră tehnică.
         eq(sketches.authorRemoved, false),
+        // SEC-002: schiță ascunsă la release → nu apare pe tabul „Schițe" al profilului.
+        eq(sketches.hiddenAfterRelease, false),
         // Proiecte (2026-08-09): schiță pe un detaliu de proiect → nu apare pe profilul public
         // (parentTitle ar dezvălui titlul unui detaliu privat).
         isNull(details.projectId),

@@ -41,6 +41,12 @@ playwright/.cache/
 # Screenshot-uri de verificare locală (Playwright/manual) — NU se comit
 hero-b-fixed.png
 
+# Rapoarte ZAP (DAST) — reconnaissance de infrastructură, repo e PUBLIC, NU se comit
+*ZAP-Report*
+*ZAP*.html
+ZAP REPORT.html
+raport_pentest.html
+
 # === Lint / cache build ===
 .eslintcache
 .turbo/
