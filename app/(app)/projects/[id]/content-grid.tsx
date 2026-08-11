@@ -27,7 +27,8 @@ export function ContentGrid({
   releasedDetails,
   canvasShares,
   myCanvases,
-  canManageShares,
+  isOwner,
+  currentUserId,
 }: {
   projectId: string;
   isMember: boolean;
@@ -36,9 +37,12 @@ export function ContentGrid({
   canvasShares: ContentCanvasShare[];
   myCanvases: ContentCanvasOption[];
   // Ștergerea unei partajări: cine a partajat-o SAU owner-ul proiectului — verificat REAL pe server;
-  // aici doar arătăm/ascundem butonul (owner-ul proiectului vede pe toate, restul doar pe-ale lor).
-  canManageShares: (sharedByUserId: string) => boolean;
+  // aici doar arătăm/ascundem butonul (owner-ul proiectului vede pe toate, restul doar pe-ale lui).
+  isOwner: boolean;
+  currentUserId: string;
 }) {
+  const canManageShares = (sharedByUserId: string) => isOwner || sharedByUserId === currentUserId;
+
   const [addOpen, setAddOpen] = useState(false);
 
   const empty = details.length === 0 && canvasShares.length === 0 && releasedDetails.length === 0;
