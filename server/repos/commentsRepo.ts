@@ -3,6 +3,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { commentLikes, comments, roles, users } from "@/db/schema";
+import { verifiedCondition } from "@/server/repos/repoHelpers";
 import type { TargetType } from "@/server/domain/validation";
 
 // Nr. de aprecieri pe comentariu — subquery corelat (nu join, ca să nu dublăm rândul comentariului).
@@ -22,7 +23,7 @@ const commentLikers = sql<
   from (
     select ${users.id} as id, ${users.name} as name, ${users.image} as image,
            ${roles.roleMain} as role_main, ${roles.subRole} as sub_role,
-           (${roles.verificationStatus} = 'VERIFIED') as verified
+           (${verifiedCondition}) as verified
     from ${commentLikes}
     join ${users} on ${users.id} = ${commentLikes.userId}
     left join ${roles} on ${roles.userId} = ${commentLikes.userId}

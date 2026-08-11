@@ -5,6 +5,8 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { projectMembers, roles, users } from "@/db/schema";
 
+import { verifiedCondition } from "@/server/repos/repoHelpers";
+
 // Rândul de membru (poate fi eliminat — `removedAt` setat). `null` dacă userul nu a fost NICIODATĂ
 // membru al acestui proiect (nu s-a inserat rând). Vezi `isActiveMember` mai jos pentru verificarea
 // „membru ACUM".
@@ -76,7 +78,7 @@ export async function listActiveMembers(projectId: string) {
       // declarat (onboarding neterminat) → toate null, LEFT JOIN, nu-l scoate din listă.
       roleMain: roles.roleMain,
       subRole: roles.subRole,
-      verified: sql<boolean>`${roles.verificationStatus} = 'VERIFIED'`,
+      verified: sql<boolean>`${verifiedCondition}`,
     })
     .from(projectMembers)
     .innerJoin(users, eq(users.id, projectMembers.userId))
