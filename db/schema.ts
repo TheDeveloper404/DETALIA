@@ -382,6 +382,10 @@ export const projects = pgTable(
     // ține locul unde hash-ul ar fi protejat: un token neghicibil, nu unul needevoalabil.
     // Regenerare link = UPDATE pe această coloană (vechiul token devine instant invalid).
     inviteToken: text().notNull(),
+    // SEC-006 (audit 2026-08-11): momentul (re)generării tokenului — separat de `updatedAt` (care se
+    // schimbă și la alte modificări ale proiectului, ex. redenumire, deci nu poate fi ancora de TTL).
+    // Verificat la /projects/join/[token] (lib/invite-token.ts) — expirat = tratat ca token invalid.
+    inviteTokenCreatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()

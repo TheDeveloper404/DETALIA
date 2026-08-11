@@ -15,6 +15,7 @@ import {
   getUserMedia,
   setUserStatus as setUserStatusRow,
 } from "@/server/repos/usersRepo";
+import { reassignOrDeleteOwnedProjectsOnAccountDeletion } from "@/server/services/projectService";
 
 export type SetUserStatusError = "NOT_FOUND";
 
@@ -31,6 +32,11 @@ export async function setUserStatus(
 
 export async function deleteAccount(userId: string): Promise<{ ok: true }> {
   const media = await getUserMedia(userId);
+
+  // SEC-013: proiectele deținute de acest cont (transfer către cel mai vechi membru activ, sau
+  // ștergere dacă n-are alți membri) — ÎNAINTEA anonimizării, cât userId-ul e încă owner-ul real
+  // (deleteProject verifică ownerId === requesterId).
+  await reassignOrDeleteOwnedProjectsOnAccountDeletion(userId);
 
   // PII din rândul user → șters; email → placeholder non-PII; status → DELETED (blocat de SEC-04).
   // SEC-005: placeholder-ul NU conține userId — un id random face imposibilă corelarea (dintr-un

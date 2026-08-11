@@ -4,6 +4,7 @@
 // Securitate: validăm tipul și dimensiunea pe SERVER înainte de upload (frontend-ul nu e sursă de adevăr).
 import { del } from "@vercel/blob";
 
+import { isOwnBlobUrl } from "@/lib/blob-url";
 import { processAndUploadImage } from "@/lib/image-processing";
 // Limitele de upload trăiesc în `lib/upload-limits.ts` (partajate client+server, fără SDK Blob).
 import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
@@ -49,14 +50,29 @@ export async function uploadProjectCanvasShare(blob: Blob): Promise<UploadImageR
 
 // Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile
 // schițelor). NU aruncă: o eroare de storage nu trebuie să rateze ștergerea logică din DB (un blob
-// orfan = doar risipă de storage, nu o eroare de utilizator). Acceptăm doar URL-uri Blob (https) —
-// căile relative / asset-urile din /public nu sunt în Blob și se ignoră.
+// orfan = doar risipă de storage, nu o eroare de utilizator). Filtrăm pe `isOwnBlobUrl` (SEC-A2, nu doar
+// „un store Vercel Blob oarecare") — un URL dintr-un store vechi/rotit trimis la `del()` respinge server-side
+// ÎNTREG batch-ul cu "Some urls are malformed" (văzut recurent în log-urile de preview), blocând ștergerea
+// și a celorlalte URL-uri valide din același apel.
 export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<void> {
-  const valid = urls.filter((u): u is string => !!u && u.startsWith("https://"));
+  const valid = urls.filter((u): u is string => !!u && isOwnBlobUrl(u));
   if (valid.length === 0) return;
   try {
     await del(valid);
   } catch (err) {
-    console.error("Ștergere Blob eșuată:", err instanceof Error ? err.message : "necunoscut");
+    // Găsit la /code-review QODO (2026-08-11): logam array-ul complet de URL-uri pe eroare — util la
+    // debug, dar inutil de expansiv în Vercel Logs (URL-urile Blob sunt long-lived). Doar count + host.
+    const host = (() => {
+      try {
+        return new URL(valid[0]).host;
+      } catch {
+        return "necunoscut";
+      }
+    })();
+    console.error(
+      "Ștergere Blob eșuată:",
+      err instanceof Error ? err.message : "necunoscut",
+      `(${valid.length} url-uri, host: ${host})`,
+    );
   }
 }

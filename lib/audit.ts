@@ -38,7 +38,12 @@ export type AuditEvent =
   | "project_member_removed" // owner-ul a eliminat un membru
   | "project_invite_regenerated" // owner-ul a regenerat linkul de invitație (tokenul vechi devine invalid)
   | "project_deleted" // owner-ul a șters proiectul (ireversibil)
-  | "project_forbidden_action"; // non-owner a încercat o acțiune owner-only (regenerare/eliminare/ștergere)
+  | "project_forbidden_action" // non-owner a încercat o acțiune owner-only (regenerare/eliminare/ștergere)
+  // SEC-013 (audit 2026-08-11): mutații declanșate de ștergerea contului owner-ului (GDPR), nu de o
+  // acțiune directă a userului — trece pe lângă app/(app)/projects/actions.ts, deci fără urmă dacă nu
+  // se auditează separat aici.
+  | "project_ownership_transferred_on_account_deletion"
+  | "project_deleted_on_account_deletion";
 
 export function audit(
   event: AuditEvent,
