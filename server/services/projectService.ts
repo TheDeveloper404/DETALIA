@@ -296,8 +296,13 @@ export async function reassignOrDeleteOwnedProjectsOnAccountDeletion(userId: str
           newOwnerId: newOwner.userId,
         });
       } else {
-        await deleteProject({ projectId, requesterId: userId });
-        audit("project_deleted_on_account_deletion", { projectId, ownerId: userId });
+        // /code-review (2026-08-11): deleteProject întoarce {ok:false} pe NOT_FOUND/FORBIDDEN (nu
+        // aruncă) — fără verificare, audit-ul afirma "proiect șters" chiar și când n-a fost (ex. ștergere
+        // concurentă a aceluiași proiect, altă filă deschisă, între listProjectsOwnedBy și acest apel).
+        const result = await deleteProject({ projectId, requesterId: userId });
+        if (result.ok) {
+          audit("project_deleted_on_account_deletion", { projectId, ownerId: userId });
+        }
       }
     } catch (err) {
       audit(
