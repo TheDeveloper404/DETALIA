@@ -7,9 +7,12 @@ import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import {
   createProject,
+  deleteCanvasShareForUser,
   deleteProject,
   regenerateInviteLink,
   removeMember,
+  renameProject,
+  shareCanvasToProject,
 } from "@/server/services/projectService";
 import { releaseDetailToCommunity } from "@/server/services/detailService";
 
@@ -22,6 +25,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   FORBIDDEN: "Nu ai voie să faci asta.",
   NOT_IN_PROJECT: "Detaliul nu mai e într-un proiect.",
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
+  EMPTY_CANVAS: "Planșa asta nu are încă niciun conținut salvat.",
+  UPLOAD_FAILED: "Partajarea a eșuat. Încearcă din nou.",
 };
 
 // Creează un proiect nou. `redirect` direct la pagina lui — owner-ul are acces imediat.
@@ -50,6 +55,22 @@ export async function regenerateInviteLinkAction(projectId: string): Promise<Pro
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut regenera linkul." };
   revalidatePath(`/projects/${projectId}`);
   return { ok: true, inviteToken: res.inviteToken };
+}
+
+// Redenumire inline (dublu-click pe titlu) — apelată direct din client, ca regenerateInviteLinkAction.
+export async function renameProjectAction(
+  projectId: string,
+  name: string,
+): Promise<ProjectActionResult> {
+  const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+  const res = await renameProject({ projectId, requesterId: userId, name });
+  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut redenumi proiectul." };
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  return { ok: true };
 }
 
 // Eliminare membru — doar owner. Form action (useActionState) → revalidate.
@@ -83,6 +104,41 @@ export async function deleteProjectAction(
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut șterge proiectul." };
   revalidatePath("/projects");
   redirect("/projects");
+}
+
+// Partajare planșă în proiect (§6B) — copie înghețată, needitabilă. `canvasId` trebuie să fie a
+// userului curent (verificat în service, anti-IDOR).
+export async function shareCanvasAction(
+  _prevState: ProjectActionResult,
+  formData: FormData,
+): Promise<ProjectActionResult> {
+  const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+  const canvasId = String(formData.get("canvasId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  const res = await shareCanvasToProject({ canvasId, projectId, userId });
+  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut partaja planșa." };
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+// Ștergere partajare de planșă — cine a partajat-o SAU owner-ul proiectului.
+export async function deleteCanvasShareAction(
+  _prevState: ProjectActionResult,
+  formData: FormData,
+): Promise<ProjectActionResult> {
+  const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
+  }
+  const shareId = String(formData.get("shareId") ?? "");
+  const projectId = String(formData.get("projectId") ?? "");
+  const res = await deleteCanvasShareForUser({ shareId, userId });
+  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut șterge partajarea." };
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
 }
 
 // „Scoate în comunitate" — de pe pagina detaliului. Ireversibil (regula „orfan", vezi projectService).

@@ -321,6 +321,25 @@ export async function listProjectDetails(projectId: string) {
     .orderBy(desc(details.createdAt));
 }
 
+// Card-preview: detalii care AU FOST în acest proiect și au fost eliberate în comunitate (§6A, Faza B
+// „Proiect", 2026-08-11) — `projectId` e deja null (public), dar `releasedFromProjectId` păstrează
+// originea. Fără asta, „scoate în comunitate" ar face detaliul să dispară complet din vederea
+// proiectului, fără nicio urmă. Doar câmpurile de preview — cardul duce spre pagina publică, nu
+// duplică toată logica listei principale (validationCount/commentCount etc. nu au sens aici).
+export async function listReleasedProjectDetails(projectId: string) {
+  return db
+    .select({ id: details.id, title: details.title, imageUrl: details.imageUrl })
+    .from(details)
+    .where(
+      and(
+        eq(details.status, DETAIL_STATUS.PUBLISHED),
+        eq(details.releasedFromProjectId, projectId),
+        isNull(details.projectId),
+      ),
+    )
+    .orderBy(desc(details.createdAt));
+}
+
 // Toate detaliile unui proiect, INDIFERENT de status (inclusiv DRAFT) — folosit la ștergerea
 // proiectului. Nu se poate folosi `listProjectDetails` (filtrează PUBLISHED): un draft rămas în proiect
 // trebuie și el trecut prin cascada completă. `imageUrl` vine odată cu id-ul, ca să nu se piardă
@@ -340,9 +359,19 @@ export async function listAllProjectDetails(projectId: string) {
 // altor membri se marchează `hiddenAfterRelease` ÎN ACELAȘI batch, atomic cu nularea `projectId` —
 // altfel ar exista o fereastră (sau, la eroare pe jumătate, o stare permanentă) cu detaliul deja public
 // și contribuțiile altora încă vizibile nefiltrat.
-export async function releaseDetailToCommunity(detailId: string, detailAuthorId: string) {
+export async function releaseDetailToCommunity(
+  detailId: string,
+  detailAuthorId: string,
+  releasedFromProjectId: string,
+) {
   await db.batch([
-    db.update(details).set({ projectId: null }).where(eq(details.id, detailId)),
+    // `releasedFromProjectId` setat AICI, o singură dată (regula ireversibilă — nu se rescrie la o
+    // eventuală re-intrare într-un alt proiect, ceea ce oricum nu se poate întâmpla: un detaliu deja
+    // eliberat e `projectId=null`, nu mai poate reintra). Rămâne cardul-preview în proiectul de origine.
+    db
+      .update(details)
+      .set({ projectId: null, releasedFromProjectId })
+      .where(eq(details.id, detailId)),
     db
       .update(sketches)
       .set({ hiddenAfterRelease: true })
