@@ -363,6 +363,19 @@ export async function listAllProjectDetails(projectId: string) {
     .where(eq(details.projectId, projectId));
 }
 
+// SEC-005 (audit 2026-08-11): pentru proxy-ul autenticat de imagine (`/api/project-image/detail/[id]`)
+// — indiferent de status (inclusiv DRAFT, la fel ca `listAllProjectDetails`; `getDetailById` filtrează
+// PUBLISHED și ar întoarce null pt un draft, ratând poarta de acces). `projectId` vine odată cu URL-ul
+// ca poarta de acces (canAccessProjectDetail) să se poată verifica FĂRĂ un al doilea query.
+export async function getProjectDetailImage(detailId: string) {
+  const [row] = await db
+    .select({ imageUrl: details.imageUrl, projectId: details.projectId })
+    .from(details)
+    .where(eq(details.id, detailId))
+    .limit(1);
+  return row ?? null;
+}
+
 // „Scoate în comunitate" — mutație ireversibilă (regulă de business, nu constrângere DB; vezi
 // resolveDetailPlacement în server/domain/project.ts). Autorizarea (regula „orfan") se verifică
 // ÎNAINTE, în service.

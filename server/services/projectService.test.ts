@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/invite-token", () => ({ generateInviteToken: vi.fn(() => "new-token-abc") }));
+vi.mock("@/lib/invite-token", () => ({
+  generateInviteToken: vi.fn(() => "new-token-abc"),
+  isInviteTokenExpired: vi.fn(() => false),
+}));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn(), uploadProjectCanvasShare: vi.fn() }));
 vi.mock("@/server/repos/detailsRepo", () => ({
   deleteDetailCascade: vi.fn(),
@@ -31,13 +34,15 @@ vi.mock("@/server/repos/projectsRepo", () => ({
   getProjectByInviteToken: vi.fn(),
   insertProject: vi.fn(),
   listProjectsForUser: vi.fn(),
+  listProjectsOwnedBy: vi.fn(() => Promise.resolve([])),
+  transferProjectOwnership: vi.fn(),
   updateInviteToken: vi.fn(),
   updateProjectName: vi.fn(),
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ getUserWithRole: vi.fn(() => Promise.resolve(null)) }));
 
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
-import { generateInviteToken } from "@/lib/invite-token";
+import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import {
   deleteDetailCascade,
   listAllProjectDetails,
@@ -63,6 +68,8 @@ import {
   getProjectById,
   getProjectByInviteToken,
   insertProject,
+  listProjectsOwnedBy,
+  transferProjectOwnership,
   updateInviteToken,
   updateProjectName,
 } from "@/server/repos/projectsRepo";
@@ -76,7 +83,9 @@ import {
   getProject,
   getProjectAccess,
   getProjectForViewer,
+  getProjectPreviewByToken,
   joinProjectByToken,
+  reassignOrDeleteOwnedProjectsOnAccountDeletion,
   regenerateInviteLink,
   removeMember,
   renameProject,
@@ -88,9 +97,27 @@ const OWNER_ID = "owner-1";
 // UUID valid — removeMember validează targetUserId cu isUuid (SEC-11).
 const MEMBER_ID = "22222222-2222-4222-8222-222222222222";
 const STRANGER_ID = "stranger-1";
+// Fix, nu `new Date()` la fiecare apel — două invocări projectRow() (una la mock, una la `toEqual`
+// din test) ar produce milisecunde diferite și un fail flaky (SEC-006, `inviteTokenCreatedAt`).
+const FIXED_NOW = new Date("2026-08-11T00:00:00.000Z");
 
-function projectRow(overrides: Partial<{ id: string; ownerId: string; name: string; inviteToken: string }> = {}) {
-  return { id: PROJECT_ID, ownerId: OWNER_ID, name: "Renovare bloc A", inviteToken: "tok-abc", ...overrides };
+function projectRow(
+  overrides: Partial<{
+    id: string;
+    ownerId: string;
+    name: string;
+    inviteToken: string;
+    inviteTokenCreatedAt: Date;
+  }> = {},
+) {
+  return {
+    id: PROJECT_ID,
+    ownerId: OWNER_ID,
+    name: "Renovare bloc A",
+    inviteToken: "tok-abc",
+    inviteTokenCreatedAt: FIXED_NOW,
+    ...overrides,
+  };
 }
 
 beforeEach(() => {
@@ -273,6 +300,31 @@ describe("joinProjectByToken", () => {
     expect(res).toEqual({ ok: true, projectId: PROJECT_ID, projectName: "Renovare bloc A" });
     expect(countActiveMembers).not.toHaveBeenCalled();
     expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+  });
+
+  // SEC-006 (audit securitate 2026-08-11): token expirat (TTL 3 zile) = tratat identic cu token
+  // inexistent — anti-enumerare, nu se distinge "expirat" de "n-a existat niciodată".
+  it("token expirat → INVALID_TOKEN, nu inserează membru", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isInviteTokenExpired).mockReturnValueOnce(true);
+    const res = await joinProjectByToken({ token: "tok-abc", userId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "INVALID_TOKEN" });
+    expect(upsertActiveMembership).not.toHaveBeenCalled();
+  });
+});
+
+describe("getProjectPreviewByToken", () => {
+  it("token valid → previzualizare (id + nume)", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
+    const res = await getProjectPreviewByToken("tok-abc");
+    expect(res).toEqual({ id: PROJECT_ID, name: "Renovare bloc A" });
+  });
+
+  it("token expirat → null, la fel ca token inexistent", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isInviteTokenExpired).mockReturnValueOnce(true);
+    const res = await getProjectPreviewByToken("tok-abc");
+    expect(res).toBeNull();
   });
 });
 
@@ -604,5 +656,85 @@ describe("deleteCanvasShareForUser — cine a partajat SAU owner-ul proiectului,
     vi.mocked(deleteCanvasShareRow).mockResolvedValueOnce("https://blob/share.png");
     const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: OWNER_ID });
     expect(res).toEqual({ ok: true });
+  });
+});
+
+// SEC-013 (audit securitate 2026-08-11, decizie de produs): ștergere cont (GDPR) — proiecte deținute de
+// userul șters. Decis: proiect cu ALȚI membri activi ȘI CU CONT ACTIV → transfer AUTOMAT către cel mai
+// vechi (nu se întreabă userul, nu există pas suplimentar); fără candidat eligibil → proiectul se
+// șterge odată cu contul.
+function activeMemberRow(
+  overrides: Partial<{ userId: string; joinedAt: Date; status: "ACTIVE" | "SUSPENDED" | "DELETED" }> = {},
+) {
+  return {
+    id: `m-${overrides.userId ?? "x"}`,
+    userId: MEMBER_ID,
+    joinedAt: new Date(),
+    name: "Membru",
+    image: null,
+    roleMain: null,
+    subRole: null,
+    verified: false,
+    status: "ACTIVE" as const,
+    ...overrides,
+  };
+}
+
+describe("reassignOrDeleteOwnedProjectsOnAccountDeletion", () => {
+  it("fără proiecte deținute → no-op", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([]);
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(transferProjectOwnership).not.toHaveBeenCalled();
+    expect(deleteProjectRow).not.toHaveBeenCalled();
+  });
+
+  it("proiect cu alți membri activi → transfer către cel mai vechi (primul din listActiveMembers)", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([
+      activeMemberRow({ userId: MEMBER_ID }),
+      activeMemberRow({ userId: STRANGER_ID }),
+    ] as never);
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(transferProjectOwnership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(deleteProjectRow).not.toHaveBeenCalled();
+  });
+
+  it("proiect fără alți membri activi (doar owner-ul, sau nimeni) → se șterge odată cu contul", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([
+      activeMemberRow({ userId: OWNER_ID }),
+    ] as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.mocked(listAllProjectDetails).mockResolvedValueOnce([]);
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(transferProjectOwnership).not.toHaveBeenCalled();
+    expect(deleteProjectRow).toHaveBeenCalledWith(PROJECT_ID);
+  });
+
+  // /code-review (2026-08-11): găsit — fără filtru pe status, un membru cu rând `removedAt = null` dar
+  // cont deja DELETED (ștergerea altui cont nu curăță membership-urile din proiectele altora) putea
+  // deveni owner permanent, needevoalabil. Cel mai vechi e un cont-fantomă → sărit, se alege următorul
+  // membru cu adevărat ACTIVE.
+  it("cel mai vechi membru are contul șters/suspendat → sărit, se alege următorul membru ACTIV", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([
+      activeMemberRow({ userId: "ghost-user", status: "DELETED" }),
+      activeMemberRow({ userId: STRANGER_ID, status: "ACTIVE" }),
+    ] as never);
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(transferProjectOwnership).toHaveBeenCalledWith(PROJECT_ID, STRANGER_ID);
+  });
+
+  it("TOȚI ceilalți membri au contul șters/suspendat → niciun candidat eligibil, proiectul se șterge", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([
+      activeMemberRow({ userId: "ghost-1", status: "DELETED" }),
+      activeMemberRow({ userId: "ghost-2", status: "SUSPENDED" }),
+    ] as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.mocked(listAllProjectDetails).mockResolvedValueOnce([]);
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(transferProjectOwnership).not.toHaveBeenCalled();
+    expect(deleteProjectRow).toHaveBeenCalledWith(PROJECT_ID);
   });
 });

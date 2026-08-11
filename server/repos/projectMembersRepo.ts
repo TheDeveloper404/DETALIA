@@ -83,6 +83,12 @@ export async function listActiveMembers(projectId: string) {
       joinedAt: projectMembers.joinedAt,
       name: users.name,
       image: users.image,
+      // SEC-013 (audit 2026-08-11, /code-review): expus ca reassignOrDeleteOwnedProjectsOnAccountDeletion
+      // (projectService.ts) să poată exclude candidați DELETED/SUSPENDED de la transfer de proprietate —
+      // un rând de membru poate rămâne activ (removedAt null) chiar și după ce contul respectiv a fost
+      // șters (ștergerea unui cont nu curăță membership-urile din proiectele ALTORA, doar proiectele
+      // proprii).
+      status: users.status,
       // Rolul PLATFORMEI (nu unul „de proiect" — nu există, vezi db/schema.ts). Un membru fără rol
       // declarat (onboarding neterminat) → toate null, LEFT JOIN, nu-l scoate din listă.
       roleMain: roles.roleMain,

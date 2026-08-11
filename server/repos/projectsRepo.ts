@@ -34,13 +34,30 @@ export async function getProjectByInviteToken(token: string) {
 }
 
 // Regenerare link (doar owner, verificat în service): suprascrie tokenul → vechiul link, oricine îl
-// mai are, devine instant invalid (nu mai există nicăieri în DB).
+// mai are, devine instant invalid (nu mai există nicăieri în DB). Resetează și `inviteTokenCreatedAt`
+// (SEC-006) — linkul regenerat primește un TTL nou de 3 zile, nu moștenește vârsta celui vechi.
 export async function updateInviteToken(projectId: string, newToken: string) {
-  await db.update(projects).set({ inviteToken: newToken }).where(eq(projects.id, projectId));
+  await db
+    .update(projects)
+    .set({ inviteToken: newToken, inviteTokenCreatedAt: new Date() })
+    .where(eq(projects.id, projectId));
 }
 
 export async function updateProjectName(projectId: string, name: string) {
   await db.update(projects).set({ name }).where(eq(projects.id, projectId));
+}
+
+// SEC-013 (audit securitate 2026-08-11): proiectele deținute de un cont care se șterge (GDPR) —
+// doar id-ul, suficient pentru a decide per proiect (transfer sau ștergere, în service).
+export async function listProjectsOwnedBy(userId: string) {
+  return db.select({ id: projects.id }).from(projects).where(eq(projects.ownerId, userId));
+}
+
+// SEC-013: transfer de proprietate (owner-ul vechi și-a șters contul) — DOAR UPDATE pe ownerId, nu
+// atinge `project_members` (noul owner poate avea deja un rând acolo din calitatea de membru; îl lăsăm
+// intact, la fel cum owner-ul curent poate avea sau nu un rând — vezi comentariul din db/schema.ts).
+export async function transferProjectOwnership(projectId: string, newOwnerId: string) {
+  await db.update(projects).set({ ownerId: newOwnerId }).where(eq(projects.id, projectId));
 }
 
 // Ștergere rândului de proiect. Cascada de FK acoperă `project_members` și `details.projectId`, DAR
