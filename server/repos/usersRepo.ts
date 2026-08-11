@@ -5,6 +5,8 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, details, roles, sessions, userStatus, users } from "@/db/schema";
 
+import { verifiedCondition } from "@/server/repos/repoHelpers";
+
 export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
 }
@@ -275,7 +277,7 @@ export async function getUserWithRole(userId: string) {
       image: users.image,
       roleMain: roles.roleMain,
       subRole: roles.subRole,
-      verified: sql<boolean>`${roles.verificationStatus} = 'VERIFIED'`,
+      verified: sql<boolean>`${verifiedCondition}`,
     })
     .from(users)
     .leftJoin(roles, eq(roles.userId, users.id))

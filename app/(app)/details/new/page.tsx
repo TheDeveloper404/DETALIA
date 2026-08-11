@@ -37,16 +37,19 @@ export default async function NewDetailPage({
     : null;
   if (projectId && !project) notFound();
 
-  const categories = await listCategories();
   // §7 din plan (Faza C): a treia sursă de imagine la creare — „dintr-o planșă" proprie. Fără gardă
   // suplimentară de acces (decizie explicită din plan): `listMyCanvases` întoarce STRICT planșele
   // userului curent, aceeași sursă folosită deja de `/canvases`.
-  const myCanvases = await listMyCanvases(session.user.id);
   // În context de proiect (`projectId` prezent): și planșele PARTAJATE ale proiectului (§6B/Faza B) —
   // „ori din planșele mele SAU ALE ALTORA la care am acces" (cerință explicită la creare în proiect).
   // Acces deja verificat mai sus (`project` = null dacă nu ești membru) — varianta „Unchecked" evită
   // re-verificarea, nu doar accesul (2026-08-11, /code-review — același gol ca pe pagina de proiect).
-  const canvasShares = projectId ? await listCanvasSharesUnchecked(projectId) : [];
+  // Cele trei sunt independente — Promise.all evită 3 round-trip-uri secvențiale (2026-08-11, /code-review).
+  const [categories, myCanvases, canvasShares] = await Promise.all([
+    listCategories(),
+    listMyCanvases(session.user.id),
+    projectId ? listCanvasSharesUnchecked(projectId) : Promise.resolve([]),
+  ]);
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">

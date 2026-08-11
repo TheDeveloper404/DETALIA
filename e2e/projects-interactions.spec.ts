@@ -163,6 +163,10 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
       await mpage.getByRole("button", { name: "Alătură-te proiectului" }).click();
       await expect(mpage).toHaveURL(new RegExp(`/projects/${projectId}$`), { timeout: 10_000 });
 
+      // Regresie /code-review 2026-08-11: linkul de invitație era vizibil oricărui membru (nu doar
+      // owner-ului), care l-ar fi putut redistribui în afara proiectului. Doar owner-ul vede butonul.
+      await expect(mpage.getByRole("button", { name: "Invită membri" })).not.toBeVisible();
+
       await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();
       await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
