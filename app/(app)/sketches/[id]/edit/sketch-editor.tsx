@@ -27,6 +27,7 @@ export function SketchEditor({
   detailId,
   imageUrl,
   initialStrokes,
+  backgroundStrokes,
   initialNote,
   detailTitle,
   authorId,
@@ -39,6 +40,8 @@ export function SketchEditor({
   detailId: string;
   imageUrl: string;
   initialStrokes: Stroke[];
+  // Foile de fundal înghețate ale stack-ului (needitabile) — vezi getDraftForEdit.
+  backgroundStrokes: Stroke[];
   initialNote: string | null;
   detailTitle: string;
   authorId: string | null; // null = autorul s-a retras din detaliu (anonimizat) → fără link de profil
@@ -200,6 +203,7 @@ export function SketchEditor({
         ref={canvasRef}
         imageUrl={imageUrl}
         initialStrokes={initialStrokes}
+        backgroundStrokes={backgroundStrokes}
         onStrokesCount={setCount}
       />
     </div>

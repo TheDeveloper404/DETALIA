@@ -59,6 +59,26 @@ async function drawOnCanvas(page: import("@playwright/test").Page, offset: numbe
   await page.mouse.up();
 }
 
+// Culoarea pixelului de la centrul canvas-ului + offset dat — folosit ca să verificăm că fundalul
+// stack-ului (needitabil) e efectiv RANDAT în editor, nu doar transportat ca date (bug 2026-08-11:
+// getDraftForEdit întorcea backgroundStrokes, dar SketchCanvas nu avea niciun prop să le primească).
+async function getPixelAt(
+  page: import("@playwright/test").Page,
+  offset: number,
+): Promise<[number, number, number, number]> {
+  const canvas = page.locator("canvas");
+  await expect(canvas).toBeVisible();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("canvas fără bounding box");
+  const x = Math.round(box.width / 2 + offset);
+  const y = Math.round(box.height / 2 + offset);
+  return canvas.evaluate((el, coords) => {
+    const ctx = (el as HTMLCanvasElement).getContext("2d")!;
+    const d = ctx.getImageData(coords.x, coords.y, 1, 1).data;
+    return [d[0], d[1], d[2], d[3]];
+  }, { x, y });
+}
+
 test.describe.serial("Schiță — stack de foi", () => {
   let firstSketchId: string;
   let secondSketchId: string;
@@ -114,6 +134,26 @@ test.describe.serial("Schiță — stack de foi", () => {
       .from(sketches)
       .where(eq(sketches.id, firstSketchId));
     expect(base.lockedAt).not.toBeNull();
+  });
+
+  test("foaia 3 (draft): editorul randează DEJA fundalul foii 2, înainte de orice desen propriu", async ({
+    page,
+  }) => {
+    await page.goto(`${detailUrl()}?sketch=${secondSketchId}`);
+    await page.getByRole("button", { name: "Schițează peste ce vezi acum" }).click();
+
+    await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
+    const thirdSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? "";
+    expect(thirdSketchId).not.toBe("");
+    createdIds.push(thirdSketchId);
+
+    // Foaia 2 a fost desenată la offset +60 (testul de mai sus), cu culoarea implicită (grafit, #211d18
+    // = rgb(33,29,24)). Fără fix (2026-08-11), acest punct ar rămâne hârtie/imagine — fundalul nu ajungea
+    // deloc la <SketchCanvas>. Verificăm apropierea de cerneală, NU doar "nu e alb": imaginea-mamă
+    // dedesubt poate fi orice culoare, deci un simplu "nu e deschis la culoare" ar fi fragil.
+    const [r, g, b] = await getPixelAt(page, 60);
+    const looksLikeInk = r < 90 && g < 90 && b < 90;
+    expect(looksLikeInk, `pixel la fundalul așteptat: rgb(${r},${g},${b})`).toBe(true);
   });
 
   test("vizualizare: bifă per foaie din teanc, stingerea e liberă", async ({ page }) => {

@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, ChevronDown, Info, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
+import { CanvasCropPicker, type CropCanvasOption } from "@/components/canvas-crop-picker";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
@@ -316,6 +317,7 @@ export function DetailForm({
   initial,
   submitLabel = "Publică detaliul",
   projectId,
+  myCanvases,
 }: {
   categories: CategoryOption[];
   action?: (prev: FormState, formData: FormData) => Promise<FormState>;
@@ -327,6 +329,9 @@ export function DetailForm({
   // Un detaliu de proiect NU poate fi ciornă (invarianta din server/domain/project.ts), deci pagina
   // apelantă nu mai dă `saveDraftAction` când `projectId` e prezent.
   projectId?: string;
+  // §7 din plan (Faza C, 2026-08-11): a treia sursă de imagine, „dintr-o planșă" — doar la CREARE
+  // (fără `initial`), scop asumat din plan. Absent = tab-ul nu apare (edit-ul nu-l primește).
+  myCanvases?: CropCanvasOption[];
 }) {
   const isEdit = !!initial;
   // Adnotarea se trimite DOAR spre `createDetailAction` (creare) sau `updateDetailAction` (editarea
@@ -339,8 +344,11 @@ export function DetailForm({
     saveDraftAction ?? noopDraftAction,
     initialState,
   );
-  // Sursa imaginii detaliului: „upload" (fișier existent) sau „draw" (desenat pe loc, pe foaie goală).
-  const [mode, setMode] = useState<"upload" | "draw">("upload");
+  // Sursa imaginii detaliului: „upload" (fișier existent), „draw" (desenat pe loc, pe foaie goală) sau
+  // „canvas" (decupaj dintr-o planșă proprie, §7 din plan — vezi CanvasCropPicker). „canvas" e un pas
+  // TRANZITORIU: la „Aplică decupajul" revenim direct pe „upload" cu fișierul rezultat (acțiunea de
+  // submit tratează decupajul EXACT ca un upload normal, fără cod separat).
+  const [mode, setMode] = useState<"upload" | "draw" | "canvas">("upload");
   // La editare, pornim cu imaginea existentă ca previzualizare (null = ciornă fără imagine încă).
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(
     initial?.imageUrl ? { url: initial.imageUrl, name: "imaginea curentă" } : null,
@@ -398,14 +406,25 @@ export function DetailForm({
   }, [clientError, state.error, draftState.error]);
 
   // Comutarea sursei resetează starea celeilalte + URL-ul deja urcat (evită trimiterea unei imagini vechi).
-  function switchMode(next: "upload" | "draw") {
+  function switchMode(next: "upload" | "draw" | "canvas") {
     if (next === mode) return;
     setMode(next);
     setClientError(null);
     setImageChanged(true); // comutarea sursei = imagine nouă (la editare → reprocesare pe server)
     discardAnnotation(); // „Desenează" e deja desen propriu — adnotarea peste el n-are sens
     if (imageUrlRef.current) imageUrlRef.current.value = "";
-    if (next === "draw") removeImage();
+    if (next === "draw" || next === "canvas") removeImage();
+  }
+
+  // Decupajul dintr-o planșă (§7) intră EXACT ca un upload normal — evită duplicarea logicii de submit
+  // din `onSubmit` (care deja urcă `imageFile` în Blob pentru mode "upload").
+  function applyCanvasCrop(file: File) {
+    setImageFile(file);
+    setPreview({ url: URL.createObjectURL(file), name: "decupaj din planșă" });
+    setImageChanged(true);
+    discardAnnotation();
+    if (imageUrlRef.current) imageUrlRef.current.value = "";
+    setMode("upload");
   }
 
   function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
@@ -773,11 +792,13 @@ export function DetailForm({
             Imaginea 2D a detaliului <Req />
           </label>
 
-          {/* Alege sursa: încarci un fișier gata făcut sau desenezi detaliul pe loc, pe o foaie goală. */}
+          {/* Alege sursa: încarci un fișier gata făcut, desenezi detaliul pe loc, sau decupezi dintr-o
+              planșă proprie deja salvată (§7, doar la creare — myCanvases absent la editare). */}
           <div className="mb-3 inline-flex rounded-[10px] border border-[#e6ddcf] bg-[#f6ede4] p-1">
             {([
               { key: "upload", label: "Încarcă fișier", Icon: Upload },
               { key: "draw", label: "Desenează", Icon: Pencil },
+              ...(myCanvases ? [{ key: "canvas", label: "Dintr-o planșă", Icon: LayoutGrid }] as const : []),
             ] as const).map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -811,6 +832,12 @@ export function DetailForm({
             <div className="flex h-[70vh] max-h-[760px] min-h-[520px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
               <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} />
             </div>
+          ) : mode === "canvas" ? (
+            <CanvasCropPicker
+              canvases={myCanvases ?? []}
+              onApply={applyCanvasCrop}
+              onCancel={() => switchMode("upload")}
+            />
           ) : !preview ? (
             <button
               type="button"
