@@ -14,7 +14,12 @@ function environmentTag(): string {
   return process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 }
 
+// Decis 2026-08-11 (backlog): raportare DOAR din producție — altfel `next dev` local și preview
+// amestecă zgomot în dashboard-ul de erori/audit din PostHog. Punct unic de gate (reportServerEvent e
+// folosit uniform de instrumentation.ts, lib/audit.ts și settingsRepo.ts) — Vercel Runtime Logs rămân
+// sursa de adevăr necondiționată (console.log-urile din `audit()` nu sunt afectate de acest gate).
 export function reportServerEvent(event: string, properties: Record<string, unknown> = {}): void {
+  if (process.env.VERCEL_ENV !== "production") return;
   const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
   if (!token) return;
   fetch(`${POSTHOG_INGEST_HOST}/i/v0/e/`, {

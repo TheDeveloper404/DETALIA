@@ -95,7 +95,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <ContentGrid
         projectId={view.project.id}
         isMember
-        details={(details ?? []).map((d) => ({ id: d.id, title: d.title, imageUrl: d.imageUrl }))}
+        details={(details ?? []).map((d) => ({ id: d.id, title: d.title, hasImage: !!d.imageUrl }))}
         releasedDetails={(releasedDetails ?? []).map((d) => ({
           id: d.id,
           title: d.title,
@@ -104,7 +104,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         canvasShares={(canvasShares ?? []).map((s) => ({
           id: s.id,
           name: s.name,
-          imageUrl: s.imageUrl,
           sharedByUserId: s.sharedByUserId,
         }))}
         myCanvases={myCanvases.map((c) => ({ id: c.id, name: c.name, thumbnailUrl: c.thumbnailUrl }))}
