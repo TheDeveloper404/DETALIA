@@ -5,6 +5,8 @@ import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, details, roles, sessions, userStatus, users } from "@/db/schema";
 
+import { verifiedCondition } from "@/server/repos/repoHelpers";
+
 export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
 }
@@ -265,6 +267,25 @@ export async function getUserContact(userId: string) {
 }
 
 // Actorul unei notificări = nume + rol + verificare (pt afișarea rolului/steluței lângă nume). Fără PII.
+// Identitate + rol curent al unui user — folosit unde afișarea cere poză+nume+rol dintr-un singur loc
+// (ex. autorul unui proiect, în lista de membri) și nu există deja un query mai specific de reutilizat.
+export async function getUserWithRole(userId: string) {
+  const [row] = await db
+    .select({
+      id: users.id,
+      name: users.name,
+      image: users.image,
+      roleMain: roles.roleMain,
+      subRole: roles.subRole,
+      verified: sql<boolean>`${verifiedCondition}`,
+    })
+    .from(users)
+    .leftJoin(roles, eq(roles.userId, users.id))
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row ?? null;
+}
+
 export async function getNotificationActor(userId: string) {
   const [row] = await db
     .select({

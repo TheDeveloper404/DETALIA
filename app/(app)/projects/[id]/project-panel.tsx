@@ -1,7 +1,12 @@
 "use client";
 
-import { useActionState, useState, useSyncExternalStore } from "react";
+import { MoreVertical, Trash2, UserPlus, X } from "lucide-react";
+import Link from "next/link";
+import { useActionState, useRef, useState, useSyncExternalStore } from "react";
 
+import { AvatarInitials } from "@/components/avatar-initials";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
 import {
   deleteProjectAction,
@@ -92,34 +97,197 @@ export function RemoveMemberButton({
   );
 }
 
-export function DeleteProjectButton({ projectId }: { projectId: string }) {
-  const [confirming, setConfirming] = useState(false);
+// Meniul de acțiuni al proiectului (kebab „⋮") — DOAR owner-ul îl vede (verificat de apelant). „Șterge
+// proiectul" mutat aici (era buton de sine stătător pe pagină, prea vizibil), la fel ca
+// „Acțiuni detaliu" pe pagina de detaliu: ștergerea ireversibilă stă într-un meniu, nu la vedere directă.
+export function ProjectMenu({ projectId }: { projectId: string }) {
+  const [open, setOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [state, formAction, pending] = useActionState(deleteProjectAction, INITIAL);
-
-  if (!confirming) {
-    return (
-      <Button type="button" variant="destructive" onClick={() => setConfirming(true)}>
-        Șterge proiectul
-      </Button>
-    );
-  }
+  const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <form action={formAction} className="flex flex-col items-start gap-2">
-      <input type="hidden" name="projectId" value={projectId} />
-      <p className="text-sm text-destructive">
-        Ireversibil — detaliile ÎNCĂ în proiect dispar cu tot ce au acumulat. Cele deja scoase în
-        comunitate rămân neatinse. Sigur?
+    <div className="relative">
+      <form action={formAction} ref={formRef} className="hidden" aria-hidden>
+        <input type="hidden" name="projectId" value={projectId} />
+      </form>
+
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Acțiuni proiect"
+        className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+      >
+        <MoreVertical className="size-[18px]" strokeWidth={2} />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            role="menu"
+            className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setConfirmOpen(true);
+              }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10"
+            >
+              <Trash2 className="size-4" strokeWidth={2} />
+              Șterge proiectul
+            </button>
+          </div>
+        </>
+      )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Ștergi proiectul definitiv?"
+        message="Ireversibil — detaliile ÎNCĂ în proiect dispar cu tot ce au acumulat. Cele deja scoase în comunitate rămân neatinse."
+        confirmLabel={pending ? "Se șterge…" : "Da, șterge definitiv"}
+        onConfirm={() => {
+          // Închidem ÎNAINTE de submit (nu după) — la eșec (RATE_LIMITED/NOT_FOUND/FORBIDDEN), altfel
+          // overlay-ul modal ar rămâne peste mesajul de eroare, blocat, fără explicație vizibilă.
+          setConfirmOpen(false);
+          formRef.current?.requestSubmit();
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      />
+      {!state.ok && state.error && (
+        <p className="absolute right-0 top-full mt-1 w-56 text-right text-xs text-destructive">
+          {state.error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// Buton „Invită membri" — link-ul e ascuns în spatele lui (era o bară de text expusă direct pe pagină,
+// pe toată lățimea ei). Conținutul (InviteLinkBox) rămâne identic, doar modal.
+export function InviteMembersButton({
+  projectId,
+  initialToken,
+}: {
+  projectId: string;
+  initialToken: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button type="button" variant="outline" onClick={() => setOpen(true)}>
+        <UserPlus className="size-4" strokeWidth={2} />
+        Invită membri
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setOpen(false)} aria-hidden />
+          <div
+            role="dialog"
+            aria-label="Invită membri"
+            className="fixed left-1/2 top-1/2 z-50 w-[min(28rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-border bg-card p-4 shadow-xl"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-semibold">Invită membri</span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Închide"
+                className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+              >
+                <X className="size-4" strokeWidth={2} />
+              </button>
+            </div>
+            <InviteLinkBox projectId={projectId} initialToken={initialToken} />
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+export type ProjectMember = {
+  userId: string;
+  name: string | null;
+  image: string | null;
+  roleMain: string | null;
+  subRole: string | null;
+  verified: boolean;
+};
+
+const VISIBLE_MEMBERS_DEFAULT = 5;
+
+// Listă tip „carte de vizită": poză + nume + rol (înainte arăta doar numele). Owner-ul
+// apare PRIMUL, cu eticheta „Autor", indiferent dacă are și rând în project_members. Primii 5, cu
+// „Arată toți membrii" dacă sunt mai mulți.
+export function MembersList({
+  owner,
+  members,
+  isOwner,
+  projectId,
+}: {
+  owner: ProjectMember;
+  members: ProjectMember[];
+  isOwner: boolean;
+  projectId: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  // Owner-ul poate avea și rând în project_members (ex. a plecat și s-a re-alăturat) — nu-l dublăm.
+  const others = members.filter((m) => m.userId !== owner.userId);
+  const visible = expanded ? others : others.slice(0, VISIBLE_MEMBERS_DEFAULT);
+
+  return (
+    <div className="rounded-lg bg-card p-4 ring-1 ring-foreground/10">
+      <p className="mb-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        Membri ({others.length + 1})
       </p>
-      <div className="flex gap-2">
-        <Button type="submit" variant="destructive" disabled={pending}>
-          {pending ? "Se șterge…" : "Da, șterge definitiv"}
-        </Button>
-        <Button type="button" variant="outline" onClick={() => setConfirming(false)}>
-          Anulează
-        </Button>
+      <ul className="flex list-none flex-col gap-2.5 p-0">
+        <MemberRow member={owner} badge="Autor" />
+        {visible.map((m) => (
+          <li key={m.userId} className="flex items-center justify-between gap-2">
+            <MemberRow member={m} />
+            {isOwner && <RemoveMemberButton projectId={projectId} targetUserId={m.userId} />}
+          </li>
+        ))}
+      </ul>
+      {others.length > VISIBLE_MEMBERS_DEFAULT && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2.5 font-mono text-[12px] font-semibold text-primary hover:opacity-80"
+        >
+          {expanded ? "Arată mai puțini" : `Arată toți membrii (${others.length})`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MemberRow({ member, badge }: { member: ProjectMember; badge?: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2.5">
+      <AvatarInitials name={member.name} imageUrl={member.image} size={32} />
+      <div className="min-w-0">
+        <Link
+          href={`/profile/${member.userId}`}
+          className="block truncate text-sm font-semibold text-foreground hover:underline"
+        >
+          {member.name ?? "Anonim"}
+        </Link>
+        <div className="flex items-center gap-1.5">
+          <RolePill roleMain={member.roleMain} subRole={member.subRole} verified={member.verified} />
+          {badge && (
+            <span className="font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
+              {badge}
+            </span>
+          )}
+        </div>
       </div>
-      {!state.ok && state.error && <p className="text-sm text-destructive">{state.error}</p>}
-    </form>
+    </div>
   );
 }

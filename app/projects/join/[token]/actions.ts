@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { audit } from "@/lib/audit";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { joinProjectByToken } from "@/server/services/projectService";
@@ -22,7 +23,18 @@ export async function joinProjectAction(
   }
   const token = String(formData.get("token") ?? "");
   const res = await joinProjectByToken({ token, userId });
-  if (!res.ok) return { ok: false, error: "Linkul de invitație nu mai e valid." };
+  if (!res.ok) {
+    return {
+      ok: false,
+      error:
+        res.error === "LIMIT_REACHED"
+          ? "Acest proiect a atins numărul maxim de membri."
+          : "Linkul de invitație nu mai e valid.",
+    };
+  }
+  // SEC-007/SEC-006 (audit 2026-08-11): singura urmă a CUI a intrat pe link și CÂND — necesară pentru
+  // orice investigație de abuz (tokenul e permanent, fără atribuire per-invitat).
+  audit("project_member_joined", { projectId: res.projectId, userId });
   revalidatePath(`/projects/${res.projectId}`);
   redirect(`/projects/${res.projectId}`);
 }

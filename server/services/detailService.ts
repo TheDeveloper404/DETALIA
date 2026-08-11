@@ -480,7 +480,7 @@ export async function releaseDetailToCommunity(input: {
   });
   if (!check.allowed) return { ok: false, error: "FORBIDDEN" };
 
-  await releaseDetailToCommunityRow(input.detailId, detail.ownerId);
+  await releaseDetailToCommunityRow(input.detailId, detail.ownerId, detail.projectId);
   return { ok: true, projectId: detail.projectId };
 }
 

@@ -206,6 +206,14 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   `res.headers.append("Set-Cookie", ...)` pe rezultatul lui aruncă `TypeError: immutable` → 500 în loc de
   redirect. În middleware/proxy folosește `NextResponse.redirect()` + `res.cookies.set()`. Bug-ul poate sta
   ascuns luni pe o ramură rar-lovită și să explodeze când o schimbare o pune pe calea principală.
+- **Funcție pasată ca prop dintr-un Server Component către un Client Component → crash real, nu warning**
+  *(bug de producție 2026-08-11, `projects/[id]/page.tsx` → `content-grid.tsx`)*: `page.tsx` (Server
+  Component) pasa `canManageShares={(id) => ...}` inline către `ContentGrid` ("use client") — Next.js
+  RSC nu poate serializa funcții peste graniță (excepție: Server Actions explicit `"use server"`),
+  pagina arunca eroare și randa boundary-ul de eroare la fiecare încărcare. Orice prop nou dinspre un
+  fișier fără `"use client"` către unul cu `"use client"` trebuie să fie date serializabile (primitive/
+  obiecte/array-uri) — dacă componenta client are nevoie de o decizie derivată (ex. „poate userul X să
+  șteargă Y"), pasează primitivele brute (`isOwner`, `currentUserId`) și calculează local, în client.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul

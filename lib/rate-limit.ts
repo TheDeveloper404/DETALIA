@@ -74,6 +74,10 @@ export const limiters = {
   // Admin-login (anti-brute-force) — pe username ȘI pe IP. Strict (poartă privilegiată).
   adminLoginPerUser: make(10, "15 m", "admin:login:user"),
   adminLoginPerIp: make(30, "15 m", "admin:login:ip"),
+  // SEC-003 (audit 2026-08-11): preview-ul anonim de invitație de proiect (/projects/join/[token]) face
+  // un SELECT în DB per request, fără sesiune — pe IP, ca să nu limiteze mai mulți invitați legitimi
+  // de pe aceeași rețea folosind ACELAȘI token.
+  projectInvitePreviewPerIp: make(30, "1 m", "project-invite-preview:ip"),
 } as const;
 
 // SEC-14: hartă inversă limiter→nume, ca să etichetăm evenimentul de audit FĂRĂ a schimba call-site-urile.

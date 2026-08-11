@@ -3,6 +3,7 @@ import { and, asc, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { commentLikes, comments, roles, users } from "@/db/schema";
+import { verifiedCondition } from "@/server/repos/repoHelpers";
 import type { TargetType } from "@/server/domain/validation";
 
 // Nr. de aprecieri pe comentariu — subquery corelat (nu join, ca să nu dublăm rândul comentariului).
@@ -22,7 +23,7 @@ const commentLikers = sql<
   from (
     select ${users.id} as id, ${users.name} as name, ${users.image} as image,
            ${roles.roleMain} as role_main, ${roles.subRole} as sub_role,
-           (${roles.verificationStatus} = 'VERIFIED') as verified
+           (${verifiedCondition}) as verified
     from ${commentLikes}
     join ${users} on ${users.id} = ${commentLikes.userId}
     left join ${roles} on ${roles.userId} = ${commentLikes.userId}
@@ -111,7 +112,14 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
     .from(comments)
     .leftJoin(users, eq(users.id, comments.authorId))
     .leftJoin(roles, eq(roles.userId, comments.authorId))
-    .where(and(eq(comments.targetType, targetType), eq(comments.targetId, targetId)))
+    .where(
+      and(
+        eq(comments.targetType, targetType),
+        eq(comments.targetId, targetId),
+        // SEC-001 (audit 2026-08-11): comentariu al altui membru, ascuns la „Scoate în comunitate".
+        eq(comments.hiddenAfterRelease, false),
+      ),
+    )
     .orderBy(asc(comments.createdAt));
 }
 

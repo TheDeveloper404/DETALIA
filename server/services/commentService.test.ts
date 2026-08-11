@@ -3,15 +3,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/repos/commentsRepo", () => ({
   getCommentTarget: vi.fn(),
   toggleCommentLike: vi.fn(),
+  updateCommentByAuthor: vi.fn(),
+  deleteFreeCommentByAuthor: vi.fn(),
 }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
+vi.mock("@/server/repos/sketchesRepo", () => ({ filterSketchIdsByDetail: vi.fn() }));
+vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 vi.mock("@/server/services/validationService", () => ({ targetExists: vi.fn() }));
 
-import { getCommentTarget, toggleCommentLike as toggleCommentLikeRepo } from "@/server/repos/commentsRepo";
+import { deleteBlobs } from "@/lib/storage";
+import {
+  deleteFreeCommentByAuthor,
+  getCommentTarget,
+  toggleCommentLike as toggleCommentLikeRepo,
+  updateCommentByAuthor,
+} from "@/server/repos/commentsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { targetExists } from "@/server/services/validationService";
 
-import { toggleCommentLike } from "./commentService";
+import { deleteComment, editComment, toggleCommentLike } from "./commentService";
 
 const ROLE = { roleMain: "EXECUTANT", subRole: null, verificationStatus: "UNVERIFIED" };
 const commentId = "22222222-2222-4222-8222-222222222222";
@@ -93,5 +103,39 @@ describe("Proiecte — non-membru nu poate aprecia un comentariu de pe un detali
     expect(r).toEqual({ ok: false, error: "NOT_FOUND" });
     expect(toggleCommentLikeRepo).not.toHaveBeenCalled();
     expect(targetExists).toHaveBeenCalledWith("DETAIL", "d-1", input.userId);
+  });
+});
+
+// SEC-009 (audit securitate 2026-08-11): membrul eliminat dintr-un proiect NU mai poate edita/șterge
+// propriul comentariu de pe un detaliu al acelui proiect — citirea era deja închisă, scrierea rămăsese
+// deschisă (inconsecvență a graniței). Aceeași poartă ca la toggleCommentLike/addComment.
+describe("SEC-009 — membru eliminat din proiect nu mai poate edita/șterge propriul comentariu", () => {
+  it("editComment: targetExists respinge → NOT_FOUND, fără update", async () => {
+    vi.mocked(targetExists).mockResolvedValueOnce(false);
+    const r = await editComment({ userId: "u-1", commentId, body: "text nou" });
+    expect(r).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(updateCommentByAuthor).not.toHaveBeenCalled();
+    expect(targetExists).toHaveBeenCalledWith("DETAIL", "d-1", "u-1");
+  });
+
+  it("editComment: targetExists confirmă → update normal", async () => {
+    vi.mocked(updateCommentByAuthor).mockResolvedValueOnce(true);
+    const r = await editComment({ userId: "u-1", commentId, body: "text nou" });
+    expect(r).toEqual({ ok: true });
+    expect(updateCommentByAuthor).toHaveBeenCalledWith(commentId, "u-1", "text nou");
+  });
+
+  it("deleteComment: targetExists respinge → NOT_FOUND, fără ștergere", async () => {
+    vi.mocked(targetExists).mockResolvedValueOnce(false);
+    const r = await deleteComment({ userId: "u-1", commentId });
+    expect(r).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(deleteFreeCommentByAuthor).not.toHaveBeenCalled();
+  });
+
+  it("deleteComment: targetExists confirmă → șterge + curăță blob-ul", async () => {
+    vi.mocked(deleteFreeCommentByAuthor).mockResolvedValueOnce({ deleted: true, imageUrl: "https://blob/c.png" });
+    const r = await deleteComment({ userId: "u-1", commentId });
+    expect(r).toEqual({ ok: true });
+    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/c.png"]);
   });
 });
