@@ -7,6 +7,7 @@ import { db } from "../db";
 import { canvases, details, projectCanvasShares, projects, roles, users } from "../db/schema";
 import { deleteBlobs, uploadCanvasThumbnail } from "../lib/storage";
 import { pickLeafCategories } from "./category-helpers";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // E2E — interacțiuni reale rămase netestate din feature „Proiect" Faza B/C (până acum doar unitar,
 // vezi BACKLOG.md §Acum): redenumire inline a proiectului, partajare/ștergere planșă în grid, și
@@ -242,6 +243,10 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     let detailId: string | null = null;
     let imageUrl: string | null = null;
     try {
+      // Headerul global de bypass Vercel (playwright.config.ts) se propagă și la fetch-ul cross-origin
+      // al thumbnail-ului (CropStage, crossOrigin="anonymous") → preflight CORS eșuat, doar sub
+      // Playwright (vezi strip-bypass-headers.ts, folosit deja de teste de upload pentru același motiv).
+      await stripBypassHeadersForBlobUploads(page);
       await page.goto("/details/new");
       await page.locator("#title").fill(`E2E din decupaj planșă ${Date.now()}`);
 
