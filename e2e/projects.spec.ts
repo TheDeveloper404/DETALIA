@@ -239,6 +239,38 @@ test.describe.serial("Proiecte — colaborare restrânsă", () => {
     }
   });
 
+  // SEC-005 (audit securitate 2026-08-11): imaginea de detaliu-de-proiect nu mai stă pe URL Blob
+  // public — trece prin /api/project-image/detail/[id], care verifică acces la fiecare cerere.
+  // Regula de domeniu verificată (server/domain/project.ts, hasProjectAccess):
+  //   `return input.isOwner || input.isActiveMember;`
+  // Stranger nu e nici owner, nici membru activ → proxy-ul trebuie să respingă cererea DIRECTĂ (nu
+  // doar pagina) cu URL-ul ghicit/reținut, exact scenariul din backlog („un membru eliminat păstrează
+  // linkul direct"). Membrul activ (owner-ul acestui detaliu) trebuie să primească bytes-ii reali.
+  test("SEC-005: proxy de imagine — stranger respins direct, membru activ primește imaginea", async ({
+    browser,
+    baseURL,
+  }) => {
+    expect(projectDetailId).toBeTruthy();
+    const proxyPath = `/api/project-image/detail/${projectDetailId}`;
+
+    const strangerCtx = await sessionContextFor(browser, baseURL, strangerUserId, "E2E Stranger", STRANGER_EMAIL);
+    try {
+      const res = await strangerCtx.request.get(proxyPath);
+      expect(res.status()).toBe(404);
+    } finally {
+      await strangerCtx.close();
+    }
+
+    const memberCtx = await sessionContextFor(browser, baseURL, memberUserId, "E2E Member", MEMBER_EMAIL);
+    try {
+      const res = await memberCtx.request.get(proxyPath);
+      expect(res.status()).toBe(200);
+      expect(res.headers()["content-type"]).toContain("image/");
+    } finally {
+      await memberCtx.close();
+    }
+  });
+
   // Regula „orfan" (server/domain/project.ts, canReleaseToCommunity): autorul poate ORICÂND, owner-ul
   // DOAR dacă autorul nu mai e membru activ. `page` (fixture implicit) e OWNER-ul proiectului — dar
   // autorul detaliului e membrul, încă activ — deci owner-ul NU ar avea dreptul aici. Testăm calea

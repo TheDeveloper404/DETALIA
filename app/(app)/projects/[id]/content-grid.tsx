@@ -9,8 +9,15 @@ import { cn } from "@/lib/utils";
 
 import { deleteCanvasShareAction, shareCanvasAction, type ProjectActionResult } from "../actions";
 
-export type ContentDetail = { id: string; title: string; imageUrl: string | null };
-export type ContentCanvasShare = { id: string; name: string; imageUrl: string; sharedByUserId: string };
+// Detaliu ÎNCĂ în proiect (privat) — SEC-005: NU trimitem `imageUrl` (URL Blob public) către client,
+// doar `hasImage` (randăm prin proxy autenticat, /api/project-image/detail/[id], care verifică acces
+// la fiecare cerere). Un URL brut ajuns în props ar fi accesibil oricui inspectează pagina, indiferent
+// de ce randăm noi — proxy-ul devine inutil dacă URL-ul real circulă oricum.
+export type ContentDetail = { id: string; title: string; hasImage: boolean };
+// Detaliu SCOS în comunitate — public, la fel ca în feed; URL direct e OK aici.
+export type ReleasedContentDetail = { id: string; title: string; imageUrl: string | null };
+// Planșă partajată — la fel ca ContentDetail, fără `imageUrl` (proxy: /api/project-image/canvas-share/[id]).
+export type ContentCanvasShare = { id: string; name: string; sharedByUserId: string };
 export type ContentCanvasOption = { id: string; name: string; thumbnailUrl: string | null };
 
 const INITIAL: ProjectActionResult = { ok: true };
@@ -33,7 +40,7 @@ export function ContentGrid({
   projectId: string;
   isMember: boolean;
   details: ContentDetail[];
-  releasedDetails: ContentDetail[];
+  releasedDetails: ReleasedContentDetail[];
   canvasShares: ContentCanvasShare[];
   myCanvases: ContentCanvasOption[];
   // Ștergerea unei partajări: cine a partajat-o SAU owner-ul proiectului — verificat REAL pe server;
@@ -74,8 +81,18 @@ export function ContentGrid({
 
           {details.map((d) => (
             <Link key={d.id} href={`/details/${d.id}`} className={cn(TILE_CLASS, "block no-underline")}>
-              {d.imageUrl && (
-                <Image src={d.imageUrl} alt="" fill sizes="240px" className="object-cover" />
+              {d.hasImage && (
+                // SEC-005: proxy autenticat, NU URL Blob direct — verifică acces la fiecare cerere.
+                // `unoptimized`: Next Image Optimization cache-uiește PUBLIC (per URL), ceea ce ar
+                // bypassa poarta pentru un membru eliminat ulterior (vezi lib/project-image-proxy.ts).
+                <Image
+                  src={`/api/project-image/detail/${d.id}`}
+                  alt=""
+                  fill
+                  unoptimized
+                  sizes="240px"
+                  className="object-cover"
+                />
               )}
               <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-[12px] font-semibold text-white">
                 {d.title}
@@ -85,7 +102,15 @@ export function ContentGrid({
 
           {canvasShares.map((s) => (
             <div key={s.id} className={TILE_CLASS}>
-              <Image src={s.imageUrl} alt="" fill sizes="240px" className="object-cover" />
+              {/* SEC-005: proxy autenticat — vezi comentariul de la `details` mai sus. */}
+              <Image
+                src={`/api/project-image/canvas-share/${s.id}`}
+                alt=""
+                fill
+                unoptimized
+                sizes="240px"
+                className="object-cover"
+              />
               <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] text-white">
                 <LayoutDashboard className="size-3" strokeWidth={2} />
                 Planșă

@@ -5,7 +5,8 @@
 //    privată — orice service care citește un detaliu de proiect trece prin ea. Nu se duplică logica.
 //  - „Scoate în comunitate" e ireversibilă — nicio cale de întoarcere prin cod.
 
-import { generateInviteToken } from "@/lib/invite-token";
+import { audit } from "@/lib/audit";
+import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import {
   canReleaseToCommunity,
@@ -41,6 +42,8 @@ import {
   getProjectByInviteToken,
   insertProject,
   listProjectsForUser as listProjectsForUserRow,
+  listProjectsOwnedBy,
+  transferProjectOwnership,
   updateInviteToken,
   updateProjectName,
 } from "@/server/repos/projectsRepo";
@@ -154,6 +157,15 @@ export type JoinProjectResult =
   | { ok: true; projectId: string; projectName: string }
   | { ok: false; error: "INVALID_TOKEN" | "LIMIT_REACHED" };
 
+// SEC-006 (audit 2026-08-11): token expirat (TTL 3 zile, lib/invite-token.ts) = tratat identic cu
+// token inexistent — anti-enumerare, același contract pentru ambii apelanți de mai jos.
+async function getValidProjectByInviteToken(token: string) {
+  const project = await getProjectByInviteToken(token);
+  if (!project) return null;
+  if (isInviteTokenExpired(project.inviteTokenCreatedAt)) return null;
+  return project;
+}
+
 // Alăturare prin link de invitație. Idempotent: userul deja membru care re-folosește linkul rămâne
 // membru (upsertActiveMembership reactivează, nu duplică). Owner-ul care „se alătură" propriului
 // proiect primește și el un rând de membru — inofensiv (poarta de acces oricum îl lasă prin ownerId).
@@ -161,7 +173,7 @@ export async function joinProjectByToken(input: {
   token: string;
   userId: string;
 }): Promise<JoinProjectResult> {
-  const project = await getProjectByInviteToken(input.token);
+  const project = await getValidProjectByInviteToken(input.token);
   if (!project) return { ok: false, error: "INVALID_TOKEN" };
 
   // SEC-010: plafonul nu blochează re-alăturarea (idempotent, deja membru) sau owner-ul.
@@ -178,7 +190,7 @@ export async function joinProjectByToken(input: {
 // Previzualizare pentru /projects/join/[token] — DOAR numele, accesibil și fără sesiune (userul
 // trebuie să vadă ÎN CE se alătură înainte de a se autentifica). Nu expune ownerId/membri.
 export async function getProjectPreviewByToken(token: string) {
-  const project = await getProjectByInviteToken(token);
+  const project = await getValidProjectByInviteToken(token);
   return project ? { id: project.id, name: project.name } : null;
 }
 
@@ -250,6 +262,56 @@ export async function deleteProject(input: {
   // Blob-urile la final: dacă pică, rândurile sunt deja consistente (fișiere orfane > date orfane).
   await deleteBlobs(blobUrls);
   return { ok: true };
+}
+
+// SEC-013 (audit securitate 2026-08-11, decizie de produs): apelată din accountService.deleteAccount,
+// CÂT userId-ul e încă owner-ul real (înainte de anonimizare) — altfel `deleteProject` (care verifică
+// `project.ownerId === requesterId`) ar respinge propriul owner ca FORBIDDEN.
+// Regulă: proiect cu ALȚI membri activi ȘI CU CONT ACTIV → transfer AUTOMAT către cel mai vechi
+// (listActiveMembers e ordonat după joinedAt); fără candidat eligibil (fără alți membri, SAU membrii
+// rămași au contul suspendat/deja șters) → proiectul se șterge odată cu contul. Filtrarea pe status:
+// un rând de membru poate rămâne `removedAt = null` (activ) chiar și după ce ACEL cont a fost șters —
+// ștergerea unui cont curăță doar proiectele PROPRII, nu membership-urile din proiectele altora — fără
+// filtru, un cont-fantomă needevoalabil ar putea deveni owner permanent (nimeni nu-l mai poate accesa).
+export async function reassignOrDeleteOwnedProjectsOnAccountDeletion(userId: string): Promise<void> {
+  const owned = await listProjectsOwnedBy(userId);
+  for (const { id: projectId } of owned) {
+    // Găsit la /code-review QODO (2026-08-11): fără izolare per-proiect, o eroare la UN proiect oprea
+    // bucla — restul proiectelor deținute rămâneau needate (owner șters/anonimizat, orfane). Neon HTTP
+    // nu are tranzacții interactive (vezi accountService.ts) — best-effort, ca restul fluxului de
+    // ștergere cont; o eroare aici NU trebuie să blocheze anonimizarea/delogarea din deleteAccount.
+    try {
+      const activeMembers = await listActiveMembers(projectId);
+      const newOwner = activeMembers.find((m) => m.userId !== userId && m.status === "ACTIVE");
+      if (newOwner) {
+        await transferProjectOwnership(projectId, newOwner.userId);
+        // Owner-ul poate avea propriul rând în project_members (dacă s-a alăturat prin propriul link,
+        // ex. la onboarding) — transferul schimba DOAR ownerId, rândul vechi rămânea `removedAt = null`
+        // (activ) → contul anonimizat rămânea numărat/vizibil ca membru „fantomă" al proiectului pe
+        // care nu-l mai deține. Idempotent (removeMembership e no-op dacă nu exista rând).
+        await removeMembership(projectId, userId);
+        audit("project_ownership_transferred_on_account_deletion", {
+          projectId,
+          previousOwnerId: userId,
+          newOwnerId: newOwner.userId,
+        });
+      } else {
+        // /code-review (2026-08-11): deleteProject întoarce {ok:false} pe NOT_FOUND/FORBIDDEN (nu
+        // aruncă) — fără verificare, audit-ul afirma "proiect șters" chiar și când n-a fost (ex. ștergere
+        // concurentă a aceluiași proiect, altă filă deschisă, între listProjectsOwnedBy și acest apel).
+        const result = await deleteProject({ projectId, requesterId: userId });
+        if (result.ok) {
+          audit("project_deleted_on_account_deletion", { projectId, ownerId: userId });
+        }
+      }
+    } catch (err) {
+      audit(
+        "project_reassignment_failed_on_account_deletion",
+        { projectId, ownerId: userId, message: err instanceof Error ? err.message : String(err) },
+        "error",
+      );
+    }
+  }
 }
 
 export type CanReleaseResult = { allowed: true } | { allowed: false; error: "FORBIDDEN" };
