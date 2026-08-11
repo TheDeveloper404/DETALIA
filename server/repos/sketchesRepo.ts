@@ -59,6 +59,25 @@ export async function filterPublishedSketchIds(detailId: string, ids: string[]):
   return ids.filter((id) => alive.has(id));
 }
 
+// Stroke-urile foilor de fundal ale unui draft (editor), în ORDINEA cerută (jos → sus) — `ids` vine din
+// `baseSketchIds` al draftului, deja PUBLISHED prin construcție (`createDraft` le validează la creare).
+export async function getStrokesByIds(ids: string[]): Promise<{ id: string; strokes: Stroke[] | null }[]> {
+  if (ids.length === 0) return [];
+  const rows = await db
+    .select({ id: sketches.id, strokes: sketches.strokesJson })
+    .from(sketches)
+    .where(
+      and(
+        inArray(sketches.id, ids),
+        // SEC-002: o foaie ascunsă la eliberarea unui detaliu din proiect nu trebuie să reapară ca
+        // fundal randat într-un draft mai vechi care o refera înainte de ascundere.
+        eq(sketches.hiddenAfterRelease, false),
+      ),
+    );
+  const byId = new Map(rows.map((r) => [r.id, r.strokes as Stroke[] | null]));
+  return ids.filter((id) => byId.has(id)).map((id) => ({ id, strokes: byId.get(id)! }));
+}
+
 // La publicarea unei schițe cu fundal: rescrie rețeta (după eliminarea foilor dispărute între timp) ȘI
 // blochează definitiv foile rămase (nu mai pot fi șterse complet, doar li se poate retrage identitatea
 // autorului — vezi `deleteSketch`), ATOMIC într-un singur `db.batch` (fix 2026-08-11, backlog: cele două

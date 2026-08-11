@@ -5,22 +5,25 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { canvases } from "../db/schema";
+import { canvasItems, canvases } from "../db/schema";
 
 // Planșă (Canvas) — CRUD prin UI, netestat până acum. NU testăm motorul de desen/pan/zoom (engine propriu,
 // interacții fragile de reprodus determinist) — doar fluxul de produs: creare/redenumire/duplicare/ștergere
 // planșă + „Trimite în Planșă" dintr-un detaliu. IDOR (planșa e strict privată) e acoperit separat, la nivel
 // de service, în security.spec.ts.
 
-let cachedDetailUrl: string | null = null;
-function detailUrl(): string {
-  if (!cachedDetailUrl) {
+let cachedDetailId: string | null = null;
+function detailId(): string {
+  if (!cachedDetailId) {
     const seed = JSON.parse(
       readFileSync(path.resolve(__dirname, ".auth", "seed.json"), "utf8"),
     ) as { detailId: string };
-    cachedDetailUrl = `/details/${seed.detailId}`;
+    cachedDetailId = seed.detailId;
   }
-  return cachedDetailUrl;
+  return cachedDetailId;
+}
+function detailUrl(): string {
+  return `/details/${detailId()}`;
 }
 
 test.describe.serial("Planșă — creare, redenumire, duplicare, ștergere", () => {
@@ -109,6 +112,70 @@ test("Trimite în Planșă: creează + adaugă detaliul curent dintr-un detaliu"
     canvasId = page.url().match(/\/canvases\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
     expect(canvasId).toBeTruthy();
     await expect(page.getByText(name, { exact: true })).toBeVisible();
+  } finally {
+    if (canvasId) await db.delete(canvases).where(eq(canvases.id, canvasId));
+  }
+});
+
+test("Elimină detaliu de pe planșă: distinct de ștergerea planșei întregi — indexul se golește, planșa rămâne", async ({
+  page,
+}) => {
+  const name = `E2E remove-item ${Date.now()}`;
+  let canvasId: string | null = null;
+
+  try {
+    // Setup identic cu "Trimite în Planșă" de mai sus — un singur item, primul din cascadă (poziție
+    // cunoscută: x=0.08, y=0.08, width=0.28, height≈0.373 — vezi buildInitialSnapshot, plansa-canvas.tsx).
+    await page.goto(detailUrl());
+    await page.getByRole("button", { name: "Acțiuni detaliu" }).click();
+    await page.getByRole("menuitem", { name: "Trimite în Planșă" }).click();
+    await expect(page.getByRole("dialog", { name: "Trimite în Planșă" })).toBeVisible();
+    await page.getByRole("button", { name: "Creează planșă nouă" }).click();
+    await page.getByPlaceholder("Nume planșă nouă").fill(name);
+    await page.getByRole("button", { name: "Creează & adaugă" }).click();
+    await page.getByRole("link", { name: "Deschide planșa →" }).click();
+
+    await expect(page).toHaveURL(/\/canvases\/[0-9a-f-]+\/edit/);
+    canvasId = page.url().match(/\/canvases\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
+    expect(canvasId).toBeTruthy();
+
+    // Dovadă în DB, ÎNAINTE de eliminare: item-ul e indexat.
+    await expect
+      .poll(async () => {
+        const rows = await db
+          .select({ id: canvasItems.id })
+          .from(canvasItems)
+          .where(eq(canvasItems.canvasId, canvasId!));
+        return rows.length;
+      })
+      .toBe(1);
+
+    // Selectează item-ul: click în centrul lui (mod implicit "select"). Coordonate normalizate → pixeli,
+    // ca la `drawOnCanvas` din e2e/sketch-stack.spec.ts (canvas.width/height == boundingBox CSS, fără DPR).
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas fără bounding box");
+    await page.mouse.click(box.x + box.width * 0.22, box.y + box.height * 0.27);
+
+    const removeBtn = page.getByRole("button", { name: "Elimină de pe planșă" });
+    await expect(removeBtn).toBeVisible();
+    await removeBtn.click();
+
+    // Indexul se golește (server action, verificat direct în DB — clientul șterge din document oricum).
+    await expect
+      .poll(async () => {
+        const rows = await db
+          .select({ id: canvasItems.id })
+          .from(canvasItems)
+          .where(eq(canvasItems.canvasId, canvasId!));
+        return rows.length;
+      })
+      .toBe(0);
+
+    // Planșa însăși NU a dispărut — distinct de "șterge planșa" (testat mai sus).
+    const [row] = await db.select({ id: canvases.id }).from(canvases).where(eq(canvases.id, canvasId!));
+    expect(row).toBeTruthy();
   } finally {
     if (canvasId) await db.delete(canvases).where(eq(canvases.id, canvasId));
   }

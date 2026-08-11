@@ -8,7 +8,13 @@ import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
-import { getActiveAuthors, getFeed, getMySavedDetailIds, getTopDebated } from "@/server/services/detailService";
+import {
+  getActiveAuthors,
+  getFeed,
+  getMySavedDetailIds,
+  getPublishedDetailsCount,
+  getTopDebated,
+} from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
 import { getMyPositions } from "@/server/services/validationService";
@@ -31,8 +37,9 @@ export default async function FeedPage({
   const { cat, q: rawQ, welcome } = await searchParams;
   const q = rawQ?.trim() || null;
 
-  const [categories, role, authors, media, platform, debated] = await Promise.all([
+  const [categories, totalPublished, role, authors, media, platform, debated] = await Promise.all([
     listCategoriesWithCounts(),
+    getPublishedDetailsCount(),
     getUserRole(session.user.id),
     getActiveAuthors(5),
     getUserMedia(session.user.id),
@@ -61,7 +68,6 @@ export default async function FeedPage({
     details.map((d) => d.id),
   );
 
-  const total = categories.reduce((sum, c) => sum + c.count, 0);
   // Doar meseria (subRole) apare în platformă — rolul principal e doar grupare internă (lista_meserii.md).
   const roleLabel = role
     ? (role.subRole ?? ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain)
@@ -84,7 +90,7 @@ export default async function FeedPage({
         }}
         categories={categories}
         activeId={activeId}
-        total={total}
+        total={totalPublished}
       />
 
       <main className="min-w-0">

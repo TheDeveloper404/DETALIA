@@ -1,4 +1,4 @@
-import { FolderKanban, House } from "lucide-react";
+import { FolderKanban } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
@@ -6,7 +6,7 @@ import { getNotifications } from "@/server/services/notificationService";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { getUserRole } from "@/server/services/roleService";
 
-import { BrandLogo } from "./brand-logo";
+import { BrandLogoHome, HomeIconLink } from "./feed-home-links";
 import { NotificationBell, type NotificationView } from "./notification-bell";
 import { UserMenu } from "./user-menu";
 
@@ -55,17 +55,10 @@ export async function AppHeader() {
   return (
     <header className="sticky top-0 z-50 flex h-[80px] items-center border-b border-border bg-secondary/90 backdrop-blur">
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
-        <BrandLogo href="/feed" size={38} />
+        <BrandLogoHome size={38} />
 
         <div className="flex items-center gap-1.5">
-          <Link
-            href="/feed"
-            aria-label="Acasă"
-            title="Acasă"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-          >
-            <House className="size-5" strokeWidth={2} />
-          </Link>
+          <HomeIconLink />
           <Link
             href="/projects"
             aria-label="Proiecte"

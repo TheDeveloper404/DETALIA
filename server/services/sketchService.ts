@@ -8,6 +8,7 @@ import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import {
   canAddAnnotation,
+  composeStackStrokes,
   isSelfAnnotation,
   resolveSketchDeletionMode,
   SKETCH_STATUS,
@@ -20,6 +21,7 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   getSketchById,
+  getStrokesByIds,
   insertDraft,
   countAnnotationsByDetail,
   deleteDraftByAuthor,
@@ -442,18 +444,31 @@ export function deleteDraft(input: { sketchId: string; authorId: string }): Prom
 export async function getDraftForEdit(
   sketchId: string,
   authorId: string,
-): Promise<SketchResult<{ detailId: string; strokes: Stroke[]; note: string | null }>> {
+): Promise<
+  SketchResult<{
+    detailId: string;
+    strokes: Stroke[];
+    note: string | null;
+    // Foile de fundal ÎNGHEȚATE la „Schițează peste" (baseSketchIds) — randate FIX, needitabile, sub
+    // desenul propriu. Fără ele, autorul desenează orb, fără să vadă pe ce se construiește (bug găsit
+    // 2026-08-11: `getDraftForEdit` întorcea doar strokes proprii, niciodată fundalul).
+    backgroundStrokes: Stroke[];
+  }>
+> {
   if (!isUuid(sketchId)) return { ok: false, error: "SKETCH_NOT_FOUND" }; // SEC-11
   const sketch = await getSketchById(sketchId);
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
   if (sketch.authorId !== authorId) return { ok: false, error: "FORBIDDEN" };
   if (sketch.status !== SKETCH_STATUS.DRAFT) return { ok: false, error: "INVALID_STATE" };
+  const baseSketchIds = (sketch.baseSketchIds as string[] | null) ?? [];
+  const baseLayers = baseSketchIds.length ? await getStrokesByIds(baseSketchIds) : [];
   return {
     ok: true,
     value: {
       detailId: sketch.detailId,
       strokes: (sketch.strokesJson as Stroke[] | null) ?? [],
       note: sketch.note,
+      backgroundStrokes: composeStackStrokes(baseLayers),
     },
   };
 }
