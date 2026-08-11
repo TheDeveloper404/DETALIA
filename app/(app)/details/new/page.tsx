@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { listCategories } from "@/server/services/categoryService";
+import { listMyCanvases } from "@/server/services/plansaService";
 import { userHasRole } from "@/server/services/roleService";
 import { getProjectForViewer } from "@/server/services/projectService";
 
@@ -37,6 +38,10 @@ export default async function NewDetailPage({
   if (projectId && !project) notFound();
 
   const categories = await listCategories();
+  // §7 din plan (Faza C): a treia sursă de imagine la creare — „dintr-o planșă" proprie. Fără gardă
+  // suplimentară de acces (decizie explicită din plan): `listMyCanvases` întoarce STRICT planșele
+  // userului curent, aceeași sursă folosită deja de `/canvases`.
+  const myCanvases = await listMyCanvases(session.user.id);
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
@@ -76,6 +81,7 @@ export default async function NewDetailPage({
           saveDraftAction={project ? undefined : saveNewDetailDraftAction}
           projectId={project?.project.id}
           submitLabel={project ? "Publică în proiect" : undefined}
+          myCanvases={myCanvases.map((c) => ({ id: c.id, name: c.name, thumbnailUrl: c.thumbnailUrl }))}
         />
       )}
     </main>

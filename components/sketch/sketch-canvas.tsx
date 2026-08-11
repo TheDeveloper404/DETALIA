@@ -224,9 +224,15 @@ export const SketchCanvas = forwardRef<
     // Raportul înălțime/lățime al foii goale (folosit doar când nu există imagine-mamă). Default 3/4 (4:3 orizontal).
     aspectRatio?: number;
     initialStrokes: Stroke[];
+    // Foile de fundal ale stack-ului ("Schițează peste") — randate FIX, needitabile, sub desenul propriu.
+    // NU intră în `present`/istoricul undo-redo: userul nu poate muta/șterge desenul altcuiva.
+    backgroundStrokes?: Stroke[];
     onStrokesCount?: (count: number) => void;
   }
->(function SketchCanvas({ imageUrl, aspectRatio = 3 / 4, initialStrokes, onStrokesCount }, ref) {
+>(function SketchCanvas(
+  { imageUrl, aspectRatio = 3 / 4, initialStrokes, backgroundStrokes, onStrokesCount },
+  ref,
+) {
   const [history, dispatch] = useReducer(historyReducer, {
     past: [],
     present: initialStrokes,
@@ -395,6 +401,9 @@ export const SketchCanvas = forwardRef<
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
+    // Fundalul stack-ului (needitabil) sub desenul propriu — altfel autorul desenează orb, fără să
+    // vadă pe ce se construiește.
+    if (backgroundStrokes?.length) renderStrokes(ctx, backgroundStrokes, canvas.width, canvas.height);
     renderStrokes(ctx, strokes, canvas.width, canvas.height);
     if (temp) renderStrokes(ctx, [temp], canvas.width, canvas.height);
 
@@ -415,7 +424,7 @@ export const SketchCanvas = forwardRef<
         ctx.setLineDash([]);
       }
     }
-  }, []);
+  }, [backgroundStrokes]);
 
   // Zoom cu rotița mouse-ului, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există
   // pagină dedesubt de scrollat, deci nu se pierde nimic (2026-07-06). Listener non-passive
