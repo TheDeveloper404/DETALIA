@@ -1,9 +1,16 @@
 // Repo partajări de planșă în proiect — singurul loc cu acces Drizzle pentru `project_canvas_shares`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { desc, eq } from "drizzle-orm";
+import { count, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { projectCanvasShares } from "@/db/schema";
+
+// SEC-010 (audit securitate 2026-08-11): plafon de partajări per proiect — anti-abuz (fiecare
+// partajare consumă un blob full-size nou, plătit).
+export async function countCanvasSharesByProject(projectId: string): Promise<number> {
+  const [row] = await db.select({ c: count() }).from(projectCanvasShares).where(eq(projectCanvasShares.projectId, projectId));
+  return row?.c ?? 0;
+}
 
 export async function insertCanvasShare(input: {
   projectId: string;

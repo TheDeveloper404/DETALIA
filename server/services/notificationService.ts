@@ -19,8 +19,10 @@ import {
   markOneRead,
   type NotificationType,
 } from "@/server/repos/notificationsRepo";
+import { listProjectIdForDetails } from "@/server/repos/detailsRepo";
 import { getUserContact } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
+import { getProjectAccess } from "@/server/services/projectService";
 
 function detailUrl(detailId: string): string {
   const base = process.env.AUTH_URL ?? "http://localhost:3000";
@@ -59,9 +61,48 @@ async function notify(input: {
   }
 }
 
+const HIDDEN_TITLE = "un detaliu la care nu mai ai acces";
+
+// SEC-011 (audit securitate 2026-08-11): notificarea deja livrată păstra titlul detaliului în
+// payload — un membru eliminat dintr-un proiect continua să vadă titlul unui detaliu privat în
+// clopoțel (linkul dădea deja 404, dar titlul rămânea). Scrub la CITIRE, nu la eliminare (accesul se
+// poate pierde/recâștiga oricând, nu doar la removeMember — mai simplu și mai robust decât un hook
+// separat pe fiecare cale care poate revoca accesul).
+async function scrubDetailTitles(userId: string, rows: Awaited<ReturnType<typeof listByRecipient>>) {
+  const detailIds = [
+    ...new Set(
+      rows
+        .map((r) => (r.payloadJson as { detailId?: unknown })?.detailId)
+        .filter((id): id is string => typeof id === "string"),
+    ),
+  ];
+  if (detailIds.length === 0) return rows;
+
+  const projectIdByDetail = await listProjectIdForDetails(detailIds);
+  const projectIds = [...new Set([...projectIdByDetail.values()].filter((p): p is string => !!p))];
+  if (projectIds.length === 0) return rows;
+
+  const accessByProject = new Map(
+    await Promise.all(
+      projectIds.map(
+        async (projectId) => [projectId, (await getProjectAccess({ projectId, userId })).hasAccess] as const,
+      ),
+    ),
+  );
+
+  return rows.map((r) => {
+    const detailId = (r.payloadJson as { detailId?: unknown })?.detailId;
+    if (typeof detailId !== "string") return r;
+    const projectId = projectIdByDetail.get(detailId);
+    if (!projectId || accessByProject.get(projectId)) return r;
+    return { ...r, payloadJson: { ...(r.payloadJson as object), detailTitle: HIDDEN_TITLE } };
+  });
+}
+
 // ── Citiri (UI: clopoțel + pagină) ───────────────────────────────────────────
-export function getNotifications(userId: string) {
-  return listByRecipient(userId);
+export async function getNotifications(userId: string) {
+  const rows = await listByRecipient(userId);
+  return scrubDetailTitles(userId, rows);
 }
 
 // Marchează citite toate notificările userului (la vizitarea paginii). userId din sesiune = anti-IDOR.

@@ -1,6 +1,6 @@
 // Repo membri de proiect — singurul loc cu acces Drizzle pentru tabelul `project_members`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, count, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { projectMembers, roles, users } from "@/db/schema";
@@ -32,6 +32,15 @@ export async function isActiveMember(projectId: string, userId: string): Promise
     )
     .limit(1);
   return !!row;
+}
+
+// SEC-010 (audit securitate 2026-08-11): plafon de membri per proiect — anti-abuz.
+export async function countActiveMembers(projectId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: count() })
+    .from(projectMembers)
+    .where(and(eq(projectMembers.projectId, projectId), isNull(projectMembers.removedAt)));
+  return row?.c ?? 0;
 }
 
 // Alăturare (prima dată SAU re-alăturare după eliminare) — UPSERT atomic pe constrângerea unică

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { audit } from "@/lib/audit";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import {
@@ -27,6 +28,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
   EMPTY_CANVAS: "Planșa asta nu are încă niciun conținut salvat.",
   UPLOAD_FAILED: "Partajarea a eșuat. Încearcă din nou.",
+  LIMIT_REACHED: "Ai atins limita permisă. Contactează-ne dacă ai nevoie de mai mult.",
 };
 
 // Creează un proiect nou. `redirect` direct la pagina lui — owner-ul are acces imediat.
@@ -52,7 +54,12 @@ export async function regenerateInviteLinkAction(projectId: string): Promise<Pro
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
   const res = await regenerateInviteLink({ projectId, requesterId: userId });
-  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut regenera linkul." };
+  if (!res.ok) {
+    // SEC-007 (audit 2026-08-11): non-owner a încercat regenerarea — semnal de abuz posibil.
+    if (res.error === "FORBIDDEN") audit("project_forbidden_action", { projectId, userId, action: "regenerate_invite" }, "warning");
+    return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut regenera linkul." };
+  }
+  audit("project_invite_regenerated", { projectId, userId });
   revalidatePath(`/projects/${projectId}`);
   return { ok: true, inviteToken: res.inviteToken };
 }
@@ -85,7 +92,11 @@ export async function removeMemberAction(
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
   const res = await removeMember({ projectId, requesterId: userId, targetUserId });
-  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut elimina membrul." };
+  if (!res.ok) {
+    if (res.error === "FORBIDDEN") audit("project_forbidden_action", { projectId, userId, action: "remove_member" }, "warning");
+    return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut elimina membrul." };
+  }
+  audit("project_member_removed", { projectId, userId, targetUserId });
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }
@@ -101,7 +112,11 @@ export async function deleteProjectAction(
   }
   const projectId = String(formData.get("projectId") ?? "");
   const res = await deleteProject({ projectId, requesterId: userId });
-  if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut șterge proiectul." };
+  if (!res.ok) {
+    if (res.error === "FORBIDDEN") audit("project_forbidden_action", { projectId, userId, action: "delete_project" }, "warning");
+    return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut șterge proiectul." };
+  }
+  audit("project_deleted", { projectId, userId });
   revalidatePath("/projects");
   redirect("/projects");
 }

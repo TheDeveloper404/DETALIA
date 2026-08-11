@@ -60,7 +60,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           />
         </div>
         <div className="flex items-center gap-2">
-          {view.isOwner && (
+          {view.isOwner && view.project.inviteToken && (
             <InviteMembersButton projectId={view.project.id} initialToken={view.project.inviteToken} />
           )}
           {view.isOwner && <ProjectMenu projectId={view.project.id} />}
