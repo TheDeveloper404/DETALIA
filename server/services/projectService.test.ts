@@ -699,6 +699,36 @@ describe("reassignOrDeleteOwnedProjectsOnAccountDeletion", () => {
     expect(deleteProjectRow).not.toHaveBeenCalled();
   });
 
+  // /code-review QODO (2026-08-11): owner-ul poate avea propriul rând în project_members (s-a alăturat
+  // prin propriul link) — transferul schimba DOAR ownerId, rândul vechi rămânea activ → membru-fantomă.
+  it("la transfer, elimină și rândul de membru al vechiului owner (dacă exista)", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([
+      activeMemberRow({ userId: OWNER_ID }),
+      activeMemberRow({ userId: MEMBER_ID }),
+    ] as never);
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(transferProjectOwnership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(removeMembership).toHaveBeenCalledWith(PROJECT_ID, OWNER_ID);
+  });
+
+  // /code-review QODO (2026-08-11): bucla nu izola erorile — un proiect care aruncă oprea reasignarea
+  // TUTUROR celorlalte proiecte deținute. Verificăm că al doilea proiect e procesat oricum.
+  it("un proiect care aruncă NU oprește procesarea celorlalte proiecte deținute", async () => {
+    const OTHER_PROJECT_ID = "22222222-2222-4222-8222-222222222229";
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([
+      { id: PROJECT_ID },
+      { id: OTHER_PROJECT_ID },
+    ] as never);
+    vi.mocked(listActiveMembers).mockRejectedValueOnce(new Error("boom"));
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([activeMemberRow({ userId: MEMBER_ID })] as never);
+
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+
+    expect(transferProjectOwnership).toHaveBeenCalledTimes(1);
+    expect(transferProjectOwnership).toHaveBeenCalledWith(OTHER_PROJECT_ID, MEMBER_ID);
+  });
+
   it("proiect fără alți membri activi (doar owner-ul, sau nimeni) → se șterge odată cu contul", async () => {
     vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
     vi.mocked(listActiveMembers).mockResolvedValueOnce([
