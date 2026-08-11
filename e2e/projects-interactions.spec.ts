@@ -166,9 +166,11 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();
       await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
 
-      // Tile-ul nou apare în grid (nume + eticheta „Planșă").
-      await expect(mpage.getByText("Planșă E2E de partajat")).toBeVisible({ timeout: 10_000 });
-      await expect(mpage.getByText("Planșă")).toBeVisible();
+      // Butonul din modal are ACELAȘI text ca numele planșei — un assert pe text simplu s-ar potrivi
+      // și pe modalul încă deschis, fals-pozitiv. Așteptăm întâi închiderea reală a modalului.
+      await expect(mpage.getByRole("dialog", { name: "Adaugă în proiect" })).not.toBeVisible({
+        timeout: 10_000,
+      });
 
       const [shareRow] = await db
         .select({ id: projectCanvasShares.id })
@@ -176,9 +178,17 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
         .where(eq(projectCanvasShares.projectId, projectId));
       expect(shareRow?.id).toBeTruthy();
 
-      // Sharer-ul își poate șterge propria partajare (butonul e vizibil, nu doar la hover, în DOM).
-      await mpage.getByRole("button", { name: "Șterge partajarea" }).click();
-      await expect(mpage.getByText("Planșă E2E de partajat")).not.toBeVisible({ timeout: 10_000 });
+      // Tile-ul din grid — verificat prin butonul „Șterge partajarea", care există DOAR pe tile
+      // (nu în modal), deci e o dovadă reală că partajarea a ajuns în grid, nu doar în DB.
+      const deleteShareButton = mpage.getByRole("button", { name: "Șterge partajarea" });
+      await expect(deleteShareButton).toBeVisible({ timeout: 10_000 });
+      await expect(mpage.getByRole("main").getByText("Planșă E2E de partajat")).toBeVisible();
+
+      // Sharer-ul își poate șterge propria partajare.
+      await deleteShareButton.click();
+      await expect(mpage.getByRole("main").getByText("Planșă E2E de partajat")).not.toBeVisible({
+        timeout: 10_000,
+      });
 
       const remaining = await db
         .select({ id: projectCanvasShares.id })
@@ -199,15 +209,22 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
       await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();
       await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
-      await expect(mpage.getByText("Planșă E2E de partajat")).toBeVisible({ timeout: 10_000 });
+      await expect(mpage.getByRole("dialog", { name: "Adaugă în proiect" })).not.toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(mpage.getByRole("button", { name: "Șterge partajarea" })).toBeVisible({
+        timeout: 10_000,
+      });
     } finally {
       await memberCtx.close();
     }
 
     await page.goto(`/projects/${projectId}`);
-    await expect(page.getByText("Planșă E2E de partajat")).toBeVisible();
+    await expect(page.getByRole("main").getByText("Planșă E2E de partajat")).toBeVisible();
     await page.getByRole("button", { name: "Șterge partajarea" }).click();
-    await expect(page.getByText("Planșă E2E de partajat")).not.toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("main").getByText("Planșă E2E de partajat")).not.toBeVisible({
+      timeout: 10_000,
+    });
 
     const remaining = await db
       .select({ id: projectCanvasShares.id })
