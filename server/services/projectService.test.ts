@@ -5,6 +5,11 @@ vi.mock("@/lib/invite-token", () => ({
   isInviteTokenExpired: vi.fn(() => false),
 }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn(), uploadProjectCanvasShare: vi.fn() }));
+// Spy, nu mock complet — audit() rulează real (console.log, best-effort), doar urmărim apelurile.
+vi.mock("@/lib/audit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/audit")>();
+  return { ...actual, audit: vi.fn(actual.audit) };
+});
 vi.mock("@/server/repos/detailsRepo", () => ({
   deleteDetailCascade: vi.fn(),
   listAllProjectDetails: vi.fn(),
@@ -41,6 +46,7 @@ vi.mock("@/server/repos/projectsRepo", () => ({
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ getUserWithRole: vi.fn(() => Promise.resolve(null)) }));
 
+import { audit } from "@/lib/audit";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import {
@@ -739,6 +745,20 @@ describe("reassignOrDeleteOwnedProjectsOnAccountDeletion", () => {
     await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
     expect(transferProjectOwnership).not.toHaveBeenCalled();
     expect(deleteProjectRow).toHaveBeenCalledWith(PROJECT_ID);
+  });
+
+  // /code-review QODO round 2 (2026-08-11): deleteProject întoarce {ok:false} (nu aruncă) pe
+  // NOT_FOUND/FORBIDDEN — fără verificare pe `result.ok`, audit-ul afirma "proiect șters" chiar și
+  // când ștergerea n-a avut loc (ex. proiectul a fost deja șters concurent, altă filă deschisă).
+  it("deleteProject eșuează (ex. proiect deja șters concurent) → NU se auditează ca 'șters'", async () => {
+    vi.mocked(listProjectsOwnedBy).mockResolvedValueOnce([{ id: PROJECT_ID }] as never);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([
+      activeMemberRow({ userId: OWNER_ID }),
+    ] as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never); // deleteProject → NOT_FOUND
+    await reassignOrDeleteOwnedProjectsOnAccountDeletion(OWNER_ID);
+    expect(deleteProjectRow).not.toHaveBeenCalled();
+    expect(audit).not.toHaveBeenCalledWith("project_deleted_on_account_deletion", expect.anything());
   });
 
   // /code-review (2026-08-11): găsit — fără filtru pe status, un membru cu rând `removedAt = null` dar
