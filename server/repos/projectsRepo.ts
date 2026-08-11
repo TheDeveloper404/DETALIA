@@ -1,9 +1,16 @@
 // Repo proiecte — singurul loc cu acces Drizzle pentru tabelul `projects`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, eq, exists, isNull, or } from "drizzle-orm";
+import { and, count, eq, exists, isNull, or } from "drizzle-orm";
 
 import { db } from "@/db";
 import { projectMembers, projects } from "@/db/schema";
+
+// SEC-010 (audit securitate 2026-08-11): plafon de proiecte per owner — anti-abuz, verificat ÎNAINTE
+// de insert în service.
+export async function countProjectsOwnedBy(ownerId: string): Promise<number> {
+  const [row] = await db.select({ c: count() }).from(projects).where(eq(projects.ownerId, ownerId));
+  return row?.c ?? 0;
+}
 
 export async function insertProject(input: { ownerId: string; name: string; inviteToken: string }) {
   const [row] = await db

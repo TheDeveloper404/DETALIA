@@ -55,6 +55,8 @@ export async function getContributionCounts(
           // Proiecte (2026-08-09): o validare dată înăuntrul unui proiect privat nu aprinde ziua în
           // heatmap-ul public — altfel volumul de activitate privată ar fi vizibil oricui.
           targetNotInProject("validations"),
+          // SEC-001 (audit 2026-08-11): poziție ascunsă la „Scoate în comunitate" → nu aprinde heatmap-ul.
+          eq(validations.hiddenAfterRelease, false),
         ),
       )
       .groupBy(vDay),
@@ -67,6 +69,8 @@ export async function getContributionCounts(
           gte(comments.createdAt, since),
           // Proiecte (2026-08-09): idem — comentariu într-un proiect privat, invizibil în heatmap.
           targetNotInProject("comments"),
+          // SEC-001 (audit 2026-08-11): comentariu ascuns la „Scoate în comunitate" → nu aprinde heatmap-ul.
+          eq(comments.hiddenAfterRelease, false),
         ),
       )
       .groupBy(cDay),
@@ -182,20 +186,30 @@ export async function getProfileStats(userId: string) {
     db
       .select({ c: count() })
       .from(validations)
-      .where(and(eq(validations.userId, userId), targetNotInProject("validations"))),
+      .where(
+        and(
+          eq(validations.userId, userId),
+          targetNotInProject("validations"),
+          // SEC-001 (audit 2026-08-11): poziție ascunsă la „Scoate în comunitate" → nu se numără public.
+          eq(validations.hiddenAfterRelease, false),
+        ),
+      ),
     // Validări primite = poziții luate de alții pe detaliile/schițele acestui user.
     db
       .select({ c: count() })
       .from(validations)
       .where(
-        or(
-          and(
-            eq(validations.targetType, "DETAIL"),
-            inArray(validations.targetId, myDetailIds),
-          ),
-          and(
-            eq(validations.targetType, "SKETCH"),
-            inArray(validations.targetId, mySketchIds),
+        and(
+          eq(validations.hiddenAfterRelease, false),
+          or(
+            and(
+              eq(validations.targetType, "DETAIL"),
+              inArray(validations.targetId, myDetailIds),
+            ),
+            and(
+              eq(validations.targetType, "SKETCH"),
+              inArray(validations.targetId, mySketchIds),
+            ),
           ),
         ),
       ),
@@ -224,9 +238,11 @@ const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
 const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 
 const detailValidationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+     and ${validations.hiddenAfterRelease} = false)`;
 const detailCommentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+     and ${comments.hiddenAfterRelease} = false)`;
 // Ca în detailsRepo: „N schițe" = ce apare ca tab în teanc (exclude doar adnotarea, isAnnotation=true,
 // 2026-08-11 — un desen ulterior al autorului pe propriul detaliu, prin „Schițează peste" normal, INTRĂ).
 const detailSketchCount = sql<number>`(select count(*)::int from ${sketches}
@@ -342,6 +358,8 @@ export async function listAuthorActivity(userId: string, limit: number) {
         // (vezi nota similară din listAuthorSketches pentru schema de join).
         isNull(details.projectId),
         isNull(sketchParent.projectId),
+        // SEC-001 (audit 2026-08-11): poziție ascunsă la „Scoate în comunitate" → nu apare în activitate.
+        eq(validations.hiddenAfterRelease, false),
       ),
     )
     .orderBy(desc(validations.createdAt))
@@ -372,6 +390,8 @@ export async function listAuthorActivity(userId: string, limit: number) {
         // Proiecte (2026-08-09): vezi nota identică de la vRows, mai sus.
         isNull(details.projectId),
         isNull(sketchParent.projectId),
+        // SEC-001 (audit 2026-08-11): comentariu ascuns la „Scoate în comunitate" → nu apare în activitate.
+        eq(comments.hiddenAfterRelease, false),
       ),
     )
     .orderBy(desc(comments.createdAt))

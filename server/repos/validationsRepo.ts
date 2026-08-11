@@ -115,7 +115,14 @@ export async function listPositionsForTarget(targetType: TargetType, targetId: s
     .from(validations)
     .leftJoin(users, eq(users.id, validations.userId))
     .leftJoin(roles, eq(roles.userId, validations.userId))
-    .where(and(eq(validations.targetType, targetType), eq(validations.targetId, targetId)))
+    .where(
+      and(
+        eq(validations.targetType, targetType),
+        eq(validations.targetId, targetId),
+        // SEC-001 (audit 2026-08-11): poziție a altui membru, ascunsă la „Scoate în comunitate".
+        eq(validations.hiddenAfterRelease, false),
+      ),
+    )
     .orderBy(desc(validations.createdAt));
 
   return rows.map((r) => {
@@ -155,7 +162,14 @@ export async function listPositionsForTargets(targetType: TargetType, targetIds:
     .from(validations)
     .leftJoin(users, eq(users.id, validations.userId))
     .leftJoin(roles, eq(roles.userId, validations.userId))
-    .where(and(eq(validations.targetType, targetType), inArray(validations.targetId, targetIds)))
+    .where(
+      and(
+        eq(validations.targetType, targetType),
+        inArray(validations.targetId, targetIds),
+        // SEC-001 (audit 2026-08-11): poziție a altui membru, ascunsă la „Scoate în comunitate".
+        eq(validations.hiddenAfterRelease, false),
+      ),
+    )
     .orderBy(desc(validations.createdAt));
 
   return rows.map((r) => {

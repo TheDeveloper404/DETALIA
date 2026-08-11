@@ -240,6 +240,13 @@ export const details = pgTable(
     // polimorfice (fără FK) și fișierele din Blob nu au cum să cadă în cascadă. Ștergerea completă e
     // orchestrată în projectService.deleteProject, prin deleteDetailCascade pentru fiecare detaliu.
     projectId: uuid().references(() => projects.id, { onDelete: "cascade" }),
+    // Proiecte, Faza B (2026-08-11): originea unui detaliu ELIBERAT în comunitate (`projectId = null`
+    // acum), păstrată separat ca să rămână un card-preview vizibil în proiectul de unde a plecat — fără
+    // asta, „scoate în comunitate" ar face detaliul să dispară complet din proiect, fără urmă. Setată O
+    // SINGURĂ DATĂ, la eliberare (niciodată la creare — un detaliu creat direct în proiect n-a fost încă
+    // „eliberat" de nicăieri) — vezi `releaseDetailToCommunity`. `ON DELETE SET NULL`: dacă proiectul-sursă
+    // dispare, cardul-preview n-are unde să mai trăiască — detaliul rămâne, doar legătura istorică pică.
+    releasedFromProjectId: uuid().references(() => projects.id, { onDelete: "set null" }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -249,6 +256,7 @@ export const details = pgTable(
   (t) => [
     index("details_author_id_idx").on(t.authorId),
     index("details_project_id_idx").on(t.projectId),
+    index("details_released_from_project_id_idx").on(t.releasedFromProjectId),
     // Index parțial: acoperă direct feed-ul (listFeed, cronologic pe PUBLISHED) — scan pe index, nu
     // pe tot tabelul, și mai mic decât un index complet (exclude rândurile DRAFT). Feed-ul comunității
     // filtrează ȘI pe `project_id IS NULL` — detaliile de proiect nu trebuie să apară acolo.
@@ -413,6 +421,32 @@ export const projectMembers = pgTable(
   ],
 );
 
+// Partajare planșă în proiect — Faza B (§6B, 2026-08-11): COPIE ÎNGHEȚATĂ, needitabilă, a unei planșe
+// personale, la momentul partajării. NU referă `canvases.id` — planșa sursă poate fi editată/ștearsă
+// după aceea fără să afecteze partajarea (`imageUrl` e un blob NOU, re-încărcat la export, nu doar
+// URL-ul `thumbnailUrl` al planșei sursă — dacă planșa se șterge, `deleteCanvas` șterge blob-ul EI,
+// nu pe-al nostru). Pot exista mai multe partajări ale aceleiași planșe, fiecare cu `name`-ul/momentul
+// ei (decizie de produs, §6B) — de-asta nu există un unique pe (projectId, sharedByUserId).
+export const projectCanvasShares = pgTable(
+  "project_canvas_shares",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    projectId: uuid()
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    sharedByUserId: uuid()
+      .notNull()
+      .references(() => users.id),
+    name: text().notNull(),
+    imageUrl: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("project_canvas_shares_project_id_idx").on(t.projectId),
+    index("project_canvas_shares_shared_by_user_id_idx").on(t.sharedByUserId),
+  ],
+);
+
 // Validare («code review» — INIMA). Polimorfică pe Detail SAU Sketch.
 export const validations = pgTable(
   "validations",
@@ -425,6 +459,10 @@ export const validations = pgTable(
     targetId: uuid().notNull(),
     position: validationPosition().notNull(),
     roleSnapshot: jsonb(), // rolul userului la momentul poziției (afișare istorică)
+    // SEC-001 (audit securitate 2026-08-11): la „Scoate în comunitate", pozițiile ALTOR membri decât
+    // autorul detaliului nu trebuie să devină publice — oglindește exact `sketches.hiddenAfterRelease`
+    // (vezi acolo). Setat o SINGURĂ dată, în același batch atomic cu nularea `projectId`.
+    hiddenAfterRelease: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -468,6 +506,10 @@ export const comments = pgTable(
     // (enforce în commentService, nu doar aici). null = comentariu rădăcină. Cascade: comentariul-părinte
     // șters → reply-urile lui dispar odată cu el (nu rămân orfane).
     parentCommentId: uuid().references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
+    // SEC-001 (audit securitate 2026-08-11): la „Scoate în comunitate", comentariile ALTOR membri decât
+    // autorul detaliului nu trebuie să devină publice — oglindește exact `sketches.hiddenAfterRelease`
+    // (vezi acolo). Setat o SINGURĂ dată, în același batch atomic cu nularea `projectId`.
+    hiddenAfterRelease: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

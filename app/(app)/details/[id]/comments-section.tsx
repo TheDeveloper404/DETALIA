@@ -14,6 +14,7 @@ import {
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { CommentImageAttach } from "@/components/comment-image-attach";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmojiPickerButton } from "@/components/emoji-picker-button";
 import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
@@ -583,8 +584,10 @@ function CommentItem({
     });
   }
 
-  function remove() {
-    if (!window.confirm("Ștergi comentariul? Acțiunea nu poate fi anulată.")) return;
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+
+  function confirmRemove() {
+    setDeleteConfirmOpen(false);
     setError(null);
     startTransition(async () => {
       const res = await deleteCommentAction(c.id, detailId);
@@ -656,7 +659,7 @@ function CommentItem({
               {!isDisapproval && (
                 <button
                   type="button"
-                  onClick={remove}
+                  onClick={() => setDeleteConfirmOpen(true)}
                   disabled={pending}
                   className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
                 >
@@ -789,6 +792,14 @@ function CommentItem({
             onDone={() => setReplying(false)}
           />
         )}
+
+        <ConfirmDialog
+          open={deleteConfirmOpen}
+          title="Ștergi comentariul?"
+          message="Acțiunea nu poate fi anulată."
+          onConfirm={confirmRemove}
+          onCancel={() => setDeleteConfirmOpen(false)}
+        />
       </div>
     </div>
   );

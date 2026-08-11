@@ -1,13 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/invite-token", () => ({ generateInviteToken: vi.fn(() => "new-token-abc") }));
-vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
+vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn(), uploadProjectCanvasShare: vi.fn() }));
 vi.mock("@/server/repos/detailsRepo", () => ({
   deleteDetailCascade: vi.fn(),
   listAllProjectDetails: vi.fn(),
   listProjectDetails: vi.fn(),
+  listReleasedProjectDetails: vi.fn(),
+}));
+vi.mock("@/server/repos/plansaRepo", () => ({ getCanvasById: vi.fn() }));
+vi.mock("@/server/repos/projectCanvasSharesRepo", () => ({
+  countCanvasSharesByProject: vi.fn(() => Promise.resolve(0)),
+  deleteCanvasShare: vi.fn(),
+  getCanvasShareById: vi.fn(),
+  insertCanvasShare: vi.fn(),
+  listCanvasSharesByProject: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock("@/server/repos/projectMembersRepo", () => ({
+  countActiveMembers: vi.fn(() => Promise.resolve(0)),
   getMembership: vi.fn(),
   isActiveMember: vi.fn(),
   listActiveMembers: vi.fn(),
@@ -15,47 +25,62 @@ vi.mock("@/server/repos/projectMembersRepo", () => ({
   upsertActiveMembership: vi.fn(),
 }));
 vi.mock("@/server/repos/projectsRepo", () => ({
+  countProjectsOwnedBy: vi.fn(() => Promise.resolve(0)),
   deleteProject: vi.fn(),
   getProjectById: vi.fn(),
   getProjectByInviteToken: vi.fn(),
   insertProject: vi.fn(),
   listProjectsForUser: vi.fn(),
   updateInviteToken: vi.fn(),
+  updateProjectName: vi.fn(),
 }));
+vi.mock("@/server/repos/usersRepo", () => ({ getUserWithRole: vi.fn(() => Promise.resolve(null)) }));
 
+import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import { generateInviteToken } from "@/lib/invite-token";
-import { deleteBlobs } from "@/lib/storage";
 import {
   deleteDetailCascade,
   listAllProjectDetails,
   listProjectDetails,
 } from "@/server/repos/detailsRepo";
+import { getCanvasById } from "@/server/repos/plansaRepo";
 import {
+  countCanvasSharesByProject,
+  deleteCanvasShare as deleteCanvasShareRow,
+  getCanvasShareById,
+  insertCanvasShare,
+} from "@/server/repos/projectCanvasSharesRepo";
+import {
+  countActiveMembers,
   isActiveMember,
   listActiveMembers,
   removeMembership,
   upsertActiveMembership,
 } from "@/server/repos/projectMembersRepo";
 import {
+  countProjectsOwnedBy,
   deleteProject as deleteProjectRow,
   getProjectById,
   getProjectByInviteToken,
   insertProject,
   updateInviteToken,
+  updateProjectName,
 } from "@/server/repos/projectsRepo";
 
 import {
   canAccessProjectDetail,
   canReleaseDetailToCommunity,
   createProject,
+  deleteCanvasShareForUser,
   deleteProject,
   getProject,
   getProjectAccess,
   getProjectForViewer,
   joinProjectByToken,
-  listProjectDetailsForViewer,
   regenerateInviteLink,
   removeMember,
+  renameProject,
+  shareCanvasToProject,
 } from "./projectService";
 
 const PROJECT_ID = "11111111-1111-4111-8111-111111111111";
@@ -91,6 +116,49 @@ describe("createProject", () => {
       inviteToken: "new-token-abc",
     });
     expect(res).toEqual({ ok: true, projectId: PROJECT_ID, inviteToken: "new-token-abc" });
+  });
+
+  // SEC-010 (audit securitate 2026-08-11): plafon de proiecte per owner — anti-abuz.
+  it("owner-ul a atins plafonul de proiecte → LIMIT_REACHED, fără insert", async () => {
+    vi.mocked(countProjectsOwnedBy).mockResolvedValueOnce(50);
+    const res = await createProject({ ownerId: OWNER_ID, name: "Alt proiect" });
+    expect(res).toEqual({ ok: false, error: "LIMIT_REACHED" });
+    expect(insertProject).not.toHaveBeenCalled();
+  });
+});
+
+describe("renameProject — DOAR owner", () => {
+  it("id ne-UUID → NOT_FOUND, fără query", async () => {
+    const res = await renameProject({ projectId: "not-a-uuid", requesterId: OWNER_ID, name: "X" });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  it("proiect inexistent → NOT_FOUND", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    const res = await renameProject({ projectId: PROJECT_ID, requesterId: OWNER_ID, name: "X" });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+  });
+
+  it("nu ești owner (membru sau străin) → FORBIDDEN, fără scriere", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await renameProject({ projectId: PROJECT_ID, requesterId: MEMBER_ID, name: "X" });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(updateProjectName).not.toHaveBeenCalled();
+  });
+
+  it("owner, nume gol → EMPTY, fără scriere", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await renameProject({ projectId: PROJECT_ID, requesterId: OWNER_ID, name: "   " });
+    expect(res).toEqual({ ok: false, error: "EMPTY" });
+    expect(updateProjectName).not.toHaveBeenCalled();
+  });
+
+  it("owner, nume valid → redenumește, trimmed", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await renameProject({ projectId: PROJECT_ID, requesterId: OWNER_ID, name: "  Nume nou  " });
+    expect(res).toEqual({ ok: true });
+    expect(updateProjectName).toHaveBeenCalledWith(PROJECT_ID, "Nume nou");
   });
 });
 
@@ -149,7 +217,26 @@ describe("getProjectForViewer — anti-enumerare", () => {
     expect(res).toEqual({
       project: projectRow(),
       members: [{ id: "m1", userId: MEMBER_ID }],
+      owner: null,
       isOwner: true,
+    });
+  });
+
+  // SEC-004 (audit securitate 2026-08-11): tokenul de invitație era vizibil oricărui membru prin DTO-ul
+  // întors aici, apărat doar de gardă în UI (page.tsx) — bug-ul reparat azi. Poarta trebuie să fie AICI.
+  it("membru (nu owner) → inviteToken este null, indiferent ce face UI-ul cu el", async () => {
+    vi.mocked(getProjectById)
+      .mockResolvedValueOnce(projectRow() as never) // getProjectAccess
+      .mockResolvedValueOnce(projectRow() as never); // getProjectById direct
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    vi.mocked(listActiveMembers).mockResolvedValueOnce([{ id: "m1", userId: MEMBER_ID }] as never);
+
+    const res = await getProjectForViewer({ projectId: PROJECT_ID, userId: MEMBER_ID });
+    expect(res).toEqual({
+      project: { ...projectRow(), inviteToken: null },
+      members: [{ id: "m1", userId: MEMBER_ID }],
+      owner: null,
+      isOwner: false,
     });
   });
 });
@@ -167,6 +254,25 @@ describe("joinProjectByToken", () => {
     const res = await joinProjectByToken({ token: "tok-abc", userId: MEMBER_ID });
     expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
     expect(res).toEqual({ ok: true, projectId: PROJECT_ID, projectName: "Renovare bloc A" });
+  });
+
+  // SEC-010 (audit securitate 2026-08-11): plafon de membri per proiect — anti-abuz.
+  it("proiect la plafonul de membri, user NOU → LIMIT_REACHED, fără upsert", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(false);
+    vi.mocked(countActiveMembers).mockResolvedValueOnce(100);
+    const res = await joinProjectByToken({ token: "tok-abc", userId: STRANGER_ID });
+    expect(res).toEqual({ ok: false, error: "LIMIT_REACHED" });
+    expect(upsertActiveMembership).not.toHaveBeenCalled();
+  });
+
+  it("proiect la plafonul de membri, DAR userul e deja membru activ → re-alăturarea trece (idempotent)", async () => {
+    vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    const res = await joinProjectByToken({ token: "tok-abc", userId: MEMBER_ID });
+    expect(res).toEqual({ ok: true, projectId: PROJECT_ID, projectName: "Renovare bloc A" });
+    expect(countActiveMembers).not.toHaveBeenCalled();
+    expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
   });
 });
 
@@ -342,23 +448,6 @@ describe("canReleaseDetailToCommunity — regula «orfan», parte DB", () => {
   });
 });
 
-describe("listProjectDetailsForViewer — anti-enumerare", () => {
-  it("fără acces → null, nu interoghează detaliile", async () => {
-    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
-    const res = await listProjectDetailsForViewer({ projectId: PROJECT_ID, userId: STRANGER_ID });
-    expect(res).toBeNull();
-    expect(listProjectDetails).not.toHaveBeenCalled();
-  });
-
-  it("cu acces → deleagă la detailsRepo.listProjectDetails", async () => {
-    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
-    vi.mocked(listProjectDetails).mockResolvedValueOnce([{ id: "d1" }] as never);
-    const res = await listProjectDetailsForViewer({ projectId: PROJECT_ID, userId: OWNER_ID });
-    expect(listProjectDetails).toHaveBeenCalledWith(PROJECT_ID);
-    expect(res).toEqual([{ id: "d1" }]);
-  });
-});
-
 // SEC-11 (2026-08-09, gol găsit la /code-review): un projectId malformat trebuie tratat „nu există",
 // niciodată lăsat să lovească Postgres direct (eroare 22P02 pe coloana uuid → 500 în loc de notFound()).
 describe("SEC-11 — projectId malformat → «nu există», fără query pe DB", () => {
@@ -397,5 +486,123 @@ describe("SEC-11 — projectId malformat → «nu există», fără query pe DB"
   it("getProject: id ne-UUID → null, fără query", async () => {
     expect(await getProject("not-a-uuid")).toBeNull();
     expect(getProjectById).not.toHaveBeenCalled();
+  });
+});
+
+const CANVAS_ID = "44444444-4444-4444-8444-444444444444";
+const SHARE_ID = "55555555-5555-4555-8555-555555555555";
+
+function canvasRow(overrides: Partial<{ id: string; ownerId: string; name: string; thumbnailUrl: string | null }> = {}) {
+  return { id: CANVAS_ID, ownerId: OWNER_ID, name: "Planșa mea", thumbnailUrl: "https://blob/thumb.png", ...overrides };
+}
+
+describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele obligatorii", () => {
+  it("planșă a altcuiva → NOT_FOUND (anti-enumerare), fără verificare de acces la proiect", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(canvasRow({ ownerId: STRANGER_ID }) as never);
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(getProjectById).not.toHaveBeenCalled();
+  });
+
+  it("planșă proprie, dar NU membru al proiectului → FORBIDDEN", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(canvasRow() as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: STRANGER_ID }) as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(false);
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(insertCanvasShare).not.toHaveBeenCalled();
+  });
+
+  it("planșă fără thumbnail (nesalvată încă) → EMPTY_CANVAS", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(canvasRow({ thumbnailUrl: null }) as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "EMPTY_CANVAS" });
+  });
+
+  it("planșă proprie + membru activ → partajează, cu numele planșei + dată în titlu", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(canvasRow() as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(["x"])) }),
+    );
+    vi.mocked(uploadProjectCanvasShare).mockResolvedValueOnce({ ok: true, url: "https://blob/share.png" });
+    vi.mocked(insertCanvasShare).mockResolvedValueOnce({ id: SHARE_ID } as never);
+
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+
+    expect(res).toEqual({ ok: true, shareId: SHARE_ID });
+    expect(insertCanvasShare).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectId: PROJECT_ID,
+        sharedByUserId: OWNER_ID,
+        imageUrl: "https://blob/share.png",
+        name: expect.stringContaining("Planșa mea"),
+      }),
+    );
+    vi.unstubAllGlobals();
+  });
+
+  // SEC-010 (audit securitate 2026-08-11): plafon de partajări per proiect — anti-abuz (fiecare
+  // partajare consumă un blob full-size nou, plătit).
+  it("proiect la plafonul de partajări → LIMIT_REACHED, fără upload/insert", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(canvasRow() as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.mocked(countCanvasSharesByProject).mockResolvedValueOnce(100);
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "LIMIT_REACHED" });
+    expect(insertCanvasShare).not.toHaveBeenCalled();
+  });
+});
+
+describe("deleteCanvasShareForUser — cine a partajat SAU owner-ul proiectului, nimeni altcineva", () => {
+  function shareRow(overrides: Partial<{ id: string; projectId: string; sharedByUserId: string; imageUrl: string }> = {}) {
+    return { id: SHARE_ID, projectId: PROJECT_ID, sharedByUserId: MEMBER_ID, imageUrl: "https://blob/share.png", ...overrides };
+  }
+
+  it("share inexistent → NOT_FOUND", async () => {
+    vi.mocked(getCanvasShareById).mockResolvedValueOnce(null as never);
+    const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    expect(deleteCanvasShareRow).not.toHaveBeenCalled();
+  });
+
+  it("un alt membru al proiectului (nici sharer, nici owner) → FORBIDDEN", async () => {
+    vi.mocked(getCanvasShareById).mockResolvedValueOnce(shareRow() as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: STRANGER_ID });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(deleteCanvasShareRow).not.toHaveBeenCalled();
+  });
+
+  it("cel care a partajat-o, ÎNCĂ membru activ → poate șterge, blob-ul se curăță", async () => {
+    vi.mocked(getCanvasShareById).mockResolvedValueOnce(shareRow({ sharedByUserId: MEMBER_ID }) as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    vi.mocked(deleteCanvasShareRow).mockResolvedValueOnce("https://blob/share.png");
+    const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: MEMBER_ID });
+    expect(res).toEqual({ ok: true });
+    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/share.png"]);
+  });
+
+  // SEC-009 (audit securitate 2026-08-11): citirea era deja închisă la eliminare din proiect, dar
+  // scrierea pe conținutul propriu (ștergerea propriei partajări) rămăsese deschisă — inconsecvență
+  // a graniței, reparată azi.
+  it("cel care a partajat-o, DAR eliminat între timp din proiect → FORBIDDEN, nu doar sharer-ul contează", async () => {
+    vi.mocked(getCanvasShareById).mockResolvedValueOnce(shareRow({ sharedByUserId: MEMBER_ID }) as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(false);
+    const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: MEMBER_ID });
+    expect(res).toEqual({ ok: false, error: "FORBIDDEN" });
+    expect(deleteCanvasShareRow).not.toHaveBeenCalled();
+  });
+
+  it("owner-ul proiectului (nu sharer) → poate șterge (moderare)", async () => {
+    vi.mocked(getCanvasShareById).mockResolvedValueOnce(shareRow({ sharedByUserId: MEMBER_ID }) as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.mocked(deleteCanvasShareRow).mockResolvedValueOnce("https://blob/share.png");
+    const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: true });
   });
 });

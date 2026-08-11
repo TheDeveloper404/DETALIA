@@ -303,6 +303,18 @@ export async function publishDetailRow(detailId: string) {
     .where(and(eq(details.id, detailId), eq(details.status, DETAIL_STATUS.DRAFT)));
 }
 
+// SEC-011 (audit securitate 2026-08-11): batch — pentru scrub-ul notificărilor la citire (userul care
+// a pierdut accesul la un proiect nu mai trebuie să vadă titlul detaliului în clopoțel). Doar id+projectId,
+// fără join-uri suplimentare.
+export async function listProjectIdForDetails(detailIds: string[]): Promise<Map<string, string | null>> {
+  if (detailIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: details.id, projectId: details.projectId })
+    .from(details)
+    .where(inArray(details.id, detailIds));
+  return new Map(rows.map((r) => [r.id, r.projectId]));
+}
+
 // Detaliile PUBLICATE ale unui proiect — „feed"-ul intern, vizibil doar membrilor (autorizarea se
 // verifică ÎNAINTE, în service — acest query nu ia userId, doar proiectul). Strict cronologic, ca
 // listFeed.
@@ -318,6 +330,25 @@ export async function listProjectDetails(projectId: string) {
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), eq(details.projectId, projectId)))
+    .orderBy(desc(details.createdAt));
+}
+
+// Card-preview: detalii care AU FOST în acest proiect și au fost eliberate în comunitate (§6A, Faza B
+// „Proiect", 2026-08-11) — `projectId` e deja null (public), dar `releasedFromProjectId` păstrează
+// originea. Fără asta, „scoate în comunitate" ar face detaliul să dispară complet din vederea
+// proiectului, fără nicio urmă. Doar câmpurile de preview — cardul duce spre pagina publică, nu
+// duplică toată logica listei principale (validationCount/commentCount etc. nu au sens aici).
+export async function listReleasedProjectDetails(projectId: string) {
+  return db
+    .select({ id: details.id, title: details.title, imageUrl: details.imageUrl })
+    .from(details)
+    .where(
+      and(
+        eq(details.status, DETAIL_STATUS.PUBLISHED),
+        eq(details.releasedFromProjectId, projectId),
+        isNull(details.projectId),
+      ),
+    )
     .orderBy(desc(details.createdAt));
 }
 
@@ -340,9 +371,30 @@ export async function listAllProjectDetails(projectId: string) {
 // altor membri se marchează `hiddenAfterRelease` ÎN ACELAȘI batch, atomic cu nularea `projectId` —
 // altfel ar exista o fereastră (sau, la eroare pe jumătate, o stare permanentă) cu detaliul deja public
 // și contribuțiile altora încă vizibile nefiltrat.
-export async function releaseDetailToCommunity(detailId: string, detailAuthorId: string) {
+export async function releaseDetailToCommunity(
+  detailId: string,
+  detailAuthorId: string,
+  releasedFromProjectId: string,
+) {
+  // SEC-001 (audit securitate 2026-08-11): comentariile/validările ALTOR membri decât autorul, fie pe
+  // detaliu direct, fie pe oricare din schițele lui, se ascund în ACELAȘI batch atomic — altfel ar
+  // exista o fereastră (sau, la eroare pe jumătate, o stare permanentă) cu detaliul deja public și
+  // conținutul altora încă vizibil nefiltrat. Subquery pe schițele detaliului, nu doar targetId=detailId.
+  const sketchIdsOfDetail = db.select({ id: sketches.id }).from(sketches).where(eq(sketches.detailId, detailId));
+  const onThisDetailOrItsSketches = (targetType: typeof comments.targetType | typeof validations.targetType, targetId: typeof comments.targetId | typeof validations.targetId) =>
+    or(
+      and(eq(targetType, "DETAIL"), eq(targetId, detailId)),
+      and(eq(targetType, "SKETCH"), inArray(targetId, sketchIdsOfDetail)),
+    );
+
   await db.batch([
-    db.update(details).set({ projectId: null }).where(eq(details.id, detailId)),
+    // `releasedFromProjectId` setat AICI, o singură dată (regula ireversibilă — nu se rescrie la o
+    // eventuală re-intrare într-un alt proiect, ceea ce oricum nu se poate întâmpla: un detaliu deja
+    // eliberat e `projectId=null`, nu mai poate reintra). Rămâne cardul-preview în proiectul de origine.
+    db
+      .update(details)
+      .set({ projectId: null, releasedFromProjectId })
+      .where(eq(details.id, detailId)),
     db
       .update(sketches)
       .set({ hiddenAfterRelease: true })
@@ -351,6 +403,24 @@ export async function releaseDetailToCommunity(detailId: string, detailAuthorId:
           eq(sketches.detailId, detailId),
           eq(sketches.status, "PUBLISHED"),
           ne(sketches.authorId, detailAuthorId),
+        ),
+      ),
+    db
+      .update(comments)
+      .set({ hiddenAfterRelease: true })
+      .where(
+        and(
+          ne(comments.authorId, detailAuthorId),
+          onThisDetailOrItsSketches(comments.targetType, comments.targetId),
+        ),
+      ),
+    db
+      .update(validations)
+      .set({ hiddenAfterRelease: true })
+      .where(
+        and(
+          ne(validations.userId, detailAuthorId),
+          onThisDetailOrItsSketches(validations.targetType, validations.targetId),
         ),
       ),
   ]);
@@ -496,9 +566,11 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
 const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
 const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const validationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+     and ${validations.hiddenAfterRelease} = false)`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+     and ${comments.hiddenAfterRelease} = false)`;
 // „N schițe" = ce apare ca tab în teanc. Adnotarea (isAnnotation=true, 2026-08-11 — vezi
 // server/domain/sketch.ts) e exclusă; un desen ULTERIOR al autorului pe propriul detaliu, prin
 // „Schițează peste" normal, INTRĂ aici (nu mai e derivat din identitatea autorului).
