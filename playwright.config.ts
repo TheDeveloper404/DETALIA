@@ -96,6 +96,7 @@ export default defineConfig({
         /detail-deletion\.spec\.ts/,
         /worksheet-2026-08-06\.spec\.ts/,
         /projects\.spec\.ts/,
+        /projects-interactions\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {
