@@ -162,7 +162,7 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
       await mpage.getByRole("button", { name: "Alătură-te proiectului" }).click();
       await expect(mpage).toHaveURL(new RegExp(`/projects/${projectId}$`), { timeout: 10_000 });
 
-      await mpage.getByRole("button", { name: "Adaugă" }).click();
+      await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();
       await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
 
@@ -196,7 +196,7 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     try {
       const mpage = await memberCtx.newPage();
       await mpage.goto(`/projects/${projectId}`);
-      await mpage.getByRole("button", { name: "Adaugă" }).click();
+      await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();
       await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
       await expect(mpage.getByText("Planșă E2E de partajat")).toBeVisible({ timeout: 10_000 });
