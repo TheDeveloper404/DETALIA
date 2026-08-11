@@ -151,6 +151,9 @@ test.describe.serial("Proiecte — colaborare restrânsă", () => {
   test("regenerare link → tokenul VECHI devine invalid instant", async ({ page, browser, baseURL }) => {
     const oldToken = inviteToken;
     await page.goto(`/projects/${projectId}`);
+    // Redesign 2026-08-11: link-ul de invitație nu mai stă expus direct pe pagină — e ascuns
+    // în spatele butonului „Invită membri" (modal).
+    await page.getByRole("button", { name: "Invită membri" }).click();
     await page.getByRole("button", { name: "Regenerează" }).click();
     // Așteptăm ca noul token să înlocuiască vechiul în cutia de link (efect al server action-ului).
     await expect

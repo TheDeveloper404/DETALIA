@@ -16,26 +16,35 @@ export type UploadImageResult = { ok: true; url: string } | { ok: false; error: 
 // și a funcțiilor Vercel (~4.5MB). Aici a rămas doar upload-ul thumbnail-ului de schiță, care e un
 // Blob mic randat client-side și trimis printr-un server action (sub limită).
 
-// Thumbnail al unei schițe (randat client-side la SEND). Primește un Blob; deși îl generăm noi din canvas,
-// câmpul de fișier al unui server action e controlat de client → SEC-02: validăm real + re-encodăm cu sharp
-// (magic bytes + strip metadata + plafon dimensiuni) înainte de a-l urca.
-export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
+// Validare comună (EMPTY/TOO_LARGE) + re-encodare SEC-02 (sharp: magic bytes, strip metadata, plafon
+// dimensiuni) — un Blob generat de NOI (canvas/export), dar câmpul de fișier al unui server action e
+// tot controlat de client, deci nu se are încredere în el fără verificare reală. Foldere separate per
+// tip de conținut (nu doar cosmetic — la curățare/audit se disting blob-urile după prefixul din URL).
+async function uploadImage(blob: Blob, folder: string): Promise<UploadImageResult> {
   if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
   if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
-  const processed = await processAndUploadImage(blob, "sketches");
+  const processed = await processAndUploadImage(blob, folder);
   if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
   return { ok: true, url: processed.url };
 }
 
+// Thumbnail al unei schițe (randat client-side la SEND).
+export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
+  return uploadImage(blob, "sketches");
+}
+
 // Thumbnail al unei planșe (compus client-side la salvare — imagini + strokes pe canvas offscreen).
-// Aceleași garanții ca la schițe (SEC-02: re-encodare sharp + plafon), dar folder separat „canvases"
-// — la curățare/audit se pot distinge blob-urile planșelor de cele ale schițelor după prefix.
 export async function uploadCanvasThumbnail(blob: Blob): Promise<UploadImageResult> {
-  if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
-  if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
-  const processed = await processAndUploadImage(blob, "canvases");
-  if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
-  return { ok: true, url: processed.url };
+  return uploadImage(blob, "canvases");
+}
+
+// Copie înghețată a unei planșe, partajată într-un proiect (Faza B, §6B) — primește bytes-urile deja
+// re-descărcate SERVER-SIDE de la `canvases.thumbnailUrl` al planșei sursă (projectService.ts), NU un
+// export proaspăt client-side. Blob-ul urcat aici e NOU (nu doar referință la URL-ul original): dacă
+// planșa sursă e ștearsă/regenerată după partajare, `deleteCanvas` șterge blob-ul EI — al nostru rămâne
+// independent.
+export async function uploadProjectCanvasShare(blob: Blob): Promise<UploadImageResult> {
+  return uploadImage(blob, "project-shares");
 }
 
 // Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile

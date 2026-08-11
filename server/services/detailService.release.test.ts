@@ -47,7 +47,7 @@ describe("releaseDetailToCommunity — regula orfan", () => {
     expect(res).toEqual({ ok: true, projectId: PROJECT_ID });
     // SEC-002 (2026-08-10): release publică doar conținutul autorului — repo-ul primește authorId ca
     // să poată marca `hiddenAfterRelease` pe schițele altor membri, atomic cu nularea projectId.
-    expect(releaseDetailToCommunityRow).toHaveBeenCalledWith(DETAIL_ID, AUTHOR);
+    expect(releaseDetailToCommunityRow).toHaveBeenCalledWith(DETAIL_ID, AUTHOR, PROJECT_ID);
   });
 
   it("un membru oarecare (nu autor, nu owner) → FORBIDDEN, fără scriere", async () => {

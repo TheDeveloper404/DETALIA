@@ -1,9 +1,9 @@
 // Repo membri de proiect — singurul loc cu acces Drizzle pentru tabelul `project_members`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { projectMembers, users } from "@/db/schema";
+import { projectMembers, roles, users } from "@/db/schema";
 
 // Rândul de membru (poate fi eliminat — `removedAt` setat). `null` dacă userul nu a fost NICIODATĂ
 // membru al acestui proiect (nu s-a inserat rând). Vezi `isActiveMember` mai jos pentru verificarea
@@ -72,9 +72,15 @@ export async function listActiveMembers(projectId: string) {
       joinedAt: projectMembers.joinedAt,
       name: users.name,
       image: users.image,
+      // Rolul PLATFORMEI (nu unul „de proiect" — nu există, vezi db/schema.ts). Un membru fără rol
+      // declarat (onboarding neterminat) → toate null, LEFT JOIN, nu-l scoate din listă.
+      roleMain: roles.roleMain,
+      subRole: roles.subRole,
+      verified: sql<boolean>`${roles.verificationStatus} = 'VERIFIED'`,
     })
     .from(projectMembers)
     .innerJoin(users, eq(users.id, projectMembers.userId))
+    .leftJoin(roles, eq(roles.userId, projectMembers.userId))
     .where(and(eq(projectMembers.projectId, projectId), isNull(projectMembers.removedAt)))
     .orderBy(projectMembers.joinedAt);
 }

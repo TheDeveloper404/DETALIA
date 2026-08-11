@@ -6,7 +6,7 @@
 //  - „Scoate în comunitate" e ireversibilă — nicio cale de întoarcere prin cod.
 
 import { generateInviteToken } from "@/lib/invite-token";
-import { deleteBlobs } from "@/lib/storage";
+import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import {
   canReleaseToCommunity,
   hasProjectAccess,
@@ -17,7 +17,15 @@ import {
   deleteDetailCascade,
   listAllProjectDetails,
   listProjectDetails,
+  listReleasedProjectDetails,
 } from "@/server/repos/detailsRepo";
+import { getCanvasById } from "@/server/repos/plansaRepo";
+import {
+  deleteCanvasShare as deleteCanvasShareRow,
+  getCanvasShareById,
+  insertCanvasShare,
+  listCanvasSharesByProject,
+} from "@/server/repos/projectCanvasSharesRepo";
 import {
   isActiveMember,
   listActiveMembers,
@@ -31,7 +39,9 @@ import {
   insertProject,
   listProjectsForUser as listProjectsForUserRow,
   updateInviteToken,
+  updateProjectName,
 } from "@/server/repos/projectsRepo";
+import { getUserWithRole } from "@/server/repos/usersRepo";
 
 export type CreateProjectResult =
   | { ok: true; projectId: string; inviteToken: string }
@@ -47,6 +57,28 @@ export async function createProject(input: {
   const inviteToken = generateInviteToken();
   const project = await insertProject({ ownerId: input.ownerId, name: validated.value, inviteToken });
   return { ok: true, projectId: project.id, inviteToken: project.inviteToken };
+}
+
+export type RenameProjectResult =
+  | { ok: true }
+  | { ok: false; error: "EMPTY" | "TOO_LONG" | "NOT_FOUND" | "FORBIDDEN" };
+
+// Redenumire inline (dublu-click pe titlu, UI) — DOAR owner-ul.
+export async function renameProject(input: {
+  projectId: string;
+  requesterId: string;
+  name: string;
+}): Promise<RenameProjectResult> {
+  if (!isUuid(input.projectId)) return { ok: false, error: "NOT_FOUND" };
+  const project = await getProjectById(input.projectId);
+  if (!project) return { ok: false, error: "NOT_FOUND" };
+  if (project.ownerId !== input.requesterId) return { ok: false, error: "FORBIDDEN" };
+
+  const validated = validateProjectName(input.name);
+  if (!validated.ok) return { ok: false, error: validated.error };
+
+  await updateProjectName(input.projectId, validated.value);
+  return { ok: true };
 }
 
 // Poarta de acces la un proiect (rândul lui, nu la un detaliu anume) — owner SAU membru activ.
@@ -83,8 +115,11 @@ export async function getProjectForViewer(input: { projectId: string; userId: st
   if (!access.hasAccess) return null;
   const project = await getProjectById(input.projectId);
   if (!project) return null;
-  const members = await listActiveMembers(input.projectId);
-  return { project, members, isOwner: access.isOwner };
+  const [members, owner] = await Promise.all([
+    listActiveMembers(input.projectId),
+    getUserWithRole(project.ownerId),
+  ]);
+  return { project, members, owner, isOwner: access.isOwner };
 }
 
 // Proiectele accesibile userului (owner SAU membru activ) — pentru /projects și selectorul de la
@@ -175,6 +210,12 @@ export async function deleteProject(input: {
     blobUrls.push(...(await deleteDetailCascade(detail.id)), detail.imageUrl);
   }
 
+  // Partajările de planșă cad în cascadă la DB (FK onDelete: cascade pe project_id) — dar fișierele lor
+  // din Blob NU (capcana cunoscută: cascada de FK nu atinge storage-ul extern). Colectăm URL-urile ÎNAINTE
+  // ca rândurile să dispară.
+  const shares = await listCanvasSharesByProject(input.projectId);
+  blobUrls.push(...shares.map((s) => s.imageUrl));
+
   await deleteProjectRow(input.projectId);
   // Blob-urile la final: dacă pică, rândurile sunt deja consistente (fișiere orfane > date orfane).
   await deleteBlobs(blobUrls);
@@ -220,4 +261,110 @@ export async function listProjectDetailsForViewer(input: { projectId: string; us
   const access = await getProjectAccess(input);
   if (!access.hasAccess) return null;
   return listProjectDetails(input.projectId);
+}
+
+// Card-preview al detaliilor eliberate din acest proiect (§6A) — aceeași poartă de acces. Sigur să
+// arate PUBLIC conținut (deja PUBLISHED, fără projectId) chiar și non-membrilor tehnic, dar rămânem
+// consecvenți cu restul paginii de proiect (privată integral) — nu creăm o excepție de vizibilitate.
+export async function listReleasedDetailsForViewer(input: { projectId: string; userId: string }) {
+  const access = await getProjectAccess(input);
+  if (!access.hasAccess) return null;
+  return listReleasedProjectDetails(input.projectId);
+}
+
+// ── Variante FĂRĂ re-verificare de acces (2026-08-11, /code-review) ──────────────────────────────
+// Pagina de proiect verifică accesul O SINGURĂ DATĂ prin `getProjectForViewer` (redirect/notFound dacă
+// eșuează), apoi are nevoie de 3 liste separate pentru ACELAȘI proiect — variantele „ForViewer" de mai
+// sus ar repeta verificarea de 3 ori în plus, cu propriul query în DB fiecare (paralelizate prin
+// Promise.all, deci fără impact de latență, dar interogări evitabile). Aceste variante presupun accesul
+// DEJA verificat de apelant în ACEEAȘI cerere — NU le folosi dacă nu ai verificat accesul chiar înainte.
+export async function listProjectDetailsUnchecked(projectId: string) {
+  return listProjectDetails(projectId);
+}
+export async function listReleasedDetailsUnchecked(projectId: string) {
+  return listReleasedProjectDetails(projectId);
+}
+export async function listCanvasSharesUnchecked(projectId: string) {
+  return listCanvasSharesByProject(projectId);
+}
+
+// ───────────────────────── Partajare planșă în proiect (§6B, Faza B) ─────────────────────────
+// Copie ÎNGHEȚATĂ, needitabilă — planșa NU se creează în proiect, e adusă din contul personal al
+// membrului (decizie de produs). Sursa e `canvases.thumbnailUrl`, deja un PNG compus la fiecare
+// salvare a planșei — re-descărcăm bytes-urile SERVER-SIDE (fetch) și le re-încărcăm ca blob NOU (nu
+// doar referință, și NU un export proaspăt client-side): reflectă ultima salvare a planșei, nu
+// eventualele modificări nesalvate din editor. Independența de blob-ul original contează pentru
+// ștergerea/editarea ulterioară a planșei sursă, nu pentru prospețime.
+
+export type ShareCanvasResult =
+  | { ok: true; shareId: string }
+  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" | "EMPTY_CANVAS" | "UPLOAD_FAILED" };
+
+export async function shareCanvasToProject(input: {
+  canvasId: string;
+  projectId: string;
+  userId: string;
+}): Promise<ShareCanvasResult> {
+  if (!isUuid(input.canvasId) || !isUuid(input.projectId)) return { ok: false, error: "NOT_FOUND" };
+
+  const canvas = await getCanvasById(input.canvasId);
+  // NOT_FOUND și pentru „nu e a ta" (anti-enumerare, la fel ca restul planșelor — SEC-11/IDOR pattern
+  // deja folosit peste tot în plansaService): o planșă a altcuiva nu trebuie să dezvăluie că există.
+  if (!canvas || canvas.ownerId !== input.userId) return { ok: false, error: "NOT_FOUND" };
+
+  const access = await getProjectAccess({ projectId: input.projectId, userId: input.userId });
+  if (!access.hasAccess) return { ok: false, error: "FORBIDDEN" };
+
+  if (!canvas.thumbnailUrl) return { ok: false, error: "EMPTY_CANVAS" };
+
+  let blob: Blob;
+  try {
+    const res = await fetch(canvas.thumbnailUrl);
+    if (!res.ok) return { ok: false, error: "UPLOAD_FAILED" };
+    blob = await res.blob();
+  } catch {
+    return { ok: false, error: "UPLOAD_FAILED" };
+  }
+
+  const uploaded = await uploadProjectCanvasShare(blob);
+  if (!uploaded.ok) return { ok: false, error: "UPLOAD_FAILED" };
+
+  const now = new Date();
+  const stamp = now.toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const time = now.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" });
+  const share = await insertCanvasShare({
+    projectId: input.projectId,
+    sharedByUserId: input.userId,
+    name: `${canvas.name} — ${stamp} ${time}`,
+    imageUrl: uploaded.url,
+  });
+  return { ok: true, shareId: share.id };
+}
+
+export async function listCanvasSharesForViewer(input: { projectId: string; userId: string }) {
+  const access = await getProjectAccess(input);
+  if (!access.hasAccess) return null;
+  return listCanvasSharesByProject(input.projectId);
+}
+
+export type DeleteCanvasShareResult = { ok: true } | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" };
+
+// Ștergere: cine a partajat-o SAU owner-ul proiectului (moderare, la fel ca la orice conținut de
+// proiect) — nu oricine cu acces la proiect.
+export async function deleteCanvasShareForUser(input: {
+  shareId: string;
+  userId: string;
+}): Promise<DeleteCanvasShareResult> {
+  if (!isUuid(input.shareId)) return { ok: false, error: "NOT_FOUND" };
+  const share = await getCanvasShareById(input.shareId);
+  if (!share) return { ok: false, error: "NOT_FOUND" };
+
+  const isSharer = share.sharedByUserId === input.userId;
+  const project = isSharer ? null : await getProjectById(share.projectId);
+  const isProjectOwner = !!project && project.ownerId === input.userId;
+  if (!isSharer && !isProjectOwner) return { ok: false, error: "FORBIDDEN" };
+
+  const imageUrl = await deleteCanvasShareRow(input.shareId);
+  await deleteBlobs([imageUrl]);
+  return { ok: true };
 }
