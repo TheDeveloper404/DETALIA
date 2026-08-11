@@ -8,6 +8,14 @@ import { isOwnBlobUrl } from "@/lib/blob-url";
 // imaginea nici din cache-ul browserului la următoarea cerere; verificarea de acces rulează din nou
 // la fiecare request. Componentele Image care consumă aceste rute trebuie să folosească `unoptimized`
 // (Next.js Image Optimization API cache-uiește PUBLIC, la nivel de CDN, ceea ce ar bypassa poarta).
+//
+// GOL CUNOSCUT (găsit la /code-review QODO, 2026-08-11, NEREZOLVAT — decizie explicită de a nu extinde
+// scopul azi): `url` de mai jos rămâne un blob Vercel PUBLIC (store-ul curent e configurat public la
+// nivel de store, nu per-fișier — `access: "private"` cere un store SEPARAT, provizionare Vercel, nu
+// doar cod). Poarta de aici blochează accesul prin UI normală, dar cine reține URL-ul brut (l-a văzut
+// cât încă avea acces) îl poate accesa direct, ocolind complet proxy-ul — fetch-ul de mai jos NU
+// verifică asta, doar redă ce găsește. Fix real: store Blob privat separat + `get()`/`copy()` din
+// @vercel/blob în loc de `fetch()` brut. Vezi docs/BACKLOG.md.
 export async function proxyBlobImage(url: string): Promise<NextResponse> {
   if (!isOwnBlobUrl(url)) {
     return NextResponse.json(

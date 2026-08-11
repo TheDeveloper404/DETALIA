@@ -43,7 +43,10 @@ export type AuditEvent =
   // acțiune directă a userului — trece pe lângă app/(app)/projects/actions.ts, deci fără urmă dacă nu
   // se auditează separat aici.
   | "project_ownership_transferred_on_account_deletion"
-  | "project_deleted_on_account_deletion";
+  | "project_deleted_on_account_deletion"
+  // Găsit la /code-review QODO (2026-08-11): bucla per-proiect nu izola erorile — un proiect care
+  // aruncă oprea reasignarea/ștergerea tuturor celorlalte proiecte deținute de contul șters.
+  | "project_reassignment_failed_on_account_deletion";
 
 export function audit(
   event: AuditEvent,

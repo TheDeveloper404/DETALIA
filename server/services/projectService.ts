@@ -276,18 +276,35 @@ export async function deleteProject(input: {
 export async function reassignOrDeleteOwnedProjectsOnAccountDeletion(userId: string): Promise<void> {
   const owned = await listProjectsOwnedBy(userId);
   for (const { id: projectId } of owned) {
-    const activeMembers = await listActiveMembers(projectId);
-    const newOwner = activeMembers.find((m) => m.userId !== userId && m.status === "ACTIVE");
-    if (newOwner) {
-      await transferProjectOwnership(projectId, newOwner.userId);
-      audit("project_ownership_transferred_on_account_deletion", {
-        projectId,
-        previousOwnerId: userId,
-        newOwnerId: newOwner.userId,
-      });
-    } else {
-      await deleteProject({ projectId, requesterId: userId });
-      audit("project_deleted_on_account_deletion", { projectId, ownerId: userId });
+    // Găsit la /code-review QODO (2026-08-11): fără izolare per-proiect, o eroare la UN proiect oprea
+    // bucla — restul proiectelor deținute rămâneau needate (owner șters/anonimizat, orfane). Neon HTTP
+    // nu are tranzacții interactive (vezi accountService.ts) — best-effort, ca restul fluxului de
+    // ștergere cont; o eroare aici NU trebuie să blocheze anonimizarea/delogarea din deleteAccount.
+    try {
+      const activeMembers = await listActiveMembers(projectId);
+      const newOwner = activeMembers.find((m) => m.userId !== userId && m.status === "ACTIVE");
+      if (newOwner) {
+        await transferProjectOwnership(projectId, newOwner.userId);
+        // Owner-ul poate avea propriul rând în project_members (dacă s-a alăturat prin propriul link,
+        // ex. la onboarding) — transferul schimba DOAR ownerId, rândul vechi rămânea `removedAt = null`
+        // (activ) → contul anonimizat rămânea numărat/vizibil ca membru „fantomă" al proiectului pe
+        // care nu-l mai deține. Idempotent (removeMembership e no-op dacă nu exista rând).
+        await removeMembership(projectId, userId);
+        audit("project_ownership_transferred_on_account_deletion", {
+          projectId,
+          previousOwnerId: userId,
+          newOwnerId: newOwner.userId,
+        });
+      } else {
+        await deleteProject({ projectId, requesterId: userId });
+        audit("project_deleted_on_account_deletion", { projectId, ownerId: userId });
+      }
+    } catch (err) {
+      audit(
+        "project_reassignment_failed_on_account_deletion",
+        { projectId, ownerId: userId, message: err instanceof Error ? err.message : String(err) },
+        "error",
+      );
     }
   }
 }
