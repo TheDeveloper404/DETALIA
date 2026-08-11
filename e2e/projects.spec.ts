@@ -106,6 +106,9 @@ test.describe.serial("Proiecte — colaborare restrânsă", () => {
     projectId = page.url().split("/projects/")[1] ?? "";
     expect(projectId).toBeTruthy();
 
+    // Redesign 2026-08-11: link-ul de invitație nu mai stă expus direct pe pagină — e ascuns
+    // în spatele butonului „Invită membri" (modal).
+    await page.getByRole("button", { name: "Invită membri" }).click();
     const linkCode = page.locator("code");
     await expect(linkCode).toBeVisible();
     inviteToken = ((await linkCode.textContent()) ?? "").split("/projects/join/")[1]?.trim() ?? "";
