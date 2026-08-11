@@ -21,18 +21,21 @@ import {
 } from "@/server/repos/detailsRepo";
 import { getCanvasById } from "@/server/repos/plansaRepo";
 import {
+  countCanvasSharesByProject,
   deleteCanvasShare as deleteCanvasShareRow,
   getCanvasShareById,
   insertCanvasShare,
   listCanvasSharesByProject,
 } from "@/server/repos/projectCanvasSharesRepo";
 import {
+  countActiveMembers,
   isActiveMember,
   listActiveMembers,
   removeMembership,
   upsertActiveMembership,
 } from "@/server/repos/projectMembersRepo";
 import {
+  countProjectsOwnedBy,
   deleteProject as deleteProjectRow,
   getProjectById,
   getProjectByInviteToken,
@@ -43,9 +46,15 @@ import {
 } from "@/server/repos/projectsRepo";
 import { getUserWithRole } from "@/server/repos/usersRepo";
 
+// SEC-010 (audit securitate 2026-08-11): plafoane anti-abuz — tunabile din env (niciodată hardcodate),
+// generoase pentru uz real (comunitate mică), dar opresc flood-ul/costul nelimitat de storage.
+const MAX_PROJECTS_PER_OWNER = Number(process.env.PROJECT_MAX_PER_OWNER ?? 50);
+const MAX_MEMBERS_PER_PROJECT = Number(process.env.PROJECT_MAX_MEMBERS ?? 100);
+const MAX_CANVAS_SHARES_PER_PROJECT = Number(process.env.PROJECT_MAX_CANVAS_SHARES ?? 100);
+
 export type CreateProjectResult =
   | { ok: true; projectId: string; inviteToken: string }
-  | { ok: false; error: "EMPTY" | "TOO_LONG" };
+  | { ok: false; error: "EMPTY" | "TOO_LONG" | "LIMIT_REACHED" };
 
 export async function createProject(input: {
   ownerId: string;
@@ -53,6 +62,10 @@ export async function createProject(input: {
 }): Promise<CreateProjectResult> {
   const validated = validateProjectName(input.name);
   if (!validated.ok) return { ok: false, error: validated.error };
+
+  if ((await countProjectsOwnedBy(input.ownerId)) >= MAX_PROJECTS_PER_OWNER) {
+    return { ok: false, error: "LIMIT_REACHED" };
+  }
 
   const inviteToken = generateInviteToken();
   const project = await insertProject({ ownerId: input.ownerId, name: validated.value, inviteToken });
@@ -119,7 +132,16 @@ export async function getProjectForViewer(input: { projectId: string; userId: st
     listActiveMembers(input.projectId),
     getUserWithRole(project.ownerId),
   ]);
-  return { project, members, owner, isOwner: access.isOwner };
+  // SEC-004 (audit 2026-08-11): tokenul de invitație e un secret — poarta care-l apără trebuie să fie
+  // AICI, nu doar disciplina fiecărui consumator (bug-ul de azi era exact asta: pagina afișa condiționat
+  // butonul, dar DTO-ul purta tokenul mai departe către oricine avea acces la proiect). Non-owner primește
+  // `null`, indiferent ce face UI-ul cu el.
+  return {
+    project: { ...project, inviteToken: access.isOwner ? project.inviteToken : null },
+    members,
+    owner,
+    isOwner: access.isOwner,
+  };
 }
 
 // Proiectele accesibile userului (owner SAU membru activ) — pentru /projects și selectorul de la
@@ -130,7 +152,7 @@ export async function listProjectsForUser(userId: string) {
 
 export type JoinProjectResult =
   | { ok: true; projectId: string; projectName: string }
-  | { ok: false; error: "INVALID_TOKEN" };
+  | { ok: false; error: "INVALID_TOKEN" | "LIMIT_REACHED" };
 
 // Alăturare prin link de invitație. Idempotent: userul deja membru care re-folosește linkul rămâne
 // membru (upsertActiveMembership reactivează, nu duplică). Owner-ul care „se alătură" propriului
@@ -141,6 +163,14 @@ export async function joinProjectByToken(input: {
 }): Promise<JoinProjectResult> {
   const project = await getProjectByInviteToken(input.token);
   if (!project) return { ok: false, error: "INVALID_TOKEN" };
+
+  // SEC-010: plafonul nu blochează re-alăturarea (idempotent, deja membru) sau owner-ul.
+  const alreadyActive =
+    project.ownerId === input.userId || (await isActiveMember(project.id, input.userId));
+  if (!alreadyActive && (await countActiveMembers(project.id)) >= MAX_MEMBERS_PER_PROJECT) {
+    return { ok: false, error: "LIMIT_REACHED" };
+  }
+
   await upsertActiveMembership(project.id, input.userId);
   return { ok: true, projectId: project.id, projectName: project.name };
 }
@@ -255,23 +285,6 @@ export async function getProject(projectId: string) {
   return getProjectById(projectId);
 }
 
-// „Feed"-ul intern al unui proiect — DOAR dacă requester-ul are acces (aceeași poartă ca la pagina
-// proiectului). `null` dacă nu are acces (anti-enumerare).
-export async function listProjectDetailsForViewer(input: { projectId: string; userId: string }) {
-  const access = await getProjectAccess(input);
-  if (!access.hasAccess) return null;
-  return listProjectDetails(input.projectId);
-}
-
-// Card-preview al detaliilor eliberate din acest proiect (§6A) — aceeași poartă de acces. Sigur să
-// arate PUBLIC conținut (deja PUBLISHED, fără projectId) chiar și non-membrilor tehnic, dar rămânem
-// consecvenți cu restul paginii de proiect (privată integral) — nu creăm o excepție de vizibilitate.
-export async function listReleasedDetailsForViewer(input: { projectId: string; userId: string }) {
-  const access = await getProjectAccess(input);
-  if (!access.hasAccess) return null;
-  return listReleasedProjectDetails(input.projectId);
-}
-
 // ── Variante FĂRĂ re-verificare de acces (2026-08-11, /code-review) ──────────────────────────────
 // Pagina de proiect verifică accesul O SINGURĂ DATĂ prin `getProjectForViewer` (redirect/notFound dacă
 // eșuează), apoi are nevoie de 3 liste separate pentru ACELAȘI proiect — variantele „ForViewer" de mai
@@ -298,7 +311,7 @@ export async function listCanvasSharesUnchecked(projectId: string) {
 
 export type ShareCanvasResult =
   | { ok: true; shareId: string }
-  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" | "EMPTY_CANVAS" | "UPLOAD_FAILED" };
+  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" | "EMPTY_CANVAS" | "UPLOAD_FAILED" | "LIMIT_REACHED" };
 
 export async function shareCanvasToProject(input: {
   canvasId: string;
@@ -316,6 +329,10 @@ export async function shareCanvasToProject(input: {
   if (!access.hasAccess) return { ok: false, error: "FORBIDDEN" };
 
   if (!canvas.thumbnailUrl) return { ok: false, error: "EMPTY_CANVAS" };
+
+  if ((await countCanvasSharesByProject(input.projectId)) >= MAX_CANVAS_SHARES_PER_PROJECT) {
+    return { ok: false, error: "LIMIT_REACHED" };
+  }
 
   let blob: Blob;
   try {
@@ -341,12 +358,6 @@ export async function shareCanvasToProject(input: {
   return { ok: true, shareId: share.id };
 }
 
-export async function listCanvasSharesForViewer(input: { projectId: string; userId: string }) {
-  const access = await getProjectAccess(input);
-  if (!access.hasAccess) return null;
-  return listCanvasSharesByProject(input.projectId);
-}
-
 export type DeleteCanvasShareResult = { ok: true } | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" };
 
 // Ștergere: cine a partajat-o SAU owner-ul proiectului (moderare, la fel ca la orice conținut de
@@ -359,10 +370,12 @@ export async function deleteCanvasShareForUser(input: {
   const share = await getCanvasShareById(input.shareId);
   if (!share) return { ok: false, error: "NOT_FOUND" };
 
-  const isSharer = share.sharedByUserId === input.userId;
-  const project = isSharer ? null : await getProjectById(share.projectId);
-  const isProjectOwner = !!project && project.ownerId === input.userId;
-  if (!isSharer && !isProjectOwner) return { ok: false, error: "FORBIDDEN" };
+  // SEC-009 (audit 2026-08-11): fostul sharer NU mai poate șterge partajarea după ce a fost eliminat
+  // din proiect — citirea era deja închisă la eliminare, scrierea pe conținutul propriu rămăsese
+  // deschisă (inconsecvență a graniței). `isSharer` singur nu mai e suficient — trebuie ȘI acces activ.
+  const access = await getProjectAccess({ projectId: share.projectId, userId: input.userId });
+  const isSharer = share.sharedByUserId === input.userId && access.hasAccess;
+  if (!isSharer && !access.isOwner) return { ok: false, error: "FORBIDDEN" };
 
   const imageUrl = await deleteCanvasShareRow(input.shareId);
   await deleteBlobs([imageUrl]);

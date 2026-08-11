@@ -459,6 +459,10 @@ export const validations = pgTable(
     targetId: uuid().notNull(),
     position: validationPosition().notNull(),
     roleSnapshot: jsonb(), // rolul userului la momentul poziției (afișare istorică)
+    // SEC-001 (audit securitate 2026-08-11): la „Scoate în comunitate", pozițiile ALTOR membri decât
+    // autorul detaliului nu trebuie să devină publice — oglindește exact `sketches.hiddenAfterRelease`
+    // (vezi acolo). Setat o SINGURĂ dată, în același batch atomic cu nularea `projectId`.
+    hiddenAfterRelease: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp({ withTimezone: true })
       .notNull()
@@ -502,6 +506,10 @@ export const comments = pgTable(
     // (enforce în commentService, nu doar aici). null = comentariu rădăcină. Cascade: comentariul-părinte
     // șters → reply-urile lui dispar odată cu el (nu rămân orfane).
     parentCommentId: uuid().references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
+    // SEC-001 (audit securitate 2026-08-11): la „Scoate în comunitate", comentariile ALTOR membri decât
+    // autorul detaliului nu trebuie să devină publice — oglindește exact `sketches.hiddenAfterRelease`
+    // (vezi acolo). Setat o SINGURĂ dată, în același batch atomic cu nularea `projectId`.
+    hiddenAfterRelease: boolean().notNull().default(false),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

@@ -303,6 +303,18 @@ export async function publishDetailRow(detailId: string) {
     .where(and(eq(details.id, detailId), eq(details.status, DETAIL_STATUS.DRAFT)));
 }
 
+// SEC-011 (audit securitate 2026-08-11): batch — pentru scrub-ul notificărilor la citire (userul care
+// a pierdut accesul la un proiect nu mai trebuie să vadă titlul detaliului în clopoțel). Doar id+projectId,
+// fără join-uri suplimentare.
+export async function listProjectIdForDetails(detailIds: string[]): Promise<Map<string, string | null>> {
+  if (detailIds.length === 0) return new Map();
+  const rows = await db
+    .select({ id: details.id, projectId: details.projectId })
+    .from(details)
+    .where(inArray(details.id, detailIds));
+  return new Map(rows.map((r) => [r.id, r.projectId]));
+}
+
 // Detaliile PUBLICATE ale unui proiect — „feed"-ul intern, vizibil doar membrilor (autorizarea se
 // verifică ÎNAINTE, în service — acest query nu ia userId, doar proiectul). Strict cronologic, ca
 // listFeed.
@@ -364,6 +376,17 @@ export async function releaseDetailToCommunity(
   detailAuthorId: string,
   releasedFromProjectId: string,
 ) {
+  // SEC-001 (audit securitate 2026-08-11): comentariile/validările ALTOR membri decât autorul, fie pe
+  // detaliu direct, fie pe oricare din schițele lui, se ascund în ACELAȘI batch atomic — altfel ar
+  // exista o fereastră (sau, la eroare pe jumătate, o stare permanentă) cu detaliul deja public și
+  // conținutul altora încă vizibil nefiltrat. Subquery pe schițele detaliului, nu doar targetId=detailId.
+  const sketchIdsOfDetail = db.select({ id: sketches.id }).from(sketches).where(eq(sketches.detailId, detailId));
+  const onThisDetailOrItsSketches = (targetType: typeof comments.targetType | typeof validations.targetType, targetId: typeof comments.targetId | typeof validations.targetId) =>
+    or(
+      and(eq(targetType, "DETAIL"), eq(targetId, detailId)),
+      and(eq(targetType, "SKETCH"), inArray(targetId, sketchIdsOfDetail)),
+    );
+
   await db.batch([
     // `releasedFromProjectId` setat AICI, o singură dată (regula ireversibilă — nu se rescrie la o
     // eventuală re-intrare într-un alt proiect, ceea ce oricum nu se poate întâmpla: un detaliu deja
@@ -380,6 +403,24 @@ export async function releaseDetailToCommunity(
           eq(sketches.detailId, detailId),
           eq(sketches.status, "PUBLISHED"),
           ne(sketches.authorId, detailAuthorId),
+        ),
+      ),
+    db
+      .update(comments)
+      .set({ hiddenAfterRelease: true })
+      .where(
+        and(
+          ne(comments.authorId, detailAuthorId),
+          onThisDetailOrItsSketches(comments.targetType, comments.targetId),
+        ),
+      ),
+    db
+      .update(validations)
+      .set({ hiddenAfterRelease: true })
+      .where(
+        and(
+          ne(validations.userId, detailAuthorId),
+          onThisDetailOrItsSketches(validations.targetType, validations.targetId),
         ),
       ),
   ]);
@@ -525,9 +566,11 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
 const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
 const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
 const validationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})`;
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+     and ${validations.hiddenAfterRelease} = false)`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId})`;
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+     and ${comments.hiddenAfterRelease} = false)`;
 // „N schițe" = ce apare ca tab în teanc. Adnotarea (isAnnotation=true, 2026-08-11 — vezi
 // server/domain/sketch.ts) e exclusă; un desen ULTERIOR al autorului pe propriul detaliu, prin
 // „Schițează peste" normal, INTRĂ aici (nu mai e derivat din identitatea autorului).

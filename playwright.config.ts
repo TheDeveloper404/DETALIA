@@ -97,6 +97,7 @@ export default defineConfig({
         /worksheet-2026-08-06\.spec\.ts/,
         /projects\.spec\.ts/,
         /projects-interactions\.spec\.ts/,
+        /sec-2026-08-11\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {

@@ -112,7 +112,14 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
     .from(comments)
     .leftJoin(users, eq(users.id, comments.authorId))
     .leftJoin(roles, eq(roles.userId, comments.authorId))
-    .where(and(eq(comments.targetType, targetType), eq(comments.targetId, targetId)))
+    .where(
+      and(
+        eq(comments.targetType, targetType),
+        eq(comments.targetId, targetId),
+        // SEC-001 (audit 2026-08-11): comentariu al altui membru, ascuns la „Scoate în comunitate".
+        eq(comments.hiddenAfterRelease, false),
+      ),
+    )
     .orderBy(asc(comments.createdAt));
 }
 

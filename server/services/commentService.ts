@@ -124,6 +124,12 @@ export async function editComment(input: {
   // Re-validează mențiunile la editare (corpul nou poate introduce sid-uri străine). detailId derivat
   // din ținta comentariului (comentariile de dezbatere sunt pe DETAIL → targetId = detailId).
   const target = await getCommentTarget(input.commentId);
+  // SEC-009 (audit securitate 2026-08-11): editarea propriului comentariu pe un detaliu de proiect din
+  // care userul a fost între timp eliminat NU mai e permisă — aceeași poartă ca la addComment/
+  // toggleCommentLike (targetExists), altfel citirea era închisă dar scrierea rămânea deschisă.
+  if (target && !(await targetExists(target.targetType, target.targetId, input.userId))) {
+    return { ok: false, error: "NOT_FOUND" };
+  }
   const body =
     target?.targetType === "DETAIL"
       ? await sanitizeDetailMentions(target.targetId, v.value)
@@ -141,6 +147,12 @@ export async function deleteComment(input: {
   commentId: string;
 }): Promise<DeleteCommentResult> {
   if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
+  // SEC-009 (audit securitate 2026-08-11): ștergerea propriului comentariu pe un detaliu de proiect din
+  // care userul a fost între timp eliminat NU mai e permisă — vezi nota identică din editComment.
+  const target = await getCommentTarget(input.commentId);
+  if (target && !(await targetExists(target.targetType, target.targetId, input.userId))) {
+    return { ok: false, error: "NOT_FOUND" };
+  }
   const { deleted, imageUrl } = await deleteFreeCommentByAuthor(input.commentId, input.userId);
   if (!deleted) return { ok: false, error: "NOT_FOUND" };
   // Fișierul din Blob moare odată cu comentariul — best-effort (deleteBlobs nu aruncă): rândul e deja
