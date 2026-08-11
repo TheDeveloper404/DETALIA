@@ -8,13 +8,20 @@ export function BrandLogo({
   href = "/",
   size = 26,
   variant = "light",
+  onClick,
 }: {
   href?: string;
   size?: number;
   variant?: "light" | "dark";
+  onClick?: () => void;
 }) {
   return (
-    <Link href={href} className="inline-flex items-center no-underline" aria-label="DETALIA — acasă">
+    <Link
+      href={href}
+      onClick={onClick}
+      className="inline-flex items-center no-underline"
+      aria-label="DETALIA — acasă"
+    >
       {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
       <img
         src={variant === "dark" ? "/logo-dark.svg" : "/logo.svg"}

@@ -6,6 +6,7 @@ vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({
   getSketchById: vi.fn(),
+  getStrokesByIds: vi.fn(),
   insertDraft: vi.fn(),
   deleteDraftByAuthor: vi.fn(),
   deleteSketchCascade: vi.fn(),
@@ -42,6 +43,7 @@ import {
   filterPublishedSketchIds,
   finalizeStackBases,
   getSketchById,
+  getStrokesByIds,
   insertDraft,
   markAuthorRemoved,
   publishFromDraft,
@@ -324,6 +326,43 @@ describe("IDOR — doar autorul schiței o poate atinge cât e DRAFT", () => {
     vi.mocked(getSketchById).mockResolvedValue(draft() as never);
     const r = await getDraftForEdit(SID, ATTACKER);
     expect(r).toEqual({ ok: false, error: "FORBIDDEN" });
+  });
+
+  it("getDraftForEdit: fără fundal → backgroundStrokes gol, getStrokesByIds neapelat", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft() as never);
+    const r = await getDraftForEdit(SID, SKETCH_AUTHOR);
+    expect(r).toEqual({
+      ok: true,
+      value: { detailId: DID, strokes: validStrokes, note: undefined, backgroundStrokes: [] },
+    });
+    expect(getStrokesByIds).not.toHaveBeenCalled();
+  });
+
+  it("getDraftForEdit: cu fundal → backgroundStrokes = strokes-urile foilor de bază, compuse în ordine", async () => {
+    const baseA = "aaaaaaaa-1111-4111-8111-111111111111";
+    const baseB = "bbbbbbbb-2222-4222-8222-222222222222";
+    const strokeA = [{ color: "#111111", size: 4, points: [[0, 0]], kind: "free" }];
+    const strokeB = [{ color: "#222222", size: 4, points: [[1, 1]], kind: "free" }];
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ baseSketchIds: [baseA, baseB] }) as never,
+    );
+    vi.mocked(getStrokesByIds).mockResolvedValue([
+      { id: baseA, strokes: strokeA },
+      { id: baseB, strokes: strokeB },
+    ] as never);
+
+    const r = await getDraftForEdit(SID, SKETCH_AUTHOR);
+
+    expect(getStrokesByIds).toHaveBeenCalledWith([baseA, baseB]);
+    expect(r).toEqual({
+      ok: true,
+      value: {
+        detailId: DID,
+        strokes: validStrokes,
+        note: undefined,
+        backgroundStrokes: [...strokeA, ...strokeB],
+      },
+    });
   });
 
   it("publish: alt user → FORBIDDEN, fără tranziție/notificare", async () => {

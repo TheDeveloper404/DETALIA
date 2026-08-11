@@ -222,6 +222,7 @@ export function EditProfileHeader({
           accept={ACCEPT}
           onChange={coverT.onChange}
           className="hidden"
+          data-testid="cover-file-input"
         />
       </div>
 
@@ -267,6 +268,7 @@ export function EditProfileHeader({
             accept={ACCEPT}
             onChange={avatar.onChange}
             className="hidden"
+            data-testid="avatar-file-input"
           />
         </div>
 

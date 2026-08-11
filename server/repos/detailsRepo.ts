@@ -524,6 +524,18 @@ const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
   ) sub
 )`;
 
+// Câte detalii sunt vizibile ACUM pe feed-ul public, indiferent de categorie/căutare — ACEEAȘI condiție
+// de vizibilitate ca `listFeed` (PUBLISHED + fără proiect). „Toate detaliile" din sidebar trebuie să
+// numere direct asta, NU derivat din suma badge-urilor de categorie (fragilă: un detaliu necategorizat
+// n-ar intra în nicio sumă, unul cu 2 categorii ar intra de 2 ori — vezi listCategoriesWithCounts).
+export async function countPublishedDetails(): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(details)
+    .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)));
+  return row?.count ?? 0;
+}
+
 // Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
 // Sortare strict cronologică (cele mai noi primele) — interacțiunile sunt afișate per card
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"

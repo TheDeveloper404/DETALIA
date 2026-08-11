@@ -1,6 +1,6 @@
 // Repo categorii — singurul loc cu acces Drizzle pentru tabelul `categories` (arbore self-FK).
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { categories, detailCategories, details } from "@/db/schema";
@@ -52,7 +52,15 @@ export async function listCategoriesWithCounts() {
     .leftJoin(detailCategories, eq(detailCategories.categoryId, categories.id))
     .leftJoin(
       details,
-      and(eq(details.id, detailCategories.detailId), eq(details.status, "PUBLISHED")),
+      and(
+        eq(details.id, detailCategories.detailId),
+        eq(details.status, "PUBLISHED"),
+        // Feed-ul public (`listFeed`) exclude ÎNTOTDEAUNA detaliile de proiect — badge-urile de categorie
+        // trebuie să numere exact ce arată click-ul pe categorie, altfel un detaliu de proiect (vizibil
+        // doar membrilor lui, pe pagina proiectului) umflă un număr pe care userul obișnuit nu-l poate
+        // niciodată confirma dând click.
+        isNull(details.projectId),
+      ),
     )
     .groupBy(categories.id, categories.parentId, categories.name, categories.isGroup, categories.position)
     .orderBy(asc(categories.position));

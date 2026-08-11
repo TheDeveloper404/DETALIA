@@ -26,6 +26,7 @@ import {
   getDetailForEdit,
   anonymizeDetailAuthor,
   countDetailInteractions,
+  countPublishedDetails,
   getDetailResources,
   incrementDetailViews,
   insertDetailWithRelations,
@@ -577,6 +578,12 @@ export async function getFeed(options?: { categoryId?: string | null; q?: string
     q: options?.q?.trim() || null,
     limit,
   });
+}
+
+// „Toate detaliile" din sidebar — numărătoare directă, cu ACEEAȘI vizibilitate ca `getFeed` (fără
+// filtru), nu derivată din suma badge-urilor de categorie (vezi countPublishedDetails, detailsRepo.ts).
+export async function getPublishedDetailsCount(): Promise<number> {
+  return countPublishedDetails();
 }
 
 // „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune, independent de
