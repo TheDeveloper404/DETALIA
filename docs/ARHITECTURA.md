@@ -358,12 +358,38 @@ de la Schiță — `perfect-freehand` prin `renderStrokes`, reutilizat 1:1, făr
   (index relațional planșă↔detalii, PK compus). Ownership enforce în `plansaService` (`WHERE id=? AND
   owner_id=?` condiționat direct în SQL, anti-IDOR/anti-TOCTOU); planșă nedeținută → `NOT_FOUND`. Cap 30
   items/planșă, plafon 5MB pe documentul serializat.
-- **Linia roșie (NU în v1):** share/public, colaborare real-time, rotație, multi-select, canvas infinit,
-  planșă→detaliu publicabil, versionare, snapping, creație completă pe mobil.
+- **Linia roșie (NU în v1):** rotație, multi-select, canvas infinit, versionare, snapping, creație
+  completă pe mobil, colaborare real-time (edit simultan). Planșa rămâne strict privată — depășit de
+  §7.8: share-ul și crearea de detaliu din decupaj de planșă au ajuns totuși în cod, dar DOAR în
+  contextul restrâns al unui Proiect (copie înghețată, needitabilă), nu ca funcție generală a planșei.
 
 Straturi + convenții: `docs/CHANGELOG.md` (intrarea „Planșă v2 — RECONSTRUITĂ"). Plan de implementare
 (istoric, referință): `C:\dev\persist\claude\plans\te-trec-n-plan-happy-volcano.md`. Spec de produs veche
 (parțial neactuală — engine-ul descris acolo nu mai e valabil): `Detalia_Canvas.md`.
+
+### 7.8 Proiecte — colaborare restrânsă (2026-08-09)
+Al treilea strat, pe lângă Detaliu (public) și Planșă (strict privată): un spațiu de colaborare
+restrânsă, tip Google Drive — owner-ul invită oameni printr-un link și lucrează cu ei la detalii înainte
+de a le scoate (opțional, ireversibil) în comunitate.
+
+- **Model:** `projects` (owner + `invite_token` opac, regenerabil) + `project_members` (un singur rând
+  per user, dezactivat cu `removed_at` la eliminare, reactivat la re-alăturare — nu istoric de
+  intrări/ieșiri). Doar 2 poziții: Autor (owner) și Invitați — identice în drepturi, fără Viewer/Editor.
+- **Un detaliu stă mereu într-un singur loc din trei**, combinând `status` existent cu `details.project_id`:
+  DRAFT+null = ciornă, PUBLISHED+id = vizibil doar membrilor proiectului, PUBLISHED+null = public (ca
+  azi). „Scoate în comunitate" = mutație ireversibilă (`project_id = null`), cu regula „orfan" (validată
+  pe server, `server/domain/project.ts`) — nu oricine poate elibera orice detaliu.
+- **Partajare de planșă în proiect:** `project_canvas_shares` — copie ÎNGHEȚATĂ a unei planșe personale
+  (blob nou, nu referă `canvases.id`), nu planșa live; planșa sursă poate fi editată/ștearsă după partajare
+  fără efect. Din partajare se poate crea un detaliu nou pornind de la un decupaj (crop) al planșei.
+- **Vizibilitate — invariant transversal:** un detaliu/schiță/planșă de proiect NU trebuie să apară în
+  nimic public (feed, teasere, notificări către useri fără acces, listele private ale unui membru
+  eliminat) — cale cu risc mare, verificată exhaustiv o dată (vezi `CLAUDE.md` §„Capcane tehnice
+  cunoscute" pentru lista locurilor afectate), nu descoperită incremental pe măsură ce apar goluri.
+- **Cascada de ștergere NU e doar `ON DELETE CASCADE`:** validările/comentariile sunt polimorfice (fără
+  FK spre `details`/`sketches`) și fișierele din Blob nu cad în cascadă DB — ștergerea unui proiect e
+  orchestrată explicit (`projectService.deleteProject` → `deleteDetailCascade`/`deleteSketchCascade` per
+  entitate, colectează și șterge Blob-urile).
 
 ---
 
