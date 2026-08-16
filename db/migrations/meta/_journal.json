@@ -120,6 +120,13 @@
       "when": 1783252559937,
       "tag": "0016_reflective_betty_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1786853551438,
+      "tag": "0017_catchup_manual_schema_2026_08",
+      "breakpoints": true
     }
   ]
 }

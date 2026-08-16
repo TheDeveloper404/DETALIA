@@ -6,7 +6,6 @@ import { DetailCard } from "@/components/detail-card";
 import { auth } from "@/lib/auth";
 import { getMySavedDetailIds, getOfferedDetails } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
-import { getMyPositions } from "@/server/services/validationService";
 
 // „Ofertele mele" — PRIVATĂ, doar rol FURNIZOR (verificat din DB, nu din client — un non-Furnizor care
 // accesează URL-ul direct primește listă goală + mesaj, nu datele altcuiva; oricum query-ul e scopat
@@ -22,11 +21,6 @@ export default async function MyOffersPage() {
   const isFurnizor = role?.roleMain === "FURNIZOR";
 
   const details = isFurnizor ? await getOfferedDetails(session.user.id) : [];
-  const myPositions = await getMyPositions(
-    session.user.id,
-    "DETAIL",
-    details.map((d) => d.id),
-  );
   // Detaliile ofertate sunt auto-salvate (toggleSupplierOffer, 2026-07-17) — fără asta, bookmark-ul
   // din card ar arăta greșit „nesalvat" pentru un detaliu care de fapt e deja în /saved.
   const mySavedIds = await getMySavedDetailIds(
@@ -74,7 +68,6 @@ export default async function MyOffersPage() {
             <DetailCard
               key={d.id}
               detail={d}
-              myPosition={myPositions.get(d.id) ?? null}
               currentUserId={session.user.id}
               isSaved={mySavedIds.has(d.id)}
             />

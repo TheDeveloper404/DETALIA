@@ -1,6 +1,6 @@
 "use client";
 
-import { AtSign, Heart, Pencil, Reply, Trash2, X } from "lucide-react";
+import { AtSign, Pencil, Reply, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import {
   useActionState,
@@ -18,6 +18,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmojiPickerButton } from "@/components/emoji-picker-button";
 import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
+import { VoteTriangle } from "@/components/vote-triangle";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelative } from "@/lib/format";
 import { mentionsToDisplay, parseMentions, replaceLabelsWithTokens } from "@/lib/mentions";
@@ -751,13 +752,13 @@ function CommentItem({
                     : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                 )}
               >
-                <Heart className="size-3" strokeWidth={2} fill={likeState.liked ? "currentColor" : "none"} />
+                <VoteTriangle direction="up" size={9} />
                 {likeState.count > 0 ? likeState.count : "Apreciază"}
               </button>
             )}
             {isOwner && likeState.count > 0 && (
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                <Heart className="size-3" strokeWidth={2} />
+                <VoteTriangle direction="up" size={9} />
                 {likeState.count}
               </span>
             )}

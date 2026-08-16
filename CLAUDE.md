@@ -127,6 +127,9 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   de a propune un fix — nu după ce ai ghicit greșit.
 - **Nu iau decizii de design/UI singur.** La un fix de consistență/vizual aliniez DOAR ce diferă explicit;
   nu adaug elemente noi (butoane/CTA "ca să arate complet") — propun și întreb înainte.
+- **UI nou → verifică `docs/UI-REGISTRY.md` întâi** (modal, card, buton de pericol, pastilă de rol —
+  pattern-uri deja stabilite, nu reinventa). După o componentă nouă reutilizabilă, adaugă-i o secțiune
+  scurtă acolo.
 - **Nu dramatizez probleme minore.** Când o eroare (Sentry, test flaky) n-are dovadă de impact real asupra
   userilor/producției, spun direct din prima frază „nu e grav, are legătură cu X și Y" — nu tonuri alarmante.
 - **Nu verific din inițiativă** (Playwright/browser/screenshot). Verificarea o cere Liviu explicit.

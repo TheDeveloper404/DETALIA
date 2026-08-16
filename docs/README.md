@@ -19,6 +19,7 @@ la divergență, câștigă codul (excepție: `INCIDENTS.md` și `CHANGELOG.md`,
 | [BACKLOG.md](BACKLOG.md) | Ce e de făcut, pe scurt (Acum/Următor/Blocat/Idei) — nu ține detaliu tehnic, doar ce urmează. |
 | [CHANGELOG.md](CHANGELOG.md) | Jurnal cronologic detaliat al modificărilor, cel mai recent sus. Istoric, nu se rescrie retroactiv. |
 | [INCIDENTS.md](INCIDENTS.md) | Jurnal al incidentelor reale de producție (impact efectiv pe useri/date) — distinct de confuzii clarificate sau probleme fără impact vizibil. |
+| [UI-REGISTRY.md](UI-REGISTRY.md) | Pattern-uri UI reutilizabile (modal, card, buton de pericol, pastilă de rol) — verifică ÎNAINTE de UI nou, actualizează DUPĂ o componentă nouă reutilizabilă. |
 
 ## Alte fișiere de context (în afara `docs/`)
 

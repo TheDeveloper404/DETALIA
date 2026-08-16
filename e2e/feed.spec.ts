@@ -70,5 +70,5 @@ test("card din feed nu mai are CTA-urile de schițare/planșă, dar pagina de de
   await expect(card.getByTitle("Trimite în Planșă")).toHaveCount(0);
 
   await page.goto(`/details/${detailId}`);
-  await expect(page.getByRole("button", { name: "Schițează peste detaliu" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Schițează" })).toBeVisible();
 });

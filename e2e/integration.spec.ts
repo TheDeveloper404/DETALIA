@@ -5,7 +5,7 @@ import { db } from "../db";
 import { commentLikes, comments, detailCategories, detailResources, details, sketches, validations } from "../db/schema";
 import { addComment, getComments, toggleCommentLike } from "../server/services/commentService";
 import { createDetail, deleteDetail, getFeed } from "../server/services/detailService";
-import { approve } from "../server/services/validationService";
+import { approve, disapprove } from "../server/services/validationService";
 import { getSeed } from "./seed";
 
 // Teste de INTEGRARE (handler-level omis — acestea acoperă service→repo pe DB real, nu mock-uri).
@@ -200,9 +200,47 @@ test("getFeed: comentariul/validarea/schița ALTCUIVA se numără corect în con
     const feed = await getFeed({ q: "contoare" });
     const row = feed.find((d) => d.id === detailId);
     expect(row).toBeDefined();
-    // Dacă bug-ul de corelare revine, ambele contoare cad silențios la 0 — nu la o eroare.
+    // Dacă bug-ul de corelare revine, contoarele cad silențios la 0 — nu la o eroare.
     expect(row?.commentCount).toBe(1);
     expect(row?.validationCount).toBe(1);
+    // `approveCount` (2026-08-16): DOAR aprobările — subquery corelat separat, aceeași clasă de bug.
+    expect(row?.approveCount).toBe(1);
+  } finally {
+    await db.delete(comments).where(eq(comments.targetId, detailId));
+    await db.delete(validations).where(eq(validations.targetId, detailId));
+    await db.delete(details).where(eq(details.id, detailId));
+  }
+});
+
+// `approveCount` (2026-08-16, feed card fără vot inline — vezi CHANGELOG): trebuie să numere DOAR
+// aprobările, nu totalul aprob+dezaprob (`validationCount`) — altfel, lângă săgeata-sus din card, un
+// total combinat ar sugera vizual că toate pozițiile sunt aprobări.
+test("getFeed: approveCount numără DOAR aprobările, validationCount rămâne totalul combinat", async () => {
+  const { testerUserId, authorUserId, categoryId } = getSeed();
+
+  const created = await createDetail({
+    authorId: testerUserId,
+    title: `Integration test — approveCount ${Date.now()}`,
+    categoryIds: [categoryId],
+    imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+  });
+  expect(created.ok).toBe(true);
+  if (!created.ok) return;
+  const detailId = created.detailId;
+
+  try {
+    await disapprove({
+      userId: authorUserId,
+      targetType: "DETAIL",
+      targetId: detailId,
+      justification: "Integration test — dezaprobare pentru approveCount.",
+    });
+
+    const feed = await getFeed({ q: "approveCount" });
+    const row = feed.find((d) => d.id === detailId);
+    expect(row).toBeDefined();
+    expect(row?.validationCount).toBe(1);
+    expect(row?.approveCount).toBe(0);
   } finally {
     await db.delete(comments).where(eq(comments.targetId, detailId));
     await db.delete(validations).where(eq(validations.targetId, detailId));

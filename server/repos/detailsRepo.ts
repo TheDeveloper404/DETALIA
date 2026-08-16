@@ -581,6 +581,13 @@ const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("autho
 const validationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
      and ${validations.hiddenAfterRelease} = false)`;
+// DOAR aprobările (2026-08-16, raportat Liviu): cardul de feed nu mai votează inline, dar tot arată
+// un count lângă o săgeată-sus — `validationCount` (aprob+dezaprob combinate) ar fi înșelător acolo,
+// ar sugera vizual că TOATE sunt aprobări. `validationCount` rămâne neschis pentru consumatorii care
+// chiar vor totalul (scorul de interacțiune, rail-ul „cele mai dezbătute").
+const approveCount = sql<number>`(select count(*)::int from ${validations}
+   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+     and ${validations.position} = 'APPROVE' and ${validations.hiddenAfterRelease} = false)`;
 const commentCount = sql<number>`(select count(*)::int from ${comments}
    where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
      and ${comments.hiddenAfterRelease} = false)`;
@@ -642,6 +649,7 @@ export async function listFeed(input: { categoryId?: string | null; q?: string |
     .select({
       ...detailWithAuthorColumns,
       validationCount,
+      approveCount,
       commentCount,
       sketchCount,
       validatorAvatars,
@@ -802,6 +810,7 @@ export async function listSavedDetails(userId: string) {
     .select({
       ...detailWithAuthorColumns,
       validationCount,
+      approveCount,
       commentCount,
       sketchCount,
       validatorAvatars,
@@ -830,6 +839,7 @@ export async function listOfferedDetails(userId: string) {
     .select({
       ...detailWithAuthorColumns,
       validationCount,
+      approveCount,
       commentCount,
       sketchCount,
       validatorAvatars,

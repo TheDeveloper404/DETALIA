@@ -30,6 +30,9 @@ export async function deleteSketchAction(formData: FormData): Promise<void> {
   if (!result.ok && result.error === "SKETCH_LOCKED") {
     redirect(`/details/${detailId}?sketch-delete=locked`);
   }
+  if (!result.ok && result.error === "ANNOTATION_LOCKED") {
+    redirect(`/details/${detailId}?sketch-delete=annotation-locked`);
+  }
 }
 
 // Pornește o schiță peste detaliu: creează un DRAFT și duce autorul în editor.

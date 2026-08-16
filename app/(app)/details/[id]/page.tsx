@@ -226,6 +226,17 @@ export default async function DetailPage({
           </p>
         </div>
       )}
+      {sketchDeleteNotice === "annotation-locked" && (
+        <div className="mb-5 rounded-xl border border-[#e3c9b4] bg-[#fdf4ec] px-5 py-4">
+          <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-[#95492e]">
+            Adnotarea nu mai poate fi ștearsă
+          </div>
+          <p className="text-[14.5px] leading-relaxed text-foreground">
+            Altcineva a desenat deja peste ea, iar desenul lui s-ar rupe dacă adnotarea ar dispărea.
+            Rămâne pe detaliu așa cum e.
+          </p>
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-col gap-7">
           {/* ===== RESURSE (opționale) — imaginea 2D trăiește acum în viewportul workspace-ului (tab 0) ===== */}
