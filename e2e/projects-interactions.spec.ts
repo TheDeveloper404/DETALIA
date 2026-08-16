@@ -191,7 +191,12 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
 
       // Bug real 2026-08-16 (raportat Liviu): planșa nu purta numele autorului deloc. Verificăm live
       // (JOIN la citire), nu doar prezența în DB — caption-ul tile-ului trebuie să conțină numele.
-      await expect(mpage.getByRole("main").getByText("E2E Interacțiuni Member")).toBeVisible();
+      // Scopat la tile (nu la "main") — sidebar-ul de membri conține și el același nume, ceea ce
+      // producea strict-mode violation (2 potriviri) pe un locator prea larg.
+      const shareTile = mpage
+        .getByRole("button", { name: "Vezi planșa: Planșă E2E de partajat" })
+        .locator("xpath=..");
+      await expect(shareTile.getByText("E2E Interacțiuni Member")).toBeVisible();
 
       // Bug real 2026-08-16 (raportat Liviu): tile-ul era doar previzualizare, fără click — DOAR
       // butonul de ștergere funcționa. Verificăm că „intri" în ea (lightbox), nu doar o vezi mică.
