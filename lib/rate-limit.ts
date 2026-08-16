@@ -49,6 +49,7 @@ type Window = Parameters<typeof Ratelimit.slidingWindow>[1];
 // Namespace pe mediu: același Redis poate fi partajat de local/preview/prod fără ca testele dintr-un
 // mediu să consume cotele altuia (chei separate). VERCEL_ENV pe Vercel; NODE_ENV local.
 const ENV_NS = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "dev";
+const IS_PRODUCTION = process.env.VERCEL_ENV === "production";
 
 function make(max: number, window: Window, prefix: string): Ratelimit | null {
   if (!redis) return null;
@@ -60,6 +61,15 @@ function make(max: number, window: Window, prefix: string): Ratelimit | null {
   });
 }
 
+// Prag mai relaxat DOAR pe non-producție (preview/dev) pentru limiterele lovite recurent de suita
+// e2e (10/h pe createDetail se epuizează rapid la rulări repetate pe același user seedat) — namespace-
+// ul de mai sus deja izolează contorul de producție, deci asta nu afectează pragul real din prod.
+// `isProduction` injectabil (default: starea reală a mediului) — ca testul să nu depindă de env la
+// import-ul modulului.
+export function withTestHeadroom(prodMax: number, testMax: number, isProduction = IS_PRODUCTION): number {
+  return isProduction ? prodMax : testMax;
+}
+
 // Limitele FAZA 1 — centralizate, ușor de ajustat. Generoase pentru uz real, dar opresc flood-ul/abuzul.
 export const limiters = {
   // Magic link: poartă publică → cea mai strictă. Pe email (hash) ȘI pe IP.
@@ -68,7 +78,7 @@ export const limiters = {
   // Mutații post-auth (validare, comentariu, save/send schiță) per user.
   mutation: make(40, "1 m", "mutation"),
   // Publicare detaliu per user (mai costisitoare: imagine + scrieri DB).
-  createDetail: make(10, "1 h", "create-detail"),
+  createDetail: make(withTestHeadroom(10, 100), "1 h", "create-detail"),
   // Cotă de upload (emitere token Blob) per user.
   upload: make(30, "1 h", "upload"),
   // Admin-login (anti-brute-force) — pe username ȘI pe IP. Strict (poartă privilegiată).
