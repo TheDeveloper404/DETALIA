@@ -17,7 +17,6 @@ import {
 } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
-import { getMyPositions } from "@/server/services/validationService";
 
 import { FeedEmpty } from "./feed-empty";
 import { FeedEntrance } from "./feed-entrance";
@@ -58,11 +57,6 @@ export default async function FeedPage({
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
   const details = await getFeed({ categoryId: activeId, q });
-  const myPositions = await getMyPositions(
-    session.user.id,
-    "DETAIL",
-    details.map((d) => d.id),
-  );
   const mySavedIds = await getMySavedDetailIds(
     session.user.id,
     details.map((d) => d.id),
@@ -122,7 +116,6 @@ export default async function FeedPage({
               <DetailCard
                 key={d.id}
                 detail={d}
-                myPosition={myPositions.get(d.id) ?? null}
                 currentUserId={session.user.id}
                 isSaved={mySavedIds.has(d.id)}
               />

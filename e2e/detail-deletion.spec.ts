@@ -8,7 +8,7 @@ import { getSeed } from "./seed";
 // E2E — item 5 din foaia de lucru (2026-08-06), partea CRITICĂ:
 // ștergerea unui detaliu se comportă DIFERIT după cum a strâns sau nu interacțiuni.
 //   • fără nicio interacțiune  → dispare complet (comportamentul dinainte)
-//   • cu cel puțin una         → conținutul RĂMÂNE, autorul se retrage („Anonim" + rolul lui)
+//   • cu cel puțin una         → conținutul RĂMÂNE, autorul se retrage („Autor șters" + rolul lui)
 //
 // Acoperă exact ce testele unitare NU pot: dialogul real (textul diferă în cele două cazuri),
 // randarea de după, blocarea editării și dispariția detaliului de pe profilul autorului.
@@ -104,11 +104,11 @@ test.describe.serial("Ștergere detaliu CU interacțiuni → autorul se retrage,
 
     await expect(page.getByText("Te retragi din acest detaliu?")).toBeVisible();
     await expect(page.getByText(/conținutul rămâne pentru ceilalți/i)).toBeVisible();
-    await expect(page.getByText(/Anonim/)).toBeVisible();
+    await expect(page.getByText(/Autor șters/)).toBeVisible();
     await expect(page.getByRole("button", { name: "Retrage-mă" })).toBeVisible();
   });
 
-  test("după confirmare: detaliul EXISTĂ, arată Anonim, comentariul e neatins", async ({
+  test("după confirmare: detaliul EXISTĂ, arată Autor șters, comentariul e neatins", async ({
     page,
   }) => {
     await page.goto(`/details/${detailId}`);
@@ -128,7 +128,7 @@ test.describe.serial("Ștergere detaliu CU interacțiuni → autorul se retrage,
 
     await page.goto(`/details/${detailId}`);
     await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.getByText("Anonim").first()).toBeVisible();
+    await expect(page.getByText("Autor șters").first()).toBeVisible();
     // Rolul SUPRAVIEȚUIEȘTE retragerii (din snapshot) — asta e cerința, nu doar ascunderea numelui.
     await expect(page.getByText(commentBody)).toBeVisible();
   });

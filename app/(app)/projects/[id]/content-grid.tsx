@@ -3,7 +3,7 @@
 import { LayoutDashboard, Loader2, Plus, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,14 @@ export type ContentDetail = { id: string; title: string; hasImage: boolean };
 // Detaliu SCOS în comunitate — public, la fel ca în feed; URL direct e OK aici.
 export type ReleasedContentDetail = { id: string; title: string; imageUrl: string | null };
 // Planșă partajată — la fel ca ContentDetail, fără `imageUrl` (proxy: /api/project-image/canvas-share/[id]).
-export type ContentCanvasShare = { id: string; name: string; sharedByUserId: string };
+export type ContentCanvasShare = {
+  id: string;
+  name: string;
+  sharedByUserId: string;
+  // Live (JOIN la citire), NU frozen — repară și partajările deja existente (2026-08-16, raportat
+  // Liviu: planșa nu purta deloc numele autorului).
+  sharedByUserName: string | null;
+};
 export type ContentCanvasOption = { id: string; name: string; thumbnailUrl: string | null };
 
 const INITIAL: ProjectActionResult = { ok: true };
@@ -101,27 +108,11 @@ export function ContentGrid({
           ))}
 
           {canvasShares.map((s) => (
-            <div key={s.id} className={TILE_CLASS}>
-              {/* SEC-005: proxy autenticat — vezi comentariul de la `details` mai sus. */}
-              <Image
-                src={`/api/project-image/canvas-share/${s.id}`}
-                alt=""
-                fill
-                unoptimized
-                sizes="240px"
-                className="object-cover"
-              />
-              <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] text-white">
-                <LayoutDashboard className="size-3" strokeWidth={2} />
-                Planșă
-              </span>
-              <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-[12px] font-semibold text-white">
-                {s.name}
-              </span>
-              {canManageShares(s.sharedByUserId) && (
-                <DeleteShareButton projectId={projectId} shareId={s.id} />
-              )}
-            </div>
+            <CanvasShareTile
+              key={s.id}
+              share={s}
+              canManage={canManageShares(s.sharedByUserId)}
+            />
           ))}
 
           {releasedDetails.map((d) => (
@@ -155,11 +146,96 @@ export function ContentGrid({
   );
 }
 
-function DeleteShareButton({ projectId, shareId }: { projectId: string; shareId: string }) {
+// Planșa partajată e o COPIE ÎNGHEȚATĂ, needitabilă (§6B) — „intri" în ea ca lightbox (imaginea
+// mărită), nu ca un editor. Înainte era un `<div>` simplu, fără link/click (bug real 2026-08-16,
+// raportat Liviu: „doar previzualizare, nu pot să intru, doar șterge") — tiparul de lightbox e
+// EXACT cel din `resource-image.tsx` (imagine de tip resursă), adaptat la proxy-ul autenticat.
+function CanvasShareTile({
+  share,
+  canManage,
+}: {
+  share: ContentCanvasShare;
+  canManage: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // Escape închide — consecvent cu ConfirmDialog/ResourceImage (lightbox-ul e EXACT tiparul din
+  // resource-image.tsx, i-a lipsit doar asta la introducere, 2026-08-16).
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  return (
+    <>
+      <div className={TILE_CLASS}>
+        {/* SEC-005: proxy autenticat — vezi comentariul de la `details` mai sus. Buton „cover" (nu
+            un `<button>` extern înfășurător) — un `<button>` de ștergere ÎN INTERIORUL altui
+            `<button>` ar fi HTML invalid; ăsta rămâne SIBLING, absolute deasupra, la fel ca înainte. */}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={`Vezi planșa: ${share.name}`}
+          className="absolute inset-0 block"
+        >
+          <Image
+            src={`/api/project-image/canvas-share/${share.id}`}
+            alt=""
+            fill
+            unoptimized
+            sizes="240px"
+            className="object-cover"
+          />
+        </button>
+        <span className="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] text-white">
+          <LayoutDashboard className="size-3" strokeWidth={2} />
+          Planșă
+        </span>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1.5 text-[12px] font-semibold text-white">
+          {share.name} · {share.sharedByUserName ?? "Anonim"}
+        </span>
+        {canManage && <DeleteShareButton shareId={share.id} />}
+      </div>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+          onClick={() => setOpen(false)}
+        >
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            aria-label="Închide"
+            className="absolute right-5 top-5 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+          >
+            <X className="size-5" strokeWidth={2} />
+          </button>
+          <div className="relative h-[85vh] w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+            <Image
+              src={`/api/project-image/canvas-share/${share.id}`}
+              alt={`${share.name} · ${share.sharedByUserName ?? "Anonim"}`}
+              fill
+              unoptimized
+              sizes="90vw"
+              className="object-contain"
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function DeleteShareButton({ shareId }: { shareId: string }) {
   const [state, formAction, pending] = useActionState(deleteCanvasShareAction, INITIAL);
   return (
     <form action={formAction} className="absolute right-1.5 top-1.5">
-      <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="shareId" value={shareId} />
       <button
         type="submit"
@@ -193,6 +269,17 @@ function AddContentModal({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Escape închide — consecvent cu ConfirmDialog (QODO, 2026-08-11: overlay-urile custom din proiect
+  // divergeau de tiparul canonic; fixat 2026-08-16, vezi UI-REGISTRY.md). Randat doar cât `addOpen`
+  // e true în părinte (montare = deschidere), fără condiție suplimentară aici.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   async function share(canvasId: string) {
     setBusyId(canvasId);
     setError(null);
@@ -213,6 +300,7 @@ function AddContentModal({
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden />
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="Adaugă în proiect"
         className="fixed left-1/2 top-1/2 z-50 w-[min(24rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-border bg-card shadow-xl"
       >

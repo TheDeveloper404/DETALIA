@@ -201,7 +201,7 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
   });
 
   // Redefinire 2026-08-11 (bug real reparat): MAX_ANNOTATIONS_PER_DETAIL a scăzut la 1.
-  // „Schițează peste detaliu" e IDENTIC pentru toată lumea, INCLUSIV autorul pe propriul detaliu — un
+  // „Schițează" e IDENTIC pentru toată lumea, INCLUSIV autorul pe propriul detaliu — un
   // desen ulterior al lui NU mai e o „a doua adnotare", e o schiță NORMALĂ (intră în teanc, ca oricine).
   // Butonul „Adnotează din nou" nu mai există; adnotarea rămâne UNA singură, editabilă doar din
   // Editare detaliu (vezi testul de mai jos).
@@ -244,7 +244,7 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
 
       // Butonul e uniform — NU mai există „Adnotează din nou" (2026-08-11).
       await expect(page.getByRole("button", { name: "Adnotează din nou" })).toHaveCount(0);
-      await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
+      await page.getByRole("button", { name: "Schițează" }).click();
       await expect(page).toHaveURL(/\/sketches\/[0-9a-f-]+\/edit/, { timeout: 20_000 });
 
       const secondSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1];
@@ -331,6 +331,152 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       expect(after).toHaveLength(1);
       expect(after[0]?.id).toBe(before!.id);
       expect((after[0]?.strokesJson as unknown[] | null)?.length ?? 0).toBeGreaterThan(strokesBefore);
+    } finally {
+      await cleanup(detailId, imageUrl);
+    }
+  });
+
+  // Bug real găsit 2026-08-16 (rând orfan în producție: adnotare rămasă `PUBLISHED`, `authorRemoved=true`,
+  // vizual neschimbată — cineva apăsase „Șterge" fără niciun efect). Acoperă exact ce tsc/vitest nu pot
+  // prinde: butonul de ștergere e mereu vizibil (nu se dezactivează la o adnotare NEBLOCATĂ), confirmarea
+  // chiar duce la dispariția ei din DOM.
+  test("Ștergere pe adnotare NEfolosită ca fundal → dispare complet", async ({ page }) => {
+    const [category] = await pickLeafCategories(1);
+    const title = `E2E ștergere adnotare ${Date.now()}`;
+    let detailId: string | null = null;
+    let imageUrl: string | null = null;
+
+    try {
+      await stripBypassHeadersForBlobUploads(page);
+      await page.goto("/details/new");
+      await page.locator("#title").fill(title);
+      await page.getByRole("button", { name: "Alege categoriile…" }).click();
+      await page.getByRole("button", { name: category.name, exact: true }).click();
+      await page.keyboard.press("Escape");
+      await page.locator("#image").setInputFiles(makeImage());
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+      await page.getByTestId("annotate-open").click();
+      await drawStroke(page);
+      await page.getByTestId("annotate-save").click();
+      await page.getByRole("button", { name: "Publică detaliul" }).click();
+      await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
+      detailId = page.url().split("/details/")[1] ?? null;
+
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId!));
+      imageUrl = row?.imageUrl ?? null;
+
+      const [annotation] = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(annotation).toBeTruthy();
+
+      // Adnotarea pornește deschisă implicit → butonul „șterge" e vizibil fără niciun click în plus.
+      await expect(page.getByTestId("annotation-delete")).toBeVisible();
+      await page.getByTestId("annotation-delete").click();
+
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await expect(dialog).toContainText("Ștergi adnotarea?");
+      await dialog.getByRole("button", { name: "Șterge" }).click();
+
+      // Fără eroare afișată, iar toggle-ul de adnotare dispare din pagină — dovada vizuală a ștergerii
+      // reale (nu doar un „succes" care nu schimbă nimic, exact bug-ul reparat aici).
+      await expect(page.getByTestId("annotation-toggle-1")).toHaveCount(0);
+      await expect(page.getByText("Adnotarea nu mai poate fi ștearsă")).toHaveCount(0);
+
+      const stillThere = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(eq(sketches.id, annotation!.id));
+      expect(stillThere).toHaveLength(0);
+    } finally {
+      await cleanup(detailId, imageUrl);
+    }
+  });
+
+  // Reproduce exact bug-ul din producție: odată ce adnotarea a fost folosită ca fundal pentru schița
+  // altcuiva (aici, chiar a autorului — regula de blocare nu ține cont de cine a construit peste ea),
+  // ștergerea trebuie REFUZATĂ EXPLICIT (banner), nu „reușită" fără niciun efect vizibil.
+  test("Adnotare FOLOSITĂ ca fundal → ștergerea e refuzată explicit, adnotarea rămâne neatinsă", async ({
+    page,
+  }) => {
+    const [category] = await pickLeafCategories(1);
+    const title = `E2E adnotare blocată ${Date.now()}`;
+    let detailId: string | null = null;
+    let imageUrl: string | null = null;
+
+    try {
+      await stripBypassHeadersForBlobUploads(page);
+      await page.goto("/details/new");
+      await page.locator("#title").fill(title);
+      await page.getByRole("button", { name: "Alege categoriile…" }).click();
+      await page.getByRole("button", { name: category.name, exact: true }).click();
+      await page.keyboard.press("Escape");
+      await page.locator("#image").setInputFiles(makeImage());
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+
+      await page.getByTestId("annotate-open").click();
+      await drawStroke(page);
+      await page.getByTestId("annotate-save").click();
+      await page.getByRole("button", { name: "Publică detaliul" }).click();
+      await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
+      detailId = page.url().split("/details/")[1] ?? null;
+
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId!));
+      imageUrl = row?.imageUrl ?? null;
+
+      const [annotation] = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
+      expect(annotation).toBeTruthy();
+
+      // Adnotarea deschisă implicit → „Schițează" prinde `openAnnotationId` ca fundal
+      // (detail-workspace.tsx: `capturedStack = isBase ? (openAnnotationId ? [openAnnotationId] : [])`).
+      await page.getByRole("button", { name: "Schițează" }).click();
+      await expect(page).toHaveURL(/\/sketches\/[0-9a-f-]+\/edit/, { timeout: 20_000 });
+      const sketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1];
+      expect(sketchId).toBeTruthy();
+
+      await drawStroke(page, { expectCounter: false });
+      await page.getByRole("button", { name: /Publică schița/ }).click();
+      await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`), { timeout: 20_000 });
+
+      // Precondiția bug-ului, confirmată în DB (nu presupusă): adnotarea e acum BLOCATĂ.
+      const [locked] = await db
+        .select({ lockedAt: sketches.lockedAt })
+        .from(sketches)
+        .where(eq(sketches.id, annotation!.id));
+      expect(locked?.lockedAt).not.toBeNull();
+
+      await page.getByTestId("annotation-delete").click();
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: "Șterge" }).click();
+
+      // Banner explicit — NU tăcere. Redirect cu `?sketch-delete=annotation-locked`.
+      await expect(page).toHaveURL(new RegExp(`/details/${detailId}\\?sketch-delete=annotation-locked`));
+      await expect(page.getByText("Adnotarea nu mai poate fi ștearsă")).toBeVisible();
+
+      // Adnotarea rămâne EXACT cum era: toggle-ul tot acolo, rândul intact în DB, `authorRemoved`
+      // neatins (nu doar „nu s-a șters" — nici măcar retragerea de identitate nu se aplică, pt că n-ar
+      // avea niciun efect vizibil pe o adnotare).
+      await expect(page.getByTestId("annotation-toggle-1")).toBeVisible();
+      const [stillThere] = await db
+        .select({ status: sketches.status, isAnnotation: sketches.isAnnotation, authorRemoved: sketches.authorRemoved })
+        .from(sketches)
+        .where(eq(sketches.id, annotation!.id));
+      expect(stillThere?.status).toBe("PUBLISHED");
+      expect(stillThere?.isAnnotation).toBe(true);
+      expect(stillThere?.authorRemoved).toBe(false);
     } finally {
       await cleanup(detailId, imageUrl);
     }

@@ -40,9 +40,9 @@ async function deleteSketchById(): Promise<void> {
 test.describe.serial("Schiță — publish & delete", () => {
   test.afterAll(deleteSketchById);
 
-  test("Schițează peste detaliu → editor + desen → Publică → intră în teanc", async ({ page }) => {
+  test("Schițează → editor + desen → Publică → intră în teanc", async ({ page }) => {
     await page.goto(detailUrl());
-    await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
+    await page.getByRole("button", { name: "Schițează" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
     sketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
 

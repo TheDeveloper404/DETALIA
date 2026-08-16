@@ -10,6 +10,7 @@ import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import {
   canReleaseToCommunity,
+  formatShareTimestamp,
   hasProjectAccess,
   validateProjectName,
 } from "@/server/domain/project";
@@ -408,19 +409,31 @@ export async function shareCanvasToProject(input: {
   const uploaded = await uploadProjectCanvasShare(blob);
   if (!uploaded.ok) return { ok: false, error: "UPLOAD_FAILED" };
 
-  const now = new Date();
-  const stamp = now.toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const time = now.toLocaleTimeString("ro-RO", { hour: "2-digit", minute: "2-digit" });
-  const share = await insertCanvasShare({
-    projectId: input.projectId,
-    sharedByUserId: input.userId,
-    name: `${canvas.name} — ${stamp} ${time}`,
-    imageUrl: uploaded.url,
-  });
-  return { ok: true, shareId: share.id };
+  // `formatShareTimestamp` (server/domain/project.ts): ora Bucureștiului explicit, NU ora locală a
+  // serverului (Vercel = UTC) — bug real 2026-08-16, numele arăta mereu cu 2-3 ore în urmă.
+  const stamp = formatShareTimestamp(new Date());
+  try {
+    const share = await insertCanvasShare({
+      projectId: input.projectId,
+      sharedByUserId: input.userId,
+      name: `${canvas.name} — ${stamp}`,
+      imageUrl: uploaded.url,
+    });
+    return { ok: true, shareId: share.id };
+  } catch (err) {
+    // Proiectul poate fi șters concurent între verificarea de acces (mai sus) și acest insert —
+    // fereastra include fetch+upload de imagine, deci poate dura secunde. FK violation (23503) e
+    // singurul mod în care insert-ul eșuează în acest flux; tratăm ca „proiectul nu mai există".
+    if (err instanceof Error && "code" in err && err.code === "23503") {
+      return { ok: false, error: "NOT_FOUND" };
+    }
+    throw err;
+  }
 }
 
-export type DeleteCanvasShareResult = { ok: true } | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" };
+export type DeleteCanvasShareResult =
+  | { ok: true; projectId: string }
+  | { ok: false; error: "NOT_FOUND" | "FORBIDDEN" };
 
 // Ștergere: cine a partajat-o SAU owner-ul proiectului (moderare, la fel ca la orice conținut de
 // proiect) — nu oricine cu acces la proiect.
@@ -441,5 +454,5 @@ export async function deleteCanvasShareForUser(input: {
 
   const imageUrl = await deleteCanvasShareRow(input.shareId);
   await deleteBlobs([imageUrl]);
-  return { ok: true };
+  return { ok: true, projectId: share.projectId };
 }

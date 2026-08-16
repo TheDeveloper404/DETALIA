@@ -2,7 +2,7 @@
 
 import { MoreVertical, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useRef, useState, useSyncExternalStore } from "react";
+import { useActionState, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -178,6 +178,18 @@ export function InviteMembersButton({
   initialToken: string;
 }) {
   const [open, setOpen] = useState(false);
+
+  // Escape închide — consecvent cu ConfirmDialog (QODO, 2026-08-11: overlay-urile custom din proiect
+  // divergeau de tiparul canonic; fixat 2026-08-16, vezi UI-REGISTRY.md).
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
   return (
     <>
       <Button type="button" variant="outline" onClick={() => setOpen(true)}>
@@ -189,6 +201,7 @@ export function InviteMembersButton({
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="dialog"
+            aria-modal="true"
             aria-label="Invită membri"
             className="fixed left-1/2 top-1/2 z-50 w-[min(28rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-border bg-card p-4 shadow-xl"
           >

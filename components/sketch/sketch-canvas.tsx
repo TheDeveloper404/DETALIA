@@ -63,6 +63,13 @@ const ZOOM_MIN = 0.4;
 const ZOOM_MAX = 3;
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 
+// Cursor de desen — creion (același glyph lucide „Pencil" folosit peste tot în platformă ca simbol
+// pentru „desenează"), nu crosshair-ul implicit al browserului (2026-08-16, raportat Liviu: „+"-ul nu
+// e comod). Hotspot-ul (3 21) cade pe vârful creionului din desen, ca punctul de click să se simtă
+// exact acolo unde „scrie" — fallback pe „crosshair" dacă browserul nu suportă cursor custom SVG.
+const PEN_CURSOR =
+  'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23211d18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>\') 3 21, crosshair';
+
 // Uneltele de desen din rail (ordine + iconițe). Radiera și undo/redo stau separat.
 const TOOL_ITEMS: { value: Tool; label: string; Icon: typeof Pencil }[] = [
   { value: "pan", label: "Pan / mută foaia", Icon: Hand },
@@ -953,7 +960,7 @@ export const SketchCanvas = forwardRef<
                     ? "cell"
                     : tool === "text"
                       ? "text"
-                      : "crosshair",
+                      : PEN_CURSOR,
             }}
           />
 

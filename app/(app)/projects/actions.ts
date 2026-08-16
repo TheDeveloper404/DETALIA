@@ -149,10 +149,9 @@ export async function deleteCanvasShareAction(
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
   const shareId = String(formData.get("shareId") ?? "");
-  const projectId = String(formData.get("projectId") ?? "");
   const res = await deleteCanvasShareForUser({ shareId, userId });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut șterge partajarea." };
-  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${res.projectId}`);
   return { ok: true };
 }
 
