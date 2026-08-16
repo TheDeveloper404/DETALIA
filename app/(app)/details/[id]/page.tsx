@@ -110,8 +110,11 @@ export default async function DetailPage({
   // Proiecte (2026-08-09): dreptul de a scoate detaliul în comunitate — regula „orfan", verificată
   // pe server (vezi server/domain/project.ts). `false` dacă detaliul nu e în niciun proiect.
   let canReleaseToCommunity = false;
+  // Scos din `if` ca să fie disponibil și breadcrumb-ului de mai jos (Proiectele mele / Nume proiect),
+  // nu doar verificării de „scoate în comunitate".
+  let project: Awaited<ReturnType<typeof getProject>> = null;
   if (detail.projectId) {
-    const project = await getProject(detail.projectId);
+    project = await getProject(detail.projectId);
     if (project) {
       const check = await canReleaseDetailToCommunity({
         projectId: detail.projectId,
@@ -171,17 +174,33 @@ export default async function DetailPage({
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
-      {/* breadcrumb */}
+      {/* breadcrumb — dacă detaliul e într-un proiect, firul reflectă asta (Proiectele mele / Nume
+          proiect), nu feed-ul public: userul ajuns aici din proiect trebuie să se poată întoarce la el,
+          nu într-un feed unde detaliul nici nu apare. */}
       <nav className="mb-5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
-        <Link href="/feed" className="hover:text-foreground">
-          Detalii
-        </Link>
-        {detail.categories[0] && (
+        {project ? (
           <>
-            <span className="text-[#cabfac]">/</span>
-            <Link href={`/feed?cat=${detail.categories[0].id}`} className="hover:text-foreground">
-              {detail.categories[0].name}
+            <Link href="/projects" className="hover:text-foreground">
+              Proiectele mele
             </Link>
+            <span className="text-[#cabfac]">/</span>
+            <Link href={`/projects/${project.id}`} className="hover:text-foreground">
+              {project.name}
+            </Link>
+          </>
+        ) : (
+          <>
+            <Link href="/feed" className="hover:text-foreground">
+              Detalii
+            </Link>
+            {detail.categories[0] && (
+              <>
+                <span className="text-[#cabfac]">/</span>
+                <Link href={`/feed?cat=${detail.categories[0].id}`} className="hover:text-foreground">
+                  {detail.categories[0].name}
+                </Link>
+              </>
+            )}
           </>
         )}
         <span className="text-[#cabfac]">/</span>

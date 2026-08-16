@@ -3,7 +3,7 @@
 //
 // Aprob/Dezaprob NU se dă din feed (2026-08-16, decizie Liviu) — doar count-ul, informativ; votul
 // real se dă de pe pagina detaliului, după ce ai citit explicația autorului.
-import { Eye, Layers, MessageSquare } from "lucide-react";
+import { CircleCheck, Eye, Layers, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -13,7 +13,6 @@ import { FeedSaveButton } from "./feed-save-button";
 import { PersonSilhouette } from "./avatar-initials";
 import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
-import { VoteTriangle } from "./vote-triangle";
 
 // Stivă de avatare ale validatorilor — cercuri suprapuse (cine a luat poziție pe detaliu).
 // Aducem max 5 avatare din DB; dacă sunt mai mulți validatori, ultimul cerc devine „+N".
@@ -143,13 +142,15 @@ export function DetailCard({
             Dreapta: dată publicare + vizualizări (informativ, nu interacțiune). */}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            {/* Fără vot inline (2026-08-16, decizie Liviu): aprob/dezaprob cere să deschizi detaliul —
-                un vot dat doar din titlu+thumbnail, fără să citești explicația autorului, nu spune
-                nimic despre calitate. Doar count-ul rămâne, informativ, ca pe restul statisticilor.
-                DOAR aprobările (`approveCount`), nu `validationCount` (aprob+dezaprob combinate) —
-                lângă o săgeată-sus, un total combinat ar sugera vizual că toate sunt aprobări. */}
+            {/* Fără vot inline (2026-08-16): aprob/dezaprob cere să deschizi detaliul — un vot dat doar
+                din titlu+thumbnail, fără să citești explicația autorului, nu spune nimic despre
+                calitate. Doar count-ul rămâne, informativ, ca pe restul statisticilor. DOAR aprobările
+                (`approveCount`), nu `validationCount` (aprob+dezaprob combinate). Iconiță check (nu
+                VoteTriangle — aia rămâne doar pt. votul real, interactiv, de pe pagina detaliului): un
+                triunghi-sus izolat lângă un număr, fără interacțiune în jur, e ambiguu — un check e
+                lipsit de ambiguitate. */}
             <span className="inline-flex items-center gap-1" title="Aprobări">
-              <VoteTriangle direction="up" size={7} />
+              <CircleCheck className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
               <span className="sr-only">aprobări:</span>
               {detail.approveCount}
             </span>
