@@ -56,13 +56,16 @@ type SketchError =
   | "STACK_TOO_DEEP"
   // Foaie intrată într-o dezbatere (alții au construit peste ea): nu mai poate fi ștearsă. Distinct de
   // FORBIDDEN — actorul ARE dreptul de moderare, dar regula stack-ului primează. UI-ul explică de ce.
-  | "SKETCH_LOCKED";
+  | "SKETCH_LOCKED"
+  // Adnotare folosită ca fundal de schița altcuiva — la fel ca SKETCH_LOCKED, dar mesaj distinct
+  // (adnotarea n-are „nume de autor" de retras, spre deosebire de o schiță normală).
+  | "ANNOTATION_LOCKED";
 
 export type SketchResult<T = undefined> =
   | (T extends undefined ? { ok: true } : { ok: true; value: T })
   | { ok: false; error: SketchError };
 
-// Creează o foaie nouă (DRAFT) peste un detaliu. Se ajunge din „Schițează peste detaliu" (contribuție
+// Creează o foaie nouă (DRAFT) peste un detaliu. Se ajunge din „Schițează" (contribuție
 // neutră) SAU din fereastra de Dezaprob → „fă o schiță" (`disapprovesParent: true` → la publicare se
 // materializează automat o dezaprobare pe detaliul-mamă, vezi `publish`).
 export async function createDraft(input: {
@@ -293,6 +296,15 @@ export async function deleteSketch(input: {
   }
 
   if (mode === "PARTIAL") {
+    // O adnotare NU are concept de „identitate retrasă" vizibil — nu arată niciodată un nume de autor
+    // separat, spre deosebire de o schiță normală (unde tab-ul trece la „Autor retras"). Retragerea
+    // parțială n-ar schimba nimic pe ecran: `listAnnotationsByDetail` nici nu citește `authorRemoved`.
+    // Fără gardă, userul apasă „Șterge", primește „succes" de la server și nu vede nicio schimbare —
+    // bug real găsit 2026-08-16 (rând orfan în producție: adnotare `PUBLISHED`, `authorRemoved=true`,
+    // vizual neschimbată). Tratăm explicit ca blocată, la fel ca refuzul unei schițe normale blocate.
+    if (sketch.isAnnotation) {
+      return { ok: false, error: "ANNOTATION_LOCKED" };
+    }
     // Nu se șterge nimic: nici rândul, nici thumbnail-ul, nici validările/comentariile de pe foaie.
     // Pozițiile altora rămân valide — desenul pe care s-au pronunțat e încă acolo, doar semnătura nu.
     await markAuthorRemoved(input.sketchId);

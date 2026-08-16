@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   canReleaseToCommunity,
+  formatShareTimestamp,
   hasProjectAccess,
   PROJECT_NAME_MAX_LENGTH,
   resolveDetailPlacement,
@@ -91,5 +92,22 @@ describe("validateProjectName", () => {
   it(`exact ${PROJECT_NAME_MAX_LENGTH} caractere → valid (limita e inclusă)`, () => {
     const name = "a".repeat(PROJECT_NAME_MAX_LENGTH);
     expect(validateProjectName(name)).toEqual({ ok: true, value: name });
+  });
+});
+
+// Bug real 2026-08-16 (raportat Liviu): fără `timeZone` explicit, `Date.get*()` citește ora
+// runtime-ului serverului (Vercel = UTC), nu ora Bucureștiului — numele partajării arăta mereu cu
+// 2-3 ore în urmă. Verificăm EXPLICIT ambele reguli DST (vara = +3, iarna = +2), nu doar o dată.
+describe("formatShareTimestamp", () => {
+  it("vara (EEST, UTC+3): 16 aug 10:00 UTC → 13:00 București", () => {
+    expect(formatShareTimestamp(new Date("2026-08-16T10:00:00.000Z"))).toBe("16.08.2026 13:00");
+  });
+
+  it("iarna (EET, UTC+2): 16 ian 10:00 UTC → 12:00 București", () => {
+    expect(formatShareTimestamp(new Date("2026-01-16T10:00:00.000Z"))).toBe("16.01.2026 12:00");
+  });
+
+  it("trece de miezul nopții în ora locală: 16 aug 22:30 UTC → 17 aug 01:30 București", () => {
+    expect(formatShareTimestamp(new Date("2026-08-16T22:30:00.000Z"))).toBe("17.08.2026 01:30");
   });
 });

@@ -87,7 +87,7 @@ test.describe.serial("Schiță — stack de foi", () => {
 
   test("foaia 1: pornită de pe detaliul gol → fără teanc de foi sub ea", async ({ page }) => {
     await page.goto(detailUrl());
-    await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
+    await page.getByRole("button", { name: "Schițează" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
     firstSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? "";
     expect(firstSketchId).not.toBe("");
@@ -102,15 +102,16 @@ test.describe.serial("Schiță — stack de foi", () => {
     // Pornită de pe detaliul gol → nu are foi în fundal, deci secțiunea de bife nu apare deloc.
     await expect(page.getByText("Foi în teanc")).toHaveCount(0);
 
-    // Butonul își schimbă textul pe tab de schiță: continuă dezbaterea, nu pornește de la zero.
-    await expect(page.getByRole("button", { name: "Schițează peste ce vezi acum" })).toBeVisible();
+    // Butonul rămâne vizibil, cu ACEEAȘI etichetă, pe tab de schiță (2026-08-16: unificată — vezi
+    // `startSketchLabel` din detail-workspace.tsx) — continuă dezbaterea, nu pornește de la zero.
+    await expect(page.getByRole("button", { name: "Schițează" })).toBeVisible();
   });
 
   test("foaia 2: desenată peste foaia 1 → rețeta se persistă cu foaia 1 ca fundal", async ({
     page,
   }) => {
     await page.goto(`${detailUrl()}?sketch=${firstSketchId}`);
-    await page.getByRole("button", { name: "Schițează peste ce vezi acum" }).click();
+    await page.getByRole("button", { name: "Schițează" }).click();
 
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
     secondSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? "";
@@ -140,7 +141,7 @@ test.describe.serial("Schiță — stack de foi", () => {
     page,
   }) => {
     await page.goto(`${detailUrl()}?sketch=${secondSketchId}`);
-    await page.getByRole("button", { name: "Schițează peste ce vezi acum" }).click();
+    await page.getByRole("button", { name: "Schițează" }).click();
 
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
     const thirdSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? "";

@@ -772,6 +772,23 @@ describe("Stack — ștergerea unei foi pe care alții au construit", () => {
     expect(notifySketchDeleted).not.toHaveBeenCalled();
   });
 
+  // Bug real găsit 2026-08-16 (rând orfan în producție: adnotare `PUBLISHED`, `authorRemoved=true`,
+  // vizual neschimbată): o adnotare blocată (folosită ca fundal de schița altcuiva) NU poate primi
+  // aceeași retragere-parțială-de-identitate ca o schiță normală — adnotarea n-are niciun nume de
+  // autor afișat, deci `markAuthorRemoved` n-ar schimba nimic pe ecran; userul ar vedea „succes" fără
+  // niciun efect vizibil. Server-ul trebuie să refuze explicit, la fel ca la o schiță blocată.
+  it("ADNOTARE blocată + autorul ei → ANNOTATION_LOCKED, NU markAuthorRemoved (n-ar schimba nimic vizibil)", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ status: "PUBLISHED", lockedAt: LOCKED, isAnnotation: true }) as never,
+    );
+
+    const res = await deleteSketch({ sketchId: SID, actorUserId: SKETCH_AUTHOR });
+
+    expect(res).toEqual({ ok: false, error: "ANNOTATION_LOCKED" });
+    expect(markAuthorRemoved).not.toHaveBeenCalled();
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+  });
+
   it("foaie BLOCATĂ + moderator (autorul detaliului) → SKETCH_LOCKED, nimic nu se schimbă", async () => {
     vi.mocked(getSketchById).mockResolvedValue(
       draft({ status: "PUBLISHED", lockedAt: LOCKED }) as never,

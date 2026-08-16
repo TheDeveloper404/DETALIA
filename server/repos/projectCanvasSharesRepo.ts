@@ -3,7 +3,7 @@
 import { count, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { projectCanvasShares } from "@/db/schema";
+import { projectCanvasShares, users } from "@/db/schema";
 
 // SEC-010 (audit securitate 2026-08-11): plafon de partajări per proiect — anti-abuz (fiecare
 // partajare consumă un blob full-size nou, plătit).
@@ -22,10 +22,22 @@ export async function insertCanvasShare(input: {
   return row;
 }
 
+// `sharedByUserName`: LIVE (JOIN la citire), NU frozen ca `name` — bug real 2026-08-16 (raportat
+// Liviu): planșa nu purta numele autorului deloc. Citit live (nu copiat în `name` la share) repară și
+// partajările deja existente, nu doar cele noi de-acum încolo.
 export function listCanvasSharesByProject(projectId: string) {
   return db
-    .select()
+    .select({
+      id: projectCanvasShares.id,
+      projectId: projectCanvasShares.projectId,
+      sharedByUserId: projectCanvasShares.sharedByUserId,
+      name: projectCanvasShares.name,
+      imageUrl: projectCanvasShares.imageUrl,
+      createdAt: projectCanvasShares.createdAt,
+      sharedByUserName: users.name,
+    })
     .from(projectCanvasShares)
+    .leftJoin(users, eq(users.id, projectCanvasShares.sharedByUserId))
     .where(eq(projectCanvasShares.projectId, projectId))
     .orderBy(desc(projectCanvasShares.createdAt));
 }

@@ -602,6 +602,25 @@ describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele
     vi.unstubAllGlobals();
   });
 
+  it("proiect șters concurent între verificarea de acces și insert → NOT_FOUND, nu excepție", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(canvasRow() as never);
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(["x"])) }),
+    );
+    vi.mocked(uploadProjectCanvasShare).mockResolvedValueOnce({ ok: true, url: "https://blob/share.png" });
+    const fkError = Object.assign(new Error("insert or update on table violates foreign key constraint"), {
+      code: "23503",
+    });
+    vi.mocked(insertCanvasShare).mockRejectedValueOnce(fkError);
+
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+
+    expect(res).toEqual({ ok: false, error: "NOT_FOUND" });
+    vi.unstubAllGlobals();
+  });
+
   // SEC-010 (audit securitate 2026-08-11): plafon de partajări per proiect — anti-abuz (fiecare
   // partajare consumă un blob full-size nou, plătit).
   it("proiect la plafonul de partajări → LIMIT_REACHED, fără upload/insert", async () => {
@@ -640,7 +659,7 @@ describe("deleteCanvasShareForUser — cine a partajat SAU owner-ul proiectului,
     vi.mocked(isActiveMember).mockResolvedValueOnce(true);
     vi.mocked(deleteCanvasShareRow).mockResolvedValueOnce("https://blob/share.png");
     const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: MEMBER_ID });
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, projectId: PROJECT_ID });
     expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/share.png"]);
   });
 
@@ -661,7 +680,7 @@ describe("deleteCanvasShareForUser — cine a partajat SAU owner-ul proiectului,
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
     vi.mocked(deleteCanvasShareRow).mockResolvedValueOnce("https://blob/share.png");
     const res = await deleteCanvasShareForUser({ shareId: SHARE_ID, userId: OWNER_ID });
-    expect(res).toEqual({ ok: true });
+    expect(res).toEqual({ ok: true, projectId: PROJECT_ID });
   });
 });
 

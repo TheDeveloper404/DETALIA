@@ -44,7 +44,7 @@ test.describe.serial("Schiță — draft: salvează, reia, șterge", () => {
 
   test("pornește schița, desenează, Salvează ciornă → rămâne DRAFT, redirect la Ciornele mele", async ({ page }) => {
     await page.goto(detailUrl());
-    await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
+    await page.getByRole("button", { name: "Schițează" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
     sketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
     expect(sketchId).toBeTruthy();

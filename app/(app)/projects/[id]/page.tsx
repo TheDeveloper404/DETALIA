@@ -105,6 +105,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           id: s.id,
           name: s.name,
           sharedByUserId: s.sharedByUserId,
+          sharedByUserName: s.sharedByUserName,
         }))}
         myCanvases={myCanvases.map((c) => ({ id: c.id, name: c.name, thumbnailUrl: c.thumbnailUrl }))}
         isOwner={view.isOwner}

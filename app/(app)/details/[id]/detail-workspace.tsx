@@ -145,6 +145,10 @@ export function DetailWorkspace({
   // `annotations[0]` dacă există. Cititorul o poate închide din butonul din colț; starea e doar de
   // afișare, fără persistență (revine deschisă la un reload).
   // (Istoric: 2026-07-31→2026-08-01 pornea vizibilă; 2026-08-02→2026-08-11 pornea închisă, până la 3.)
+  // Nod DOM din bara de taburi unde `ValidationPanel` portalează controlul compact de vot (2026-08-16,
+  // raportat Liviu). `useState`, nu `useRef`: un ref simplu n-ar declanșa re-render când elementul se
+  // atașează la primul mount, iar portalul ar rămâne fără țintă până la următoarea randare oarecare.
+  const [voteSlotEl, setVoteSlotEl] = useState<HTMLDivElement | null>(null);
   const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(annotations[0]?.id ?? null);
   // Ștergerea unei adnotări (doar autorul): id-ul în așteptare de confirmare.
   const [pendingDeleteAnnotationId, setPendingDeleteAnnotationId] = useState<string | null>(null);
@@ -293,10 +297,11 @@ export function DetailWorkspace({
       : []
     : [...stackLayers.filter((l) => !hiddenLayerIds.has(l.id)).map((l) => l.id), activeSketch!.id];
 
-  const startSketchLabel = isBase
-    ? "Schițează peste detaliu"
-    : // Pe un tab de schiță, butonul continuă dezbaterea: desenul nou păstrează ca fundal ce vezi.
-      "Schițează peste ce vezi acum";
+  // O SINGURĂ denumire peste tot („Schițează peste detaliu" vs „...ce vezi acum" complica înțelegerea,
+  // 2026-08-16, raportat Liviu) — acțiunea e identică din perspectiva userului (continuă dezbaterea cu
+  // ce e aprins pe ecran acum, fie detaliul singur, fie detaliul + adnotare, fie o schiță), doar
+  // `capturedStack` (mai sus) diferă tehnic după context.
+  const startSketchLabel = "Schițează";
   const startSketchBtn = (
     <form action={startSketchAction}>
       <input type="hidden" name="detailId" value={detailId} />
@@ -348,7 +353,7 @@ export function DetailWorkspace({
               <span className="flex items-center gap-2">
                 <AvatarInitials name={null} imageUrl={null} size={38} />
                 <span className="font-heading text-[15.5px] font-bold text-muted-foreground">
-                  Anonim
+                  {REMOVED_AUTHOR_LABEL}
                 </span>
               </span>
             )}
@@ -448,77 +453,83 @@ export function DetailWorkspace({
         {/* pb: „overflow-x-auto" transformă rândul într-un container de scroll pe ambele axe (per spec CSS,
             overflow-x != visible face overflow-y „auto" implicit) → fără padding jos, inelul avatarului
             (box-shadow) și descendentele literelor (ș/ț) se tăiau la marginea de jos. */}
-        <div className="flex min-h-11 flex-nowrap items-center gap-1.5 overflow-x-auto px-4 pb-1.5 pt-3 sm:px-5">
-          <button
-            type="button"
-            onClick={() => setTabAndUrl(0)}
-            title={detailAuthor.name ?? "Autor detaliu"}
-            aria-label={detailAuthor.name ?? "Autor detaliu"}
-            aria-current={isBase ? "true" : undefined}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-full transition-colors",
-              isBase
-                ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
-                : "p-0.5 opacity-70 hover:opacity-100",
-            )}
-          >
-            <AvatarInitials
-              name={detailAuthor.name}
-              imageUrl={detailAuthor.image}
-              size={28}
-              className={cn("ring-2 transition-colors", isBase ? "ring-primary" : "ring-transparent")}
-            />
-            {isBase && (
-              <span className="flex flex-col items-start leading-tight">
-                <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-                  Autor detaliu
-                </span>
-                <span className="font-heading text-[13px] font-semibold text-foreground">
-                  {detailAuthor.name ?? "Anonim"}
-                </span>
-              </span>
-            )}
-          </button>
-          {sketches.map((s, i) => {
-            // Eticheta e IDENTICĂ cu cea a mențiunilor din dezbatere (comments-section) — cititorul
-            // le poate corela. Vezi `sketchLabel` pentru regula ordinalului stabil.
-            const label = sketchLabel(s);
-            const isActive = safeTab === i + 1;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                data-testid={`sketch-tab-${s.id}`}
-                onClick={() => setTabAndUrl(i + 1)}
-                title={label}
-                aria-label={label}
-                aria-current={isActive ? "true" : undefined}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full transition-colors",
-                  isActive
-                    ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
-                    : "p-0.5 opacity-70 hover:opacity-100",
-                )}
-              >
-                <AvatarInitials
-                  name={s.author.name}
-                  imageUrl={s.author.image}
-                  size={28}
-                  className={cn("ring-2 transition-colors", isActive ? "ring-primary" : "ring-transparent")}
-                />
-                {isActive && (
-                  <span className="flex items-center gap-2">
-                    <span className="font-heading text-[13px] font-semibold text-foreground">{label}</span>
-                    <RolePill
-                      roleMain={s.author.roleMain}
-                      subRole={s.author.subRole}
-                      verified={s.author.verification === "VERIFIED"}
-                    />
+        {/* Rândul exterior separă taburile scrollabile (flex-1 min-w-0, pot face scroll orizontal) de
+            slot-ul de vot (shrink-0, FIX — altfel ar putea ieși din ecran la scroll pe multe taburi,
+            2026-08-16, raportat Liviu: săgețile mutate aici din coloana verticală de jos). */}
+        <div className="flex items-center gap-2 px-4 pb-1.5 pt-3 sm:px-5">
+          <div className="flex min-h-11 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setTabAndUrl(0)}
+              title={detailAuthor.name ?? "Autor detaliu"}
+              aria-label={detailAuthor.name ?? "Autor detaliu"}
+              aria-current={isBase ? "true" : undefined}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full transition-colors",
+                isBase
+                  ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
+                  : "p-0.5 opacity-70 hover:opacity-100",
+              )}
+            >
+              <AvatarInitials
+                name={detailAuthor.name}
+                imageUrl={detailAuthor.image}
+                size={28}
+                className={cn("ring-2 transition-colors", isBase ? "ring-primary" : "ring-transparent")}
+              />
+              {isBase && (
+                <span className="flex flex-col items-start leading-tight">
+                  <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+                    Autor detaliu
                   </span>
-                )}
-              </button>
-            );
-          })}
+                  <span className="font-heading text-[13px] font-semibold text-foreground">
+                    {detailAuthor.id ? (detailAuthor.name ?? "Anonim") : REMOVED_AUTHOR_LABEL}
+                  </span>
+                </span>
+              )}
+            </button>
+            {sketches.map((s, i) => {
+              // Eticheta e IDENTICĂ cu cea a mențiunilor din dezbatere (comments-section) — cititorul
+              // le poate corela. Vezi `sketchLabel` pentru regula ordinalului stabil.
+              const label = sketchLabel(s);
+              const isActive = safeTab === i + 1;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  data-testid={`sketch-tab-${s.id}`}
+                  onClick={() => setTabAndUrl(i + 1)}
+                  title={label}
+                  aria-label={label}
+                  aria-current={isActive ? "true" : undefined}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-full transition-colors",
+                    isActive
+                      ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
+                      : "p-0.5 opacity-70 hover:opacity-100",
+                  )}
+                >
+                  <AvatarInitials
+                    name={s.author.name}
+                    imageUrl={s.author.image}
+                    size={28}
+                    className={cn("ring-2 transition-colors", isActive ? "ring-primary" : "ring-transparent")}
+                  />
+                  {isActive && (
+                    <span className="flex items-center gap-2">
+                      <span className="font-heading text-[13px] font-semibold text-foreground">{label}</span>
+                      <RolePill
+                        roleMain={s.author.roleMain}
+                        subRole={s.author.subRole}
+                        verified={s.author.verification === "VERIFIED"}
+                      />
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div ref={setVoteSlotEl} className="flex shrink-0 items-center" />
         </div>
 
         {/* viewport (tabul activ) — panoul separat din dreapta a fost scos 2026-07-06: autorul + rolul
@@ -717,6 +728,7 @@ export function DetailWorkspace({
             myPosition={activeValidation.myPosition}
             positions={activeValidation.positions}
             embedded
+            voteSlot={voteSlotEl}
           />
           {isBase && (
             <SupplierOfferPanel

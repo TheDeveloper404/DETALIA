@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { DetailCard } from "@/components/detail-card";
 import { auth } from "@/lib/auth";
 import { getSavedDetails } from "@/server/services/detailService";
-import { getMyPositions } from "@/server/services/validationService";
 
 // Detaliile salvate de userul curent (bookmark din meniul „⋮" al detaliului). Listă simplă, o coloană,
 // aceleași carduri ca feed-ul. Fără filtre/sortare (colecție personală, mică). Ordine: recent salvate primele.
@@ -16,11 +15,6 @@ export default async function SavedPage() {
   }
 
   const details = await getSavedDetails(session.user.id);
-  const myPositions = await getMyPositions(
-    session.user.id,
-    "DETAIL",
-    details.map((d) => d.id),
-  );
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-8">
@@ -51,7 +45,6 @@ export default async function SavedPage() {
             <DetailCard
               key={d.id}
               detail={d}
-              myPosition={myPositions.get(d.id) ?? null}
               currentUserId={session.user.id}
               isSaved
             />

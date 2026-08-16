@@ -1,18 +1,16 @@
 // Card de detaliu în feed — layout orizontal: thumbnail (imaginea 2D) + conținut (titlu, text,
 // autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
 //
-// Validarea „Aprob / Dezaprob" se face INLINE (FeedValidationActions, client): buton identic pentru toți,
-// Dezaprob cere justificare obligatorie — aceeași regulă non-negociabilă enforce pe server ca pe pagina detaliului.
+// Aprob/Dezaprob NU se dă din feed (2026-08-16, decizie Liviu) — doar count-ul, informativ; votul
+// real se dă de pe pagina detaliului, după ce ai citit explicația autorului.
 import { Eye, Layers, MessageSquare } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import type { ValidationPosition } from "@/server/domain/validation";
 import type { FeedItem } from "@/server/repos/detailsRepo";
 
 import { FeedSaveButton } from "./feed-save-button";
 import { PersonSilhouette } from "./avatar-initials";
-import { FeedValidationActions } from "./feed-validation-actions";
 import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
 import { VoteTriangle } from "./vote-triangle";
@@ -58,19 +56,14 @@ function ValidatorStack({
 
 export function DetailCard({
   detail,
-  myPosition,
   currentUserId,
   isSaved = false,
 }: {
   detail: FeedItem;
-  myPosition: ValidationPosition | null;
   currentUserId?: string | null;
   isSaved?: boolean;
 }) {
   const href = `/details/${detail.id}`;
-  // Autorul propriului detaliu nu se validează pe sine → ascundem butoanele (enforce și pe server).
-  // Poziția e permisă oricui e autentificat, inclusiv autorului pe propriul detaliu (2026-08-06).
-  const canValidate = !!currentUserId;
 
   return (
     <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
@@ -150,19 +143,16 @@ export function DetailCard({
             Dreapta: dată publicare + vizualizări (informativ, nu interacțiune). */}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2.5 gap-y-1 font-mono text-[11.5px] text-muted-foreground">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            {canValidate ? (
-              <FeedValidationActions
-                detailId={detail.id}
-                myPosition={myPosition}
-                validationCount={detail.validationCount}
-              />
-            ) : (
-              <span className="inline-flex items-center gap-1" title="Validări">
-                <VoteTriangle direction="up" size={7} />
-                <span className="sr-only">validări:</span>
-                {detail.validationCount}
-              </span>
-            )}
+            {/* Fără vot inline (2026-08-16, decizie Liviu): aprob/dezaprob cere să deschizi detaliul —
+                un vot dat doar din titlu+thumbnail, fără să citești explicația autorului, nu spune
+                nimic despre calitate. Doar count-ul rămâne, informativ, ca pe restul statisticilor.
+                DOAR aprobările (`approveCount`), nu `validationCount` (aprob+dezaprob combinate) —
+                lângă o săgeată-sus, un total combinat ar sugera vizual că toate sunt aprobări. */}
+            <span className="inline-flex items-center gap-1" title="Aprobări">
+              <VoteTriangle direction="up" size={7} />
+              <span className="sr-only">aprobări:</span>
+              {detail.approveCount}
+            </span>
             <span className="text-border">·</span>
             <span className="inline-flex items-center gap-1" title="Comentarii">
               <MessageSquare className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
