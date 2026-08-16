@@ -207,6 +207,24 @@ Nimeni altcineva nu vede planșele tale — sunt strict personale.
 
 ---
 
+## 11b. Proiectele (colaborare restrânsă)
+
+Un spațiu de lucru la care inviți alți oameni printr-un link, separat de feedul public și de planșa
+strict privată — util când lucrezi cu o echipă la detalii înainte să le faci publice.
+
+- creezi un proiect din **„Proiectele mele"** și primești un link de invitație (îl poți regenera oricând
+  — vechiul link devine instant invalid);
+- oricine intră prin link devine membru cu aceleași drepturi ca tine (autorul) — nu există roluri diferite
+  în interior;
+- un detaliu creat/publicat într-un proiect e vizibil **DOAR membrilor**, nu apare în feedul public;
+- din „Scoate în comunitate" faci un detaliu de proiect public — mutație **ireversibilă**;
+- poți partaja o planșă personală în proiect — se salvează o copie fixă la momentul partajării, editarea
+  ulterioară a planșei tale nu afectează ce ai partajat deja;
+- dacă ești eliminat dintr-un proiect, nu mai vezi conținutul lui, inclusiv ce ai salvat/oferit acolo cât
+  erai membru.
+
+---
+
 ## 12. Notificări
 
 Primești o notificare **în platformă** (nu pe email) când:

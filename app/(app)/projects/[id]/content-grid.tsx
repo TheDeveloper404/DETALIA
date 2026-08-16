@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useActionState, useEffect, useState } from "react";
 
+import { DialogOverlay } from "@/components/dialog-overlay";
 import { cn } from "@/lib/utils";
 
 import { deleteCanvasShareAction, shareCanvasAction, type ProjectActionResult } from "../actions";
@@ -269,17 +270,6 @@ function AddContentModal({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Escape închide — consecvent cu ConfirmDialog (QODO, 2026-08-11: overlay-urile custom din proiect
-  // divergeau de tiparul canonic; fixat 2026-08-16, vezi UI-REGISTRY.md). Randat doar cât `addOpen`
-  // e true în părinte (montare = deschidere), fără condiție suplimentară aici.
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
   async function share(canvasId: string) {
     setBusyId(canvasId);
     setError(null);
@@ -296,29 +286,26 @@ function AddContentModal({
   }
 
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Adaugă în proiect"
-        className="fixed left-1/2 top-1/2 z-50 w-[min(24rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-border bg-card shadow-xl"
-      >
-        <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
-          <span className="text-sm font-semibold">
-            {mode === "choice" ? "Adaugă în proiect" : "Alege o planșă"}
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Închide"
-            className="rounded-full p-1 text-muted-foreground hover:bg-muted"
-          >
-            <X className="size-4" strokeWidth={2} />
-          </button>
-        </div>
+    <DialogOverlay
+      onClose={onClose}
+      ariaLabel="Adaugă în proiect"
+      panelClassName="fixed left-1/2 top-1/2 z-50 w-[min(24rem,90vw)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border border-border bg-card shadow-xl"
+    >
+      <div className="flex items-center justify-between border-b border-border px-3.5 py-2.5">
+        <span className="text-sm font-semibold">
+          {mode === "choice" ? "Adaugă în proiect" : "Alege o planșă"}
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Închide"
+          className="rounded-full p-1 text-muted-foreground hover:bg-muted"
+        >
+          <X className="size-4" strokeWidth={2} />
+        </button>
+      </div>
 
-        {mode === "choice" ? (
+      {mode === "choice" ? (
           <div className="flex flex-col gap-1.5 p-3">
             <Link
               href={`/details/new?projectId=${projectId}`}
@@ -363,7 +350,6 @@ function AddContentModal({
             {error && <p className="px-2.5 py-1.5 font-mono text-[11px] text-destructive">{error}</p>}
           </div>
         )}
-      </div>
-    </>
+    </DialogOverlay>
   );
 }

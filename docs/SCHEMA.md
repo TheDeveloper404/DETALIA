@@ -2,8 +2,10 @@
 
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
-> _Ultima verificare față de cod: 2026-08-06 — sincronizat cu `db/schema.ts` (adăugate `details.views`,
-> `details.anonymized_at`, `details.author_role_snapshot`, `comments.image_url` — vezi CHANGELOG 2026-08-06)._
+> _Ultima verificare față de cod: 2026-08-16 — sincronizat cu `db/schema.ts` (adăugate tabelele
+> `projects`, `project_members`, `project_canvas_shares`, `comment_likes`, `supplier_offers`;
+> `details.location`/`.project_id`/`.released_from_project_id`; coloanele de stack/retragere pe
+> `sketches`; `validations.hidden_after_release` — vezi CHANGELOG pentru datele fiecărei schimbări)._
 >
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.
@@ -22,7 +24,7 @@ target_type            : DETAIL | SKETCH        -- polimorfism validare/comentar
 validation_position    : APPROVE | DISAPPROVE
 sketch_status          : DRAFT | PUBLISHED  (PENDING_ACCEPTANCE | REJECTED = valori istorice, nemaifolosite)
 detail_resource_type   : IMAGE | LINK | TEXT | PDF | CAD
-notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SKETCH_REJECTED = istoric)
+notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED  (SKETCH_ACCEPTED | SKETCH_REJECTED = istoric)
 ```
 
 ---
@@ -86,6 +88,7 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `title` | text | not null |
 | `description` | text | nullable; text liber „deasupra" imaginii (stil post) |
 | `author_id` | uuid FK→users.id | **index** |
+| `location` | text | not null, default `'România'` — orice altă valoare (text liber) = context tehnic RO invalid pt acel detaliu (enforce în service, nu doar DB) |
 | `climate_zone` | text | nullable, fără default (Zona I..IV — n-are variantă neutră) |
 | `seismic_ag` | text | default `'General'` (listă fixă) |
 | `seismic_tc` | text | default `'General'` (listă fixă) |
@@ -96,6 +99,8 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED  (SKETCH_ACCEPTED | SK
 | `views` | integer | not null, default `0` — contor de vizualizări; FIECARE încărcare de pagină (nu vizitatori unici), incrementat atomic prin SQL brut ca să nu atingă `updated_at` (2026-08-06) |
 | `anonymized_at` | timestamptz | nullable — momentul în care autorul s-a RETRAS din detaliu. Non-null ⇒ nume/poză/link de profil mascate ÎN SQL la orice citire, detaliul dispare de pe profilul autorului, editarea e blocată. `author_id` rămâne, pentru audit (2026-08-06) |
 | `author_role_snapshot` | jsonb | nullable — rolul autorului îngheţat la retragere (`{roleMain, subRole, verificationStatus}`), fiindcă după anonimizare nu mai poate fi citit din cont. Acelaşi model ca `validations.role_snapshot` |
+| `project_id` | uuid FK→projects.id | nullable; cascade; **index**. Combinat cu `status`: DRAFT+null = ciornă, PUBLISHED+id = vizibil doar membrilor proiectului, PUBLISHED+null = public (2026-08-09) |
+| `released_from_project_id` | uuid FK→projects.id | nullable; `ON DELETE SET NULL`; **index** — originea unui detaliu eliberat în comunitate (`project_id = null` acum), păstrată ca preview în proiectul de unde a plecat (2026-08-11) |
 | `created_at` / `updated_at` | timestamptz | |
 
 ### `detail_categories` (many-to-many — bifezi oricâte categorii pe un detaliu)
@@ -127,8 +132,49 @@ detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pintere
 | `thumbnail_url` | text | PNG pre-randat la publicare (Blob); nullable până la PUBLISHED |
 | `status` | `sketch_status` | default `DRAFT`; flux nou `DRAFT → PUBLISHED` (PENDING_ACCEPTANCE/REJECTED = istoric) |
 | `disapproves_parent` | boolean | default `false`; true = pornită din „Dezaprob → fac o schiță" (materializează dezaprobarea la publicare) |
+| `is_annotation` | boolean | default `false`; true doar pe rândul creat din formularul de adaugă/editează detaliu — explicația autorului pe propria imagine, nu o schiță primită de la altcineva (2026-08-11) |
 | `accepted_at` | timestamptz | nullable; = momentul publicării |
+| `base_sketch_ids` | jsonb | nullable — id-urile schițelor aprinse pe ecran la „Schițează peste", în ordine jos-sus (stack de foi, 2026-08-08); listă deja aplatizată, nu recursivă |
+| `role_snapshot` | jsonb | nullable — rolul autorului la momentul PUBLICĂRII (afișare istorică după retragere), capturat la publish |
+| `author_removed` | boolean | default `false` — identitatea autorului a fost retrasă, desenul rămâne |
+| `hidden_after_release` | boolean | default `false` — setat o singură dată la „Scoate în comunitate": schițele altor membri (nu autorul detaliului) nu devin publice odată cu detaliul (SEC-002, 2026-08-10) |
+| `locked_at` | timestamptz | nullable — setat când o altă schiță care o conține în `base_sketch_ids` e PUBLICATĂ; rămâne setat definitiv chiar dacă acea schiță e ștearsă ulterior |
 | `created_at` / `updated_at` | timestamptz | |
+
+### `projects` (colaborare restrânsă — al treilea strat, pe lângă Detaliu public și Planșă strict privată, 2026-08-09)
+| coloană | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `owner_id` | uuid FK→users.id | **index** |
+| `name` | text | not null |
+| `invite_token` | text | not null, **unique** — stocat BRUT (nu hash, e link persistent de recopiat, nu credențială one-time); regenerare = UPDATE, tokenul vechi devine instant invalid |
+| `invite_token_created_at` | timestamptz | not null, default now — ancora de TTL pt link (separată de `updated_at`, care se schimbă și la redenumire) |
+| `created_at` / `updated_at` | timestamptz | |
+
+Doar 2 poziții: Autor (owner) și Invitați — invitații se comportă identic cu owner-ul, nu există Viewer/Editor.
+
+### `project_members`
+| coloană | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `project_id` | uuid FK→projects.id | cascade; **index** |
+| `user_id` | uuid FK→users.id | **index** |
+| `joined_at` | timestamptz | |
+| `removed_at` | timestamptz | nullable — un singur rând per (project, user), NU istoric de intrări/ieșiri; la re-alăturare se reactivează același rând (`removed_at = null`) |
+
+Constrângere unică `(project_id, user_id)`. Owner-ul NU are neapărat un rând aici — accesul e membru activ SAU `projects.owner_id`.
+
+### `project_canvas_shares` (partajare planșă în proiect, §6B, 2026-08-11)
+| coloană | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `project_id` | uuid FK→projects.id | cascade; **index** |
+| `shared_by_user_id` | uuid FK→users.id | **index** |
+| `name` | text | not null |
+| `image_url` | text | not null — copie ÎNGHEȚATĂ, needitabilă, blob nou re-încărcat la partajare (nu referă `canvases.id`; planșa sursă poate fi editată/ștearsă fără efect) |
+| `created_at` | timestamptz | |
+
+Pot exista mai multe partajări ale aceleiași planșe — fără unique pe `(project_id, shared_by_user_id)`.
 
 ### `validations` («code review» — INIMA, polimorfic)
 | coloană | tip | note |
@@ -139,6 +185,7 @@ detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pintere
 | `target_id` | uuid | id-ul țintei (polimorfic — fără FK forțat) |
 | `position` | `validation_position` | APPROVE \| DISAPPROVE |
 | `role_snapshot` | jsonb | rolul userului la momentul poziției (pt afișare istorică) |
+| `hidden_after_release` | boolean | default `false` — oglindește `sketches.hidden_after_release`: pozițiile altor membri decât autorul detaliului nu devin publice la „Scoate în comunitate" (SEC-001, 2026-08-11) |
 | `created_at` / `updated_at` | timestamptz | |
 
 > **CONSTRÂNGERE UNICĂ: `(user_id, target_type, target_id)`** → o singură poziție/user/țintă, reversibilă.
@@ -159,6 +206,15 @@ detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pintere
 | `created_at` | timestamptz | |
 > Index pe `(target_type, target_id)` pentru coloana de comentarii a unei ținte.
 
+### `comment_likes`
+| coloană | tip | note |
+|---|---|---|
+| `user_id` | uuid FK→users.id | cascade; parte din PK compus |
+| `comment_id` | uuid FK→comments.id | cascade; **index**; parte din PK compus |
+| `created_at` | timestamptz | |
+
+PK compus `(user_id, comment_id)` → un user nu poate da like de două ori aceluiași comentariu.
+
 ### `notifications`
 | coloană | tip | note |
 |---|---|---|
@@ -177,6 +233,17 @@ detaliu = o categorie) — modelul actual permite tag-uri multiple, stil Pintere
 | `created_at` | timestamptz | ordinea în lista `/saved` (recent salvate primele) |
 
 PK compus `(user_id, detail_id)` → un user nu poate salva același detaliu de două ori.
+
+### `supplier_offers` („ridic mâna" — FURNIZOR semnalează că poate oferta materiale, 2026-07-16)
+| coloană | tip | note |
+|---|---|---|
+| `user_id` | uuid FK→users.id | cascade; parte din PK compus |
+| `detail_id` | uuid FK→details.id | cascade; **index**; parte din PK compus |
+| `created_at` | timestamptz | |
+
+PK compus `(user_id, detail_id)`, identic model cu `saved_details`: al doilea click = retragere (DELETE),
+nu a doua ramură de stare. Entitate separată de `validations` — doar vizibilitate comercială, fără
+semantica de aprobare/dezaprobare.
 
 ### Admin — autentificare SEPARATĂ de useri
 Adminii NU sunt useri ai platformei: login propriu prin magic link (allowlist `ADMIN_EMAILS` din env, fără
