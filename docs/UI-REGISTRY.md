@@ -32,15 +32,23 @@ border-border bg-card p-5`) + `role="dialog" aria-modal="true"` + `Escape` = can
 **NU folosi `window.confirm()` nativ** — inconsecvent vizual (lecție 2026-07-16, vezi comentariul din
 `confirm-dialog.tsx`).
 
-**Divergență cunoscută (de reconciliat, nu de rezolvat acum):** același `role="dialog"` +
-`aria-modal="true"` e reimplementat manual, cu markup ușor diferit, în: `intro-splash.tsx`,
-`profile-view.tsx`, `send-to-canvas-modal.tsx`, `app/(app)/details/[id]/comment-likers-modal.tsx`,
-`app/(app)/details/[id]/resource-image.tsx`, `app/(app)/projects/[id]/content-grid.tsx`,
-`app/(app)/projects/[id]/project-panel.tsx`. Un modal NOU trebuie construit pe structura de mai sus
-(sau, dacă ai nevoie de conținut mai complex, extrage un `<Dialog>` comun din acestea — task separat,
-nu implicit în orice PR care atinge UI). Gap-ul de accesibilitate (QODO 2026-08-11: `aria-modal`
-lipsă + fără Escape-to-close pe `InviteMembersButton`/`AddContentModal`) — ÎNCHIS 2026-08-16, toate
-au acum ambele; divergența de MARKUP (cod duplicat, nu absent) rămâne, task-ul de extragere e tot separat.
+**Componentă canonică pentru panouri centrate (nu lightbox-uri):**
+[`components/dialog-overlay.tsx`](../components/dialog-overlay.tsx) — extrage backdrop + Escape-to-
+close + wrapper `role="dialog" aria-modal="true"`, lăsând `panelClassName`/`children` complet la
+latitudinea apelantului (nu impune stil vizual, doar structura+comportamentul comune). Folosit de
+`InviteMembersButton` și `AddContentModal` (`app/(app)/projects/[id]/`) — extras 2026-08-16 din 2
+implementări identice caracter cu caracter (QODO, 2026-08-11).
+
+**Divergență rămasă (de reconciliat, nu de rezolvat acum):** același `role="dialog"` + `aria-modal="true"`
+e încă reimplementat manual, cu markup diferit, în: `intro-splash.tsx`, `profile-view.tsx`,
+`send-to-canvas-modal.tsx`, `app/(app)/details/[id]/comment-likers-modal.tsx`,
+`app/(app)/details/[id]/resource-image.tsx`, și lightbox-ul din
+`app/(app)/projects/[id]/content-grid.tsx` (`CanvasShareTile`) — familie structurală DIFERITĂ (un
+singur div full-screen, backdrop+conținut combinate, fără panou separat) de `DialogOverlay`, nu
+aceeași duplicare, consolidarea lor ar fi o abstracție forțată. Un modal-panou NOU folosește
+`DialogOverlay`; un lightbox nou urmează tiparul din `resource-image.tsx`. Gap-ul de accesibilitate
+(QODO 2026-08-11: `aria-modal` lipsă + fără Escape-to-close) — ÎNCHIS 2026-08-16 peste tot, toate au
+acum ambele; ce rămâne e doar markup duplicat pe familia de lightbox, nu absent funcțional.
 
 ## Card de conținut
 
