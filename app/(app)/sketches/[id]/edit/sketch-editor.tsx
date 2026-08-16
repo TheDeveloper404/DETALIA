@@ -9,7 +9,7 @@ import { useRef, useState } from "react";
 import { RolePill } from "@/components/role-pill";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { cn } from "@/lib/utils";
-import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
+import { MAX_SKETCH_NOTE_LENGTH, REMOVED_AUTHOR_LABEL, type Stroke } from "@/server/domain/sketch";
 
 import { saveStrokesAction, sendSketchAction } from "./sketch-actions";
 
@@ -127,8 +127,10 @@ export function SketchEditor({
               </Link>
             ) : (
               // Autor retras: rămân doar rolul (din snapshot) și conținutul — fără nume, poză sau link.
+              // „Autor șters", NU „Anonim" — al doilea ar sugera un cont fără nume, nu o retragere
+              // deliberată (aceeași regulă ca la teancul de schițe, vezi REMOVED_AUTHOR_LABEL).
               <span className="font-heading text-[13.5px] font-semibold text-muted-foreground">
-                Anonim
+                {REMOVED_AUTHOR_LABEL}
               </span>
             )}
             <RolePill roleMain={authorRoleMain} subRole={authorSubRole} verified={authorVerified} />

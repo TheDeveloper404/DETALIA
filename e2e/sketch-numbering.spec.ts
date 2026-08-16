@@ -27,7 +27,7 @@ function detailUrl(): string {
 // Pornește o schiță nouă peste detaliul seedat, desenează un stroke minim, publică. Întoarce id-ul.
 async function createAndPublishSketch(page: Page): Promise<string> {
   await page.goto(detailUrl());
-  await page.getByRole("button", { name: "Schițează peste detaliu" }).click();
+  await page.getByRole("button", { name: "Schițează" }).click();
   await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
   const sketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1];
   if (!sketchId) throw new Error("Nu am putut extrage sketchId din URL.");

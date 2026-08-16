@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, ChevronDown, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronDown, FileCheck, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 
@@ -18,6 +19,11 @@ import {
   uploadDocToBlob,
   uploadImageToBlob,
 } from "@/lib/blob-upload";
+import {
+  looksLikeUploadedResource,
+  UPLOADABLE_RESOURCE_TYPES,
+  type ResourceType,
+} from "@/lib/resource-type";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_CAD_BYTES,
@@ -56,7 +62,6 @@ const initialState: FormState = { error: null };
 export type CategoryOption = { id: string; name: string; parentId: string | null; isGroup: boolean };
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
-type ResourceType = "IMAGE" | "LINK" | "PDF" | "CAD";
 type ResourceRow = { type: ResourceType; value: string };
 
 // Plafon pentru adnotarea trimisă în body-ul server action-ului. Mult sub `bodySizeLimit` (4 MB,
@@ -99,10 +104,9 @@ function resourcePlaceholder(type: ResourceType): string {
   return "https://… link (sau încarcă imaginea)";
 }
 
-// IMAGE/PDF/CAD pot fi și încărcate direct (nu doar link) — LINK rămâne doar link.
 // „Imagine" fără upload real nu se folosea aproape deloc (userul trebuia să aibă deja un link extern
-// către o imagine găzduită) — 2026-07-16.
-const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["IMAGE", "PDF", "CAD"]);
+// către o imagine găzduită) — 2026-07-16. `ResourceType`/`UPLOADABLE_RESOURCE_TYPES`/
+// `looksLikeUploadedResource` trăiesc în lib/resource-type.ts (fără dependențe grele — testabile unitar).
 function resourceFileAccept(type: ResourceType): string {
   if (type === "CAD") return ".dwg,.dxf";
   if (type === "PDF") return "application/pdf";
@@ -357,6 +361,17 @@ export function DetailForm({
   const [uploading, setUploading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>(initial?.resources ?? []);
+  // Indecșii resurselor „încărcate" (fișier urcat de noi, nu link lipit de mână) — arată previzualizare
+  // compactă în loc de câmpul de text cu URL-ul. Inițializat și din resursele EXISTENTE (editare), nu
+  // doar din upload-uri noi în sesiunea curentă.
+  const [uploadedResourceIndices, setUploadedResourceIndices] = useState<Set<number>>(
+    () =>
+      new Set(
+        (initial?.resources ?? [])
+          .map((r, i) => (looksLikeUploadedResource(r.type, r.value) ? i : -1))
+          .filter((i) => i >= 0),
+      ),
+  );
   const [drawCount, setDrawCount] = useState(0);
   // ADNOTARE (pas OPȚIONAL, doar în modul „upload"): autorul desenează PESTE propria imagine ca să
   // explice ceva. `annotating` = editorul e deschis; `annotationStrokes` = ce a confirmat cu „Gata"
@@ -563,6 +578,13 @@ export function DetailForm({
   }
   function removeResource(i: number) {
     setResources((rs) => rs.filter((_, j) => j !== i));
+    setUploadedResourceIndices((s) => new Set([...s].filter((x) => x !== i)));
+  }
+  // „Schimbă" din previzualizarea compactă (sau tipul rândului s-a schimbat): revine la câmpul de
+  // text/upload, golind valoarea veche.
+  function clearUploadedResource(i: number) {
+    updateResource(i, { value: "" });
+    setUploadedResourceIndices((s) => new Set([...s].filter((x) => x !== i)));
   }
 
   // Upload direct de fișier pentru resurse PDF/CAD (alternativă la lipirea unui link extern).
@@ -591,6 +613,7 @@ export function DetailForm({
           ? await uploadImageToBlob("resources", file, "image")
           : await uploadDocToBlob("resources", file, type === "CAD" ? "cad" : "pdf");
       updateResource(i, { value: url });
+      setUploadedResourceIndices((s) => new Set(s).add(i));
     } catch (err) {
       const message =
         err instanceof HeicUnsupportedError
@@ -1048,77 +1071,109 @@ export function DetailForm({
           </div>
 
           {resources.length > 0 && (
-            <div className="mb-3 flex flex-col gap-2.5">
-              {resources.map((r, i) => (
-                <div key={i} className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2.5">
-                    <div className="relative w-[132px] flex-none">
-                      <select
-                        value={r.type}
-                        onChange={(e) => updateResource(i, { type: e.target.value as ResourceType })}
-                        className={cn(selectClass, "px-3 py-2.5 text-[13.5px]")}
-                      >
-                        {(Object.keys(RESOURCE_LABEL) as ResourceType[]).map((t) => (
-                          <option key={t} value={t}>
-                            {RESOURCE_LABEL[t]}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown
-                        className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-                        strokeWidth={2}
-                      />
-                    </div>
-                    <input
-                      type="text"
-                      value={r.value}
-                      onChange={(e) => updateResource(i, { value: e.target.value })}
-                      placeholder={resourcePlaceholder(r.type)}
-                      className={cn(fieldClass, "min-w-0 flex-1 px-3 py-2.5 text-[13.5px]")}
-                    />
-                    {UPLOADABLE_RESOURCE_TYPES.has(r.type) && (
-                      <label
-                        className={cn(
-                          "inline-flex size-[38px] flex-none cursor-pointer items-center justify-center rounded-[9px] border border-input bg-card transition-colors hover:border-primary",
-                          resourceUploadingIndex === i && "pointer-events-none opacity-60",
-                        )}
-                        title={`Încarcă fișier (${resourceUploadLimitLabel(r.type)})`}
-                      >
-                        <Upload className="size-3.5 text-muted-foreground" strokeWidth={2} />
-                        <input
-                          type="file"
-                          accept={resourceFileAccept(r.type)}
-                          className="hidden"
-                          disabled={resourceUploadingIndex !== null}
+            <div className="mb-3 flex flex-col gap-2.5" data-testid="resources-list">
+              {resources.map((r, i) => {
+                const isUploaded = uploadedResourceIndices.has(i) && r.value.trim().length > 0;
+                return (
+                  <div key={i} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative w-[132px] flex-none">
+                        <select
+                          value={r.type}
+                          aria-label={`Tip resursă ${i + 1}`}
                           onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            e.target.value = "";
-                            if (file) void handleResourceFile(i, r.type, file);
+                            clearUploadedResource(i);
+                            updateResource(i, { type: e.target.value as ResourceType });
                           }}
+                          className={cn(selectClass, "px-3 py-2.5 text-[13.5px]")}
+                        >
+                          {(Object.keys(RESOURCE_LABEL) as ResourceType[]).map((t) => (
+                            <option key={t} value={t}>
+                              {RESOURCE_LABEL[t]}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown
+                          className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                          strokeWidth={2}
                         />
-                      </label>
+                      </div>
+                      {isUploaded ? (
+                        // Previzualizare compactă — NU link-ul kilometric (2026-08-16, raportat Liviu:
+                        // „dacă văd un link kilometric nu știu ce e cu el"). Pătrățel mic ca semn că a
+                        // urcat: thumbnail real pentru IMAGE, iconiță pentru PDF/CAD (nimic de previzualizat).
+                        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                          {r.type === "IMAGE" ? (
+                            <div className="relative size-[38px] flex-none overflow-hidden rounded-[9px] border border-input bg-card">
+                              <Image src={r.value} alt="" fill sizes="38px" unoptimized className="object-cover" />
+                            </div>
+                          ) : (
+                            <div className="inline-flex size-[38px] flex-none items-center justify-center rounded-[9px] border border-input bg-card">
+                              <FileCheck className="size-4 text-emerald-600" strokeWidth={2} />
+                            </div>
+                          )}
+                          <span className="truncate text-[13px] text-muted-foreground">Încărcat</span>
+                          <button
+                            type="button"
+                            onClick={() => clearUploadedResource(i)}
+                            className="shrink-0 font-mono text-[11px] text-primary underline-offset-2 hover:underline"
+                          >
+                            Schimbă
+                          </button>
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={r.value}
+                          onChange={(e) => updateResource(i, { value: e.target.value })}
+                          placeholder={resourcePlaceholder(r.type)}
+                          className={cn(fieldClass, "min-w-0 flex-1 px-3 py-2.5 text-[13.5px]")}
+                        />
+                      )}
+                      {!isUploaded && UPLOADABLE_RESOURCE_TYPES.has(r.type) && (
+                        <label
+                          className={cn(
+                            "inline-flex size-[38px] flex-none cursor-pointer items-center justify-center rounded-[9px] border border-input bg-card transition-colors hover:border-primary",
+                            resourceUploadingIndex === i && "pointer-events-none opacity-60",
+                          )}
+                          title={`Încarcă fișier (${resourceUploadLimitLabel(r.type)})`}
+                        >
+                          <Upload className="size-3.5 text-muted-foreground" strokeWidth={2} />
+                          <input
+                            type="file"
+                            accept={resourceFileAccept(r.type)}
+                            className="hidden"
+                            disabled={resourceUploadingIndex !== null}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              e.target.value = "";
+                              if (file) void handleResourceFile(i, r.type, file);
+                            }}
+                          />
+                        </label>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeResource(i)}
+                        aria-label="Elimină resursa"
+                        className="inline-flex size-[38px] flex-none items-center justify-center rounded-[9px] border border-input bg-card transition-colors hover:border-destructive"
+                      >
+                        <X className="size-3.5 text-destructive" strokeWidth={2} />
+                      </button>
+                    </div>
+                    {resourceUploadingIndex === i && (
+                      <span className="pl-[144px] font-mono text-[11px] text-muted-foreground">
+                        Se încarcă…
+                      </span>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => removeResource(i)}
-                      aria-label="Elimină resursa"
-                      className="inline-flex size-[38px] flex-none items-center justify-center rounded-[9px] border border-input bg-card transition-colors hover:border-destructive"
-                    >
-                      <X className="size-3.5 text-destructive" strokeWidth={2} />
-                    </button>
+                    {resourceUploadError[i] && (
+                      <span className="pl-[144px] font-mono text-[11px] text-destructive">
+                        {resourceUploadError[i]}
+                      </span>
+                    )}
                   </div>
-                  {resourceUploadingIndex === i && (
-                    <span className="pl-[144px] font-mono text-[11px] text-muted-foreground">
-                      Se încarcă…
-                    </span>
-                  )}
-                  {resourceUploadError[i] && (
-                    <span className="pl-[144px] font-mono text-[11px] text-destructive">
-                      {resourceUploadError[i]}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

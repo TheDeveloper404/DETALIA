@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { PersonSilhouette } from "./avatar-initials";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
+import { ShowMoreButton } from "./show-more-button";
 
 // Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven, alimentată
 // cu date reale. Culorile de accent (verde/amber) sunt specifice acestui ecran → inline.
@@ -419,18 +420,6 @@ function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; view
         <ShowMoreButton onClick={() => setExpanded(true)} />
       )}
     </>
-  );
-}
-
-function ShowMoreButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="mt-4 w-full rounded-lg border border-border bg-card py-2.5 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
-    >
-      Vezi mai multe
-    </button>
   );
 }
 
