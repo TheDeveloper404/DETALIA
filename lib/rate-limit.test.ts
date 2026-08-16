@@ -2,7 +2,7 @@ import type { Ratelimit } from "@upstash/ratelimit";
 import type { Redis } from "@upstash/redis";
 import { describe, expect, it, vi } from "vitest";
 
-import { checkLimit, hashEmail, shouldCountView } from "./rate-limit";
+import { checkLimit, hashEmail, shouldCountView, withTestHeadroom } from "./rate-limit";
 
 // Fake minimal — shouldCountView apelează doar `.set(key, value, opts)`. Vezi comentariul de la
 // fakeLimiter mai jos pentru de ce nu testăm cu Redis real.
@@ -33,6 +33,16 @@ describe("hashEmail — PII (email) nu intră în Redis în clar", () => {
 
   it("emailuri diferite → hash-uri diferite", () => {
     expect(hashEmail("a@x.ro")).not.toBe(hashEmail("b@x.ro"));
+  });
+});
+
+describe("withTestHeadroom — prag relaxat DOAR pe non-producție", () => {
+  it("producție → pragul strict, neschimbat", () => {
+    expect(withTestHeadroom(10, 100, true)).toBe(10);
+  });
+
+  it("non-producție (preview/dev) → pragul relaxat pentru teste", () => {
+    expect(withTestHeadroom(10, 100, false)).toBe(100);
   });
 });
 
