@@ -153,43 +153,45 @@ export function EditDetailsForm({
           să te poată contacta direct.
         </p>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="phone">
-            Telefon <span className="font-normal text-muted-foreground">(opțional)</span>
-          </Label>
-          <Input
-            id="phone"
-            name="phone"
-            maxLength={30}
-            placeholder="ex: 07xx xxx xxx"
-            defaultValue={initialPhone ?? ""}
-          />
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              name="phoneVisible"
-              defaultChecked={initialPhoneVisible}
-              className="size-3.5"
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="phone">
+              Telefon <span className="font-normal text-muted-foreground">(opțional)</span>
+            </Label>
+            <Input
+              id="phone"
+              name="phone"
+              maxLength={30}
+              placeholder="ex: 07xx xxx xxx"
+              defaultValue={initialPhone ?? ""}
             />
-            Vizibil altor useri
-          </label>
-        </div>
-
-        {email && (
-          <div className="mt-3 flex flex-col gap-1.5">
-            <Label>Email</Label>
-            <p className="text-sm text-foreground/80">{email}</p>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <input
                 type="checkbox"
-                name="emailVisible"
-                defaultChecked={initialEmailVisible}
+                name="phoneVisible"
+                defaultChecked={initialPhoneVisible}
                 className="size-3.5"
               />
               Vizibil altor useri
             </label>
           </div>
-        )}
+
+          {email && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Email</Label>
+              <p className="text-sm text-foreground/80">{email}</p>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  name="emailVisible"
+                  defaultChecked={initialEmailVisible}
+                  className="size-3.5"
+                />
+                Vizibil altor useri
+              </label>
+            </div>
+          )}
+        </div>
       </div>
 
       <Button type="submit" disabled={pending} className="h-10 self-start">

@@ -4,7 +4,7 @@ import "driver.js/dist/driver.css";
 
 import { driver, type Config } from "driver.js";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // Pașii turului, separați ca date pure (testabile fără a monta driver.js) — vezi product-tour.test.ts.
 // Fiecare `data-tour` trebuie să existe EXACT o dată în DOM-ul paginii /feed (header + sidebar + FAB);
@@ -70,9 +70,16 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
 export function ProductTour({ active }: { active: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
+  // Snapshot la PRIMUL render, ignoră schimbările ulterioare ale prop-ului `active` — BUG găsit
+  // 2026-08-17: `router.replace()` de mai jos strips `?tour=1` → Next.js re-randează Server Component-ul
+  // părinte (FeedPage) cu `searchParams.tour` absent → noul `active=false` ajunge ca prop aici. Cu
+  // `active` live în deps-ul efectului, React rula cleanup-ul efectului anterior (`tour.destroy()`)
+  // la exact acel re-render — turul se închidea instant, la o secundă de la primul pas. Snapshot-ul
+  // rupe bucla: efectul depinde DOAR de valoarea de la mount, nu de re-render-urile provocate chiar de el.
+  const [shouldRun] = useState(active);
 
   useEffect(() => {
-    if (!active) return;
+    if (!shouldRun) return;
 
     // Curăță ?tour=1 din URL imediat (fără reload) — refresh/înapoi nu mai repornesc turul.
     router.replace(pathname, { scroll: false });
@@ -94,8 +101,8 @@ export function ProductTour({ active }: { active: boolean }) {
 
     tour.drive();
     return () => tour.destroy();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- pornește o singură dată, la primul mount cu `active`.
-  }, [active]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pornește o singură dată, la primul mount; `shouldRun` e un snapshot, nu se schimbă.
+  }, [shouldRun]);
 
   return null;
 }
