@@ -101,18 +101,21 @@ export function DetailCard({
         {/* Autor + rol. Autorul retras (anonimizat) NU are nume, poză sau link de profil — doar rolul,
             din snapshot-ul înghețat la retragere; identitatea nici nu ajunge de pe server (vezi
             `detailWithAuthorColumns`). */}
-        <div className="mb-3 flex flex-wrap items-center gap-2.5">
+        {/* FĂRĂ flex-wrap (2026-08-17): un rol lung (ex. „Inginer instalații termice/HVAC") împingea
+            pastila pe rândul 2 — acum numele se trunchiază cu elipsă la nevoie, pastila rămâne mereu
+            pe același rând, `shrink-0`. */}
+        <div className="mb-3 flex min-w-0 items-center gap-2.5">
           {detail.isAnonymized ? (
-            <span className="flex items-center gap-2.5">
+            <span className="flex min-w-0 items-center gap-2.5">
               <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[11px] text-muted-foreground">
                 <PersonSilhouette className="size-4" />
               </span>
-              <span className="text-sm font-semibold text-muted-foreground">Anonim</span>
+              <span className="truncate text-sm font-semibold text-muted-foreground">Anonim</span>
             </span>
           ) : (
           <Link
             href={`/profile/${detail.authorId}`}
-            className="flex items-center gap-2.5 no-underline"
+            className="flex min-w-0 items-center gap-2.5 no-underline"
           >
             <span className="flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[11px] text-muted-foreground">
               {detail.authorImage ? (
@@ -122,16 +125,18 @@ export function DetailCard({
                 <PersonSilhouette className="size-4" />
               )}
             </span>
-            <span className="text-sm font-semibold text-foreground hover:underline">
+            <span className="truncate text-sm font-semibold text-foreground hover:underline">
               {detail.authorName ?? "Anonim"}
             </span>
           </Link>
           )}
-          <RolePill
-            roleMain={detail.authorRoleMain}
-            subRole={detail.authorSubRole}
-            verified={detail.authorVerification === "VERIFIED"}
-          />
+          <span className="shrink-0">
+            <RolePill
+              roleMain={detail.authorRoleMain}
+              subRole={detail.authorSubRole}
+              verified={detail.authorVerification === "VERIFIED"}
+            />
+          </span>
         </div>
 
         {/* Stivă de validatori — avatarele celor care au luat poziție, suprapuse (cine a contribuit). */}
