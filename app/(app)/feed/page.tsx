@@ -5,6 +5,7 @@ import { DetailCard } from "@/components/detail-card";
 import { FeedRail } from "@/components/feed-rail";
 import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
+import { MobileCategoryFilter } from "@/components/mobile-category-filter";
 import { ProductTour } from "@/components/product-tour";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
@@ -105,13 +106,16 @@ export default async function FeedPage({
         )}
         {/* Titlu + căutare, într-un container propriu (nu mai încercăm să-l aliniem pixel-perfect cu
             cardul de profil din sidebar — 2026-07-06) — coboară puțin feed-ul sub header. */}
-        <div className="mb-5 mt-2 flex items-center justify-between gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
-          <h1 className="text-xl font-bold tracking-tight">
+        <div className="mb-5 mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
+          <h1 className="min-w-0 flex-1 truncate text-xl font-bold tracking-tight">
             {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}
           </h1>
-          {/* Căutare — mutată aici din header-ul global (2026-07-06), lângă titlu. As-you-type cu debounce,
-              fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
-          <FeedSearch initialQuery={q ?? ""} />
+          <div className="flex flex-none items-center gap-2">
+            <MobileCategoryFilter categories={categories} activeId={activeId} basePath="/feed" total={totalPublished} />
+            {/* Căutare — mutată aici din header-ul global (2026-07-06), lângă titlu. As-you-type cu debounce,
+                fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
+            <FeedSearch initialQuery={q ?? ""} />
+          </div>
         </div>
 
         {details.length === 0 ? (

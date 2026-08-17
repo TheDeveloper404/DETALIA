@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeBadges } from "./badges";
+import { computeBadges, diffNewBadges, snapshotBadges } from "./badges";
 
 const ZERO = {
   published: 0,
@@ -63,5 +63,42 @@ describe("computeBadges", () => {
     });
     expect(badges).toHaveLength(5);
     expect(badges.every((b) => b.tier === "gold")).toBe(true);
+  });
+});
+
+describe("diffNewBadges — pop-up „badge nou” (2026-08-17)", () => {
+  const contributorBronze = { id: "contributor" as const, label: "Contribuitor", description: "d", tier: "bronze" as const };
+  const contributorSilver = { id: "contributor" as const, label: "Contribuitor", description: "d", tier: "silver" as const };
+  const validatorBronze = { id: "validator" as const, label: "Validator", description: "d", tier: "bronze" as const };
+
+  it("fără snapshot văzut → toate badge-urile curente sunt „noi”", () => {
+    expect(diffNewBadges([contributorBronze], {})).toEqual([contributorBronze]);
+  });
+
+  it("badge deja văzut la ACELAȘI tier → nu mai e „nou”", () => {
+    expect(diffNewBadges([contributorBronze], { contributor: "bronze" })).toEqual([]);
+  });
+
+  it("badge URCAT de tier față de snapshot → e „nou” (celebrăm upgrade-ul)", () => {
+    expect(diffNewBadges([contributorSilver], { contributor: "bronze" })).toEqual([contributorSilver]);
+  });
+
+  it("badge la un tier MAI MIC decât snapshot-ul (nu poate scădea în practică, dar defensiv) → nu e nou", () => {
+    expect(diffNewBadges([contributorBronze], { contributor: "silver" })).toEqual([]);
+  });
+
+  it("un badge nou apărut alături de unul deja văzut → doar cel nou e raportat", () => {
+    expect(diffNewBadges([contributorBronze, validatorBronze], { contributor: "bronze" })).toEqual([validatorBronze]);
+  });
+});
+
+describe("snapshotBadges", () => {
+  it("transformă lista de badge-uri câștigate în Record id→tier", () => {
+    const badges = computeBadges({ ...ZERO, published: 1, validationsGiven: 5 });
+    expect(snapshotBadges(badges)).toEqual({ contributor: "bronze", validator: "bronze" });
+  });
+
+  it("fără badge-uri → snapshot gol", () => {
+    expect(snapshotBadges([])).toEqual({});
   });
 });
