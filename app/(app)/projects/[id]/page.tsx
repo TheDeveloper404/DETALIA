@@ -29,7 +29,7 @@ export async function generateMetadata({
   const session = await auth();
   if (!session?.user?.id) return { title: "Proiect" };
   const { id } = await params;
-  const view = await getProjectForViewer({ projectId: id, userId: session.user.id });
+  const view = await getProjectForViewer(id, session.user.id);
   return { title: view ? view.project.name : "Proiect" };
 }
 
@@ -41,7 +41,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const userId = session.user.id;
 
   const { id } = await params;
-  const view = await getProjectForViewer({ projectId: id, userId });
+  const view = await getProjectForViewer(id, userId);
   if (!view) notFound();
 
   // Acces DEJA verificat mai sus (`getProjectForViewer` — `notFound()` dacă lipsește) — variantele

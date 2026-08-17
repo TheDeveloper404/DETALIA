@@ -5,6 +5,8 @@
 //    privată — orice service care citește un detaliu de proiect trece prin ea. Nu se duplică logica.
 //  - „Scoate în comunitate" e ireversibilă — nicio cale de întoarcere prin cod.
 
+import { cache } from "react";
+
 import { audit } from "@/lib/audit";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
@@ -127,13 +129,15 @@ export async function canAccessProjectDetail(input: {
 
 // Pagina unui proiect: rândul + membrii activi, DOAR dacă requester-ul are acces. `null` dacă nu are
 // (anti-enumerare — aceeași formă ca „proiect inexistent", pagina face notFound() la fel).
-export async function getProjectForViewer(input: { projectId: string; userId: string }) {
-  const access = await getProjectAccess(input);
+// React `cache()` (2026-08-17, perf): argumente PRIMITIVE, nu obiect — cache() compară cu Object.is,
+// un `{projectId, userId}` nou-construit la fiecare apel (generateMetadata + pagină) NU s-ar deduplica.
+export const getProjectForViewer = cache(async (projectId: string, userId: string) => {
+  const access = await getProjectAccess({ projectId, userId });
   if (!access.hasAccess) return null;
-  const project = await getProjectById(input.projectId);
+  const project = await getProjectById(projectId);
   if (!project) return null;
   const [members, owner] = await Promise.all([
-    listActiveMembers(input.projectId),
+    listActiveMembers(projectId),
     getUserWithRole(project.ownerId),
   ]);
   // SEC-004 (audit 2026-08-11): tokenul de invitație e un secret — poarta care-l apără trebuie să fie
@@ -146,7 +150,7 @@ export async function getProjectForViewer(input: { projectId: string; userId: st
     owner,
     isOwner: access.isOwner,
   };
-}
+});
 
 // Proiectele accesibile userului (owner SAU membru activ) — pentru /projects și selectorul de la
 // creare detaliu.
