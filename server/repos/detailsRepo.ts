@@ -581,7 +581,7 @@ const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("autho
 const validationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
      and ${validations.hiddenAfterRelease} = false)`;
-// DOAR aprobările (2026-08-16, raportat Liviu): cardul de feed nu mai votează inline, dar tot arată
+// DOAR aprobările (2026-08-16, raportat): cardul de feed nu mai votează inline, dar tot arată
 // un count lângă o săgeată-sus — `validationCount` (aprob+dezaprob combinate) ar fi înșelător acolo,
 // ar sugera vizual că TOATE sunt aprobări. `validationCount` rămâne neschis pentru consumatorii care
 // chiar vor totalul (scorul de interacțiune, rail-ul „cele mai dezbătute").

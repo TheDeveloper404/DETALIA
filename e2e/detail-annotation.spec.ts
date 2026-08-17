@@ -127,7 +127,7 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       // el însuși (regresia pe care feature-ul o repară).
       const toggle = page.getByTestId("annotation-toggle-1");
       await expect(toggle).toBeVisible();
-      // DESCHISĂ implicit (2026-08-11, decizie Liviu: e „startul dezbaterii").
+      // DESCHISĂ implicit (2026-08-11, decizie de produs: e „startul dezbaterii").
       await expect(toggle).toHaveAttribute("aria-pressed", "true");
       await expect(page.getByTestId(`sketch-tab-${annotations[0]!.id}`)).toHaveCount(0);
 

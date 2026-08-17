@@ -65,7 +65,7 @@ export function canReleaseToCommunity(input: {
 // Numele partajării e o „copie înghețată" (vezi projectCanvasShares din schema.ts) — compus O SINGURĂ
 // DATĂ la share, niciodată reformatat. `Date.get*()` fără `timeZone` citesc ora runtime-ului
 // serverului (Vercel = UTC), nu ora Bucureștiului — cu 2-3 ore în urmă față de ce vede userul (bug
-// real 2026-08-16, raportat Liviu). Fix: `Intl.DateTimeFormat` cu `timeZone: "Europe/Bucharest"`
+// real 2026-08-16, raportat). Fix: `Intl.DateTimeFormat` cu `timeZone: "Europe/Bucharest"`
 // explicit (gestionează DST automat) + părți numerice explicite (NU stil „short"/„long" — variază cu
 // ICU-ul disponibil la runtime, aceeași grijă ca la formatarea inițială, vezi git blame).
 const SHARE_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("en-GB", {
