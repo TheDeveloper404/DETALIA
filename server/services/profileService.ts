@@ -1,6 +1,8 @@
 // Service profil — citiri (datele pentru ProfileView) + mutații (avatar/cover/poziție/detalii).
 // Toată logica de business (validare, reprocesare imagine, cleanup blob, scriere DB) stă AICI;
 // Server Actions rămân subțiri (extrag input din FormData → deleagă → revalidatePath).
+import { cache } from "react";
+
 import type {
   ProfileActivityItem,
   ProfileViewData,
@@ -91,10 +93,13 @@ const SKETCH_STATUS_VIEW: Record<
 
 // Întoarce datele de profil + dacă vizitatorul e proprietarul (ascunde editarea pentru ceilalți).
 // `null` dacă userul nu există.
-export async function getProfileView(
+// React `cache()` (2026-08-17, perf): `generateMetadata` ȘI componenta paginii `/profile/[userId]` îl
+// cheamă cu ACEIAȘI userId/viewerId (primitive, deci Object.is le potrivește) — fără cache() rulau
+// cele ~9 query-uri de mai jos de 2 ori pe același request (cea mai grea funcție din tot profilul).
+export const getProfileView = cache(async (
   userId: string,
   viewerId: string,
-): Promise<ProfileViewData | null> {
+): Promise<ProfileViewData | null> => {
   // SEC-11: id malformat → „not found" (nu eroare SQL pe coloana uuid). Aliniat cu restul căilor de citire.
   if (!isUuid(userId)) return null;
   const profile = await getPublicProfile(userId);
@@ -214,7 +219,7 @@ export async function getProfileView(
     contributions,
     contributionsTotal,
   };
-}
+});
 
 // ---- Mutații profil ----------------------------------------------------------------------------
 // Limite de lungime pentru câmpurile de text (domeniu, nu UI).
