@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import type { EarnedBadge } from "@/server/domain/badges";
+import { BADGE_DEFS, type EarnedBadge } from "@/server/domain/badges";
 
 import { PersonSilhouette } from "./avatar-initials";
+import { BadgeEarnedPopup } from "./badge-earned-popup";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 import { ShowMoreButton } from "./show-more-button";
 
@@ -55,6 +56,7 @@ export type ProfileViewData = {
   coverImage: string | null;
   coverPosition: number; // object-position Y (0..100) pentru banner
   roleLabel: string; // ex: „Proiectant · Arhitect"
+  memberSince: string; // ex: „august 2026" — formatat deja în service
   location: string | null;
   company: string | null;
   website: { href: string; label: string } | null;
@@ -66,6 +68,7 @@ export type ProfileViewData = {
   verified: boolean;
   stats: ProfileStats;
   badges: EarnedBadge[];
+  newlyEarnedBadges: EarnedBadge[]; // gol dacă !viewerIsOwner — pop-up-ul de celebrare e strict privat
   details: ProfileDetailItem[];
   sketches: ProfileSketchItem[];
   activity: ProfileActivityItem[];
@@ -93,6 +96,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
 
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
+      {data.viewerIsOwner && <BadgeEarnedPopup badges={data.newlyEarnedBadges} />}
       {/* Card unic pt banner + antet (avatar/nume/badge/bio) — coerent cu bara de statistici de mai
           jos, care are deja propriul chenar (2026-07-16: „le-aș pune și pe astea într-un
           container"). */}
@@ -168,14 +172,19 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
                 </button>
               )}
             </div>
+            <div className="mt-1.5 font-mono text-[12.5px] text-muted-foreground">
+              Membru din {data.memberSince}
+            </div>
           </div>
 
           {data.viewerIsOwner && (
             <a
               href={data.editHref}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:border-primary"
+              aria-label="Editează profil"
+              title="Editează profil"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground/70 no-underline transition-colors hover:text-primary"
             >
-              <Pencil /> Editează profil
+              <Pencil className="size-5" />
             </a>
           )}
         </div>
@@ -288,6 +297,20 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             să-l primești pe primul.
           </p>
         )}
+
+        <details className="mt-3 text-[13px]">
+          <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
+            Cum se obțin badge-urile?
+          </summary>
+          <ul className="mt-2.5 flex flex-col gap-1.5 text-muted-foreground">
+            {BADGE_DEFS.map((def) => (
+              <li key={def.id}>
+                <span className="font-semibold text-foreground">{def.label}</span> — {def.description}:{" "}
+                {def.thresholds.bronze} Bronz · {def.thresholds.silver} Argint · {def.thresholds.gold} Aur
+              </li>
+            ))}
+          </ul>
+        </details>
       </div>
 
       {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
@@ -663,9 +686,9 @@ function Globe() {
   );
 }
 
-function Pencil() {
+function Pencil({ className }: { className?: string }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
