@@ -78,6 +78,20 @@ export async function updateSeenBadges(userId: string, seenBadges: Record<string
   await db.update(users).set({ seenBadges }).where(eq(users.id, userId));
 }
 
+// Ultima versiune văzută a panoului „Ce e nou" — scrisă DOAR de owner (verificat în service).
+export async function updateLastSeenAnnouncement(userId: string, version: string) {
+  await db.update(users).set({ lastSeenAnnouncementVersion: version }).where(eq(users.id, userId));
+}
+
+export async function getLastSeenAnnouncement(userId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ lastSeenAnnouncementVersion: users.lastSeenAnnouncementVersion })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.lastSeenAnnouncementVersion ?? null;
+}
+
 // Datele de profil pentru /profile/edit (nume, email, poză, cover + headline/locație/website). Email = PII.
 export async function getUserProfile(userId: string) {
   const [row] = await db
