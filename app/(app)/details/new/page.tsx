@@ -36,7 +36,7 @@ export default async function NewDetailPage({
   // timp) nu ajunge nici măcar la formular — createDetailAction verifică din nou la submit oricum,
   // dar aici evităm să arătăm formularul degeaba.
   const project = projectId
-    ? await getProjectForViewer({ projectId, userId: session.user.id })
+    ? await getProjectForViewer(projectId, session.user.id)
     : null;
   if (projectId && !project) notFound();
 

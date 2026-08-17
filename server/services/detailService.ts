@@ -7,6 +7,8 @@
 // Upload-ul imaginii (Blob) NU stă aici: service-ul primește `imageUrl` deja rezolvat de stratul
 // de infra (route handler / server action). Așa rămâne business-ul testabil și fără dependențe de infra.
 
+import { cache } from "react";
+
 import {
   DEFAULT_FEED_SIZE,
   DETAIL_STATUS,
@@ -438,7 +440,9 @@ export async function deleteDetailDraft(input: {
 //
 // SINGURUL loc din care se citește un detaliu pentru afișare (page.tsx-urile de detaliu/editare/schiță
 // îl cheamă pe ăsta, nu getDetailById direct) — de-aia poarta de acces la proiect stă aici, o dată.
-export async function getDetail(id: string, requesterId: string) {
+// React `cache()` (2026-08-17, perf): `generateMetadata` ȘI componenta paginii îl cheamă cu ACELEAȘI
+// argumente pe același request — fără cache() ar rula query-urile de 2 ori, silențios.
+export const getDetail = cache(async (id: string, requesterId: string) => {
   if (!isUuid(id)) return null;
   const detail = await getDetailById(id);
   if (!detail) return null;
@@ -448,7 +452,7 @@ export async function getDetail(id: string, requesterId: string) {
   }
   const resources = await getDetailResources(id);
   return { ...detail, resources };
-}
+});
 
 export type ReleaseToCommunityResult =
   | { ok: true; projectId: string }
