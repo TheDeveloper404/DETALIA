@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand-logo";
@@ -5,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { userHasRole } from "@/server/services/roleService";
 
 import { OnboardingForm } from "./onboarding-form";
+
+export const metadata: Metadata = { title: "Completează-ți profilul" };
 
 export default async function OnboardingPage() {
   const session = await auth();

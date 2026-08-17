@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getAdminSession } from "@/lib/admin-auth";
@@ -7,6 +8,8 @@ import { getPlatformState } from "@/server/services/settingsService";
 import { adminLogoutAction } from "./actions";
 import { MaintenanceForm } from "./maintenance-form";
 import { UsersTable } from "./users-table";
+
+export const metadata: Metadata = { title: "Admin", robots: { index: false, follow: false } };
 
 // Panou de admin — autentificare SEPARATĂ de useri. Fără sesiune de admin → login.
 // Conține: lista userilor (nume/email/rol/dată) + toggle-ul de mentenanță.

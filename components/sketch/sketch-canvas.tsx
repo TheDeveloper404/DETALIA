@@ -64,7 +64,7 @@ const ZOOM_MAX = 3;
 const clampZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
 
 // Cursor de desen — creion (același glyph lucide „Pencil" folosit peste tot în platformă ca simbol
-// pentru „desenează"), nu crosshair-ul implicit al browserului (2026-08-16, raportat Liviu: „+"-ul nu
+// pentru „desenează"), nu crosshair-ul implicit al browserului (2026-08-16, raportat: „+"-ul nu
 // e comod). Hotspot-ul (3 21) cade pe vârful creionului din desen, ca punctul de click să se simtă
 // exact acolo unde „scrie" — fallback pe „crosshair" dacă browserul nu suportă cursor custom SVG.
 const PEN_CURSOR =

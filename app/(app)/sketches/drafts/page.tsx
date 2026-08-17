@@ -1,4 +1,5 @@
 import { PencilLine } from "lucide-react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -6,6 +7,8 @@ import { getMyDetailDrafts } from "@/server/services/detailService";
 import { getMyDrafts } from "@/server/services/sketchService";
 
 import { DraftsList, type UnifiedDraft } from "./drafts-list";
+
+export const metadata: Metadata = { title: "Ciornele mele" };
 
 // „Ciornele mele" — UNIFICAT (2026-07-06): schițe DRAFT + detalii DRAFT ale userului, reluabile
 // oricând, într-o singură listă (o singură pagină, nu două concepte separate).

@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DetailCard } from "@/components/detail-card";
 import { FeedRail } from "@/components/feed-rail";
 import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
+import { ProductTour } from "@/components/product-tour";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
@@ -21,19 +23,21 @@ import { getPlatformState } from "@/server/services/settingsService";
 import { FeedEmpty } from "./feed-empty";
 import { FeedEntrance } from "./feed-entrance";
 
+export const metadata: Metadata = { title: "Feed" };
+
 // Feed = suprafața principală autenticată. Finit (~20), sortabil, filtrabil pe categorie.
 // Layout pe 3 coloane (sidebar · feed · rail) — gen GitHub/LinkedIn, dens/profesional. Fără scroll infinit.
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; q?: string; welcome?: string }>;
+  searchParams: Promise<{ cat?: string; q?: string; welcome?: string; tour?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const { cat, q: rawQ, welcome } = await searchParams;
+  const { cat, q: rawQ, welcome, tour } = await searchParams;
   const q = rawQ?.trim() || null;
 
   const [categories, totalPublished, role, authors, media, platform, debated] = await Promise.all([
@@ -69,6 +73,8 @@ export default async function FeedPage({
 
 
   return (
+    <>
+    <ProductTour active={tour === "1"} />
     <FeedEntrance welcome={welcome === "1"}>
     <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
       <FeedSidebar
@@ -127,5 +133,6 @@ export default async function FeedPage({
       <FeedRail authors={authors} debated={debated} />
     </div>
     </FeedEntrance>
+    </>
   );
 }

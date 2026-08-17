@@ -1,10 +1,13 @@
 import { Bookmark } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DetailCard } from "@/components/detail-card";
 import { auth } from "@/lib/auth";
 import { getSavedDetails } from "@/server/services/detailService";
+
+export const metadata: Metadata = { title: "Salvate" };
 
 // Detaliile salvate de userul curent (bookmark din meniul „⋮" al detaliului). Listă simplă, o coloană,
 // aceleași carduri ca feed-ul. Fără filtre/sortare (colecție personală, mică). Ordine: recent salvate primele.

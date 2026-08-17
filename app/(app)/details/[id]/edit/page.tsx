@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -13,6 +14,8 @@ import { publishDraftDetailAction, saveDraftDetailAction, updateDetailAction } f
 
 // Tipurile de resursă editabile din formular (TEXT nu are câmp în formular → nu se editează aici).
 const EDITABLE_RESOURCE_TYPES = new Set(["IMAGE", "LINK", "PDF", "CAD"]);
+
+export const metadata: Metadata = { title: "Editare detaliu" };
 
 // Editarea unui detaliu — DOAR autorul lui. Non-autorul e trimis la pagina detaliului (o poate vedea).
 export default async function EditDetailPage({ params }: { params: Promise<{ id: string }> }) {

@@ -64,8 +64,19 @@ describe("roleLabelOf", () => {
   });
 });
 
-describe("getProfileView — contact (telefon/email) opt-in, redactat pe server (2026-07-16)", () => {
-  it("proprietarul vede ÎNTOTDEAUNA telefonul/emailul lui, chiar dacă nu sunt vizibile public", async () => {
+describe("getProfileView — contact (telefon/email) strict opt-in prin bifă, INDIFERENT de viewer (2026-08-17, corectează bug-ul unde owner-ul vedea mereu telefonul chiar cu bifa scoasă)", () => {
+  it("proprietarul cu flaguri FALSE NU vede telefonul/emailul pe propriul profil (bifa controlează, nu ownership-ul)", async () => {
+    const view = await getProfileView(USER_ID, USER_ID);
+    expect(view?.phone).toBeNull();
+    expect(view?.email).toBeNull();
+  });
+
+  it("proprietarul cu flaguri TRUE vede telefonul/emailul pe propriul profil", async () => {
+    vi.mocked(getPublicProfile).mockResolvedValue({
+      ...PROFILE_ROW,
+      phoneVisible: true,
+      emailVisible: true,
+    } as never);
     const view = await getProfileView(USER_ID, USER_ID);
     expect(view?.phone).toBe("0722 000 000");
     expect(view?.email).toBe("ion@exemplu.ro");

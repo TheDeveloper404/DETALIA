@@ -23,11 +23,11 @@ export async function generateMetadata({
   // pagina însăși tot va bloca mai jos, cu 429 implicit prin lipsa conținutului real).
   const ip = await clientIp();
   if (!(await checkLimit(limiters.projectInvitePreviewPerIp, ip)).ok) {
-    return { robots: { index: false, follow: false }, title: "Invitație — DETALIA" };
+    return { robots: { index: false, follow: false }, title: "Invitație" };
   }
   const project = await getProjectPreviewByToken(token);
-  if (!project) return { robots: { index: false, follow: false }, title: "Invitație indisponibilă — DETALIA" };
-  return { robots: { index: false, follow: false }, title: `Invitație: ${project.name} — DETALIA` };
+  if (!project) return { robots: { index: false, follow: false }, title: "Invitație indisponibilă" };
+  return { robots: { index: false, follow: false }, title: `Invitație: ${project.name}` };
 }
 
 export default async function JoinProjectPage({

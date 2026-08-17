@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -14,6 +15,8 @@ import { saveNewDetailDraftAction } from "./actions";
 // `?projectId=X` (2026-08-09): publicare într-un proiect în loc de comunitate — vezi
 // server/domain/project.ts. Fără rol în URL: o ciornă nu poate avea proiect (invarianta), deci
 // butonul „Salvează ciornă" dispare complet în acest mod (vezi mai jos).
+export const metadata: Metadata = { title: "Detaliu nou" };
+
 export default async function NewDetailPage({
   searchParams,
 }: {

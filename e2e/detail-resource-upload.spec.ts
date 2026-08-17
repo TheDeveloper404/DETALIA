@@ -11,7 +11,7 @@ import { deleteBlobs } from "../lib/storage";
 import { pickLeafCategories } from "./category-helpers";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
-// E2E — resursă IMAGE încărcată la /details/new (2026-08-16, raportat Liviu: „dacă văd un link
+// E2E — resursă IMAGE încărcată la /details/new (2026-08-16, raportat: „dacă văd un link
 // kilometric nu știu ce e cu el"). Acoperă exact ce testul unitar (`looksLikeUploadedResource`) NU
 // poate: interacțiunea reală (upload de fișier → link-ul dispare, apare previzualizarea compactă) —
 // singura cale să prindem o regresie unde componenta randează greșit indiferent ce spune heuristica.

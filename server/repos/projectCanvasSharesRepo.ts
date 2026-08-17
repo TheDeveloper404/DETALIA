@@ -22,8 +22,8 @@ export async function insertCanvasShare(input: {
   return row;
 }
 
-// `sharedByUserName`: LIVE (JOIN la citire), NU frozen ca `name` — bug real 2026-08-16 (raportat
-// Liviu): planșa nu purta numele autorului deloc. Citit live (nu copiat în `name` la share) repară și
+// `sharedByUserName`: LIVE (JOIN la citire), NU frozen ca `name` — bug real 2026-08-16 (raportat):
+// planșa nu purta numele autorului deloc. Citit live (nu copiat în `name` la share) repară și
 // partajările deja existente, nu doar cele noi de-acum încolo.
 export function listCanvasSharesByProject(projectId: string) {
   return db

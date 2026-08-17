@@ -1099,7 +1099,7 @@ export function DetailForm({
                         />
                       </div>
                       {isUploaded ? (
-                        // Previzualizare compactă — NU link-ul kilometric (2026-08-16, raportat Liviu:
+                        // Previzualizare compactă — NU link-ul kilometric (2026-08-16, raportat:
                         // „dacă văd un link kilometric nu știu ce e cu el"). Pătrățel mic ca semn că a
                         // urcat: thumbnail real pentru IMAGE, iconiță pentru PDF/CAD (nimic de previzualizat).
                         <div className="flex min-w-0 flex-1 items-center gap-2.5">

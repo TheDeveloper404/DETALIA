@@ -56,6 +56,7 @@ export function UserMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Meniul tău"
+        data-tour="menu"
         className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-muted-foreground transition-colors hover:bg-muted"
       >
         {image ? (

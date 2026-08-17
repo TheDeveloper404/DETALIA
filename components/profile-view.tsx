@@ -4,6 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import type { EarnedBadge } from "@/server/domain/badges";
+
 import { PersonSilhouette } from "./avatar-initials";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 import { ShowMoreButton } from "./show-more-button";
@@ -63,6 +65,7 @@ export type ProfileViewData = {
   about: string | null;
   verified: boolean;
   stats: ProfileStats;
+  badges: EarnedBadge[];
   details: ProfileDetailItem[];
   sketches: ProfileSketchItem[];
   activity: ProfileActivityItem[];
@@ -144,6 +147,14 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
               <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
+              {!data.verified && (
+                <span
+                  title="Verificarea rolului nu este încă disponibilă — o activăm în curând."
+                  className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 py-1 font-mono text-[11.5px] text-muted-foreground/70 opacity-70"
+                >
+                  <ShieldIcon /> Verificare rol — indisponibilă
+                </span>
+              )}
               {hasContactInfo && (
                 <button
                   type="button"
@@ -259,65 +270,41 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         <ContributionGraph days={data.contributions} total={data.contributionsTotal} />
       </div>
 
-      {/* Grid principal: taburi (stânga) + aside (dreapta). */}
-      <div className="mt-6 grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_312px]">
-        <div className="min-w-0">
-          <div className="mb-5 flex gap-1 border-b border-border">
-            <TabButton active={tab === "detalii"} onClick={() => setTab("detalii")}>
-              Detalii
-            </TabButton>
-            <TabButton active={tab === "schite"} onClick={() => setTab("schite")}>
-              Schițe
-            </TabButton>
-            <TabButton active={tab === "activitate"} onClick={() => setTab("activitate")}>
-              Activitate
-            </TabButton>
+      {/* Badge-uri stil StackOverflow — Bronz/Argint/Aur, calculate live din statistici (server/domain/badges.ts). */}
+      <div className="mt-6 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
+        <SectionLabel>Badge-uri</SectionLabel>
+        {data.badges.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.badges.map((b) => (
+              <BadgePill key={b.id} badge={b} />
+            ))}
           </div>
+        ) : (
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+            Niciun badge încă — publică un detaliu, propune o schiță sau votează pe una existentă ca
+            să-l primești pe primul.
+          </p>
+        )}
+      </div>
 
-          {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
-          {tab === "schite" && <SketchesTab items={data.sketches} />}
-          {tab === "activitate" && <ActivityTab items={data.activity} />}
+      {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
+          nume, stil LinkedIn — 2026-08-17). */}
+      <div className="mt-6 min-w-0">
+        <div className="mb-5 flex gap-1 border-b border-border">
+          <TabButton active={tab === "detalii"} onClick={() => setTab("detalii")}>
+            Detalii
+          </TabButton>
+          <TabButton active={tab === "schite"} onClick={() => setTab("schite")}>
+            Schițe
+          </TabButton>
+          <TabButton active={tab === "activitate"} onClick={() => setTab("activitate")}>
+            Activitate
+          </TabButton>
         </div>
 
-        <aside className="flex flex-col gap-[18px]">
-          <div className="rounded-lg bg-card p-5 ring-1 ring-foreground/10">
-            <SectionLabel>Rol &amp; verificare</SectionLabel>
-            {data.verified ? (
-              <>
-                <div className="mb-3.5 mt-3 flex items-center gap-2.5 rounded-lg border border-[#f0e3c2] bg-[#fbf6ea] px-3.5 py-3">
-                  <Star className="shrink-0 text-[#d99a2b]" size={22} />
-                  <div>
-                    <div className="font-semibold text-[#5e4a1a]">Rol verificat</div>
-                    <div className="font-mono text-[11px] text-[#9a7b1f]">{data.roleLabel}</div>
-                  </div>
-                </div>
-                <p className="text-[13px] leading-relaxed text-muted-foreground">
-                  Verificarea confirmă rolul declarat lângă numele tău. Nu e un scor — doar un semn de
-                  încredere pentru breaslă. Părerea ta cântărește prin rol, nu printr-un număr.
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="mb-3.5 mt-3 flex items-center gap-2.5 rounded-lg border border-border bg-secondary px-3.5 py-3">
-                  <span className="flex size-[22px] shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[#b6a98f] text-xs text-muted-foreground">
-                    ?
-                  </span>
-                  <div>
-                    <div className="font-semibold text-foreground">Rol declarat</div>
-                    <div className="font-mono text-[11px] text-muted-foreground">
-                      {data.roleLabel} · neverificat
-                    </div>
-                  </div>
-                </div>
-                <p className="text-[13px] leading-relaxed text-muted-foreground">
-                  Cont complet funcțional: poți publica detalii, propune schițe și valida fără nicio
-                  restricție. <strong className="font-semibold text-foreground">Verificarea rolului nu este
-                  încă disponibilă</strong> — o activăm în curând (va adăuga steluța ★ lângă nume).
-                </p>
-              </>
-            )}
-          </div>
-        </aside>
+        {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
+        {tab === "schite" && <SketchesTab items={data.sketches} />}
+        {tab === "activitate" && <ActivityTab items={data.activity} />}
       </div>
     </div>
   );
@@ -329,6 +316,32 @@ function Stat({ value, label }: { value: number; label: string }) {
       <div className="text-2xl font-extrabold text-foreground">{value}</div>
       <div className="mt-0.5 font-mono text-[11.5px] text-muted-foreground">{label}</div>
     </div>
+  );
+}
+
+const BADGE_TIER_STYLE: Record<EarnedBadge["tier"], string> = {
+  bronze: "border-[#d9b28c] bg-[#f7ede1] text-[#8a5a2b]",
+  silver: "border-[#d6d6da] bg-[#f2f2f4] text-[#5a5a63]",
+  gold: "border-[#f0e0b4] bg-[#fbf6ea] text-[#9a7b1f]",
+};
+const BADGE_TIER_LABEL: Record<EarnedBadge["tier"], string> = {
+  bronze: "Bronz",
+  silver: "Argint",
+  gold: "Aur",
+};
+
+function BadgePill({ badge }: { badge: EarnedBadge }) {
+  return (
+    <span
+      title={badge.description}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold ${BADGE_TIER_STYLE[badge.tier]}`}
+    >
+      <Star size={11} />
+      {badge.label}
+      <span className="font-mono text-[10.5px] font-normal opacity-75">
+        {BADGE_TIER_LABEL[badge.tier]}
+      </span>
+    </span>
   );
 }
 
@@ -578,6 +591,14 @@ function Star({ className, size = 12 }: { className?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
       <path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   );
 }
