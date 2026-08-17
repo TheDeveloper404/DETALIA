@@ -7,8 +7,10 @@ import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
 import { MobileCategoryFilter } from "@/components/mobile-category-filter";
 import { ProductTour } from "@/components/product-tour";
+import { WhatsNewModal } from "@/components/whats-new-modal";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
+import { getUnseenAnnouncement } from "@/server/services/announcementService";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import {
@@ -41,15 +43,17 @@ export default async function FeedPage({
   const { cat, q: rawQ, welcome, tour } = await searchParams;
   const q = rawQ?.trim() || null;
 
-  const [categories, totalPublished, role, authors, media, platform, debated] = await Promise.all([
-    listCategoriesWithCounts(),
-    getPublishedDetailsCount(),
-    getUserRole(session.user.id),
-    getActiveAuthors(5),
-    getUserMedia(session.user.id),
-    getPlatformState(),
-    getTopDebated(7),
-  ]);
+  const [categories, totalPublished, role, authors, media, platform, debated, unseenAnnouncement] =
+    await Promise.all([
+      listCategoriesWithCounts(),
+      getPublishedDetailsCount(),
+      getUserRole(session.user.id),
+      getActiveAuthors(5),
+      getUserMedia(session.user.id),
+      getPlatformState(),
+      getTopDebated(7),
+      getUnseenAnnouncement(session.user.id),
+    ]);
 
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
   const announcement = platform.announcement;
@@ -76,6 +80,7 @@ export default async function FeedPage({
   return (
     <>
     <ProductTour active={tour === "1"} />
+    <WhatsNewModal items={unseenAnnouncement ?? []} />
     <FeedEntrance welcome={welcome === "1"}>
     <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
       <FeedSidebar
