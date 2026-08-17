@@ -126,7 +126,18 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       {/* Header de profil. Avatarul iese peste banner; numele/rolul stau SUB banner, pe fundal —
           așa un cover închis sau aglomerat nu mai acoperă numele. */}
       <div className="relative px-5 pb-5">
-        <span className="-mt-[46px] flex size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-background bg-[#d9cab6] font-mono text-[30px] text-muted-foreground">
+        <span
+          title={
+            data.verified
+              ? undefined
+              : "Verificarea rolului nu este încă disponibilă — momentan indisponibilă."
+          }
+          className={`-mt-[46px] flex size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 bg-[#d9cab6] font-mono text-[30px] text-muted-foreground ${
+            data.verified
+              ? "border-background"
+              : "cursor-default border-dashed border-border/80"
+          }`}
+        >
           {data.image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.image} alt="" className="size-full object-cover" />
@@ -147,14 +158,6 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
               <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
-              {!data.verified && (
-                <span
-                  title="Verificarea rolului nu este încă disponibilă — o activăm în curând."
-                  className="inline-flex cursor-default items-center gap-1.5 rounded-full border border-dashed border-border px-2.5 py-1 font-mono text-[11.5px] text-muted-foreground/70 opacity-70"
-                >
-                  <ShieldIcon /> Verificare rol — indisponibilă
-                </span>
-              )}
               {hasContactInfo && (
                 <button
                   type="button"
@@ -591,14 +594,6 @@ function Star({ className, size = 12 }: { className?: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
       <path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4L4.2 7.7l5.4-.8z" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
     </svg>
   );
 }
