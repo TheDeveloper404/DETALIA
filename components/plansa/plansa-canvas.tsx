@@ -73,7 +73,7 @@ import {
 // retroactiv corectă pt ele (verificat 2026-08-07: nicio distorsiune curentă, dar riscul e real la
 // următoarea schimbare de raport).
 const WORKSPACE_RATIO = 9 / 16;
-// Rezoluția thumbnail-ului exportat (aceeași rație). 2400 (era 800, 2026-08-16, raportat Liviu): un
+// Rezoluția thumbnail-ului exportat (aceeași rație). 2400 (era 800, 2026-08-16, raportat): un
 // singur item pe planșă e adesea o fracțiune din lățimea totală — la 800px lățime totală, un item la
 // ~25% din planșă ajungea la ~200px, ilizibil odată decupat (feature „Dintr-o planșă", §7 Faza C, care
 // reutilizează exact acest export ca sursă de decupaj). Server-ul suportă până la 4096px pe latura cea

@@ -41,6 +41,7 @@ export function AddDetailFab() {
         aria-expanded={open}
         aria-label="Adaugă"
         title="Adaugă"
+        data-tour="add"
         className="inline-flex items-center gap-2 rounded-full border border-[#95492e] bg-primary px-5 py-3.5 font-semibold text-primary-foreground no-underline shadow-lg transition-colors hover:bg-[#974a2e]"
       >
         <Plus className="size-[18px]" strokeWidth={2.4} />

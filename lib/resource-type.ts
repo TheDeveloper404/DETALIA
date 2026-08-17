@@ -8,7 +8,7 @@ export type ResourceType = "IMAGE" | "LINK" | "PDF" | "CAD";
 export const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["IMAGE", "PDF", "CAD"]);
 
 // O resursă UPLOADABILĂ (IMAGE/PDF/CAD) al cărei URL arată a fi urcat de NOI (Vercel Blob), nu lipit
-// de mână — 2026-08-16, raportat Liviu: „văd un link kilometric, nu știu ce e cu el" după upload.
+// de mână — 2026-08-16, raportat: „văd un link kilometric, nu știu ce e cu el" după upload.
 // Doar heuristică de AFIȘARE (schimbă link-ul cu o previzualizare mică), NU o poartă de securitate —
 // un fals-pozitiv rar (link extern care conține din întâmplare acest host) nu are consecințe reale,
 // doar arată previzualizarea compactă în loc de câmp de text.

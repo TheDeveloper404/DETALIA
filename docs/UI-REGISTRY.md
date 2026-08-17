@@ -91,5 +91,21 @@ care modalul e reimplementat de 9 ori mai sus — nu există un `<Dialog>` shadc
 
 ---
 
+## Badge-uri de profil (`BadgePill`)
+`components/profile-view.tsx` — pill Bronz/Argint/Aur, calculate LIVE (fără DB nouă) de
+`server/domain/badges.ts` (`computeBadges`), pe praguri fixe din statisticile deja afișate în profil
+(detalii publicate, schițe, validări date/primite, zile active/an din heatmap). Prag nou/badge nou →
+editează `BADGE_DEFS` în `badges.ts`, testat de `badges.test.ts`.
+
+## Tur ghidat (`ProductTour`)
+`components/product-tour.tsx` — driver.js, restilizat pe paletă (`.detalia-tour-popover` în
+`globals.css`). Declanșat o singură dată, prin `?tour=1` în URL (NU un flag persistat) — la
+DETALIA e setat exact la finalul onboarding-ului (`app/onboarding/actions.ts`), nu la fiecare
+login. Țintele sunt atribute `data-tour="..."` puse pe elementele reale de UI (nu wrapper-e noi) —
+adaugă un pas nou punând `data-tour` pe elementul existent + o intrare în `TOUR_STEPS`, verificată
+de `product-tour.test.ts` (selectori reali, fără duplicate).
+
+---
+
 ## Neacoperit încă (adaugă pe măsură ce apare)
 Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/notificare inline.

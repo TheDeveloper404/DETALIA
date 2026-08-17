@@ -140,13 +140,13 @@ export function DetailWorkspace({
     const idx = sketches.findIndex((s) => s.id === wanted);
     return idx >= 0 ? idx + 1 : 0;
   });
-  // Adnotarea pornește DESCHISĂ implicit (2026-08-11, decizie Liviu: e „startul dezbaterii", trebuie
+  // Adnotarea pornește DESCHISĂ implicit (2026-08-11, decizie de produs: e „startul dezbaterii", trebuie
   // vizibilă din prima, nu ascunsă după un click). Cel mult UNA (MAX_ANNOTATIONS_PER_DETAIL = 1) —
   // `annotations[0]` dacă există. Cititorul o poate închide din butonul din colț; starea e doar de
   // afișare, fără persistență (revine deschisă la un reload).
   // (Istoric: 2026-07-31→2026-08-01 pornea vizibilă; 2026-08-02→2026-08-11 pornea închisă, până la 3.)
   // Nod DOM din bara de taburi unde `ValidationPanel` portalează controlul compact de vot (2026-08-16,
-  // raportat Liviu). `useState`, nu `useRef`: un ref simplu n-ar declanșa re-render când elementul se
+  // raportat). `useState`, nu `useRef`: un ref simplu n-ar declanșa re-render când elementul se
   // atașează la primul mount, iar portalul ar rămâne fără țintă până la următoarea randare oarecare.
   const [voteSlotEl, setVoteSlotEl] = useState<HTMLDivElement | null>(null);
   const [openAnnotationId, setOpenAnnotationId] = useState<string | null>(annotations[0]?.id ?? null);
@@ -298,7 +298,7 @@ export function DetailWorkspace({
     : [...stackLayers.filter((l) => !hiddenLayerIds.has(l.id)).map((l) => l.id), activeSketch!.id];
 
   // O SINGURĂ denumire peste tot („Schițează peste detaliu" vs „...ce vezi acum" complica înțelegerea,
-  // 2026-08-16, raportat Liviu) — acțiunea e identică din perspectiva userului (continuă dezbaterea cu
+  // 2026-08-16, raportat) — acțiunea e identică din perspectiva userului (continuă dezbaterea cu
   // ce e aprins pe ecran acum, fie detaliul singur, fie detaliul + adnotare, fie o schiță), doar
   // `capturedStack` (mai sus) diferă tehnic după context.
   const startSketchLabel = "Schițează";
@@ -455,7 +455,7 @@ export function DetailWorkspace({
             (box-shadow) și descendentele literelor (ș/ț) se tăiau la marginea de jos. */}
         {/* Rândul exterior separă taburile scrollabile (flex-1 min-w-0, pot face scroll orizontal) de
             slot-ul de vot (shrink-0, FIX — altfel ar putea ieși din ecran la scroll pe multe taburi,
-            2026-08-16, raportat Liviu: săgețile mutate aici din coloana verticală de jos). */}
+            2026-08-16, raportat: săgețile mutate aici din coloana verticală de jos). */}
         <div className="flex items-center gap-2 px-4 pb-1.5 pt-3 sm:px-5">
           <div className="flex min-h-11 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto">
             <button
@@ -619,7 +619,7 @@ export function DetailWorkspace({
               {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, CU văl semitransparent (2026-08-11: o
                   adnotare e o schiță ca oricare alta — fundalul translucid o face lizibilă peste
                   imaginea de bază, la fel ca la orice altă schiță). Pornește DESCHISĂ implicit
-                  (2026-08-11, decizie Liviu: „e startul dezbaterii" — vezi `openAnnotationId`
+                  (2026-08-11, decizie de produs: „e startul dezbaterii" — vezi `openAnnotationId`
                   mai sus); cititorul o poate închide din butonul din colț. `key` pe id → fade-in
                   la comutarea între ele. */}
               {isBase && openAnnotation && (

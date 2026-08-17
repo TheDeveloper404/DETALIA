@@ -1,5 +1,9 @@
+import type { Metadata } from "next";
+
 import { MaintenanceScreen } from "@/components/maintenance-screen";
 import { getPlatformState } from "@/server/services/settingsService";
+
+export const metadata: Metadata = { title: "Mentenanță" };
 
 // Ecranul „site în lucru". Servit prin REWRITE din proxy când lockdown e activ (URL-ul rămâne cel cerut).
 // Public (vezi PUBLIC_PATHS). Dacă cineva ajunge aici fără lockdown, e doar un ecran static inofensiv.

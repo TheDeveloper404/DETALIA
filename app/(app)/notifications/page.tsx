@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -5,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { getNotifications } from "@/server/services/notificationService";
 
 import { MarkReadOnView } from "./mark-read-on-view";
+
+export const metadata: Metadata = { title: "Notificări" };
 
 type Payload = { detailId?: string; detailTitle?: string; sketchAuthorName?: string | null };
 

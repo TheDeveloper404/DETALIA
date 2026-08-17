@@ -1,10 +1,13 @@
 import { LayoutDashboard } from "lucide-react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { listMyCanvases } from "@/server/services/plansaService";
 
 import { CanvasesList } from "./canvases-list";
+
+export const metadata: Metadata = { title: "Planșele mele" };
 
 // „Planșele mele" — colecția personală de planșe (canvas privat). Listă simplă, ca /saved.
 export default async function CanvasesPage() {

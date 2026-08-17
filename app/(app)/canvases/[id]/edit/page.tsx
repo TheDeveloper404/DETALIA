@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { getCanvasForEdit } from "@/server/services/plansaService";
 
 import CanvasEditor from "./canvas-editor";
+
+export const metadata: Metadata = { title: "Editare planșă" };
 
 // Editor de Planșă — DOAR owner-ul (getCanvasForEdit întoarce NOT_FOUND altfel; conținut strict privat).
 export default async function CanvasEditPage({ params }: { params: Promise<{ id: string }> }) {

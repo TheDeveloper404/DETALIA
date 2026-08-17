@@ -23,9 +23,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const sketch = await getPublicSketch(id);
-  if (!sketch) return { title: "Schiță indisponibilă — DETALIA" };
+  if (!sketch) return { title: "Schiță indisponibilă" };
   return {
-    title: `Schiță peste „${sketch.detailTitle}” — DETALIA`,
+    title: `Schiță peste „${sketch.detailTitle}”`,
     // Descrierea intră în OG și ajunge indexată — o identitate retrasă nu are ce căuta aici.
     description: `O schiță de ${sketch.authorRemoved ? "un autor retras" : (sketch.authorName ?? "un membru al comunității")} peste „${sketch.detailTitle}”, pe DETALIA.`,
   };

@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -9,6 +10,8 @@ import { getUserRole } from "@/server/services/roleService";
 
 import { DeleteAccountSection } from "../delete-account-section";
 import { EditDetailsForm, VerificationSection } from "../profile-forms";
+
+export const metadata: Metadata = { title: "Editare profil" };
 
 // Setările proprii de profil (editare). Vizualizarea publică e la /profile (read) și /profile/[userId].
 export default async function ProfileEditPage() {

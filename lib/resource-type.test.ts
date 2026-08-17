@@ -6,7 +6,7 @@ import { looksLikeUploadedResource } from "./resource-type";
 // de formular (upload de fișier, stare de rânduri), netestabilă unitar. Verifică: doar tipurile
 // UPLOADABILE (IMAGE/PDF/CAD) contează, LINK rămâne mereu câmp de text indiferent de valoare; doar
 // un URL de pe storage-ul propriu (Vercel Blob) declanșează previzualizarea compactă, un link extern
-// oarecare rămâne vizibil ca text (2026-08-16, raportat Liviu).
+// oarecare rămâne vizibil ca text (2026-08-16, raportat).
 describe("looksLikeUploadedResource", () => {
   it("IMAGE cu URL de pe blob-ul propriu → true (previzualizare compactă)", () => {
     expect(

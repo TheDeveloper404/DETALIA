@@ -29,7 +29,7 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DETALIA",
+  title: { default: "DETALIA", template: "%s — DETALIA" },
   description:
     "Comunitatea profesională din construcții, organizată în jurul detaliului de execuție.",
 };

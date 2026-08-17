@@ -22,8 +22,8 @@ export type ContentCanvasShare = {
   id: string;
   name: string;
   sharedByUserId: string;
-  // Live (JOIN la citire), NU frozen — repară și partajările deja existente (2026-08-16, raportat
-  // Liviu: planșa nu purta deloc numele autorului).
+  // Live (JOIN la citire), NU frozen — repară și partajările deja existente (2026-08-16, raportat:
+  // planșa nu purta deloc numele autorului).
   sharedByUserName: string | null;
 };
 export type ContentCanvasOption = { id: string; name: string; thumbnailUrl: string | null };
@@ -149,7 +149,7 @@ export function ContentGrid({
 
 // Planșa partajată e o COPIE ÎNGHEȚATĂ, needitabilă (§6B) — „intri" în ea ca lightbox (imaginea
 // mărită), nu ca un editor. Înainte era un `<div>` simplu, fără link/click (bug real 2026-08-16,
-// raportat Liviu: „doar previzualizare, nu pot să intru, doar șterge") — tiparul de lightbox e
+// raportat: „doar previzualizare, nu pot să intru, doar șterge") — tiparul de lightbox e
 // EXACT cel din `resource-image.tsx` (imagine de tip resursă), adaptat la proxy-ul autenticat.
 function CanvasShareTile({
   share,
