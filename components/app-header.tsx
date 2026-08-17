@@ -63,6 +63,7 @@ export async function AppHeader() {
             href="/projects"
             aria-label="Proiecte"
             title="Proiecte"
+            data-tour="projects"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
           >
             <FolderKanban className="size-5" strokeWidth={2} />

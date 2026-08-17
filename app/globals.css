@@ -696,3 +696,59 @@ html[data-intro="seen"] .dt-intro {
 .dt-onb .dt-cta:hover:not(:disabled) {
   background-color: #974a2e;
 }
+
+/* Tur ghidat (driver.js) — restilizat pe paleta DETALIA în loc de temă default. Vezi components/product-tour.tsx. */
+.detalia-tour-popover.driver-popover {
+  background-color: var(--card);
+  color: var(--foreground);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  box-shadow: 0 22px 56px -34px rgba(33, 29, 24, 0.45);
+  padding: 18px;
+  max-width: 320px;
+  font-family: var(--font-geist-sans), sans-serif;
+}
+.detalia-tour-popover .driver-popover-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--foreground);
+}
+.detalia-tour-popover .driver-popover-description {
+  color: color-mix(in srgb, var(--foreground) 70%, transparent);
+  font-size: 13.5px;
+}
+.detalia-tour-popover .driver-popover-progress-text {
+  font-family: var(--font-plex-mono), monospace;
+  color: color-mix(in srgb, var(--foreground) 55%, transparent);
+}
+.detalia-tour-popover .driver-popover-footer-btn {
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  background-color: transparent;
+  font-size: 12.5px;
+  padding: 5px 12px;
+}
+.detalia-tour-popover .driver-popover-footer-btn:hover {
+  background-color: var(--secondary);
+}
+.detalia-tour-popover .driver-popover-next-btn,
+.detalia-tour-popover .driver-popover-done-btn {
+  background-color: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.detalia-tour-popover .driver-popover-next-btn:hover,
+.detalia-tour-popover .driver-popover-done-btn:hover {
+  background-color: #974a2e;
+}
+.detalia-tour-popover .driver-popover-arrow-side-left { border-right-color: var(--card); }
+.detalia-tour-popover .driver-popover-arrow-side-right { border-left-color: var(--card); }
+.detalia-tour-popover .driver-popover-arrow-side-top { border-bottom-color: var(--card); }
+.detalia-tour-popover .driver-popover-arrow-side-bottom { border-top-color: var(--card); }
+.detalia-tour-popover .driver-popover-close-btn {
+  color: color-mix(in srgb, var(--foreground) 40%, transparent);
+}
+.detalia-tour-popover .driver-popover-close-btn:hover {
+  color: var(--foreground);
+}

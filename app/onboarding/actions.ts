@@ -115,6 +115,7 @@ export async function onboardingAction(
   });
   await posthog.flush();
 
-  // Profil complet → direct în feed (frecare minimă la primul contact).
-  redirect("/feed");
+  // Profil complet → direct în feed (frecare minimă la primul contact). `tour=1`: singurul punct
+  // real de „user chiar nou" — declanșează turul ghidat o singură dată (vezi product-tour.tsx).
+  redirect("/feed?tour=1");
 }

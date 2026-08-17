@@ -1,4 +1,5 @@
 import { Hand } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -10,6 +11,8 @@ import { getUserRole } from "@/server/services/roleService";
 // „Ofertele mele" — PRIVATĂ, doar rol FURNIZOR (verificat din DB, nu din client — un non-Furnizor care
 // accesează URL-ul direct primește listă goală + mesaj, nu datele altcuiva; oricum query-ul e scopat
 // strict pe userId din sesiune, deci n-ar vedea decât propriile lui rânduri, dar rolul greșit = 0 rânduri).
+export const metadata: Metadata = { title: "Ofertele mele" };
+
 // Aceleași carduri ca /saved — listă simplă, fără filtre (colecție personală, mică).
 export default async function MyOffersPage() {
   const session = await auth();
