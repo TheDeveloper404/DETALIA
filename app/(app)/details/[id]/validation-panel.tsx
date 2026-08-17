@@ -19,8 +19,8 @@ import { approveAction, disapproveAction, retractAction, type DisapproveState } 
 
 const initialState: DisapproveState = { error: null };
 
-// Pozițiile celorlalți — tăiate la un plafon fix, „Vezi mai multe" pentru rest (2026-08-16, raportat
-// Liviu: cu 50 de useri, lista devenea un perete înainte de comentarii). Vezi UI-REGISTRY.md
+// Pozițiile celorlalți — tăiate la un plafon fix, „Vezi mai multe" pentru rest (2026-08-16, raportat:
+// cu 50 de useri, lista devenea un perete înainte de comentarii). Vezi UI-REGISTRY.md
 // §„Vezi mai multe".
 const VISIBLE_POSITIONS = 6;
 
@@ -48,7 +48,7 @@ export function ValidationPanel({
   meta?: { comments: number; sketches: number }; // contoare detaliu (validări/comentarii/schițe) — doar pe DETAIL
   embedded?: boolean; // true = fără card propriu (border/bg/padding) + butoane compacte, integrat în workspace
   // Nod DOM din bara de taburi (detail-workspace.tsx) unde se portalează controlul compact de vot
-  // (2026-08-16, raportat Liviu: coloana verticală de jos „pare orfană"). Starea/logica de vot rămân
+  // (2026-08-16, raportat: coloana verticală de jos „pare orfană"). Starea/logica de vot rămân
   // AICI, într-o singură instanță de componentă — doar JSX-ul butoanelor se randează în alt loc din
   // DOM (React portal), ca să nu dublăm/rupem fluxul de aprob/dezaprob/optimistic UI. Fără el (null),
   // butoanele cad pe randarea locală, verticală, de mai jos — comportament identic cu dinainte.
@@ -117,7 +117,7 @@ export function ValidationPanel({
   );
 
   // Widget orizontal stil StackOverflow: săgeată stânga (Aprob) / count / săgeată dreapta (Dezaprob).
-  // 2026-08-16 (raportat Liviu): mutat din coloană verticală în bara de taburi (portal, `voteSlot`) —
+  // 2026-08-16 (raportat): mutat din coloană verticală în bara de taburi (portal, `voteSlot`) —
   // „pare orfană" jos, izolată de restul cardului. Poziția activă rămâne umplută + colorată; săgeata
   // opusă e dezactivată cât ai o poziție — comutarea trece explicit prin „Retrage" (click pe săgeata
   // activă), nu direct dintr-o poziție în alta. Aceeași logică/stare ca înainte, doar orientare + loc.

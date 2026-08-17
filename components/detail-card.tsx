@@ -1,7 +1,7 @@
 // Card de detaliu în feed — layout orizontal: thumbnail (imaginea 2D) + conținut (titlu, text,
 // autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
 //
-// Aprob/Dezaprob NU se dă din feed (2026-08-16, decizie Liviu) — doar count-ul, informativ; votul
+// Aprob/Dezaprob NU se dă din feed (2026-08-16, decizie de produs) — doar count-ul, informativ; votul
 // real se dă de pe pagina detaliului, după ce ai citit explicația autorului.
 import { CircleCheck, Eye, Layers, MessageSquare } from "lucide-react";
 import Image from "next/image";

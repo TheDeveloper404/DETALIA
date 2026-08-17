@@ -95,7 +95,7 @@ describe("validateProjectName", () => {
   });
 });
 
-// Bug real 2026-08-16 (raportat Liviu): fără `timeZone` explicit, `Date.get*()` citește ora
+// Bug real 2026-08-16 (raportat): fără `timeZone` explicit, `Date.get*()` citește ora
 // runtime-ului serverului (Vercel = UTC), nu ora Bucureștiului — numele partajării arăta mereu cu
 // 2-3 ore în urmă. Verificăm EXPLICIT ambele reguli DST (vara = +3, iarna = +2), nu doar o dată.
 describe("formatShareTimestamp", () => {

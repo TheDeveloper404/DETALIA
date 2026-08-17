@@ -9,6 +9,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import { normalizeWebsite } from "@/lib/url";
 import { isUsersBlobUrl } from "@/lib/blob-url";
+import { computeBadges } from "@/server/domain/badges";
 import { isUuid } from "@/server/domain/ids";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import type { RoleSnapshot } from "@/server/domain/validation";
@@ -119,6 +120,15 @@ export async function getProfileView(
     contributions.push({ date, count, level: levelOf(count) });
   }
 
+  const activeDaysLastYear = contributions.filter((c) => c.count > 0).length;
+  const badges = computeBadges({
+    published: stats.published,
+    sketches: stats.sketches,
+    validationsGiven: stats.validationsGiven,
+    validationsReceived: stats.validationsReceived,
+    activeDaysLastYear,
+  });
+
   const roleLabel = roleLabelOf(profile.roleMain, profile.subRole);
   const viewerIsOwner = userId === viewerId;
 
@@ -179,13 +189,16 @@ export async function getProfileView(
     location: profile.location,
     company: profile.company,
     website: safeWebsite(profile.website),
-    // Contact — owner vede mereu al lui; ceilalți DOAR dacă userul l-a făcut explicit vizibil (opt-in).
-    phone: viewerIsOwner || profile.phoneVisible ? profile.phone : null,
-    email: viewerIsOwner || profile.emailVisible ? profile.email : null,
+    // Contact — strict opt-in prin bifă, INDIFERENT de viewer (owner inclusiv): checkbox debifat →
+    // dispare și de pe propriul profil, nu doar de la ceilalți (decizie 2026-08-17, corectează
+    // comportamentul anterior unde owner-ul vedea mereu telefonul chiar cu bifa scoasă).
+    phone: profile.phoneVisible ? profile.phone : null,
+    email: profile.emailVisible ? profile.email : null,
     bio: profile.headline, // headline = tagline sub nume
     about: profile.about,
     verified: profile.verificationStatus === "VERIFIED",
     stats,
+    badges,
     // Repo-ul filtrează PUBLISHED (profileRepo) → imageUrl mereu setat.
     details: detailRows.map((d) => ({ ...d, imageUrl: d.imageUrl! })),
     sketches: sketchRows.map((s) => ({

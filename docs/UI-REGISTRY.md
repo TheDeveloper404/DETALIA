@@ -91,6 +91,12 @@ care modalul e reimplementat de 9 ori mai sus — nu există un `<Dialog>` shadc
 
 ---
 
+## Badge-uri de profil (`BadgePill`)
+`components/profile-view.tsx` — pill Bronz/Argint/Aur, calculate LIVE (fără DB nouă) de
+`server/domain/badges.ts` (`computeBadges`), pe praguri fixe din statisticile deja afișate în profil
+(detalii publicate, schițe, validări date/primite, zile active/an din heatmap). Prag nou/badge nou →
+editează `BADGE_DEFS` în `badges.ts`, testat de `badges.test.ts`.
+
 ## Tur ghidat (`ProductTour`)
 `components/product-tour.tsx` — driver.js, restilizat pe paletă (`.detalia-tour-popover` în
 `globals.css`). Declanșat o singură dată, prin `?tour=1` în URL (NU un flag persistat) — la
