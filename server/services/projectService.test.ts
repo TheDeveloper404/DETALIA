@@ -237,7 +237,7 @@ describe("canAccessProjectDetail — SINGURUL punct de control pentru vizibilita
 describe("getProjectForViewer — anti-enumerare", () => {
   it("fără acces → null (aceeași formă ca la proiect inexistent)", async () => {
     vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
-    expect(await getProjectForViewer({ projectId: PROJECT_ID, userId: STRANGER_ID })).toBeNull();
+    expect(await getProjectForViewer(PROJECT_ID, STRANGER_ID)).toBeNull();
   });
 
   it("cu acces → project + members + isOwner", async () => {
@@ -246,7 +246,7 @@ describe("getProjectForViewer — anti-enumerare", () => {
       .mockResolvedValueOnce(projectRow() as never); // getProjectById direct
     vi.mocked(listActiveMembers).mockResolvedValueOnce([{ id: "m1", userId: MEMBER_ID }] as never);
 
-    const res = await getProjectForViewer({ projectId: PROJECT_ID, userId: OWNER_ID });
+    const res = await getProjectForViewer(PROJECT_ID, OWNER_ID);
     expect(res).toEqual({
       project: projectRow(),
       members: [{ id: "m1", userId: MEMBER_ID }],
@@ -264,7 +264,7 @@ describe("getProjectForViewer — anti-enumerare", () => {
     vi.mocked(isActiveMember).mockResolvedValueOnce(true);
     vi.mocked(listActiveMembers).mockResolvedValueOnce([{ id: "m1", userId: MEMBER_ID }] as never);
 
-    const res = await getProjectForViewer({ projectId: PROJECT_ID, userId: MEMBER_ID });
+    const res = await getProjectForViewer(PROJECT_ID, MEMBER_ID);
     expect(res).toEqual({
       project: { ...projectRow(), inviteToken: null },
       members: [{ id: "m1", userId: MEMBER_ID }],
