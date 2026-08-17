@@ -10,15 +10,19 @@ import { confirmAnnouncementSeenAction } from "@/app/(app)/profile/actions";
 import { DialogOverlay } from "./dialog-overlay";
 
 export function WhatsNewModal({ items }: { items: AnnouncementItem[] }) {
-  const [open, setOpen] = useState(items.length > 0);
+  // Captat O SINGURĂ DATĂ la mount (nu re-citit din prop) — pagina se poate re-randa pe server (ex.
+  // `FeedEntrance` face `router.replace()` la ?welcome=1), iar la a doua trecere `items` vine deja gol
+  // (fusese marcat văzut instant de efectul de mai jos), ceea ce închidea panoul instant după deschidere.
+  const [shown] = useState(items);
+  const [open, setOpen] = useState(shown.length > 0);
 
   // Marchează versiunea ca văzută imediat ce se afișează — un refresh nu trebuie să retrigger-uiască
   // panoul. Fire-and-forget: e o simplă bifă, nu blochează UI-ul dacă rețeaua e lentă.
   useEffect(() => {
-    if (items.length > 0) void confirmAnnouncementSeenAction();
-  }, [items]);
+    if (shown.length > 0) void confirmAnnouncementSeenAction();
+  }, [shown]);
 
-  if (!open || items.length === 0) return null;
+  if (!open || shown.length === 0) return null;
 
   return (
     <DialogOverlay
@@ -33,7 +37,7 @@ export function WhatsNewModal({ items }: { items: AnnouncementItem[] }) {
       >
         <h2 className="text-lg font-bold">Ce e nou pe DETALIA</h2>
         <div className="mt-4 flex flex-col gap-4">
-          {items.map((item) => (
+          {shown.map((item) => (
             <div key={item.title}>
               <h3 className="text-sm font-semibold">{item.title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{item.body}</p>
