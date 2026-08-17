@@ -11,7 +11,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import { normalizeWebsite } from "@/lib/url";
 import { isUsersBlobUrl } from "@/lib/blob-url";
-import { computeBadges } from "@/server/domain/badges";
+import { computeBadges, diffNewBadges, snapshotBadges, type EarnedBadge, type SeenBadges } from "@/server/domain/badges";
 import { isUuid } from "@/server/domain/ids";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import type { RoleSnapshot } from "@/server/domain/validation";
@@ -26,6 +26,7 @@ import {
   getPublicProfile,
   getUserMedia,
   getUserProfile,
+  updateSeenBadges,
   updateUserCoverImage,
   updateUserCoverPosition,
   updateUserDetails,
@@ -66,6 +67,11 @@ function safeWebsite(raw: string | null): { href: string; label: string } | null
   }
 }
 
+// „Membru din <lună an>" — vizibil pe orice profil (public), nu doar al proprietarului.
+export function memberSinceOf(createdAt: Date): string {
+  return createdAt.toLocaleDateString("ro-RO", { month: "long", year: "numeric" });
+}
+
 // Doar meseria (subRole) apare în platformă — rolul principal e doar grupare internă (lista_meserii.md).
 export function roleLabelOf(roleMain: string | null, subRole: string | null): string {
   if (!roleMain) return "Rol nedeclarat";
@@ -90,6 +96,31 @@ const SKETCH_STATUS_VIEW: Record<
   REJECTED: { statusLabel: "Respinsă", statusKind: "disputed" },
   PENDING_ACCEPTANCE: { statusLabel: "În așteptare", statusKind: "open" },
 };
+
+// Badge-urile curente ale unui user, fără restul datelor de profil (folosit de `markBadgesSeen`, care
+// n-are nevoie de activitate/detalii/schițe — doar de statisticile care intră în calculul de badge).
+async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
+  const { startMs } = contributionWindow();
+  const [stats, contribCounts] = await Promise.all([
+    getProfileStats(userId),
+    getContributionCounts(userId, new Date(startMs)),
+  ]);
+  // `contribCounts` conține DOAR zilele cu activitate (>0) — mărimea mapului = nr. de zile active.
+  return computeBadges({
+    published: stats.published,
+    sketches: stats.sketches,
+    validationsGiven: stats.validationsGiven,
+    validationsReceived: stats.validationsReceived,
+    activeDaysLastYear: contribCounts.size,
+  });
+}
+
+// Confirmă pop-up-ul de badge nou — salvează snapshot-ul curent ca „văzut", ca să nu reapară la
+// următoarea vizită. Recalculează badge-urile server-side (nu are încredere în ce trimite clientul).
+export async function markBadgesSeen(userId: string): Promise<void> {
+  const badges = await computeCurrentBadges(userId);
+  await updateSeenBadges(userId, snapshotBadges(badges));
+}
 
 // Întoarce datele de profil + dacă vizitatorul e proprietarul (ascunde editarea pentru ceilalți).
 // `null` dacă userul nu există.
@@ -136,6 +167,12 @@ export const getProfileView = cache(async (
 
   const roleLabel = roleLabelOf(profile.roleMain, profile.subRole);
   const viewerIsOwner = userId === viewerId;
+
+  // Pop-up „ai primit un badge nou" — DOAR pe propriul profil (altfel un vizitator ar declanșa
+  // celebrarea în locul proprietarului). `seenBadges` e ultimul snapshot confirmat (markBadgesSeen).
+  const newlyEarnedBadges = viewerIsOwner
+    ? diffNewBadges(badges, (profile.seenBadges as SeenBadges | null) ?? {})
+    : [];
 
   // Fuzionează fluxul de activitate (validări + comentarii non-justificare + publicări), recent → vechi.
   type Stamped = { item: ProfileActivityItem; at: Date };
@@ -191,6 +228,7 @@ export const getProfileView = cache(async (
     coverImage: profile.coverImage,
     coverPosition: profile.coverPosition,
     roleLabel,
+    memberSince: memberSinceOf(profile.createdAt),
     location: profile.location,
     company: profile.company,
     website: safeWebsite(profile.website),
@@ -204,6 +242,7 @@ export const getProfileView = cache(async (
     verified: profile.verificationStatus === "VERIFIED",
     stats,
     badges,
+    newlyEarnedBadges,
     // Repo-ul filtrează PUBLISHED (profileRepo) → imageUrl mereu setat.
     details: detailRows.map((d) => ({ ...d, imageUrl: d.imageUrl! })),
     sketches: sketchRows.map((s) => ({

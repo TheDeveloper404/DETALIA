@@ -9,6 +9,7 @@ import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
 import {
+  markBadgesSeen,
   removeAvatar,
   removeCover,
   setAvatar,
@@ -159,6 +160,13 @@ const SIGN_OUT_REDIRECT = "/logout";
 
 // Sign out — șterge cookie-ul de sesiune pe server (signOut() din lib/auth, care scrie Set-Cookie
 // corect din răspunsul intern Auth.js), apoi trimite clientul pe /logout ca al doilea pas.
+// Confirmă pop-up-ul „ai primit un badge nou" — marchează snapshot-ul curent ca văzut, ca să nu
+// reapară la următoarea vizită. userId din sesiune (anti-IDOR, nu acceptă un id din client).
+export async function confirmBadgesSeenAction(): Promise<void> {
+  const userId = await requireActiveUserId();
+  await markBadgesSeen(userId);
+}
+
 export async function signOutAction() {
   // clearSessionCookie() în `finally`: cookie-ul trebuie șters chiar dacă signOut() (Auth.js) eșuează —
   // e operația care contează pentru securitate, nu poate depinde de succesul celeilalte.

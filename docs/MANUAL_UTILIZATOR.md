@@ -30,7 +30,8 @@ Gândește-te la platformă ca la un loc unde:
 
 **De ce contează rolul:** apare mereu lângă numele tău, pe orice comentariu sau poziție de
 aprobare/dezaprobare. Practic, cititorii judecă singuri cât de multă greutate să dea părerii tale, uitându-se
-la rolul tău — platforma nu calculează niciun scor sau punctaj.
+la rolul tău — platforma nu calculează niciun scor pe o singură aprobare/dezaprobare individuală (vezi
+totuși §„Badge-uri de reputație" mai jos, un semnal separat, pe ansamblul activității tale).
 
 ---
 
@@ -225,11 +226,19 @@ strict privată — util când lucrezi cu o echipă la detalii înainte să le f
 
 ---
 
+## 11c. Oferte de la furnizori
+
+Dacă rolul tău e **Furnizor**, poți „ridica mâna" pe orice detaliu public — un semnal către autor că
+poți oferta materialele descrise. Click din nou pe același buton retrage oferta (reversibil). Autorul
+primește o notificare doar la primul semnal, nu la fiecare retragere/reofertare. Nu poți oferta pe
+propriul detaliu.
+
 ## 12. Notificări
 
 Primești o notificare **în platformă** (nu pe email) când:
 - cineva schițează peste un detaliu al tău;
 - autorul unui detaliu îți șterge schița;
+- un furnizor „ridică mâna" pe unul din detaliile tale (prima dată);
 - alte evenimente relevante pentru conținutul tău.
 
 ---
@@ -265,6 +274,19 @@ atins una din limitele de mai sus. Mai încerci peste puțin timp.
 Din meniul de profil poți schimba oricând: numele, rolul/subrolul, poza, descrierea, locația, un link către
 site propriu. Pagina de editare arată acum la fel de lată ca profilul — treci dintr-una în alta fără ca
 aspectul să se schimbe brusc.
+
+---
+
+## 15. Profilul public
+
+Orice profil (al tău sau al altcuiva) arată public:
+- **rolul și subrolul**, cu steluța de verificare dacă e cazul;
+- **data la care ai venit pe platformă** („Membru din …");
+- **badge-uri de reputație** — Bronz/Argint/Aur, câte unul pentru fiecare tip de activitate (detalii
+  publicate, schițe propuse, validări date, validări primite). Se calculează automat din activitatea ta
+  — nu le acorzi manual, nu le poți pierde odată câștigate. Când treci un prag nou, primești un mesaj
+  scurt de felicitare la următoarea vizită pe propriul profil.
+- statistici, un heatmap de contribuții pe ultimul an, și taburile Detalii/Schițe/Activitate.
 
 ---
 

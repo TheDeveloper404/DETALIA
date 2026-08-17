@@ -86,3 +86,22 @@ export function computeBadges(inputs: BadgeInputs): EarnedBadge[] {
   }
   return earned;
 }
+
+const TIER_RANK: Record<BadgeTier, number> = { bronze: 1, silver: 2, gold: 3 };
+
+// Snapshot persistat (users.seen_badges) — ultimul tier VĂZUT per badge, la ultima vizită proprie pe profil.
+export type SeenBadges = Partial<Record<BadgeId, BadgeTier>>;
+
+// Badge-uri NOI sau URCATE de tier față de ultimul snapshot văzut — pentru pop-up-ul „ai primit un badge".
+// Pur (fără I/O) — apelantul (profileService) citește/scrie snapshot-ul.
+export function diffNewBadges(current: EarnedBadge[], seen: SeenBadges): EarnedBadge[] {
+  return current.filter((b) => {
+    const seenTier = seen[b.id];
+    return !seenTier || TIER_RANK[b.tier] > TIER_RANK[seenTier];
+  });
+}
+
+// Snapshot-ul curent, gata de salvat ca `seenBadges` (Record simplu id→tier).
+export function snapshotBadges(current: EarnedBadge[]): SeenBadges {
+  return Object.fromEntries(current.map((b) => [b.id, b.tier])) as SeenBadges;
+}

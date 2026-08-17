@@ -73,6 +73,11 @@ export async function updateUserCoverPosition(userId: string, position: number) 
   await db.update(users).set({ coverPosition: position }).where(eq(users.id, userId));
 }
 
+// Snapshot-ul de badge-uri VĂZUTE — scris DOAR de owner (verificat în service), la confirmarea pop-up-ului.
+export async function updateSeenBadges(userId: string, seenBadges: Record<string, string>) {
+  await db.update(users).set({ seenBadges }).where(eq(users.id, userId));
+}
+
 // Datele de profil pentru /profile/edit (nume, email, poză, cover + headline/locație/website). Email = PII.
 export async function getUserProfile(userId: string) {
   const [row] = await db
@@ -139,6 +144,8 @@ export async function getPublicProfile(userId: string) {
       roleMain: roles.roleMain,
       subRole: roles.subRole,
       verificationStatus: roles.verificationStatus,
+      createdAt: users.createdAt,
+      seenBadges: users.seenBadges,
     })
     .from(users)
     .leftJoin(roles, eq(roles.userId, users.id))

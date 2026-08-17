@@ -14,14 +14,18 @@ vi.mock("@/server/repos/profileRepo", () => ({
 }));
 vi.mock("@/server/repos/usersRepo", () => ({
   getPublicProfile: vi.fn(),
+  updateSeenBadges: vi.fn(),
 }));
 
-import { getPublicProfile } from "@/server/repos/usersRepo";
+import { getContributionCounts, getProfileStats } from "@/server/repos/profileRepo";
+import { getPublicProfile, updateSeenBadges } from "@/server/repos/usersRepo";
 
-import { getProfileView, roleLabelOf } from "./profileService";
+import { getProfileView, markBadgesSeen, memberSinceOf, roleLabelOf } from "./profileService";
 
 const PROFILE_ROW = {
   name: "Ion Popescu",
+  createdAt: new Date("2026-03-15T00:00:00Z"),
+  seenBadges: {} as Record<string, string>,
   image: null,
   coverImage: null,
   coverPosition: 50,
@@ -61,6 +65,63 @@ describe("roleLabelOf", () => {
 
   it("fără roleMain → Rol nedeclarat", () => {
     expect(roleLabelOf(null, null)).toBe("Rol nedeclarat");
+  });
+});
+
+describe("memberSinceOf", () => {
+  it("formatează lună+an în română", () => {
+    expect(memberSinceOf(new Date("2026-03-15T00:00:00Z"))).toBe("martie 2026");
+  });
+});
+
+describe("getProfileView — memberSince (vizibil pe orice profil, nu doar al proprietarului)", () => {
+  it("expune data de creare a contului, formatată", async () => {
+    const view = await getProfileView(USER_ID, OTHER_ID);
+    expect(view?.memberSince).toBe("martie 2026");
+  });
+});
+
+describe("getProfileView — newlyEarnedBadges (pop-up „badge nou”, 2026-08-17)", () => {
+  it("vizitator (nu owner) → newlyEarnedBadges mereu gol, chiar dacă profilul are badge-uri necunoscute în snapshot", async () => {
+    vi.mocked(getProfileStats).mockResolvedValue({
+      published: 5, sketches: 0, validationsGiven: 0, validationsReceived: 0,
+    });
+    const view = await getProfileView(USER_ID, OTHER_ID);
+    expect(view?.badges.length).toBeGreaterThan(0);
+    expect(view?.newlyEarnedBadges).toEqual([]);
+  });
+
+  it("owner, fără snapshot văzut, cu un badge câștigat → apare în newlyEarnedBadges", async () => {
+    vi.mocked(getProfileStats).mockResolvedValue({
+      published: 1, sketches: 0, validationsGiven: 0, validationsReceived: 0,
+    });
+    const view = await getProfileView(USER_ID, USER_ID);
+    expect(view?.newlyEarnedBadges).toEqual([
+      { id: "contributor", label: "Contribuitor", description: "Detalii de execuție publicate", tier: "bronze" },
+    ]);
+  });
+
+  it("owner, badge deja în snapshot la același tier → NU mai apare în newlyEarnedBadges", async () => {
+    vi.mocked(getPublicProfile).mockResolvedValue({
+      ...PROFILE_ROW,
+      seenBadges: { contributor: "bronze" },
+    } as never);
+    vi.mocked(getProfileStats).mockResolvedValue({
+      published: 1, sketches: 0, validationsGiven: 0, validationsReceived: 0,
+    });
+    const view = await getProfileView(USER_ID, USER_ID);
+    expect(view?.newlyEarnedBadges).toEqual([]);
+  });
+});
+
+describe("markBadgesSeen", () => {
+  it("recalculează badge-urile server-side și salvează snapshot-ul curent", async () => {
+    vi.mocked(getProfileStats).mockResolvedValue({
+      published: 1, sketches: 0, validationsGiven: 5, validationsReceived: 0,
+    });
+    vi.mocked(getContributionCounts).mockResolvedValue(new Map([["2026-08-17", 1]]));
+    await markBadgesSeen(USER_ID);
+    expect(updateSeenBadges).toHaveBeenCalledWith(USER_ID, { contributor: "bronze", validator: "bronze" });
   });
 });
 

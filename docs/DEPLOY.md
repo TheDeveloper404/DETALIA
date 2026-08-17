@@ -40,7 +40,8 @@ poate verifica direct starea reală în ambele, fără să ceară screenshot-uri
 - Vercel Blob: `BLOB_READ_WRITE_TOKEN` injectat automat.
 - Env vars în Vercel (Production + Preview): `AUTH_SECRET`, `AUTH_URL` (= `https://detalia.ro` pe prod), `AUTH_TRUST_HOST=true`,
   `ADMIN_EMAILS`, `AUTH_RESEND_KEY`, `EMAIL_FROM`, `MAGIC_LINK_TTL_MINUTES`, `ADMIN_SESSION_TTL_HOURS`,
-  `ADMIN_LOGIN_TOKEN_TTL_MINUTES` + **Upstash** (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
+  `ADMIN_LOGIN_TOKEN_TTL_MINUTES`, `PROJECT_INVITE_TTL_DAYS` (proiecte, link de invitație) +
+  **Upstash** (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`,
   opțional `RATE_LIMIT_FAIL_OPEN`) + **Turnstile** (`TURNSTILE_SECRET_KEY`, `NEXT_PUBLIC_TURNSTILE_SITE_KEY`)
   + **PostHog** (`NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN`, `NEXT_PUBLIC_POSTHOG_HOST`, `POSTHOG_PERSONAL_API_KEY`, `POSTHOG_ENV_ID`).
   *(`INVITATION_TTL_HOURS` eliminat 2026-06-28 odată cu logica de invitații — nu mai există în `.env.example`.)*
@@ -229,6 +230,10 @@ Automat = pornește singur. Manual = tu declanșezi.
   (load diferit). Explică parțial confuzia „de unde vine rezultatul ăsta". **De la 2026-07-27**, suita
   pornește DOAR pe preview-ul lui `dev` (job `gate`, vezi `docs/TOOLING.md`) — orice alt preview (PR
   Dependabot etc.) are propria bază Neon, nelegată de `E2E_DATABASE_URL`, deci se sare curat.
+- **GitHub Actions `codeql.yml`** — scanare statică de securitate (CodeQL), rulează pe push/PR.
+- **GitHub Actions `zap-baseline.yml`** — scan DAST pasiv (OWASP ZAP), pornit MANUAL din tabul Actions
+  (`workflow_dispatch`, cere URL țintă). Sigur direct pe producție — doar citește, nu trimite payload-uri
+  de atac. Full/Active + Authenticated se rulează separat, doar pe preview/dev, niciodată pe producție.
 
 **3. Deschizi PR `dev → main`** — PR-ul doar AFIȘEAZĂ rezultatul CI de la pasul 2 (verde/roșu). Branch
 protection cere CI verde + branch la zi înainte să apară butonul Merge.

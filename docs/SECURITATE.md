@@ -9,21 +9,20 @@ paralele (foste `AUDIT-SECURITATE-2026-07-09.md` și `detalia-security-audit-202
 > verdict BLOCAT — depășit, categoriile lui erau deja rezolvate). Conținutul de mai jos e auditul CRITICAL
 > complet rulat pe codul live, actualizat cu follow-up-urile din aceeași zi (JWT + fix suspendare).
 
-> **2026-07-16 — Sentry SCOS din proiect** (decommission asumat, PostHog acoperă error tracking-ul).
-> Mențiunile de mai jos care descriu Sentry ca „live"/activ sunt istoricul auditului la data lui — nu mai
-> reflectă starea curentă. Vezi `docs/CHANGELOG.md` 2026-07-16 pentru detaliu.
+> **Sentry nu mai face parte din stack — PostHog e sursa unică de observabilitate.** Orice mențiune de
+> „Sentry live"/activ mai jos în document e istoric (starea la data acelui audit), nu starea curentă.
 
-**Ultima verificare:** 2026-08-07 (audit țintit — retragerea autorului/anonimizare, 4 findinguri reparate,
-vezi secțiunea dedicată mai jos) · anterior 2026-07-09 (audit extern black-box + fixuri + recalibrare notă) ·
-încă mai vechi 2026-07-04
-(audit pe scenarii, SEC-S1…S5) · **Tip:** re-audit static complet (13 categorii, skill `security-audit`) pe
-toată suprafața (auth, authz, mutații, API, business logic, infra) + `npm audit` + **audit extern independent
-black-box** (Codex, fără acces la cod). Auditul din 2026-07-02 rămâne valabil ca bază; mai jos doar delta.
+**Tip:** re-audit static complet (13 categorii, skill `security-audit`) pe toată suprafața (auth, authz,
+mutații, API, business logic, infra) + `npm audit` + audit extern independent black-box (fără acces la
+cod), completat de re-verificări țintite pe feature-uri specifice pe măsură ce apar (retragere autor,
+scan DAST, upgrade dependențe critice). Fiecare secțiune de mai jos își poartă propria dată — cea mai
+recentă e sursa de adevăr pe suprafața ei.
 
-**Verdict: APROBAT pentru MVP/producție. Zero constatări CRITICAL / HIGH**, pe AMBELE lentile (white-box +
-black-box independent). Constatările MEDIUM/LOW au fost remediate pe măsură ce au apărut — vezi secțiunile
-dedicate. **Nota onestă de ansamblu (nu doar calitatea codului) e în §„Nota onestă" mai jos — citește-o înainte
-de a trata „APROBAT" ca „platforma nu poate fi spartă".**
+**Verdict: APROBAT pentru producție, pe suprafața efectiv acoperită de audituri — zero constatări
+CRITICAL/HIGH deschise, pe două metode independente (white-box + black-box).** Proiecte, Planșă privată
+și badge-urile de reputație NU au trecut printr-un audit formal de 13 categorii — vezi §„Suprafață
+neacoperită de audit formal"; nu sunt tratate ca „acoperite" prin extensie. Nota onestă de ansamblu (nu
+doar calitatea codului) e în §„Nota onestă" mai jos.
 
 Legendă: ✅ implementat structural · ⚠️ parțial/neverificat comportamental · ❌ lipsește/nefuncțional ·
 ⏸️ cod dormant, fără rută activă · **BLOCKER** — împiedică lansarea publică (niciunul activ acum).
@@ -250,14 +249,20 @@ remediate în aceeași zi:
   `saveCanvasThumbnailAction`) folosea `auth()` (doar cookie) în loc de `requireActiveUserId()` (status
   proaspăt din DB) — inconsecvent cu restul mutațiilor. **REMEDIATED:** aliniat la `requireActiveUserId()`
   peste tot.
-- **SEC-005 (Low, tombstone email):** email-ul de la ștergere cont conținea `userId`-ul real
+- **SEC-005-ARHIVĂ (Low, tombstone email):** email-ul de la ștergere cont conținea `userId`-ul real
   (`deleted-${userId}@deleted.invalid`) — corelabil dintr-un export/backup viitor cu conținutul rămas.
-  **REMEDIATED:** `crypto.randomUUID()` random, fără legătură cu userId.
+  **REMEDIATED:** `crypto.randomUUID()` random, fără legătură cu userId. *(Identificatorul „SEC-005"
+  redenumit „-ARHIVĂ" aici pentru că același cod din `lib/project-image-proxy.ts` și `docs/BACKLOG.md`
+  folosește „SEC-005" pentru o problemă complet diferită și încă deschisă — imagini de detaliu/planșă pe
+  blob public. Cele două nu au legătură.)*
 - **SEC-003 (Medium, dependințe):** `npm audit --omit=dev --audit-level=high` → **0 vulnerabilități.**
 - **SEC-006 (Low, Turnstile fail-open pe outage Cloudflare):** decizie confirmată explicit de Liviu — rate-
   limit-ul rămâne plasa reală, nu blocăm signup-ul la o pană externă. Risc acceptat, fără schimbare.
-- **SEC-007 (Low, `next-auth` beta):** verificat — `5.0.0-beta.31` e deja ultima beta publicată. Regulă de
-  verificare periodică adăugată în `CLAUDE.md` (§Mentenanță recurentă).
+- **SEC-007 (Low, `next-auth` beta):** verificat 2026-07-14 — `5.0.0-beta.31` era la momentul respectiv
+  ultima beta publicată. Regulă de verificare periodică adăugată în `CLAUDE.md` (§Mentenanță recurentă).
+  **Actualizare 2026-08-10:** upgrade la `5.0.0-beta.32` + `@auth/core 0.41.3` — release de securitate,
+  fix **GHSA-8fpg-xm3f-6cx3** (fail-open pe middleware v5, autentificare potențial ocolită sub anumite
+  condiții). Librăria rămâne oficial BETA — verificare periodică lunară rămâne activă (`CLAUDE.md`).
 - **SEC-008 (Low, CSP `style-src unsafe-inline`):** 231 utilizări `style={{}}` în 26 fișiere (poziționare
   dinamică canvas/schiță/drag) — nonce-ul CSP nu acoperă atributul `style`. Recomandare: **NU** se scoate
   `unsafe-inline` acum — refactor mare, risc de stricare UI pe useri live, beneficiu de securitate mic.
@@ -369,13 +374,17 @@ sus, nu doar afirmată.
   ocazia. Nu e „notă mică", e „încă necunoscut".
 - **DMARC `p=none`** — gaură de phishing reală, deschisă acum, dar cunoscută, documentată, cu plan de închidere
   (mai jos) — nu un necunoscut.
-- **Goluri de observabilitate** — `platform_settings` neexplicat, alertare Sentry neconfirmată end-to-end.
+- **Goluri de observabilitate** — alertare activă (PostHog, fostă Sentry) neconfirmată end-to-end (vezi
+  Recomandarea #2).
+- **Proiecte, Planșă privată, badge-uri de reputație** (adăugate 2026-08-09 → 2026-08-17) — n-au trecut
+  printr-un audit formal de 13 categorii, doar prin review de cod obișnuit la implementare. Vezi
+  §„Suprafață neacoperită de audit formal".
 
 **Concluzia onestă:** partea care ține de inginer — fundamentele de securitate scrise corect, testate, cu
 gărzi consecvente — e făcută la un nivel peste marea majoritate a proiectelor în faza asta, și dovada o susține
-(8.5–9, nu o cifră umflată). Ce rămâne deschis nu e un defect găsit, e limita oricărui audit: nimeni nu poate
-certifica „rezistă la orice atac" fără un pentest uman plătit sau ani de trafic real — resurse pe care un MVP
-în fază de validare, structural, nu le are încă.
+(8.5–9, nu o cifră umflată, pe suprafața auditată). Ce rămâne deschis nu e un defect găsit, e limita oricărui
+audit: nimeni nu poate certifica „rezistă la orice atac" fără un pentest uman plătit sau ani de trafic real —
+resurse pe care platforma, deși live din 2026-08-07 cu useri reali, nu le are încă la scara asta.
 
 ---
 
@@ -403,8 +412,9 @@ resturi „inerte" sunt intenționate și documentate: valorile de enum `PENDING
 
 ## Cele 13 categorii — rezultat
 
-1. **Secrete & config** — ✅ Fără secrete în cod. Doar `.env.example` e comis (placeholder-uri). Sentry
-   strip-uiește debug logging la build. Sursa de env = Vercel per mediu.
+1. **Secrete & config** — ✅ Fără secrete în cod. Doar `.env.example` e comis (placeholder-uri). Sursa
+   de env = Vercel per mediu. (Nota istorică „Sentry strip-uiește debug logging" nu mai e relevantă —
+   Sentry decomisionat 2026-07-16.)
 2. **Autentificare** — ✅ Passwordless magic link (Auth.js v5, sesiune `jwt`). Token one-time, TTL din env
    (15 min). Admin are auth proprie: token `randomBytes(32)`, sesiune cookie HttpOnly opac, validată în DB,
    re-check allowlist la consum ȘI la fiecare request. Anti-prefetch (pagina `/verify` auto-confirmă din JS).
@@ -424,8 +434,11 @@ resturi „inerte" sunt intenționate și documentate: valorile de enum `PENDING
    `(user_id, target_type, target_id)`. „Un singur rol per user" (unique pe `roles.user_id`).
 7. **Data protection & privacy** — ✅ HTTPS + HSTS (2 ani, preload). Cookie sesiune HttpOnly+Secure+SameSite.
    PII nu se loghează. Ștergere cont = anonimizare GDPR. Imagini re-encodate → EXIF/GPS stripate.
-8. **Logging & monitoring** — ✅ `lib/audit.ts` (evenimente structurate fără PII brut). Sentry live. Hook
-   `block-pii-log` în repo.
+8. **Logging & monitoring** — ✅ `lib/audit.ts` (evenimente structurate fără PII brut). Hook
+   `block-pii-log` în repo. ~~Sentry live~~ (stare la data auditului 2026-07-14) — **Sentry decomisionat
+   2026-07-16; PostHog e sursa unică de observabilitate acum.** Dacă alertele PostHog chiar notifică pe
+   Liviu în timp real (nu doar înregistrează pasiv evenimentul) — **NECONFIRMAT**, vezi `CLAUDE.md`
+   §„Alertare activă pe erori de producție".
 9. **Abuse & rate limiting** — ✅ Upstash sliding-window distribuit. Auth (5/h email, 20/h IP), mutații
    (40/min), create-detail (10/h), upload (30/h), admin-login. **Fail-closed în producție**. Turnstile pe
    login+signup.
@@ -492,16 +505,43 @@ curl -sSI https://detalia.ro/ | grep -iE 'strict-transport|x-frame|x-content-typ
 
 ---
 
+## Suprafață neacoperită de audit formal
+
+Feature-uri construite DUPĂ ultimul audit complet pe 13 categorii (2026-07-14), cu suprafață de
+securitate reală, care n-au trecut printr-o trecere formală dedicată — doar prin review de cod obișnuit
+la implementare. Nu tratate ca „sigure prin extensie" doar pentru că restul platformei e auditat.
+
+- **Proiecte** (colaborare restrânsă, 2026-08-09) — poartă de acces server-side unică
+  (`canAccessProjectDetail`), invitații prin link opac regenerabil, cascadă de ștergere orchestrată
+  manual (validări/comentarii polimorfice + Blob nu cad în `ON DELETE CASCADE`). **La implementare au
+  fost găsite și reparate 14 goluri reale de vizibilitate în 6 runde de review** (feed/rail-uri, profil
+  public, teasere, notificări, liste private, planșe partajate — vezi `CLAUDE.md` §„Capcane tehnice
+  cunoscute" pentru lista exhaustivă) — remediate, dar niciodată trecute printr-un audit formal de 13
+  categorii separat, care ar verifica sistematic dacă mai există un al 15-lea gol nedescoperit.
+- **Planșă privată** (canvas per user, 2026-07-05) — ownership enforce direct în SQL (`WHERE id=? AND
+  owner_id=?`), planșă nedeținută → `NOT_FOUND`. Verificat ad-hoc la implementare, fără audit dedicat.
+- **Badge-uri de reputație** (2026-08-17) — suprafață mică (citire agregată din statistici existente +
+  un snapshot `users.seenBadges`), risc redus, dar niciodată verificat formal.
+- **Hardening `/admin-page/login`** (IP allowlist / MFA — discutat, NEIMPLEMENTAT, vezi `docs/BACKLOG.md`)
+  — ținta cea mai valoroasă rămasă din pentest-ul 2026-07-24, încă deschisă.
+
+Recomandare: un audit formal (13 categorii) pe Proiecte + Planșă înainte de orice creștere semnificativă
+de trafic sau înainte de a extinde funcționalitatea de partajare/colaborare mai departe.
+
 ## Recomandări (prioritizate)
 
 1. ~~Deploy JWT~~ — **FĂCUT**, JWT + SEC-H01 pe `main`.
-2. ~~Configurează alerte~~ — **FĂCUT** (2026-07-03): Sentry Alerts pe `audit_event` (`rate_limited`,
-   `rate_limit_unavailable`, `access_denied_suspended`, `admin_login_failed`) → notify Liviu.
+2. ~~Configurează alerte~~ — **PARȚIAL, dezactualizat**: Sentry Alerts pe `audit_event` era FĂCUT
+   2026-07-03, dar Sentry a fost decomisionat 2026-07-16. **Echivalentul pe PostHog NU e confirmat** —
+   evenimentele ajung în PostHog (pasiv), dar nu există verificare directă că o regulă de alertă
+   notifică pe Liviu activ. **DESCHIS**, vezi `CLAUDE.md` §„Alertare activă pe erori de producție".
 3. **Opțional, neimplementat (decizie 2026-07-03):** token JWT cu `maxAge` scurt + re-check status la refresh —
    respins; costă friction (relogin mai des) pentru un beneficiu marginal (citirea unui cont suspendat nu e
    periculoasă, mutațiile sunt deja blocate tare).
 4. ~~Rate-limit pe `saveStrokesAction`; `overrides` pe `postcss>=8.5.10`~~ — **FĂCUT 2026-07-03** (vezi
    CHANGELOG). npm audit: 6 → 4 moderate.
+5. Audit formal 13 categorii pe Proiecte + Planșă privată — vezi §„Suprafață neacoperită de audit formal"
+   mai jos. Recomandat înaintea oricărei creșteri semnificative de trafic.
 
 ---
 *Audit inițial 2026-07-02, actualizat același jurnal odată cu implementarea JWT + fix-ul de suspendare.

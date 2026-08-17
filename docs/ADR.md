@@ -40,10 +40,15 @@ teanc (fork→PR), nu pe aceeași pânză. Decizie confirmată.
 **Consecințe:** „o poziție/user, reversibilă" garantată de DB; dezbaterea per schiță iese gratis. Compromis:
 fără FK forțat pe `target_id` → integritate în service + indici compuși. _(SCHEMA, ARHITECTURA §4)_
 
-## ADR-006 — FĂRĂ ponderare numerică / scoring în MVP
+## ADR-006 — FĂRĂ ponderare numerică / scoring pe VALIDĂRI
 **Context:** cererea clientului — greutatea o judecă cititorul după rol, nu un algoritm.
-**Decizie:** construim doar **afișarea transparentă a rolului** lângă fiecare poziție; zero scor/reputație.
-**Consecințe:** simplifică enorm inima aplicației; scoring = backlog, decizie de produs separată. _(ARHITECTURA §6)_
+**Decizie:** construim doar **afișarea transparentă a rolului** lângă fiecare poziție; zero scor/reputație
+**pe validări** (Aprob/Dezaprob rămân fără pondere numerică, nu se schimbă).
+**Consecințe:** simplifică enorm inima aplicației (validarea rămâne calitativă, nu un algoritm).
+**PARȚIAL SUPRASEDAT de ADR-015:** badge-urile de reputație introduc totuși un scor —
+dar calculat din ALTĂ suprafață (statistici de activitate: publicări/schițe/validări date-primite), nu
+din greutatea unei poziții individuale. Validarea propriu-zisă rămâne exact cum a decis acest ADR — fără
+pondere numerică pe fiecare vot. _(ARHITECTURA §5)_
 
 ## ADR-007 — „Două porți": acces vs. credibilitate (verificare rol)
 **Context:** confuzie frecventă între cine intră și cât „cântărește" odată intrat.
@@ -90,6 +95,45 @@ server-side, niciodată trimisă clientului).
 **Consecințe:** orice verificare de ownership server-side NOUĂ trebuie să folosească `ownerId`, nu
 `authorId` — o confuzie ușor de făcut (patru cazuri reale găsite și reparate la audit, 2026-08-07: vezi
 `docs/SECURITATE.md` §„Audit țintit — retragerea autorului"). _(CHANGELOG 2026-08-06, ARHITECTURA §4)_
+
+## ADR-013 — Planșă (canvas privat) cu engine PROPRIU, nu tldraw/Excalidraw
+**Context:** primă implementare (2026-07-05) a folosit tldraw, apoi Excalidraw — un wrapper subțire peste
+un whiteboard generic nu servea întrebarea pe care platforma o testa (dezbaterea pe roluri), și aducea
+complexitate/dependențe nefolosite (multi-user live, layere, unelte generice).
+**Decizie:** scos ambele ÎN ACEEAȘI ZI, reconstruit cu engine propriu (`components/plansa/plansa-canvas.tsx`),
+pe modelul deja construit pentru Schiță (`perfect-freehand` prin `renderStrokes`, reutilizat 1:1).
+Document serializat `{ version, items, strokes }`; zonă fixă (16:10), fără canvas infinit, fără rotație/
+multi-select în v1.
+**Consecințe:** zero dependențe externe grele; consistență de cod cu Schița (același engine de desen);
+lățime funcțională mai mică decât un whiteboard generic (deliberat — planșa nu trebuie să fie Figma).
+_(CHANGELOG 2026-07-05, ARHITECTURA §5)_
+
+## ADR-014 — Proiecte: al treilea nivel de vizibilitate, cu o singură poartă de acces
+**Context:** nevoie de colaborare restrânsă (owner + invitați) pe detalii, ÎNAINTE de publicare în
+comunitate — diferit atât de „public" (Detaliu) cât și de „strict privat, un singur user" (Planșă).
+**Decizie (2026-08-09):** un al treilea nivel, cu 2 poziții identice în drepturi (Autor/Invitați, fără
+Viewer/Editor), invitație prin link opac regenerabil (nu email). Un detaliu combină `status` existent cu
+`project_id`: DRAFT+null = ciornă, PUBLISHED+id = vizibil doar membrilor, PUBLISHED+null = public.
+„Scoate în comunitate" e ireversibil. **Un singur punct de control server-side** (`canAccessProjectDetail`)
+prin care trece orice citire de conținut de proiect — nu se duplică logica de acces în fiecare suprafață.
+**Consecințe:** un invariant transversal nou peste cod scris sub presupunerea opusă produce goluri în
+FIECARE loc care nu trece prin poartă, nu unul singur — 14 găsite și reparate în 6 runde de review la
+implementare (feed/rail-uri, profil, teasere, notificări, liste private — vezi `CLAUDE.md` §„Capcane
+tehnice"). Cascada de ștergere nu e doar `ON DELETE CASCADE` (validări/comentarii polimorfice + Blob nu
+cad automat) — orchestrată explicit în service. _(CHANGELOG 2026-08-09, ARHITECTURA §4-5)_
+
+## ADR-015 — Badge-uri de reputație CALCULATE LIVE, fără tabelă de scor
+**Context:** cerere de produs pentru un semnal de reputație vizibil pe profil (Bronz/Argint/Aur), fără
+să contrazică ADR-006 (validările rămân fără pondere numerică individuală).
+**Decizie (2026-08-17):** badge-urile se calculează LIVE din statistici deja existente (detalii
+publicate, schițe, validări date/primite, zile active) — fără tabelă proprie de scor, deci fără risc de
+desincronizare. Un singur snapshot minimal (`users.seen_badges`, jsonb) reține ultimul set văzut de
+user, strict pentru pop-up-ul de celebrare la un badge nou — nu e sursa de adevăr a badge-urilor, doar
+un marcaj „ce am arătat deja".
+**Consecințe:** niciun cron/job de recalculare necesar; badge-urile sunt mereu consistente cu statisticile
+curente. Suprafață mică de securitate (citire agregată + un snapshot per user), verificată ad-hoc, nu
+printr-un audit formal dedicat — vezi `docs/SECURITATE.md` §„Suprafață neacoperită de audit formal".
+_(CHANGELOG 2026-08-17, ARHITECTURA §5)_
 
 ---
 
