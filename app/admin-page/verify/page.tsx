@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import type { Metadata } from "next";
 
 import { AutoVerify } from "@/app/verify/auto-verify";
 
@@ -8,6 +9,11 @@ import { AutoVerify } from "@/app/verify/auto-verify";
 // (/admin-page/verify/confirm) e declanșat DIN JAVASCRIPT la montare. Scanerele de mail fac GET dar nu
 // rulează JS → nu mai pot arde tokenul one-time și nici provoca emiterea unei sesiuni de admin.
 // Tokenul e opac și target-ul e construit LOCAL (path fix + token) → fără open-redirect.
+export const metadata: Metadata = {
+  title: "Admin — verificare",
+  robots: { index: false, follow: false },
+};
+
 export default async function AdminVerifyPage({
   searchParams,
 }: {

@@ -1,4 +1,5 @@
 import { Users } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -6,6 +7,8 @@ import { auth } from "@/lib/auth";
 import { listProjectsForUser } from "@/server/services/projectService";
 
 import { CreateProjectForm } from "./create-project-form";
+
+export const metadata: Metadata = { title: "Proiectele mele" };
 
 // „Proiectele mele" — colaborare restrânsă (owner SAU membru activ). Listă simplă, ca /canvases.
 export default async function ProjectsPage() {

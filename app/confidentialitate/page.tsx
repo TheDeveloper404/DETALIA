@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Confidențialitate — DETALIA",
+  title: "Confidențialitate",
   description: "Notă de confidențialitate (GDPR) DETALIA — ce date colectăm, de ce, și drepturile tale.",
 };
 

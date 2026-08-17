@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Termeni și condiții — DETALIA",
+  title: "Termeni și condiții",
   description: "Termenii și condițiile de utilizare a platformei DETALIA.",
 };
 

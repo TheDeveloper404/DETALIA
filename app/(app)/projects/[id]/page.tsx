@@ -1,4 +1,5 @@
 import { Users } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
@@ -20,6 +21,18 @@ import { InviteMembersButton, MembersList, ProjectMenu } from "./project-panel";
 // Redesign 2026-08-11 (Faza B + feedback direct testat pe platformă): nume editabil inline, meniu ⋮ (Șterge), link de
 // invitație ascuns după un buton, membri cu poză+rol, grid matrice Detalii/Planșe cu „+" — fără
 // butonul separat „Adaugă detaliu" de dinainte.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const session = await auth();
+  if (!session?.user?.id) return { title: "Proiect" };
+  const { id } = await params;
+  const view = await getProjectForViewer({ projectId: id, userId: session.user.id });
+  return { title: view ? view.project.name : "Proiect" };
+}
+
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
   if (!session?.user?.id) {

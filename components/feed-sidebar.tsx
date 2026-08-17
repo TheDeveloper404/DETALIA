@@ -48,6 +48,7 @@ export function FeedSidebar({
       {/* Card mini de profil. */}
       <Link
         href="/profile"
+        data-tour="profile"
         className="block overflow-hidden rounded-lg bg-card no-underline ring-1 ring-foreground/10"
       >
         <div className="h-[54px] overflow-hidden bg-gradient-to-br from-secondary to-[#ece1d3]">
@@ -96,6 +97,7 @@ export function FeedSidebar({
       {/* Categorii. */}
       <nav
         aria-label="Filtru categorii"
+        data-tour="categories"
         className="rounded-lg bg-card p-2 ring-1 ring-foreground/10"
       >
         <div className="px-3 pb-2 pt-2.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">

@@ -1,8 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { getAdminSession } from "@/lib/admin-auth";
 
 import { AdminLoginForm } from "./login-form";
+
+export const metadata: Metadata = {
+  title: "Admin — autentificare",
+  robots: { index: false, follow: false },
+};
 
 // Pagina de login admin — magic link pe email, separat de login-ul userilor. Deja autentificat → panou.
 export const dynamic = "force-dynamic";

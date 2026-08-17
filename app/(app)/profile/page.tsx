@@ -1,9 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { ProfileView } from "@/components/profile-view";
 import { auth } from "@/lib/auth";
 import { getProfileView } from "@/server/services/profileService";
 import { getUserRole } from "@/server/services/roleService";
+
+export const metadata: Metadata = { title: "Profilul meu" };
 
 // Profilul propriu (vizualizare, pe date reale). Editarea e la /profile/edit; profilul altui user la /profile/[userId].
 export default async function ProfilePage() {

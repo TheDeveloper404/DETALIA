@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MailCheck } from "lucide-react";
+import type { Metadata } from "next";
 
 import { AuthShell } from "@/components/auth-shell";
 import {
@@ -13,6 +14,8 @@ import {
 // Pagină custom pentru `verifyRequest` (Auth.js) — afișată după ce userul cere magic link-ul.
 // Înlocuiește pagina default (temă întunecată, engleză) cu limbajul vizual DETALIA: același shell
 // de auth (header brand + fundal blueprint + paletă caldă) și copy în română. Cablată în lib/auth.ts.
+export const metadata: Metadata = { title: "Verifică emailul" };
+
 export default function VerifyRequestPage() {
   return (
     <AuthShell mode="login">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import type { Metadata } from "next";
 
 import { AuthShell } from "@/components/auth-shell";
 import {
@@ -19,6 +20,8 @@ import { AutoVerify } from "./auto-verify";
 // FIX FĂRĂ CLICK: emailul trimite linkul către PAGINA asta (inofensivă la GET automat). Verificarea
 // reală o declanșează <AutoVerify> DIN JAVASCRIPT la montare — scanerele nu rulează JS, browserul da.
 // Fără JS (rar): butonul de fallback de mai jos cere un click real.
+export const metadata: Metadata = { title: "Verificare" };
+
 export default async function VerifyPage({
   searchParams,
 }: {

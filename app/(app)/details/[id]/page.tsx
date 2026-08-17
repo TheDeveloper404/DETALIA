@@ -1,4 +1,5 @@
 import { Compass, FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { after } from "next/server";
@@ -76,6 +77,18 @@ const RESOURCE_ICON = {
 
 // Pagina unui detaliu (the «repo»): antet (autor+rol), imaginea 2D, validarea pe roluri,
 // teancul de schițe și dezbaterea — o singură coloană lățită. Jos, full-width: detalii înrudite.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const session = await auth();
+  if (!session?.user?.id) return { title: "Detaliu" };
+  const { id } = await params;
+  const detail = await getDetail(id, session.user.id);
+  return { title: detail ? detail.title : "Detaliu" };
+}
+
 export default async function DetailPage({
   params,
   searchParams,

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { AuthForm } from "@/components/auth-form";
@@ -20,6 +21,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   AccessDenied: "Contul tău este suspendat. Contactează-ne dacă e o greșeală.",
   default: "Ceva n-a mers. Încearcă din nou.",
 };
+
+export const metadata: Metadata = { title: "Înregistrare" };
 
 export default async function SignupPage({
   searchParams,

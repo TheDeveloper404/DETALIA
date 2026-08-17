@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
@@ -5,6 +6,8 @@ import { getDetail } from "@/server/services/detailService";
 import { getDraftForEdit } from "@/server/services/sketchService";
 
 import { SketchEditor } from "./sketch-editor";
+
+export const metadata: Metadata = { title: "Editare schiță" };
 
 // Editor de schiță — accesibil DOAR cu un draft existent (creat din fereastra de Dezaprob).
 // getDraftForEdit garantează: doar autorul, doar cât e DRAFT.
