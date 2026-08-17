@@ -987,7 +987,7 @@ export const PlansaCanvas = forwardRef<
                 title={label}
                 aria-pressed={active}
                 onClick={() => selectTool(value)}
-                className={cn(railBtn, "h-[38px] w-full", active ? "border-primary bg-[#f6ede4]" : "border-border")}
+                className={cn(railBtn, "h-11 w-full", active ? "border-primary bg-[#f6ede4]" : "border-border")}
               >
                 <Icon className={cn("size-[18px]", active ? "text-primary" : "text-foreground/70")} strokeWidth={1.9} />
               </button>
@@ -1066,7 +1066,7 @@ export const PlansaCanvas = forwardRef<
             aria-label="Undo"
             onClick={() => dispatch({ type: "undo" })}
             disabled={history.past.length === 0}
-            className={cn(railBtn, "h-10 w-[52px] border-border disabled:opacity-40")}
+            className={cn(railBtn, "h-11 w-[52px] border-border disabled:opacity-40")}
           >
             <Undo2 className="size-[18px] text-foreground/80" strokeWidth={1.9} />
           </button>
@@ -1075,7 +1075,7 @@ export const PlansaCanvas = forwardRef<
             aria-label="Redo"
             onClick={() => dispatch({ type: "redo" })}
             disabled={history.future.length === 0}
-            className={cn(railBtn, "h-10 w-[52px] border-border disabled:opacity-40")}
+            className={cn(railBtn, "h-11 w-[52px] border-border disabled:opacity-40")}
           >
             <Redo2 className="size-[18px] text-foreground/80" strokeWidth={1.9} />
           </button>

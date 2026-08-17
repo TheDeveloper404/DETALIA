@@ -49,7 +49,7 @@ export function EmojiPickerButton({
         aria-expanded={open}
         aria-label="Adaugă emoji"
         title="Emoji"
-        className="inline-flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+        className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
       >
         <Smile className="size-4" strokeWidth={2} />
       </button>
@@ -57,7 +57,7 @@ export function EmojiPickerButton({
       {open && (
         <div
           role="menu"
-          className="absolute bottom-full right-0 z-20 mb-1.5 grid w-max max-w-[calc(100vw-2rem)] grid-cols-9 gap-0.5 rounded-lg border border-border bg-card p-2 shadow-lg"
+          className="absolute bottom-full right-0 z-20 mb-1.5 grid w-max max-w-[calc(100vw-2rem)] grid-cols-7 gap-0.5 rounded-lg border border-border bg-card p-2 shadow-lg"
         >
           {EMOJI.map((e) => (
             <button
@@ -68,7 +68,7 @@ export function EmojiPickerButton({
                 onPick(e);
                 setOpen(false);
               }}
-              className="flex size-7 items-center justify-center rounded text-[17px] leading-none transition-colors hover:bg-secondary"
+              className="flex size-9 items-center justify-center rounded text-[17px] leading-none transition-colors hover:bg-secondary"
             >
               {e}
             </button>

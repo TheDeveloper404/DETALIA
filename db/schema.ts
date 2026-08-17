@@ -97,6 +97,11 @@ export const users = pgTable("users", {
   // Poziția verticală a imaginii de cover (object-position Y, 0..100). Permite mutarea sus/jos a benzii.
   coverPosition: integer().notNull().default(50),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  // Ultimul set de badge-uri VĂZUT de user (Record<BadgeId, BadgeTier>), pentru pop-up-ul „ai primit un
+  // badge nou" — badge-urile sunt calculate LIVE din statistici (server/domain/badges.ts), fără tabelă
+  // proprie, deci avem nevoie de un singur snapshot ca să detectăm ce e NOU față de ultima vizită pe
+  // propriul profil (nu doar ce e câștigat). Actualizat de `markBadgesSeen`, DOAR pe propriul profil.
+  seenBadges: jsonb().notNull().default({}),
 });
 
 export const accounts = pgTable(
