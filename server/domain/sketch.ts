@@ -109,6 +109,34 @@ export function composeStackStrokes(layers: Array<{ strokes: Stroke[] | null }>)
   return out;
 }
 
+// Rezolvă rețeta unui stack (baseSketchIds) în foile ei reale, în ordinea din rețetă, sărind id-urile
+// dispărute (foaie ștearsă între timp). O foaie de fundal poate fi o schiță din teanc SAU adnotarea
+// autorului (ambele valide ca bază, vezi mai sus) — cele două trăiesc în surse separate (teanc vs
+// adnotări), deci rezolvarea trebuie să caute în AMBELE. BUG găsit 2026-08-18: căutarea se făcea doar
+// în teanc, așa că un stack construit peste adnotare o desena corect în editor (`getDraftForEdit`, care
+// citește direct din DB) dar o pierdea tăcut la vizualizarea schiței deja publicate, dintr-un tab.
+export function resolveStackLayers<TSketch, TAnnotation>(
+  baseSketchIds: string[],
+  sketchById: Map<string, TSketch>,
+  annotationById: Map<string, TAnnotation>,
+): Array<{ id: string; source: "sketch"; layer: TSketch } | { id: string; source: "annotation"; layer: TAnnotation }> {
+  const out: Array<
+    { id: string; source: "sketch"; layer: TSketch } | { id: string; source: "annotation"; layer: TAnnotation }
+  > = [];
+  for (const id of baseSketchIds) {
+    const sketch = sketchById.get(id);
+    if (sketch) {
+      out.push({ id, source: "sketch", layer: sketch });
+      continue;
+    }
+    const annotation = annotationById.get(id);
+    if (annotation) {
+      out.push({ id, source: "annotation", layer: annotation });
+    }
+  }
+  return out;
+}
+
 // ── Ștergerea unei foi din stack (2026-08-08, Faza B) ───────────────────────────────────────────
 // O foaie pe care ALTCINEVA a construit (`lockedAt` setat la publicarea schiței de deasupra) nu mai
 // poate dispărea complet — desenul de deasupra ar rămâne suspendat peste un gol. Ce se poate retrage

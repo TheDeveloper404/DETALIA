@@ -92,6 +92,20 @@ export async function getLastSeenAnnouncement(userId: string): Promise<string | 
   return row?.lastSeenAnnouncementVersion ?? null;
 }
 
+// Turul ghidat de pe pagina de detaliu — văzut vreodată? Scris DOAR de owner (verificat în service).
+export async function getSeenDetailTour(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ seenDetailTour: users.seenDetailTour })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return row?.seenDetailTour ?? false;
+}
+
+export async function markDetailTourSeen(userId: string): Promise<void> {
+  await db.update(users).set({ seenDetailTour: true }).where(eq(users.id, userId));
+}
+
 // Datele de profil pentru /profile/edit (nume, email, poză, cover + headline/locație/website). Email = PII.
 export async function getUserProfile(userId: string) {
   const [row] = await db

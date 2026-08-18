@@ -18,6 +18,7 @@ import {
   duplicateTextStroke,
   isSelfAnnotation,
   resolveSketchDeletionMode,
+  resolveStackLayers,
   TEXT_DUPLICATE_OFFSET,
   type Point,
   type Stroke,
@@ -363,6 +364,41 @@ describe("composeStackStrokes", () => {
       { strokes: [strokeOf("#b0463c")] },
     ]);
     expect(validateStrokes(composed).ok).toBe(true);
+  });
+});
+
+// BUG găsit 2026-08-18: rezolvarea unui stack care conține adnotarea autorului ca fundal căuta doar în
+// teanc (sketch), niciodată în adnotări — un id valid, existent, era pierdut tăcut la vizualizarea unei
+// schițe deja publicate (deși mergea corect în editorul care citește direct din DB).
+describe("resolveStackLayers", () => {
+  it("rezolvă un id găsit în teanc, ca sursă sketch", () => {
+    const sketchById = new Map([[UUID_A, { strokes: [strokeOf("#111111")] }]]);
+    const result = resolveStackLayers([UUID_A], sketchById, new Map());
+    expect(result).toEqual([{ id: UUID_A, source: "sketch", layer: { strokes: [strokeOf("#111111")] } }]);
+  });
+
+  it("rezolvă un id găsit DOAR în adnotări, ca sursă annotation (regresia bug-ului)", () => {
+    const annotationById = new Map([[UUID_A, { strokes: [strokeOf("#222222")] }]]);
+    const result = resolveStackLayers([UUID_A], new Map(), annotationById);
+    expect(result).toEqual([{ id: UUID_A, source: "annotation", layer: { strokes: [strokeOf("#222222")] } }]);
+  });
+
+  it("păstrează ordinea din rețetă cu surse amestecate (adnotare jos, schiță deasupra)", () => {
+    const sketchById = new Map([[UUID_B, { strokes: [strokeOf("#333333")] }]]);
+    const annotationById = new Map([[UUID_A, { strokes: [strokeOf("#111111")] }]]);
+    const result = resolveStackLayers([UUID_A, UUID_B], sketchById, annotationById);
+    expect(result.map((r) => r.source)).toEqual(["annotation", "sketch"]);
+    expect(result.map((r) => r.id)).toEqual([UUID_A, UUID_B]);
+  });
+
+  it("sare tăcut un id dispărut din ambele surse (foaie ștearsă între timp)", () => {
+    const sketchById = new Map([[UUID_A, { strokes: [strokeOf("#111111")] }]]);
+    const result = resolveStackLayers([UUID_A, UUID_C], sketchById, new Map());
+    expect(result.map((r) => r.id)).toEqual([UUID_A]);
+  });
+
+  it("rețetă goală → listă goală", () => {
+    expect(resolveStackLayers([], new Map(), new Map())).toEqual([]);
   });
 });
 

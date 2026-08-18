@@ -33,10 +33,12 @@ import {
 import {
   renderStrokes,
   REFERENCE_WIDTH,
+  resolveExportWidth,
   TEXT_FONT_FAMILY,
   TEXT_FONT_SCALE,
 } from "@/lib/sketch-render";
 import { resolveCanvasShortcut } from "@/lib/canvas-shortcuts";
+import { MAX_CLIENT_EXPORT_DIMENSION } from "@/lib/upload-limits";
 import { cn } from "@/lib/utils";
 import {
   colorAtRampPosition,
@@ -289,7 +291,12 @@ export const SketchCanvas = forwardRef<
       getStrokes: () => present,
       exportThumbnail: async () => {
         const img = imgRef.current;
-        const w = REFERENCE_WIDTH;
+        // Vezi `resolveExportWidth` (sketch-render.ts) pt istoricul bug-ului (export mereu la 1000px).
+        const w = resolveExportWidth(
+          img ? img.naturalWidth : null,
+          REFERENCE_WIDTH,
+          MAX_CLIENT_EXPORT_DIMENSION,
+        );
         // Foaie goală: dims din aspectRatio + fundal alb solid. Cu imagine-mamă: raportul ei + fill slab 0.3.
         const h = img ? Math.round(w * (img.naturalHeight / img.naturalWidth)) : Math.round(w * aspectRatio);
         const off = document.createElement("canvas");

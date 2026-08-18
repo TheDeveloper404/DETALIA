@@ -105,6 +105,11 @@ export const users = pgTable("users", {
   // Ultima versiune VĂZUTĂ a panoului „Ce e nou" (server/domain/announcements.ts). `null` pentru useri
   // vechi = nu au văzut nimic încă. Actualizată de `markAnnouncementSeen`, doar pe propriul cont.
   lastSeenAnnouncementVersion: text(),
+  // Turul ghidat de pe pagina de detaliu (components/detail-product-tour.tsx) a fost arătat vreodată?
+  // Spre deosebire de turul din feed (`?tour=1`, declanșat o singură dată din onboarding — un singur
+  // punct de intrare), pagina de detaliu se poate deschide din zeci de locuri diferite → nu există un
+  // moment unic „utilizator nou" de agățat un query param; de-aia flag persistat, nu URL.
+  seenDetailTour: boolean().notNull().default(false),
 });
 
 export const accounts = pgTable(

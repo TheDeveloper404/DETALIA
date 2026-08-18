@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { categories, detailCategories, details, roles, users } from "../db/schema";
+import { CURRENT_ANNOUNCEMENT_VERSION } from "../server/domain/announcements";
 import { pickLeafCategories } from "./category-helpers";
 
 // Setup AUTHED — seedează direct în DB un user ACTIVE cu rol declarat, apoi emite un cookie de sesiune
@@ -78,6 +79,18 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
         .returning({ id: users.id })
     )[0];
   }
+
+  // Onboarding-uri de UI marcate ca „văzute" — NECONDIȚIONAT (nu doar la insert): userul de test e
+  // UPSERT (rândul persistă între rulări), deci un `if (!user)` singur n-ar acoperi rândul deja existent
+  // dintr-o rulare anterioară, dinainte ca acest flag să fi existat. Fără asta, turul ghidat de pe
+  // pagina de detaliu (`DetailProductTour`) sau panoul „Ce e nou" (`WhatsNewModal`) ar putea porni
+  // NEDETERMINIST la prima navigare a oricărui spec către /feed sau /details/[id] din suită — un
+  // overlay peste tot ecranul care ar bloca exact click-urile pe care alte teste le așteaptă acolo
+  // (găsit 2026-08-18, la scrierea testului pt tur — risc real, nu doar teoretic).
+  await db
+    .update(users)
+    .set({ seenDetailTour: true, lastSeenAnnouncementVersion: CURRENT_ANNOUNCEMENT_VERSION })
+    .where(eq(users.id, user.id));
 
   // 3) Rol declarat (un singur rol/user — unique pe userId) → userul nu e împins spre /onboarding.
   const existingRole = (await db.select({ id: roles.id }).from(roles).where(eq(roles.userId, user.id)).limit(1))[0];
