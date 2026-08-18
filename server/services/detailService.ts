@@ -574,7 +574,7 @@ export async function getDeletionPreview(input: {
   return { mode: resolveDeletionMode(await countDetailInteractions(input.detailId)) };
 }
 
-// Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu, strict cronologic. Fără scroll infinit.
+// Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu+descriere, strict cronologic. Fără scroll infinit.
 export async function getFeed(options?: { categoryId?: string | null; q?: string | null; limit?: number }) {
   const limit = options?.limit ?? DEFAULT_FEED_SIZE;
   return listFeed({
