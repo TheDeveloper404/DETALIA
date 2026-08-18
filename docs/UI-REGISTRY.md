@@ -97,13 +97,27 @@ care modalul e reimplementat de 9 ori mai sus — nu există un `<Dialog>` shadc
 (detalii publicate, schițe, validări date/primite, zile active/an din heatmap). Prag nou/badge nou →
 editează `BADGE_DEFS` în `badges.ts`, testat de `badges.test.ts`.
 
-## Tur ghidat (`ProductTour`)
-`components/product-tour.tsx` — driver.js, restilizat pe paletă (`.detalia-tour-popover` în
-`globals.css`). Declanșat o singură dată, prin `?tour=1` în URL (NU un flag persistat) — la
-DETALIA e setat exact la finalul onboarding-ului (`app/onboarding/actions.ts`), nu la fiecare
-login. Țintele sunt atribute `data-tour="..."` puse pe elementele reale de UI (nu wrapper-e noi) —
-adaugă un pas nou punând `data-tour` pe elementul existent + o intrare în `TOUR_STEPS`, verificată
-de `product-tour.test.ts` (selectori reali, fără duplicate).
+## Tur ghidat (`ProductTour` / `DetailProductTour`)
+Pattern comun (driver.js, restilizat pe paletă — `.detalia-tour-popover` în `globals.css`), DOUĂ
+instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al paginii:
+- **Feed** (`components/product-tour.tsx`) — declanșat o singură dată, prin `?tour=1` în URL (NU un
+  flag persistat), setat exact la finalul onboarding-ului (`app/onboarding/actions.ts`) — un singur
+  punct de intrare posibil, deci URL-ul e suficient. Efectul curăță `?tour=1` din URL la pornire
+  (`router.replace`), fără reload.
+- **Detaliu** (`components/detail-product-tour.tsx`) — declanșat de un flag persistat pe user
+  (`users.seen_detail_tour`), NU URL — pagina de detaliu se deschide din zeci de locuri (feed, profil,
+  @mention, link direct), fără un singur punct de intrare de agățat un query param. Rulează o singură
+  dată, la prima pagină de detaliu deschisă vreodată; marcată prin `confirmDetailTourSeenAction`.
+- **Ambele**: țintele sunt atribute `data-tour="..."` puse pe elementele reale de UI (nu wrapper-e
+  noi) — adaugă un pas nou punând `data-tour` pe elementul existent + o intrare în `TOUR_STEPS`
+  (feed) / `DETAIL_TOUR_STEPS` (`lib/detail-tour-steps.ts`), verificate de `product-tour.test.ts` /
+  `lib/detail-tour-steps.test.ts` (selectori reali, fără duplicate).
+- **BUG găsit 2026-08-17, aplicabil la ambele:** dacă efectul care pornește turul depinde direct de
+  prop-ul de activare (`active`/`seen`), un re-render care schimbă acel prop (ex. `router.replace`
+  care re-randează Server Component-ul părinte) rulează cleanup-ul efectului (`tour.destroy()`) —
+  turul se închide instant, la o secundă de la primul pas. Fix, în AMBELE componente: prop-ul se
+  capturează O SINGURĂ DATĂ cu `useState` la mount (`shouldRun`), iar efectul depinde DOAR de acel
+  snapshot, nu de prop-ul live.
 
 ---
 

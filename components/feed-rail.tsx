@@ -131,6 +131,8 @@ export function FeedRail({
         <Link href="/termeni" className="no-underline hover:underline">Termeni</Link>
         {" · "}
         <Link href="/confidentialitate" className="no-underline hover:underline">Confidențialitate</Link>
+        {" · "}
+        <Link href="/ghid" className="no-underline hover:underline">Ghid de utilizare</Link>
         <br />© {new Date().getFullYear()} Detalia.ro — Toate drepturile rezervate.
       </p>
     </aside>

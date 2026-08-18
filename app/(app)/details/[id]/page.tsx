@@ -18,6 +18,7 @@ import {
 import { getUserRole } from "@/server/services/roleService";
 import { getAnnotations, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
+import { hasSeenDetailTour } from "@/server/services/tourService";
 import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
 import { canReleaseDetailToCommunity, getProject } from "@/server/services/projectService";
 
@@ -177,11 +178,12 @@ export default async function DetailPage({
   const deletionPreview = isAuthor ? await getDeletionPreview({ detailId: detail.id, userId }) : null;
   // 4 citiri independente (doar userId/detail.id) — paralelizate, nu secvențiale (eficiență găsită la
   // code-review 2026-07-16: doar ultimele 2 erau în Promise.all, restul adăugau latență evitabilă).
-  const [saved, role, supplierOffers, offeringSupplier] = await Promise.all([
+  const [saved, role, supplierOffers, offeringSupplier, tourSeen] = await Promise.all([
     isDetailSaved(userId, detail.id),
     getUserRole(userId),
     getSupplierOffers(detail.id),
     isOfferingSupplier(userId, detail.id),
+    hasSeenDetailTour(userId),
   ]);
   const isFurnizor = role?.roleMain === "FURNIZOR";
 
@@ -345,6 +347,7 @@ export default async function DetailPage({
             isCurrentUserFurnizor={isFurnizor}
             isOfferingSupplier={offeringSupplier}
             supplierOffers={supplierOffers}
+            tourSeen={tourSeen}
           />
       </div>
 
