@@ -29,9 +29,9 @@ extragerea spre API separat ulterior să fie posibilă fără rescriere.
 ---
 
 ## Glosar de domeniu (limbaj unic — folosește acești termeni în cod și UI)
-- **Detaliu** (`Detail`) — unitatea de conținut (~repo). Titlu, autor+rol, categorie, opțional zonă
-  climatică/seismică, 1 imagine 2D, opțional 2–3 resurse.
-- **Schiță** (`Sketch`) — o „foaie" desenată peste un detaliu-mamă, cu **un singur autor** (~fork+PR).
+- **Detaliu** (`Detail`) — unitatea de conținut (~întrebare/postare). Titlu, autor+rol, categorie, opțional
+  zonă climatică/seismică, 1 imagine 2D, opțional 2–3 resurse.
+- **Schiță** (`Sketch`) — o „foaie" desenată peste un detaliu-mamă, cu **un singur autor** (~răspuns).
   Termenul se referă la contribuția **altcuiva** peste detaliul tău.
 - **Adnotare** (2026-07-31) — desenul autorului peste **propriul** detaliu: notițe/săgeți/cote prin care
   se explică singur. Structural e tot un rând în `sketches` (`sketch.authorId === detail.authorId`,
