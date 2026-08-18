@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { parseAnnotationStrokes } from "@/lib/annotation-form";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { isUsersBlobUrl } from "@/lib/blob-url";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
@@ -150,20 +150,15 @@ export async function createDetailAction(
     annotationFailed = !annotation.ok;
   }
 
-  const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: userId,
-    event: "detail_published",
-    properties: {
-      detail_id: result.detailId,
-      category_count: categoryIds.length,
-      has_description: description.trim().length > 0,
-      has_resources: resources.length > 0,
-      resource_count: resources.length,
-      has_annotation: hasAnnotation,
-    },
+  captureServerEvent(userId, "detail_published", {
+    detail_id: result.detailId,
+    category_count: categoryIds.length,
+    has_description: description.trim().length > 0,
+    has_resources: resources.length > 0,
+    resource_count: resources.length,
+    has_annotation: hasAnnotation,
   });
-  await posthog.flush();
+  await getPostHogClient().flush();
 
   // Detaliul nou apare în feed (listă + counts pe categorie) → invalidează cache-ul feed-ului. Un
   // detaliu de proiect nu ajunge în feed-ul comunității (vezi detailsRepo.listFeed), dar apare pe

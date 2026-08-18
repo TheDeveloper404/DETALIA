@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { normalizeWebsite } from "@/lib/url";
 import { completeOnboarding } from "@/server/services/onboardingService";
@@ -107,13 +107,12 @@ export async function onboardingAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
-  const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: userId,
-    event: "onboarding_completed",
-    properties: { role_main: roleMain, sub_role: subRole, secondary_role: secondaryRole },
+  captureServerEvent(userId, "onboarding_completed", {
+    role_main: roleMain,
+    sub_role: subRole,
+    secondary_role: secondaryRole,
   });
-  await posthog.flush();
+  await getPostHogClient().flush();
 
   // Profil complet → direct în feed (frecare minimă la primul contact). `tour=1`: singurul punct
   // real de „user chiar nou" — declanșează turul ghidat o singură dată (vezi product-tour.tsx).

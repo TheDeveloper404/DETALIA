@@ -10,7 +10,10 @@
 // Logs (console.log/console.error, deja emise de apelanți) rămân sursa de adevăr dacă evenimentul se pierde.
 const POSTHOG_INGEST_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://eu.i.posthog.com";
 
-function environmentTag(): string {
+// Exportat (2026-08-18) — reutilizat de `lib/posthog-server.ts` (`captureServerEvent`), ca evenimentele
+// trimise prin SDK-ul complet (Server Actions) să poarte ACELAȘI tag de mediu ca cele trimise prin fetch
+// brut de aici, nu doar cele de pe calea Edge-safe.
+export function environmentTag(): string {
   return process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "development";
 }
 
