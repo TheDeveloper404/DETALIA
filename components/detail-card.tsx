@@ -10,6 +10,7 @@ import Link from "next/link";
 import type { FeedItem } from "@/server/repos/detailsRepo";
 
 import { FeedSaveButton } from "./feed-save-button";
+import { HighlightedText } from "./highlighted-text";
 import { PersonSilhouette } from "./avatar-initials";
 import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
@@ -57,10 +58,13 @@ export function DetailCard({
   detail,
   currentUserId,
   isSaved = false,
+  searchQuery,
 }: {
   detail: FeedItem;
   currentUserId?: string | null;
   isSaved?: boolean;
+  // Termenul din `?q=` — dacă e dat, titlul/descriere apar cu porțiunea potrivită evidențiată.
+  searchQuery?: string | null;
 }) {
   const href = `/details/${detail.id}`;
 
@@ -91,11 +95,13 @@ export function DetailCard({
         {currentUserId && <FeedSaveButton detailId={detail.id} isSaved={isSaved} />}
         <Link href={href} className="no-underline">
           <h3 className="mb-1 pr-8 font-bold leading-snug text-foreground hover:underline">
-            {detail.title}
+            <HighlightedText text={detail.title} query={searchQuery} />
           </h3>
         </Link>
         {detail.description && (
-          <p className="mb-3.5 line-clamp-2 text-sm text-muted-foreground">{detail.description}</p>
+          <p className="mb-3.5 line-clamp-2 text-sm text-muted-foreground">
+            <HighlightedText text={detail.description} query={searchQuery} />
+          </p>
         )}
 
         {/* Autor + rol. Autorul retras (anonimizat) NU are nume, poză sau link de profil — doar rolul,
