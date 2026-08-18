@@ -127,6 +127,13 @@
       "when": 1786853551438,
       "tag": "0017_catchup_manual_schema_2026_08",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1787042274089,
+      "tag": "0018_catchup_profile_flags_2026_08_18",
+      "breakpoints": true
     }
   ]
 }
