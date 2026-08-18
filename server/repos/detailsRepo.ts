@@ -638,10 +638,12 @@ export async function listFeed(input: { categoryId?: string | null; q?: string |
   // nu aici (vezi projectService.listProjectDetails).
   const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)];
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
-  // Căutare simplă pe titlu (ILIKE, case-insensitive). `%` din input e escapat ca să fie literal.
+  // Căutare pe titlu SAU descriere (ILIKE, case-insensitive) — doar titlul era prea îngust: un termen
+  // tehnic din descriere (nu reluat în titlu) întorcea zero rezultate, deși detaliul chiar vorbea despre
+  // el (2026-08-18, raportat). `%` din input e escapat ca să fie literal.
   if (input.q) {
     const term = `%${input.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    conds.push(sql`${details.title} ilike ${term}`);
+    conds.push(or(sql`${details.title} ilike ${term}`, sql`${details.description} ilike ${term}`)!);
   }
   const where = and(...conds);
 

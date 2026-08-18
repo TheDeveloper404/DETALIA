@@ -133,6 +133,7 @@ export default async function FeedPage({
                 detail={d}
                 currentUserId={session.user.id}
                 isSaved={mySavedIds.has(d.id)}
+                searchQuery={q}
               />
             ))}
           </div>

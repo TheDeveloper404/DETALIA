@@ -4,7 +4,7 @@
 
 DETALIA este o platformă colaborativă în care profesioniștii din proiectare, execuție, furnizare și administrarea construcțiilor pot publica, analiza și îmbunătăți detalii tehnice. Fiecare contribuție este asociată transparent unui rol profesional, iar un detaliu poate fi aprobat, contestat cu argumente sau completat printr-o schiță desenată peste el.
 
-Modelul mental: **„GitHub pentru construcții"** — un detaliu este ca un repository, o schiță ca un fork, iar validarea pe roluri ca un code review.
+Modelul mental: **„StackOverflow pentru construcții"** — un detaliu este ca o întrebare/postare, o schiță este un răspuns, iar validarea pe roluri e votul comunității.
 
 ## Ce oferă
 

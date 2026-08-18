@@ -16,6 +16,23 @@ test("căutare cu termen din titlul detaliului seedat → apare în rezultate", 
   await expect(page.getByRole("heading", { name: detailTitle })).toBeVisible();
 });
 
+test("căutare cu termen DOAR din descriere (nu din titlu) → detaliul apare (2026-08-18)", async ({ page }) => {
+  const { detailTitle } = getSeed();
+  // Descrierea seedată (auth.setup.ts) conține „suita”, absent din titlu — regresia exactă reparată azi:
+  // căutarea era strict pe titlu, un termen tehnic prezent doar în descriere întorcea zero rezultate.
+  await page.goto(`/feed?q=suita`);
+  await expect(page.getByRole("heading", { name: detailTitle })).toBeVisible();
+});
+
+test("termenul căutat apare evidențiat (<mark>) în titlu/descriere", async ({ page }) => {
+  const { detailTitle } = getSeed();
+  const term = detailTitle.split(" ")[0];
+
+  await page.goto(`/feed?q=${encodeURIComponent(term)}`);
+  const heading = page.getByRole("heading", { name: detailTitle });
+  await expect(heading.locator("mark")).toHaveText(term);
+});
+
 test("căutare fără rezultate → empty state de căutare", async ({ page }) => {
   const term = `garbage-nomatch-${Date.now()}`;
   await page.goto(`/feed?q=${encodeURIComponent(term)}`);
