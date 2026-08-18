@@ -100,6 +100,7 @@ export default defineConfig({
         /sec-2026-08-11\.spec\.ts/,
         /sec-2026-08-10\.spec\.ts/,
         /detail-resource-upload\.spec\.ts/,
+        /detail-tour\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {

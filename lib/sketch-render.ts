@@ -7,6 +7,16 @@ import type { Stroke } from "@/server/domain/sketch";
 // Lățimea de referință față de care e exprimată grosimea unui stroke (rezoluție-agnostic).
 export const REFERENCE_WIDTH = 1000;
 
+// Lățimea la care se exportă o schiță (thumbnail „Trimite în Planșă"): urmează imaginea-mamă, plafonată
+// la limita serverului — NU `REFERENCE_WIDTH`, care e doar reperul de normalizare a stroke-urilor
+// (`scale = width/REFERENCE_WIDTH` mai jos), independent de rezoluția de ieșire. Fără imagine-mamă (foaie
+// goală, `naturalWidth` null), n-avem ce rezoluție să urmăm → `fallback` (de regulă REFERENCE_WIDTH).
+// BUG găsit 2026-08-18: exportul se făcea mereu la `REFERENCE_WIDTH` (1000px) chiar și cu o imagine-mamă
+// de până la 4096px — pierdere de rezoluție la fiecare refolosire prin schiță.
+export function resolveExportWidth(naturalWidth: number | null, fallback: number, cap: number): number {
+  return naturalWidth == null ? fallback : Math.min(naturalWidth, cap);
+}
+
 const STROKE_OPTIONS = {
   thinning: 0.5,
   smoothing: 0.5,
