@@ -461,6 +461,14 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await expect(annotationLayer).toContainText("adnotarea autorului");
       await expect(annotationLayer).toHaveAttribute("aria-pressed", "true");
 
+      // Revenire pe tab-ul de bază — restul testului interacționează cu „annotation-delete", care
+      // există DOAR acolo (isBase && openAnnotation, detail-workspace.tsx). Fără navigarea explicită
+      // înapoi, `page.goto(...?sketch=...)` de mai sus lasă pagina pe tab-ul de schiță, iar click-ul de
+      // mai jos așteaptă la nesfârșit un element care nu există pe tab-ul ăsta (bug găsit la rulare
+      // e2e reală, 2026-08-18: testul a picat cu timeout — asertările de mai sus treceau, dar
+      // navigarea nu se întorcea, exact cum arată screenshot-ul rulării picate).
+      await page.goto(`/details/${detailId}`);
+
       // Precondiția bug-ului, confirmată în DB (nu presupusă): adnotarea e acum BLOCATĂ.
       const [locked] = await db
         .select({ lockedAt: sketches.lockedAt })
