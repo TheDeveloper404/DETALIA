@@ -53,11 +53,17 @@
 - **Liste de pe profil (Detalii/Schițe/Activitate) — fără paginare reală la scară** *(decizie de business,
   2026-07-16)*: UI-ul arată primele 4 + „Vezi încă N" (client-side, `components/profile-view.tsx`), dar
   `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`) NU au `LIMIT` — se aduc din DB
-  TOATE rândurile userului la fiecare încărcare de profil, indiferent câte se afișează. La 2026-07-16,
-  maximul real per user era 6 detalii → neglijabil. **Reminder**: dacă vreun user ajunge la zeci de
-  detalii/schițe reale, adaugă `LIMIT` + fetch separat la expand (paginare reală) — nu de făcut preventiv acum.
+  TOATE rândurile userului la fiecare încărcare de profil, indiferent câte se afișează. La 2026-08-18
+  (verificat direct în Neon), maximul real per user: **66 schițe** (un singur user), detalii max 8 —
+  pragul de „zeci" s-a atins deja pe schițe. Tot neglijabil ca performanță la 66 rânduri, dar premisa
+  „nimeni nu se apropie" nu mai e adevărată. **Reminder**: dacă acel user (sau altul) trece clar de 100+,
+  adaugă `LIMIT` + fetch separat la expand (paginare reală) — nu de făcut preventiv acum.
 - (Candidat, neconfirmat ca obligație recurentă: test periodic de restore pe backup-ul DB — există doar
   backup automat, nu verificare că restore-ul chiar funcționează.)
+- **După ORICE SQL manual rulat pe Neon (skill `neon-sql`) → rulează și `npm run db:generate` local**,
+  ca istoricul din `db/migrations/` să rămână sincron cu `db/schema.ts` — vezi capcana din secțiunea de
+  mai jos („`db/migrations/` poate diverge silențios..."). `db:generate` NU atinge nicio bază (doar diff schema→istoric local),
+  deci e sigur de rulat oricând, spre deosebire de `db:push`/`db:migrate`.
 
 ---
 
@@ -217,6 +223,18 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   fișier fără `"use client"` către unul cu `"use client"` trebuie să fie date serializabile (primitive/
   obiecte/array-uri) — dacă componenta client are nevoie de o decizie derivată (ex. „poate userul X să
   șteargă Y"), pasează primitivele brute (`isOwner`, `currentUserId`) și calculează local, în client.
+- **`db/migrations/` (istoricul tracked în repo) poate diverge silențios de `db/schema.ts` ȘI de baza
+  live** *(gol găsit 2026-08-18, `users`: `seen_badges`, `last_seen_announcement_version`,
+  `seen_detail_tour`)*: SQL rulat manual pe Neon (regula normală, skill `neon-sql`) actualizează baza
+  reală, dar dacă nimeni nu rulează `npm run db:generate` după, istoricul din repo rămâne în urmă — FĂRĂ
+  nicio eroare, nimic nu pică (aplicația citește direct din `schema.ts`, nu din migrații). Consecința nu
+  e imediată: apare abia dacă cineva reconstruiește o bază nouă din `db/migrations` (test PGlite, mediu
+  nou) — atunci lipsesc coloane și totul pică la insert. Orice sesiune care rulează SQL manual pe Neon →
+  `db:generate` imediat după, în ACEEAȘI tură (fișier local, nu atinge nicio bază, sigur de rulat oricând).
+- **„Un invariant transversal nou..." (mai sus) are acum un test de regresie**: `server/repos/project-visibility.test.ts`
+  (2026-08-18, pe infra PGlite din `db/test-db.ts`) verifică simultan 7 căi publice (feed, autori, profil,
+  statistici) că exclud detaliile de proiect. NU acoperă încă: `/s/[id]`, `notify*`, `/saved`+„Ofertele
+  mele", `plansaService` — o cale nouă de citire în afara astea tot trebuie verificată manual.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul
