@@ -9,6 +9,7 @@ import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
 import { markAnnouncementSeen } from "@/server/services/announcementService";
+import { markDetailTourSeen } from "@/server/services/tourService";
 import {
   markBadgesSeen,
   removeAvatar,
@@ -172,6 +173,12 @@ export async function confirmBadgesSeenAction(): Promise<void> {
 export async function confirmAnnouncementSeenAction(): Promise<void> {
   const userId = await requireActiveUserId();
   await markAnnouncementSeen(userId);
+}
+
+// Confirmă turul ghidat de pe pagina de detaliu — nu se mai arată din nou. userId din sesiune (anti-IDOR).
+export async function confirmDetailTourSeenAction(): Promise<void> {
+  const userId = await requireActiveUserId();
+  await markDetailTourSeen(userId);
 }
 
 export async function signOutAction() {

@@ -8,6 +8,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DetailProductTour } from "@/components/detail-product-tour";
 import { RolePill } from "@/components/role-pill";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ import {
   composeStackStrokes,
   REMOVED_AUTHOR_LABEL,
   resolveSketchDeletionMode,
+  resolveStackLayers,
 } from "@/server/domain/sketch";
 import type { Stroke } from "@/server/domain/sketch";
 import type { ValidationPosition } from "@/server/domain/validation";
@@ -29,7 +31,7 @@ import type { TargetPosition } from "@/server/repos/validationsRepo";
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
 import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
-import { SupplierOfferPanel } from "./supplier-offer-panel";
+import { SupplierOfferButton, SupplierOfferPanel } from "./supplier-offer-panel";
 import { ValidationPanel } from "./validation-panel";
 
 // Antetul detaliului (titlu/autor/params/descriere) — mutat în capul cardului workspace (model 3.jpeg).
@@ -107,6 +109,7 @@ export function DetailWorkspace({
   isCurrentUserFurnizor = false,
   isOfferingSupplier = false,
   supplierOffers,
+  tourSeen,
 }: {
   detailId: string;
   imageUrl: string;
@@ -116,6 +119,9 @@ export function DetailWorkspace({
   isDetailAuthor: boolean;
   // Calculat pe server (`getDeletionPreview`): ce face „Șterge" pe acest detaliu ACUM.
   deletionMode?: "HARD_DELETE" | "ANONYMIZE";
+  // Turul ghidat de pe pagina de detaliu a fost arătat vreodată acestui user? (`users.seenDetailTour`).
+  // `undefined` (nu userul curent, ex. teaser public) → nu se randează turul.
+  tourSeen?: boolean;
   // ADNOTĂRILE AUTORULUI peste propria imagine (nu sunt schițe din teanc — vezi `isSelfAnnotation`).
   // 0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării. Se randează peste imaginea de bază, UNA CÂTE UNA,
   // doar la cererea cititorului (2026-08-02: imaginea de bază se vede prima; adnotarea e opțională).
@@ -222,16 +228,21 @@ export function DetailWorkspace({
     setHiddenLayerIds(new Set());
   }
 
-  // Foile de fundal ale schiței active, rezolvate din id-uri în ordinea din rețetă (jos → sus).
-  // `filter` scoate foile dispărute între timp: `publish` curăță rețeta, dar o foaie poate fi ștearsă
-  // și DUPĂ publicare (moderare), până când Faza B blochează ștergerea.
-  const stackLayers = useMemo(
-    () =>
-      (activeSketch?.baseSketchIds ?? [])
-        .map((id) => sketches.find((s) => s.id === id))
-        .filter((s): s is WorkspaceSketch => !!s),
-    [activeSketch, sketches],
-  );
+  // Foile de fundal ale schiței active, rezolvate din id-uri în ordinea din rețetă (jos → sus) — o foaie
+  // poate fi o schiță din teanc SAU adnotarea autorului, deci rezolvarea caută în ambele surse (vezi
+  // `resolveStackLayers`, domain/sketch.ts, pentru istoricul bug-ului).
+  const stackLayers = useMemo(() => {
+    const sketchById = new Map(sketches.map((s) => [s.id, s]));
+    const annotationById = new Map(annotations.map((a) => [a.id, a]));
+    return resolveStackLayers(activeSketch?.baseSketchIds ?? [], sketchById, annotationById).map((r) =>
+      r.source === "sketch"
+        ? { id: r.id, strokes: r.layer.strokes, label: sketchLabel(r.layer) }
+        : { id: r.id, strokes: r.layer.strokes, label: "adnotarea autorului" },
+    );
+    // `sketchLabel` nu e memoizată, dar depinde doar de `sketches` (deja în array) — includerea ei aici
+    // ar recalcula la fiecare render, anulând memo-ul.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSketch, sketches, annotations]);
 
   // Ce se randează efectiv: foile de fundal aprinse, în ordine, apoi schița activă DEASUPRA tuturor.
   //
@@ -326,6 +337,7 @@ export function DetailWorkspace({
 
   return (
     <div className="flex flex-col gap-7">
+      {tourSeen !== undefined && <DetailProductTour seen={tourSeen} />}
       {/* id=schiteaza — ținta scurtăturii „Schițează peste" din cardul de feed. */}
       <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
         {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
@@ -457,7 +469,10 @@ export function DetailWorkspace({
             slot-ul de vot (shrink-0, FIX — altfel ar putea ieși din ecran la scroll pe multe taburi,
             2026-08-16, raportat: săgețile mutate aici din coloana verticală de jos). */}
         <div className="flex items-center gap-2 px-4 pb-1.5 pt-3 sm:px-5">
-          <div className="flex min-h-11 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto">
+          <div
+            data-tour="detail-tabs"
+            className="flex min-h-11 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
+          >
             <button
               type="button"
               onClick={() => setTabAndUrl(0)}
@@ -538,7 +553,14 @@ export function DetailWorkspace({
         <div className="mt-3 border-t border-[#eee6da]">
           <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6">
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
-            <div className="absolute bottom-3 right-3 z-[3]">{startSketchBtn}</div>
+            <div data-tour="detail-actions" className="absolute bottom-3 right-3 z-[3] flex items-center gap-2">
+              {/* „Ofertă" — DOAR pe tab-ul de bază (materialele țin de detaliu, nu de o schiță anume),
+                  DOAR furnizori, NICIODATĂ pe propriul detaliu (2026-08-18, mutat lângă „Schițează"). */}
+              {isBase && !isDetailAuthor && isCurrentUserFurnizor && (
+                <SupplierOfferButton detailId={detailId} isOffering={isOfferingSupplier} />
+              )}
+              {startSketchBtn}
+            </div>
             {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
             <div
               aria-hidden
@@ -667,7 +689,7 @@ export function DetailWorkspace({
               </li>
               {stackLayers.map((layer) => {
                 const visible = !hiddenLayerIds.has(layer.id);
-                const label = sketchLabel(layer);
+                const label = layer.label;
                 return (
                   <li key={layer.id}>
                     <button
@@ -715,6 +737,7 @@ export function DetailWorkspace({
             fade-in la comutare (opacity, fără animație de layout — nu redeschide tremurul) */}
         <div
           key={isBase ? "DETAIL" : activeSketch!.id}
+          data-tour="detail-validation"
           className="animate-in fade-in border-t border-[#eee6da] p-5 duration-200 sm:px-6"
         >
           <ValidationPanel
@@ -730,18 +753,12 @@ export function DetailWorkspace({
             embedded
             voteSlot={voteSlotEl}
           />
-          {isBase && (
-            <SupplierOfferPanel
-              detailId={detailId}
-              isFurnizor={!isDetailAuthor && isCurrentUserFurnizor}
-              isOffering={isOfferingSupplier}
-              offers={supplierOffers}
-            />
-          )}
+          {isBase && <SupplierOfferPanel offers={supplierOffers} />}
         </div>
       </section>
 
       {/* dezbaterea unificată pe toată postarea (target DETAIL) + @mention care sare la tabul schiței */}
+      <div data-tour="detail-comments">
       <CommentsSection
         targetType="DETAIL"
         targetId={detailId}
@@ -753,6 +770,7 @@ export function DetailWorkspace({
         mentionSketches={mentionSketches}
         onSelectSketch={selectSketch}
       />
+      </div>
 
       {/* Ștergerea unei adnotări. Formularul stă MONTAT PERMANENT (ascuns), nu în blocul adnotării
           deschise: altfel închiderea adnotării i-ar demonta ref-ul, iar confirmarea ar eșua tăcut —

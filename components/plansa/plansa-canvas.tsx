@@ -48,6 +48,7 @@ import {
   TEXT_FONT_FAMILY,
   TEXT_FONT_SCALE,
 } from "@/lib/sketch-render";
+import { MAX_CLIENT_EXPORT_DIMENSION } from "@/lib/upload-limits";
 import { cn } from "@/lib/utils";
 import {
   MAX_ITEM_SIZE,
@@ -73,12 +74,13 @@ import {
 // retroactiv corectă pt ele (verificat 2026-08-07: nicio distorsiune curentă, dar riscul e real la
 // următoarea schimbare de raport).
 const WORKSPACE_RATIO = 9 / 16;
-// Rezoluția thumbnail-ului exportat (aceeași rație). 2400 (era 800, 2026-08-16, raportat): un
-// singur item pe planșă e adesea o fracțiune din lățimea totală — la 800px lățime totală, un item la
-// ~25% din planșă ajungea la ~200px, ilizibil odată decupat (feature „Dintr-o planșă", §7 Faza C, care
-// reutilizează exact acest export ca sursă de decupaj). Server-ul suportă până la 4096px pe latura cea
-// mai lungă (`MAX_DIMENSION`, `lib/image-processing.ts`) — 2400×1350 rămâne comfortabil sub plafon.
-const THUMB_W = 2400;
+// Rezoluția thumbnail-ului exportat (aceeași rație). La plafonul serverului (`MAX_CLIENT_EXPORT_DIMENSION`,
+// 4096, `lib/image-processing.ts`) — era 2400 (2026-08-16→2026-08-18, cu marjă „de siguranță" sub plafon
+// fără motiv real: server-ul oricum limitează la 4096, deci exportul client rămânea sub propria lui
+// limită degeaba). Un singur item pe planșă e adesea o fracțiune din lățimea totală — cu cât THUMB_W e
+// mai mic, cu atât acel item ajunge mai ilizibil odată decupat (feature „Dintr-o planșă", §7 Faza C, care
+// reutilizează exact acest export ca sursă de decupaj) sau folosit ca bază pentru un detaliu nou.
+const THUMB_W = MAX_CLIENT_EXPORT_DIMENSION;
 const THUMB_H = Math.round(THUMB_W * WORKSPACE_RATIO);
 
 // „select" = mouse neutru (selectezi/muți/scalezi imagini, faci pan pe gol); restul = unelte de desen.

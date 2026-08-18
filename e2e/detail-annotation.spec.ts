@@ -450,6 +450,17 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.getByRole("button", { name: /Publică schița/ }).click();
       await expect(page).toHaveURL(new RegExp(`/details/${detailId}$`), { timeout: 20_000 });
 
+      // BUG găsit 2026-08-18: fundalul construit peste adnotare se randa corect ÎN EDITOR (draft, citit
+      // direct din DB), dar dispărea la vizualizarea schiței deja PUBLICATE — `stackLayers` căuta id-ul
+      // doar în teanc (`sketches`), niciodată în `annotations` (surse separate). Verificăm explicit că
+      // adnotarea apare în „Foi în teanc", bifabilă, cu eticheta dedicată — nu doar că pagina se încarcă.
+      await page.goto(`/details/${detailId}?sketch=${sketchId}`);
+      await expect(page.getByText("Foi în teanc")).toBeVisible();
+      const annotationLayer = page.getByTestId(`stack-layer-${annotation!.id}`);
+      await expect(annotationLayer).toBeVisible();
+      await expect(annotationLayer).toContainText("adnotarea autorului");
+      await expect(annotationLayer).toHaveAttribute("aria-pressed", "true");
+
       // Precondiția bug-ului, confirmată în DB (nu presupusă): adnotarea e acum BLOCATĂ.
       const [locked] = await db
         .select({ lockedAt: sketches.lockedAt })
