@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { toggleSupplierOffer } from "@/server/services/supplierOfferService";
 
@@ -36,13 +36,10 @@ export async function toggleSupplierOfferAction(
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou.", offering: prev.offering };
   }
 
-  const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: userId,
-    event: res.offering ? "supplier_offer_raised" : "supplier_offer_withdrawn",
-    properties: { detail_id: detailId },
+  captureServerEvent(userId, res.offering ? "supplier_offer_raised" : "supplier_offer_withdrawn", {
+    detail_id: detailId,
   });
-  await posthog.flush();
+  await getPostHogClient().flush();
 
   revalidatePath(`/details/${detailId}`);
   return { error: null, offering: res.offering };

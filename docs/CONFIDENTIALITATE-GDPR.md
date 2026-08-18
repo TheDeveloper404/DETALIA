@@ -87,7 +87,7 @@ asta rămâne singurul flux valid ștergerea de cont descrisă mai sus.
 | Neon | baza de date (PII la rest) | regiune UE recomandată |
 | Resend | trimitere email (adrese) | DPA disponibil |
 | Vercel Blob | imagini/thumbnail-uri | fără PII direct |
-| Sentry | erori server/client/edge (poate include user id, URL) | DPA disponibil |
+| PostHog | erori server/client/edge + analytics (poate include user id, URL); regiune EU | DPA disponibil |
 | Cloudflare Turnstile | verificare anti-bot (IP, comportament) pe login+signup | DPA disponibil |
 
 > Decizii deschise aici (entitatea operator, regiunea DB) → `.remember/remember.md` §„Decizii / HOLD".

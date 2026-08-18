@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs, uploadSketchThumbnail } from "@/lib/storage";
 import { publish, saveStrokes } from "@/server/services/sketchService";
@@ -97,13 +97,12 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut publica." };
   }
 
-  const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: userId,
-    event: "sketch_published",
-    properties: { sketch_id: sketchId, detail_id: detailId, has_thumbnail: !!thumbnailUrl },
+  captureServerEvent(userId, "sketch_published", {
+    sketch_id: sketchId,
+    detail_id: detailId,
+    has_thumbnail: !!thumbnailUrl,
   });
-  await posthog.flush();
+  await getPostHogClient().flush();
 
   redirect(`/details/${detailId}`);
 }
