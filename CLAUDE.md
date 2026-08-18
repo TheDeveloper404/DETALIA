@@ -38,12 +38,12 @@
   2026, include GHSA-8fpg-xm3f-6cx3 — fail-open pe middleware v5) — librăria e încă oficial BETA. La
   checkpoint-ul lunar (sau când apare un motiv), verifică `npm view next-auth versions` pentru o beta mai
   nouă cu fix-uri de securitate; folosește context7 dacă ai nevoie de detalii de migrare API.
-- **Scanare periodică de cod mort cu `knip`** *(regulă 2026-07-13)*: Sentry/PostHog arată doar ce a crăpat
+- **Scanare periodică de cod mort cu `knip`** *(regulă 2026-07-13)*: PostHog arată doar ce a crăpat
   vreodată, nu cod mort care n-a aruncat nicio eroare. Rulează `npx knip` ~lunar — fișiere/exporturi
   neutilizate + dependențe nedeclarate. **Nu șterge orbește din rezultat:** Server Actions (`"use server"`)
   apar des fals-pozitiv (apelate din client prin `action={...}`, knip nu le urmărește mereu) — verifică
   fiecare candidat înainte de ștergere.
-- **Igienă observabilitate (Sentry/PostHog) după orice refactor/rescriere care elimină cod** *(regulă
+- **Igienă observabilitate (PostHog) după orice refactor/rescriere care elimină cod** *(regulă
   2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau o librărie,
   treci prin dashboard-ul de erori (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
   ce nu se mai poate reproduce, cu un comentariu scurt de ce. Nu se auto-curăță la refactor.
@@ -106,11 +106,12 @@ Procedură completă (Vercel „Promote to Production" + schema Neon + reparare 
 `docs/DEPLOY.md` §2c punctul 4. Rezumat: rollback de cod e INSTANT (Vercel), rollback de schemă NU e automat
 (SQL manual dacă e nevoie) — verifici compatibilitatea înainte să presupui că un simplu „promote" repară tot.
 
-### Alertare activă pe erori de producție — DE VERIFICAT, nu asumat
-`docs/DEPLOY.md` menționează Sentry „+ Alerts pe `audit_event`" ca ✅ configurat (2026-07-02/03), dar nu am
-verificare directă (dashboard Sentry) că regula de alertă chiar notifică pe Liviu (email/altceva), sau doar
-că evenimentele AJUNG în Sentry pasiv. **Nu presupune niciuna din variante — cere lui Liviu confirmarea din
-Sentry → Alerts înainte să tratezi asta ca rezolvată sau ca gol.**
+### Alertare activă pe erori de producție — VERIFICAT
+Verificat DIRECT pe PostHog (MCP, 2026-08-18) — 2 alerte active, ambele `enabled: true`, cu status
+sănătos: „Post to Slack on issue created" și „Post to Slack on issue spiking" (create 2026-07-15,
+`error_tracking_alerts`, destinație Slack). Erorile de producție chiar notifică activ, nu doar se
+strâng pasiv. (Secțiunea asta menționa Sentry până la 2026-08-18 — stale, scris înainte de decommission-ul
+din 2026-07-16 și nemaiactualizat de atunci; PostHog e unealta reală, folosită concret.)
 
 ### Jurnal de incidente
 Orice incident REAL de producție (nu confuzii clarificate) → rând scurt în `docs/INCIDENTS.md` (ce, cauza
@@ -136,7 +137,7 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
 - **UI nou → verifică `docs/UI-REGISTRY.md` întâi** (modal, card, buton de pericol, pastilă de rol —
   pattern-uri deja stabilite, nu reinventa). După o componentă nouă reutilizabilă, adaugă-i o secțiune
   scurtă acolo.
-- **Nu dramatizez probleme minore.** Când o eroare (Sentry, test flaky) n-are dovadă de impact real asupra
+- **Nu dramatizez probleme minore.** Când o eroare (PostHog, test flaky) n-are dovadă de impact real asupra
   userilor/producției, spun direct din prima frază „nu e grav, are legătură cu X și Y" — nu tonuri alarmante.
 - **Nu verific din inițiativă** (Playwright/browser/screenshot). Verificarea o cere Liviu explicit.
 - **La bug/incident: verific ÎNTÂI cu dovadă directă** (query SQL, `git log`, cod) — nu teoretizez cu voce

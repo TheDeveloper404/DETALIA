@@ -374,8 +374,8 @@ sus, nu doar afirmată.
   ocazia. Nu e „notă mică", e „încă necunoscut".
 - **DMARC `p=none`** — gaură de phishing reală, deschisă acum, dar cunoscută, documentată, cu plan de închidere
   (mai jos) — nu un necunoscut.
-- **Goluri de observabilitate** — alertare activă (PostHog, fostă Sentry) neconfirmată end-to-end (vezi
-  Recomandarea #2).
+- **Goluri de observabilitate** — ~~alertare activă (PostHog, fostă Sentry) neconfirmată end-to-end~~
+  **VERIFICAT 2026-08-18: 2 alerte PostHog active (Slack, pe issue creat/spiking).** Vezi Recomandarea #2.
 - **Proiecte, Planșă privată, badge-uri de reputație** (adăugate 2026-08-09 → 2026-08-17) — n-au trecut
   printr-un audit formal de 13 categorii, doar prin review de cod obișnuit la implementare. Vezi
   §„Suprafață neacoperită de audit formal".
@@ -436,8 +436,8 @@ resturi „inerte" sunt intenționate și documentate: valorile de enum `PENDING
    PII nu se loghează. Ștergere cont = anonimizare GDPR. Imagini re-encodate → EXIF/GPS stripate.
 8. **Logging & monitoring** — ✅ `lib/audit.ts` (evenimente structurate fără PII brut). Hook
    `block-pii-log` în repo. ~~Sentry live~~ (stare la data auditului 2026-07-14) — **Sentry decomisionat
-   2026-07-16; PostHog e sursa unică de observabilitate acum.** Dacă alertele PostHog chiar notifică pe
-   Liviu în timp real (nu doar înregistrează pasiv evenimentul) — **NECONFIRMAT**, vezi `CLAUDE.md`
+   2026-07-16; PostHog e sursa unică de observabilitate acum.** Alertele PostHog notifică activ (Slack) —
+   **VERIFICAT 2026-08-18**, 2 alerte active (issue creat/spiking), vezi `CLAUDE.md`
    §„Alertare activă pe erori de producție".
 9. **Abuse & rate limiting** — ✅ Upstash sliding-window distribuit. Auth (5/h email, 20/h IP), mutații
    (40/min), create-detail (10/h), upload (30/h), admin-login. **Fail-closed în producție**. Turnstile pe
@@ -531,10 +531,10 @@ de trafic sau înainte de a extinde funcționalitatea de partajare/colaborare ma
 ## Recomandări (prioritizate)
 
 1. ~~Deploy JWT~~ — **FĂCUT**, JWT + SEC-H01 pe `main`.
-2. ~~Configurează alerte~~ — **PARȚIAL, dezactualizat**: Sentry Alerts pe `audit_event` era FĂCUT
-   2026-07-03, dar Sentry a fost decomisionat 2026-07-16. **Echivalentul pe PostHog NU e confirmat** —
-   evenimentele ajung în PostHog (pasiv), dar nu există verificare directă că o regulă de alertă
-   notifică pe Liviu activ. **DESCHIS**, vezi `CLAUDE.md` §„Alertare activă pe erori de producție".
+2. ~~Configurează alerte~~ — **FĂCUT** (verificat 2026-08-18): Sentry Alerts pe `audit_event` era FĂCUT
+   2026-07-03, apoi Sentry a fost decomisionat 2026-07-16. Echivalentul pe PostHog e VERIFICAT DIRECT —
+   2 alerte active (Slack, pe issue creat/spiking, create 2026-07-15). Vezi `CLAUDE.md`
+   §„Alertare activă pe erori de producție".
 3. **Opțional, neimplementat (decizie 2026-07-03):** token JWT cu `maxAge` scurt + re-check status la refresh —
    respins; costă friction (relogin mai des) pentru un beneficiu marginal (citirea unui cont suspendat nu e
    periculoasă, mutațiile sunt deja blocate tare).
