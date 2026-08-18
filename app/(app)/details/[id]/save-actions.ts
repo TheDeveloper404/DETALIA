@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { toggleSavedDetail } from "@/server/services/detailService";
 
 // Comută „salvează detaliu" (bookmark) pentru userul din sesiune. `userId` vine DOAR din sesiune
@@ -19,13 +19,8 @@ export async function toggleSaveDetailAction(formData: FormData): Promise<void> 
   const result = await toggleSavedDetail({ detailId, userId: session.user.id });
 
   if (result.saved) {
-    const posthog = getPostHogClient();
-    posthog.capture({
-      distinctId: session.user.id,
-      event: "detail_saved",
-      properties: { detail_id: detailId },
-    });
-    await posthog.flush();
+    captureServerEvent(session.user.id, "detail_saved", { detail_id: detailId });
+    await getPostHogClient().flush();
   }
 
   // Re-randează pagina detaliului (starea butonului) + lista de salvate + feed-ul (bookmark pe card).
@@ -43,13 +38,8 @@ export async function toggleSaveDetailForFeedAction(detailId: string): Promise<{
   const res = await toggleSavedDetail({ detailId, userId: session.user.id });
 
   if (res.saved) {
-    const posthog = getPostHogClient();
-    posthog.capture({
-      distinctId: session.user.id,
-      event: "detail_saved",
-      properties: { detail_id: detailId },
-    });
-    await posthog.flush();
+    captureServerEvent(session.user.id, "detail_saved", { detail_id: detailId });
+    await getPostHogClient().flush();
   }
 
   revalidatePath(`/details/${detailId}`);

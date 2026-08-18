@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
 import { createDraft } from "@/server/services/sketchService";
@@ -47,13 +47,12 @@ export async function approveAction(formData: FormData): Promise<void> {
   const res = await approve({ userId, targetType, targetId });
   if (!res.ok && res.error === "NO_ROLE") redirect("/onboarding");
 
-  const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: userId,
-    event: "detail_approved",
-    properties: { target_type: targetType, target_id: targetId, detail_id: detailId },
+  captureServerEvent(userId, "detail_approved", {
+    target_type: targetType,
+    target_id: targetId,
+    detail_id: detailId,
   });
-  await posthog.flush();
+  await getPostHogClient().flush();
 
   revalidatePath(`/details/${detailId}`);
 }
@@ -108,13 +107,12 @@ export async function disapproveAction(
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
-  const posthog = getPostHogClient();
-  posthog.capture({
-    distinctId: userId,
-    event: "detail_disapproved",
-    properties: { target_type: targetType, target_id: targetId, detail_id: detailId },
+  captureServerEvent(userId, "detail_disapproved", {
+    target_type: targetType,
+    target_id: targetId,
+    detail_id: detailId,
   });
-  await posthog.flush();
+  await getPostHogClient().flush();
 
   revalidatePath(`/details/${detailId}`);
   return { error: null };

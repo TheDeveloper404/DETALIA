@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { auth, clearSessionCookie, signOut } from "@/lib/auth";
-import { getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
@@ -200,9 +200,8 @@ export async function deleteAccountAction(): Promise<void> {
   const userId = await requireUserId();
   await deleteAccount(userId);
 
-  const posthog = getPostHogClient();
-  posthog.capture({ distinctId: userId, event: "account_deleted" });
-  await posthog.flush();
+  captureServerEvent(userId, "account_deleted");
+  await getPostHogClient().flush();
 
   try {
     await signOut({ redirect: false });
