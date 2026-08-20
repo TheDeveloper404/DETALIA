@@ -14,10 +14,17 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // `sharp` (reprocessBlobImage, lib/image-processing.ts) are binar nativ — fără asta, Turbopack îl poate
-  // împacheta greșit pe lambda-ul Linux de Vercel, rupând `libvips-cpp.so` la runtime (500 real de
-  // producție, 2026-08-20, verificat direct în PostHog: ERR_DLOPEN_FAILED pe fiecare apel).
+  // `sharp` (reprocessBlobImage, lib/image-processing.ts) are binar nativ. `serverExternalPackages`
+  // NU e suficient pe Vercel: sursa Next.js exclude explicit `sharp`/`@img/sharp-libvips*` din file
+  // tracing când rulează pe platforma Vercel (presupune că platforma le livrează separat) — dacă acel
+  // layer intern lipsește/e dezactivat pentru proiect, binarul nu ajunge deloc în bundle-ul lambda:
+  // `ERR_DLOPEN_FAILED: libvips-cpp.so... cannot open shared object file` (500 real de producție,
+  // 2026-08-20, verificat în PostHog). `outputFileTracingIncludes` forțează includerea explicită,
+  // indiferent de ce presupune platforma.
   serverExternalPackages: ["sharp"],
+  outputFileTracingIncludes: {
+    "/*": ["node_modules/sharp/**/*", "node_modules/@img/sharp-libvips*/**/*", "node_modules/@img/sharp-linux*/**/*"],
+  },
   experimental: {
     // Trimiterea unei schițe postează prin Server Action strokes JSON + thumbnail PNG (1000px lățime,
     // poate depăși 1MB). Default-ul de 1MB pică cu 413 → ridicăm plafonul. Acțiunea e auth-gated + rate-limited.
