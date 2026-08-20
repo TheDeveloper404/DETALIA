@@ -99,12 +99,12 @@ test("deleteDetail: cascada șterge schița + validarea/comentariul polimorfice 
   expect(remainingDetail).toHaveLength(0);
 });
 
-test("toggleCommentLike: toggle real pe DB + CANNOT_LIKE_OWN + cascadă la ștergerea comentariului", async () => {
+test("toggleCommentLike: vot up/down real pe DB + CANNOT_LIKE_OWN + cascadă la ștergerea comentariului", async () => {
   const { testerUserId, authorUserId, categoryId } = getSeed();
 
   const created = await createDetail({
     authorId: testerUserId,
-    title: `Integration test — like comentariu ${Date.now()}`,
+    title: `Integration test — vot comentariu ${Date.now()}`,
     categoryIds: [categoryId],
     imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
     resources: [],
@@ -121,46 +121,55 @@ test("toggleCommentLike: toggle real pe DB + CANNOT_LIKE_OWN + cascadă la șter
       userId: testerUserId,
       targetType: "DETAIL",
       targetId: detailId,
-      body: "Comentariu de integrare — like",
+      body: "Comentariu de integrare — vot",
     });
     expect(commentRes.ok).toBe(true);
 
     const [comment] = await db.select({ id: comments.id }).from(comments).where(eq(comments.targetId, detailId));
 
-    // Autorul nu-și poate aprecia propriul comentariu (CANNOT_LIKE_OWN, enforce în service).
-    const ownLike = await toggleCommentLike({ userId: testerUserId, commentId: comment.id });
-    expect(ownLike).toEqual({ ok: false, error: "CANNOT_LIKE_OWN" });
+    // Autorul nu-și poate vota propriul comentariu (CANNOT_LIKE_OWN, enforce în service).
+    const ownVote = await toggleCommentLike({ userId: testerUserId, commentId: comment.id, direction: "UP" });
+    expect(ownVote).toEqual({ ok: false, error: "CANNOT_LIKE_OWN" });
 
-    // `author` apreciază comentariul lui `tester` → toggle real pe tabelul comment_likes.
-    const liked = await toggleCommentLike({ userId: authorUserId, commentId: comment.id });
-    expect(liked).toEqual({ ok: true, liked: true });
+    // `author` apreciază comentariul lui `tester` → toggle real pe tabelul comment_likes (direction UP).
+    const liked = await toggleCommentLike({ userId: authorUserId, commentId: comment.id, direction: "UP" });
+    expect(liked).toEqual({ ok: true, myVote: "UP" });
 
     const rowsAfterLike = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
     expect(rowsAfterLike).toHaveLength(1);
+    expect(rowsAfterLike[0].direction).toBe("UP");
 
-    // Agregarea din listCommentsForTarget (likeCount/likedByMe/likers) reflectă like-ul.
+    // Agregarea din listCommentsForTarget (upvoteCount/downvoteCount/myVote/likers) reflectă votul.
     const listedForAuthor = await getComments("DETAIL", detailId, authorUserId);
     const listed = listedForAuthor.find((c) => c.id === comment.id);
-    expect(listed?.likeCount).toBe(1);
-    expect(listed?.likedByMe).toBe(true);
+    expect(listed?.upvoteCount).toBe(1);
+    expect(listed?.downvoteCount).toBe(0);
+    expect(listed?.myVote).toBe("UP");
     expect(listed?.likers).toHaveLength(1);
     expect(listed?.likers[0]).toMatchObject({ id: authorUserId });
 
-    // Din perspectiva altcuiva (tester), likedByMe e fals — poziția e per-user.
+    // Din perspectiva altcuiva (tester), myVote e null — poziția e per-user.
     const listedForTester = await getComments("DETAIL", detailId, testerUserId);
-    expect(listedForTester.find((c) => c.id === comment.id)?.likedByMe).toBe(false);
+    expect(listedForTester.find((c) => c.id === comment.id)?.myVote).toBeNull();
 
-    // Retragere — toggle din nou → liked: false, rândul dispare.
-    const unliked = await toggleCommentLike({ userId: authorUserId, commentId: comment.id });
-    expect(unliked).toEqual({ ok: true, liked: false });
-    const rowsAfterUnlike = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
-    expect(rowsAfterUnlike).toHaveLength(0);
+    // Comutare pe DOWN — un singur rând rămâne, direcția se schimbă (nu se dublează poziția).
+    const switched = await toggleCommentLike({ userId: authorUserId, commentId: comment.id, direction: "DOWN" });
+    expect(switched).toEqual({ ok: true, myVote: "DOWN" });
+    const rowsAfterSwitch = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
+    expect(rowsAfterSwitch).toHaveLength(1);
+    expect(rowsAfterSwitch[0].direction).toBe("DOWN");
 
-    // Cascadă: ștergerea detaliului (→ șterge comentariul) elimină și un like rămas.
-    await toggleCommentLike({ userId: authorUserId, commentId: comment.id }); // re-apreciază
+    // Retragere — toggle din nou pe DOWN → myVote: null, rândul dispare.
+    const unvoted = await toggleCommentLike({ userId: authorUserId, commentId: comment.id, direction: "DOWN" });
+    expect(unvoted).toEqual({ ok: true, myVote: null });
+    const rowsAfterUnvote = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
+    expect(rowsAfterUnvote).toHaveLength(0);
+
+    // Cascadă: ștergerea detaliului (→ șterge comentariul) elimină și un vot rămas.
+    await toggleCommentLike({ userId: authorUserId, commentId: comment.id, direction: "UP" }); // re-votează
     await deleteDetail({ detailId, userId: testerUserId });
-    const remainingLikes = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
-    expect(remainingLikes).toHaveLength(0);
+    const remainingVotes = await db.select().from(commentLikes).where(eq(commentLikes.commentId, comment.id));
+    expect(remainingVotes).toHaveLength(0);
   } finally {
     await db.delete(details).where(eq(details.id, detailId));
   }

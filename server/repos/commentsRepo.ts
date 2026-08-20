@@ -6,13 +6,18 @@ import { commentLikes, comments, roles, users } from "@/db/schema";
 import { verifiedCondition } from "@/server/repos/repoHelpers";
 import type { TargetType } from "@/server/domain/validation";
 
-// Nr. de aprecieri pe comentariu — subquery corelat (nu join, ca să nu dublăm rândul comentariului).
-const likeCount = sql<number>`(select count(*)::int from ${commentLikes}
-   where ${commentLikes.commentId} = ${comments.id})`;
+// Nr. de aprecieri/dezaprobări pe comentariu — subquery-uri corelate (nu join, ca să nu dublăm rândul
+// comentariului). Rămân SEPARATE (nu netate up-down), consecvent cu Aprob/Dezaprob pe validări — vezi
+// nota din validation-panel.tsx: greutatea unui vot o judecă cititorul din cine a votat, nu un scor unic.
+const upvoteCount = sql<number>`(select count(*)::int from ${commentLikes}
+   where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.direction} = 'UP')`;
+const downvoteCount = sql<number>`(select count(*)::int from ${commentLikes}
+   where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.direction} = 'DOWN')`;
 
 // Lista celor care au apreciat (nume + rol + verificare), cei mai recenți primii — pentru popup-ul
-// „vezi cine a apreciat". La scara actuală (comunitate mică) e ieftin să vină odată cu comentariul, fără
-// fetch separat la deschiderea popup-ului.
+// „vezi cine a apreciat". DOAR up-votes (dezaprobarea pe comentariu rămâne fără listă „cine", ca să nu
+// extindem scopul cererii — un simplu contor e suficient). La scara actuală (comunitate mică) e ieftin să
+// vină odată cu comentariul, fără fetch separat la deschiderea popup-ului.
 const commentLikers = sql<
   { id: string; name: string | null; image: string | null; roleMain: string | null; subRole: string | null; verified: boolean }[]
 >`(
@@ -27,7 +32,7 @@ const commentLikers = sql<
     from ${commentLikes}
     join ${users} on ${users.id} = ${commentLikes.userId}
     left join ${roles} on ${roles.userId} = ${commentLikes.userId}
-    where ${commentLikes.commentId} = ${comments.id}
+    where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.direction} = 'UP'
     order by ${commentLikes.createdAt} desc
   ) sub
 )`;
@@ -82,12 +87,12 @@ export async function getRootCommentForTarget(
 }
 
 // Comentariile unei ținte, cu autor (nume + rol curent). Cronologic (cele vechi sus).
-// currentUserId opțional → dacă lipsește, likedByMe e mereu false (ex. context fără sesiune).
+// currentUserId opțional → dacă lipsește, myVote e mereu null (ex. context fără sesiune).
 export async function listCommentsForTarget(targetType: TargetType, targetId: string, currentUserId?: string) {
-  const likedByMe = currentUserId
-    ? sql<boolean>`exists (select 1 from ${commentLikes}
-        where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.userId} = ${currentUserId})`
-    : sql<boolean>`false`;
+  const myVote = currentUserId
+    ? sql<"UP" | "DOWN" | null>`(select ${commentLikes.direction} from ${commentLikes}
+        where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.userId} = ${currentUserId} limit 1)`
+    : sql<null>`null`;
 
   return db
     .select({
@@ -105,8 +110,9 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       authorRoleMain: roles.roleMain,
       authorSubRole: roles.subRole,
       authorVerification: roles.verificationStatus,
-      likeCount,
-      likedByMe,
+      upvoteCount,
+      downvoteCount,
+      myVote,
       likers: commentLikers,
     })
     .from(comments)
@@ -167,16 +173,31 @@ export async function deleteFreeCommentByAuthor(
   return { deleted: rows.length > 0, imageUrl: rows[0]?.imageUrl ?? null };
 }
 
-// Toggle like pe comentariu — o singură poziție per user per comentariu, reversibilă (delete dacă
-// exista, altfel insert). Ownership („nu-ți poți aprecia propriul comentariu") se verifică în service,
-// nu aici. Întoarce true = acum e apreciat, false = tocmai a fost retras.
-export async function toggleCommentLike(commentId: string, userId: string): Promise<boolean> {
-  const deleted = await db
-    .delete(commentLikes)
+// Toggle vot pe comentariu — o singură poziție per user per comentariu: același sens din nou → retrage
+// (delete), sens opus → comută (update direction), nicio poziție încă → adaugă (insert). Ownership
+// („nu-ți poți vota propriul comentariu") se verifică în service, nu aici. Întoarce direcția rezultată
+// sau null dacă poziția a fost retrasă.
+export async function toggleCommentLike(
+  commentId: string,
+  userId: string,
+  direction: "UP" | "DOWN",
+): Promise<"UP" | "DOWN" | null> {
+  const [existing] = await db
+    .select({ direction: commentLikes.direction })
+    .from(commentLikes)
     .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)))
-    .returning({ commentId: commentLikes.commentId });
-  if (deleted.length > 0) return false;
+    .limit(1);
 
-  await db.insert(commentLikes).values({ commentId, userId }).onConflictDoNothing();
-  return true;
+  if (existing?.direction === direction) {
+    await db
+      .delete(commentLikes)
+      .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)));
+    return null;
+  }
+
+  await db
+    .insert(commentLikes)
+    .values({ commentId, userId, direction })
+    .onConflictDoUpdate({ target: [commentLikes.userId, commentLikes.commentId], set: { direction } });
+  return direction;
 }

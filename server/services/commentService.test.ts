@@ -25,7 +25,7 @@ import { deleteComment, editComment, toggleCommentLike } from "./commentService"
 
 const ROLE = { roleMain: "EXECUTANT", subRole: null, verificationStatus: "UNVERIFIED" };
 const commentId = "22222222-2222-4222-8222-222222222222";
-const input = { userId: "u-1", commentId };
+const input = { userId: "u-1", commentId, direction: "UP" as const };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -35,7 +35,7 @@ beforeEach(() => {
     targetId: "d-1",
     authorId: "owner-x",
   } as never);
-  vi.mocked(toggleCommentLikeRepo).mockResolvedValue(true);
+  vi.mocked(toggleCommentLikeRepo).mockResolvedValue("UP");
   vi.mocked(targetExists).mockResolvedValue(true);
 });
 
@@ -79,18 +79,25 @@ describe("nu-ți poți aprecia propriul comentariu — CANNOT_LIKE_OWN (enforce 
   });
 });
 
-describe("toggle — o singură poziție per user per comentariu, reversibilă", () => {
-  it("comentariu ne-apreciat încă → apreciază (liked: true)", async () => {
-    vi.mocked(toggleCommentLikeRepo).mockResolvedValue(true);
+describe("toggle — o singură poziție per user per comentariu, reversibilă sau comutabilă", () => {
+  it("comentariu ne-votat încă → apreciază (myVote: UP)", async () => {
+    vi.mocked(toggleCommentLikeRepo).mockResolvedValue("UP");
     const r = await toggleCommentLike(input);
-    expect(r).toEqual({ ok: true, liked: true });
-    expect(toggleCommentLikeRepo).toHaveBeenCalledWith(commentId, input.userId);
+    expect(r).toEqual({ ok: true, myVote: "UP" });
+    expect(toggleCommentLikeRepo).toHaveBeenCalledWith(commentId, input.userId, "UP");
   });
 
-  it("comentariu deja apreciat → retrage aprecierea (liked: false)", async () => {
-    vi.mocked(toggleCommentLikeRepo).mockResolvedValue(false);
+  it("comentariu deja apreciat, click din nou pe UP → retrage votul (myVote: null)", async () => {
+    vi.mocked(toggleCommentLikeRepo).mockResolvedValue(null);
     const r = await toggleCommentLike(input);
-    expect(r).toEqual({ ok: true, liked: false });
+    expect(r).toEqual({ ok: true, myVote: null });
+  });
+
+  it("comentariu apreciat, click pe DOWN → comută votul (myVote: DOWN)", async () => {
+    vi.mocked(toggleCommentLikeRepo).mockResolvedValue("DOWN");
+    const r = await toggleCommentLike({ ...input, direction: "DOWN" });
+    expect(r).toEqual({ ok: true, myVote: "DOWN" });
+    expect(toggleCommentLikeRepo).toHaveBeenCalledWith(commentId, input.userId, "DOWN");
   });
 });
 

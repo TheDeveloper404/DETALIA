@@ -38,6 +38,7 @@ import {
   listFeed,
   listTopDebated,
   listRelatedDetails,
+  countSavedDetails,
   listSavedDetailIds,
   listOfferedDetails,
   listSavedDetails,
@@ -641,6 +642,11 @@ export async function toggleSavedDetail(input: {
 // Detaliile salvate de user (forma de card pentru pagina /saved).
 export function getSavedDetails(userId: string) {
   return listSavedDetails(userId);
+}
+
+// Numărul de detalii salvate de user — pastila din sidebar-ul feed-ului.
+export function getSavedDetailsCount(userId: string) {
+  return countSavedDetails(userId);
 }
 
 // Pagina PRIVATĂ „Ofertele mele" (doar Furnizor). Ownership implicit prin userId din sesiune — gating-ul

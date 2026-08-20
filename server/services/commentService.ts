@@ -162,14 +162,15 @@ export async function deleteComment(input: {
 }
 
 export type ToggleCommentLikeResult =
-  | { ok: true; liked: boolean }
+  | { ok: true; myVote: "UP" | "DOWN" | null }
   | { ok: false; error: "NO_ROLE" | "NOT_FOUND" | "CANNOT_LIKE_OWN" };
 
-// Toggle like — cere rol declarat (ca la comentat/validat) și blochează like-ul pe propriul comentariu
-// (aceeași regulă ca la validare: nu te poți valida/aprecia singur).
+// Toggle vot (up/down) — cere rol declarat (ca la comentat/validat) și blochează votul pe propriul
+// comentariu (aceeași regulă ca la validare: nu te poți valida/aprecia singur).
 export async function toggleCommentLike(input: {
   userId: string;
   commentId: string;
+  direction: "UP" | "DOWN";
 }): Promise<ToggleCommentLikeResult> {
   if (!isUuid(input.commentId)) return { ok: false, error: "NOT_FOUND" }; // SEC-11
 
@@ -178,13 +179,13 @@ export async function toggleCommentLike(input: {
 
   const target = await getCommentTarget(input.commentId);
   if (!target) return { ok: false, error: "NOT_FOUND" };
-  // Proiecte (2026-08-09, gol găsit la /code-review): un like pe un comentariu de pe un detaliu de
+  // Proiecte (2026-08-09, gol găsit la /code-review): un vot pe un comentariu de pe un detaliu de
   // proiect e tot o interacțiune cu conținut privat — aceeași poartă ca la addComment/targetExists.
   if (!(await targetExists(target.targetType, target.targetId, input.userId))) {
     return { ok: false, error: "NOT_FOUND" };
   }
   if (target.authorId === input.userId) return { ok: false, error: "CANNOT_LIKE_OWN" };
 
-  const liked = await toggleCommentLikeRepo(input.commentId, input.userId);
-  return { ok: true, liked };
+  const myVote = await toggleCommentLikeRepo(input.commentId, input.userId, input.direction);
+  return { ok: true, myVote };
 }
