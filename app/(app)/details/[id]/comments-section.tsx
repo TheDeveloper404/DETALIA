@@ -548,20 +548,25 @@ function CommentItem({
   const editLabelsRef = useRef(new Map<string, string>());
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Like — optimistic (aceeași idee ca la validare): pornește din props (c.likedByMe/likeCount),
+  // Vot (up/down) — optimistic (aceeași idee ca la validare): pornește din props (c.myVote/counts),
   // se ajustează instant la click, apoi se reconciliază cu server-ul după revalidatePath.
-  const [likeState, applyLikeOptimistic] = useOptimistic<{ liked: boolean; count: number }, boolean>(
-    { liked: c.likedByMe, count: c.likeCount },
-    (s, liked) => ({ liked, count: s.count + (liked ? 1 : -1) }),
+  type VoteState = { myVote: "UP" | "DOWN" | null; up: number; down: number };
+  const [voteState, applyVoteOptimistic] = useOptimistic<VoteState, "UP" | "DOWN">(
+    { myVote: c.myVote, up: c.upvoteCount, down: c.downvoteCount },
+    (s, direction) => {
+      const up = s.up - (s.myVote === "UP" ? 1 : 0) + (direction === "UP" && s.myVote !== "UP" ? 1 : 0);
+      const down = s.down - (s.myVote === "DOWN" ? 1 : 0) + (direction === "DOWN" && s.myVote !== "DOWN" ? 1 : 0);
+      const myVote = s.myVote === direction ? null : direction;
+      return { myVote, up, down };
+    },
   );
   const [likePending, startLikeTransition] = useTransition();
   const [likersOpen, setLikersOpen] = useState(false);
 
-  function toggleLike() {
-    const next = !likeState.liked;
+  function toggleVote(direction: "UP" | "DOWN") {
     startLikeTransition(async () => {
-      applyLikeOptimistic(next);
-      await toggleCommentLikeAction(c.id, detailId);
+      applyVoteOptimistic(direction);
+      await toggleCommentLikeAction(c.id, detailId, direction);
     });
   }
 
@@ -740,29 +745,56 @@ function CommentItem({
         {!editing && (
           <div className="mt-2 flex items-center gap-3">
             {!isOwner && (
-              <button
-                type="button"
-                onClick={toggleLike}
-                disabled={likePending}
-                aria-pressed={likeState.liked}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] transition-colors disabled:opacity-50",
-                  likeState.liked
-                    ? "text-primary"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                )}
-              >
-                <VoteTriangle direction="up" size={9} />
-                {likeState.count > 0 ? likeState.count : "Apreciază"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => toggleVote("UP")}
+                  disabled={likePending}
+                  aria-pressed={voteState.myVote === "UP"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] transition-colors disabled:opacity-50",
+                    voteState.myVote === "UP"
+                      ? "text-primary"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <VoteTriangle direction="up" size={9} />
+                  {voteState.up > 0 ? voteState.up : "Apreciază"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleVote("DOWN")}
+                  disabled={likePending}
+                  aria-pressed={voteState.myVote === "DOWN"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 font-mono text-[11px] transition-colors disabled:opacity-50",
+                    voteState.myVote === "DOWN"
+                      ? "text-destructive"
+                      : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                >
+                  <VoteTriangle direction="down" size={9} />
+                  {voteState.down > 0 ? voteState.down : "Dezaprobă"}
+                </button>
+              </>
             )}
-            {isOwner && likeState.count > 0 && (
-              <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
-                <VoteTriangle direction="up" size={9} />
-                {likeState.count}
+            {isOwner && (voteState.up > 0 || voteState.down > 0) && (
+              <span className="inline-flex items-center gap-3 font-mono text-[11px] text-muted-foreground">
+                {voteState.up > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <VoteTriangle direction="up" size={9} />
+                    {voteState.up}
+                  </span>
+                )}
+                {voteState.down > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <VoteTriangle direction="down" size={9} />
+                    {voteState.down}
+                  </span>
+                )}
               </span>
             )}
-            {likeState.count > 0 && (
+            {voteState.up > 0 && (
               <button
                 type="button"
                 onClick={() => setLikersOpen(true)}

@@ -18,6 +18,7 @@ import {
   getFeed,
   getMySavedDetailIds,
   getPublishedDetailsCount,
+  getSavedDetailsCount,
   getTopDebated,
 } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
@@ -43,7 +44,7 @@ export default async function FeedPage({
   const { cat, q: rawQ, welcome, tour } = await searchParams;
   const q = rawQ?.trim() || null;
 
-  const [categories, totalPublished, role, authors, media, platform, debated, unseenAnnouncement] =
+  const [categories, totalPublished, role, authors, media, platform, debated, unseenAnnouncement, savedCount] =
     await Promise.all([
       listCategoriesWithCounts(),
       getPublishedDetailsCount(),
@@ -53,6 +54,7 @@ export default async function FeedPage({
       getPlatformState(),
       getTopDebated(7),
       getUnseenAnnouncement(session.user.id),
+      getSavedDetailsCount(session.user.id),
     ]);
 
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
@@ -97,6 +99,7 @@ export default async function FeedPage({
         categories={categories}
         activeId={activeId}
         total={totalPublished}
+        savedCount={savedCount}
       />
 
       <main className="min-w-0">

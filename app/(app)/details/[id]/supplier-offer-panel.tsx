@@ -6,7 +6,6 @@ import { useActionState } from "react";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { RolePill } from "@/components/role-pill";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { SupplierOfferRow } from "@/server/repos/supplierOffersRepo";
 
 import { toggleSupplierOfferAction, type SupplierOfferState } from "./supplier-offer-actions";
@@ -24,21 +23,23 @@ export function SupplierOfferButton({
   const initialState: SupplierOfferState = { error: null, offering: isOffering };
   const [state, formAction, pending] = useActionState(toggleSupplierOfferAction, initialState);
 
+  const label = state.offering ? "Nu mai pot oferta" : "Pot să ofertez materiale";
+
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-2">
       <input type="hidden" name="detailId" value={detailId} />
       <Button
         type="submit"
-        size="sm"
+        size="icon"
         variant={state.offering ? "default" : "outline"}
+        title={label}
         disabled={pending}
-        className={cn(
-          "gap-1.5 shadow-md",
-          state.offering && "border-primary bg-primary text-primary-foreground",
-        )}
+        className="group/button !w-auto gap-0 overflow-hidden !px-2.5 shadow-md"
       >
-        <Hand className="size-4" strokeWidth={2} />
-        {state.offering ? "Nu mai pot oferta" : "Pot să ofertez materiale"}
+        <Hand className="size-4 shrink-0" strokeWidth={2} />
+        <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover/button:ml-2 group-hover/button:max-w-[320px] group-hover/button:opacity-100">
+          {label}
+        </span>
       </Button>
       {state.error && (
         <p role="alert" className="text-xs text-destructive">
