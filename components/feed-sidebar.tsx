@@ -1,5 +1,6 @@
 // Coloana stângă a feed-ului — card mini de profil + listă de categorii (cu count + activ) + buton „Adaugă".
 // Prezentațional (props-driven): feed-ul real îi dă date din sesiune/DB, preview-ul din mock.
+import { Bookmark } from "lucide-react";
 import Link from "next/link";
 
 import { PersonSilhouette } from "./avatar-initials";
@@ -34,12 +35,14 @@ export function FeedSidebar({
   activeId,
   basePath = "/feed",
   total,
+  savedCount,
 }: {
   profile: SidebarProfile;
   categories: SidebarCategory[];
   activeId: string | null;
   basePath?: string;
   total: number;
+  savedCount: number;
 }) {
   return (
     // mt-2: aliniază cu containerul „Detalii în dezbatere" din main (are mt-2 propriu) și cu rail-ul
@@ -92,6 +95,18 @@ export function FeedSidebar({
             </p>
           )}
         </div>
+      </Link>
+
+      {/* Detalii salvate — pastilă cu link direct spre /saved. */}
+      <Link
+        href="/saved"
+        className="flex items-center justify-between rounded-lg bg-card px-[18px] py-3 text-sm font-semibold text-foreground no-underline ring-1 ring-foreground/10 transition-colors hover:bg-secondary/60"
+      >
+        <span className="flex items-center gap-2">
+          <Bookmark className="size-4 text-muted-foreground" strokeWidth={2} />
+          Detalii salvate
+        </span>
+        <span className="font-mono text-xs text-muted-foreground">{savedCount}</span>
       </Link>
 
       {/* Categorii. */}

@@ -31,7 +31,7 @@ export function DialogOverlay({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} aria-hidden />
+      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} aria-hidden />
       <div role="dialog" aria-modal="true" aria-label={ariaLabel} className={panelClassName}>
         {children}
       </div>
