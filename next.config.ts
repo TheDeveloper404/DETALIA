@@ -14,6 +14,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // `sharp` (reprocessBlobImage, lib/image-processing.ts) are binar nativ — fără asta, Turbopack îl poate
+  // împacheta greșit pe lambda-ul Linux de Vercel, rupând `libvips-cpp.so` la runtime (500 real de
+  // producție, 2026-08-20, verificat direct în PostHog: ERR_DLOPEN_FAILED pe fiecare apel).
+  serverExternalPackages: ["sharp"],
   experimental: {
     // Trimiterea unei schițe postează prin Server Action strokes JSON + thumbnail PNG (1000px lățime,
     // poate depăși 1MB). Default-ul de 1MB pică cu 413 → ridicăm plafonul. Acțiunea e auth-gated + rate-limited.
