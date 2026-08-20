@@ -1,6 +1,6 @@
 // Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
-import { and, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -831,6 +831,23 @@ export async function listSavedDetails(userId: string) {
       ),
     )
     .orderBy(desc(savedDetails.createdAt));
+}
+
+// Numărul de detalii salvate de user — aceleași filtre ca listSavedDetails, fără join-urile de autor
+// (doar contorul, pentru pastila din sidebar-ul feed-ului).
+export async function countSavedDetails(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ c: count() })
+    .from(savedDetails)
+    .innerJoin(details, eq(details.id, savedDetails.detailId))
+    .where(
+      and(
+        eq(savedDetails.userId, userId),
+        eq(details.status, DETAIL_STATUS.PUBLISHED),
+        hasProjectAccessForUser(userId),
+      ),
+    );
+  return row?.c ?? 0;
 }
 
 // Detaliile pe care userul (Furnizor) a ridicat mâna — pagina PRIVATĂ „Ofertele mele". Aceeași formă de

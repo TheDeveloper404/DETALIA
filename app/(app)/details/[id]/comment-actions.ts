@@ -24,7 +24,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   RATE_LIMITED: "Prea multe acțiuni. Așteaptă un moment.",
   INVALID_PARENT: "Comentariul la care răspunzi nu mai există.",
   NO_ROLE: "Ai nevoie de un rol declarat.",
-  CANNOT_LIKE_OWN: "Nu poți aprecia propriul comentariu.",
+  CANNOT_LIKE_OWN: "Nu poți vota propriul comentariu.",
 };
 
 export async function addCommentAction(
@@ -112,21 +112,22 @@ export async function deleteCommentAction(
   return { error: null };
 }
 
-// Toggle like pe comentariu — apelată direct din client (în transition), la fel ca edit/delete.
+// Toggle vot pe comentariu (up/down) — apelată direct din client (în transition), la fel ca edit/delete.
 export async function toggleCommentLikeAction(
   commentId: string,
   detailId: string,
-): Promise<{ error: string | null; liked?: boolean }> {
+  direction: "UP" | "DOWN",
+): Promise<{ error: string | null; myVote?: "UP" | "DOWN" | null }> {
   const userId = await requireActiveUserId();
 
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
     return { error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
-  const res = await toggleCommentLike({ userId, commentId });
+  const res = await toggleCommentLike({ userId, commentId, direction });
   if (!res.ok) {
     return { error: ERROR_MESSAGES[res.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
   revalidatePath(`/details/${detailId}`);
-  return { error: null, liked: res.liked };
+  return { error: null, myVote: res.myVote };
 }

@@ -39,6 +39,7 @@ export const verificationStatus = pgEnum("verification_status", [
 ]);
 export const targetType = pgEnum("target_type", ["DETAIL", "SKETCH"]);
 export const validationPosition = pgEnum("validation_position", ["APPROVE", "DISAPPROVE"]);
+export const commentVoteDirection = pgEnum("comment_vote_direction", ["UP", "DOWN"]);
 export const sketchStatus = pgEnum("sketch_status", [
   "DRAFT",
   "PENDING_ACCEPTANCE",
@@ -538,9 +539,12 @@ export const comments = pgTable(
   ],
 );
 
-// Like pe comentariu — un user apreciază un comentariu. Compus (userId, commentId) = PK → o singură
-// poziție per user per comentariu, reversibilă (toggle), garantată de DB. Autorul nu-și poate aprecia
-// propriul comentariu — enforce în commentService (CANNOT_LIKE_OWN), nu aici.
+// Vot pe comentariu — un user dă up sau down unui comentariu. Compus (userId, commentId) = PK → o
+// singură poziție per user per comentariu, reversibilă (toggle) sau comutabilă (up→down), garantată de
+// DB. Autorul nu-și poate vota propriul comentariu — enforce în commentService (CANNOT_LIKE_OWN), nu
+// aici. Numele tabelului/coloanelor a rămas `comment_likes` (2026-08-20, adăugat doar `direction`) —
+// redenumirea completă la „votes" ar fi atins baseline-ul de subquery-uri corelate + e2e fără beneficiu
+// funcțional, doar cosmetic.
 export const commentLikes = pgTable(
   "comment_likes",
   {
@@ -550,6 +554,9 @@ export const commentLikes = pgTable(
     commentId: uuid()
       .notNull()
       .references(() => comments.id, { onDelete: "cascade" }),
+    // UP = apreciere (fostul „like"), DOWN = dezaprobare pe comentariu (2026-08-20). Default UP la
+    // adăugare → rândurile existente (toate erau like-uri) rămân corecte fără backfill separat.
+    direction: commentVoteDirection().notNull().default("UP"),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
