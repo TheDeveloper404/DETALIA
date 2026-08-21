@@ -14,7 +14,6 @@ import {
   getRoleByUserId,
   insertRole,
   setRoleVerificationPending,
-  updateRoleClaim,
 } from "@/server/repos/rolesRepo";
 
 export type DeclareRoleResult =
@@ -64,55 +63,6 @@ export async function userHasRole(userId: string): Promise<boolean> {
 // Rolul curent al unui user (pentru pagina de profil). null dacă n-a trecut prin onboarding.
 export function getUserRole(userId: string) {
   return getRoleByUserId(userId);
-}
-
-type UpdateRoleResult =
-  | { ok: true }
-  | { ok: false; error: "NO_ROLE" | "INVALID_ROLE" | "INVALID_SUBROLE" | "INVALID_SECONDARY_ROLE" };
-
-// Editarea rolului din profil. Reguli (enforce pe SERVER):
-//  - userul trebuie să aibă deja un rol (altfel e onboarding, nu editare).
-//  - subrolul trebuie să aparțină rolului principal; rolul adițional e opțional și independent.
-//  - dacă revendicarea de bază (rol sau subrol) se schimbă, verificarea redevine DECLARED — badge-ul
-//    de verificat aparținea vechii revendicări, nu se mută automat pe noua alegere.
-export async function updateRole(input: {
-  userId: string;
-  roleMain: string;
-  subRole: string | null;
-  secondaryRole?: string | null;
-}): Promise<UpdateRoleResult> {
-  if (!isValidRoleMain(input.roleMain)) {
-    return { ok: false, error: "INVALID_ROLE" };
-  }
-  const roleMain: RoleMain = input.roleMain;
-
-  const subRole = input.subRole?.trim() || null;
-  if (subRole !== null && !isValidSubRole(roleMain, subRole)) {
-    return { ok: false, error: "INVALID_SUBROLE" };
-  }
-
-  const secondaryRole = input.secondaryRole?.trim() || null;
-  if (secondaryRole !== null && !isValidSecondaryRole(secondaryRole)) {
-    return { ok: false, error: "INVALID_SECONDARY_ROLE" };
-  }
-
-  const existing = await getRoleByUserId(input.userId);
-  if (!existing) {
-    return { ok: false, error: "NO_ROLE" };
-  }
-
-  const claimChanged = existing.roleMain !== roleMain || (existing.subRole ?? null) !== subRole;
-  // Resetăm verificarea DOAR dacă revendicarea de bază s-a schimbat ȘI fusese deja procesată.
-  const resetVerification =
-    claimChanged && existing.verificationStatus !== "DECLARED";
-
-  await updateRoleClaim(input.userId, {
-    roleMain,
-    subRole,
-    secondaryRole,
-    ...(resetVerification ? { verificationStatus: "DECLARED" as const } : {}),
-  });
-  return { ok: true };
 }
 
 type RequestVerificationResult =
