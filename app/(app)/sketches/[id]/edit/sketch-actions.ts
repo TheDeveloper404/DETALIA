@@ -78,7 +78,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
   let thumbnailUrl: string | null = null;
   const thumb = formData.get("thumbnail");
   if (thumb instanceof File && thumb.size > 0) {
-    const upload = await uploadSketchThumbnail(thumb);
+    const upload = await uploadSketchThumbnail(thumb, userId);
     if (upload.ok) thumbnailUrl = upload.url;
   }
 

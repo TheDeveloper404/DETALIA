@@ -16,8 +16,9 @@ vi.mock("@/db", async () => {
 });
 
 const { db } = await import("@/db");
-const { details, users, projects, validations, comments, sketches } = await import("@/db/schema");
-const { listFeed, countPublishedDetails } = await import("./detailsRepo");
+const { details, users, projects, projectMembers, savedDetails, supplierOffers, validations, comments, sketches } =
+  await import("@/db/schema");
+const { listFeed, countPublishedDetails, listSavedDetails, listOfferedDetails } = await import("./detailsRepo");
 const { listTopAuthors } = await import("./usersRepo");
 const { listAuthorDetails, listAuthorSketches, getContributionCounts, getProfileStats } = await import(
   "./profileRepo"
@@ -114,5 +115,69 @@ describe("Vizibilitate detalii de proiect — nu trebuie să apară pe NICIO cal
     // Autorul a creat 2 detalii (unul public, unul de proiect) — doar cel PUBLIC trebuie să aprindă
     // heatmap-ul.
     expect(total).toBe(1);
+  });
+});
+
+// SEC-D01 (audit securitate 2026-08-20): `hasProjectAccessForUser` (detailsRepo.ts) e corect scris și
+// aplicat pe listSavedDetails/listOfferedDetails, dar rămăsese fără test de regresie — spre deosebire
+// de căile PUBLICE de mai sus. Riscul concret: predicatul trăiește în clauza WHERE (nu în lista de
+// SELECT), deci coloanele necalificate din subquery-urile corelate (`project_members.project_id`)
+// rămân sigure azi (verificat direct în sursa Drizzle instalată) — DAR dacă cineva îl mută vreodată în
+// SELECT (cum s-a întâmplat recidivant cu sketchCount/commentCount), corelarea devine mereu adevărată
+// silențios, fără eroare SQL, și un membru eliminat și-ar recăpăta acces la listele lui private.
+describe("Vizibilitate proiect pe listele PRIVATE — /saved și Ofertele mele (SEC-D01)", () => {
+  let owner: string;
+  let removedMember: string;
+  let publicDetailId: string;
+  let projectDetailId: string;
+
+  beforeAll(async () => {
+    owner = await makeUser("proj-priv-owner@test.local");
+    removedMember = await makeUser("proj-priv-removed@test.local");
+
+    const [project] = await db
+      .insert(projects)
+      .values({ ownerId: owner, name: "Proiect privat D01", inviteToken: "fixture-placeholder-not-a-secret" })
+      .returning({ id: projects.id });
+
+    // Membru ADĂUGAT apoi ELIMINAT (removedAt setat) — exact scenariul din care a pornit invariantul.
+    await db.insert(projectMembers).values({ projectId: project.id, userId: removedMember, removedAt: new Date() });
+
+    const [pub] = await db
+      .insert(details)
+      .values({ title: "Detaliu public D01", authorId: owner })
+      .returning({ id: details.id });
+    publicDetailId = pub.id;
+
+    const [prj] = await db
+      .insert(details)
+      .values({ title: "Detaliu de proiect D01", authorId: owner, projectId: project.id })
+      .returning({ id: details.id });
+    projectDetailId = prj.id;
+
+    // Fostul membru a salvat/ofertat AMBELE detalii cât încă avea acces.
+    for (const detailId of [publicDetailId, projectDetailId]) {
+      await db.insert(savedDetails).values({ userId: removedMember, detailId });
+      await db.insert(supplierOffers).values({ userId: removedMember, detailId });
+    }
+  });
+
+  afterAll(async () => {
+    await db.delete(supplierOffers);
+    await db.delete(savedDetails);
+    await db.delete(details);
+    await db.delete(projectMembers);
+    await db.delete(projects);
+    await db.delete(users);
+  });
+
+  it("listSavedDetails: membrul eliminat nu mai vede detaliul de proiect salvat anterior", async () => {
+    const rows = await listSavedDetails(removedMember);
+    expect(rows.map((r) => r.id)).toEqual([publicDetailId]);
+  });
+
+  it("listOfferedDetails: membrul eliminat nu mai vede oferta pe detaliul de proiect", async () => {
+    const rows = await listOfferedDetails(removedMember);
+    expect(rows.map((r) => r.id)).toEqual([publicDetailId]);
   });
 });
