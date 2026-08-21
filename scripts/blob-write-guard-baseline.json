@@ -1,0 +1,6 @@
+{
+  "profileService.ts::removeAvatar": true,
+  "profileService.ts::removeCover": true,
+  "validationService.ts::disapprove": true,
+  "validationService.ts::recordSketchDisapproval": true
+}

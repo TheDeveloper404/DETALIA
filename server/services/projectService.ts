@@ -410,7 +410,7 @@ export async function shareCanvasToProject(input: {
     return { ok: false, error: "UPLOAD_FAILED" };
   }
 
-  const uploaded = await uploadProjectCanvasShare(blob);
+  const uploaded = await uploadProjectCanvasShare(blob, input.userId);
   if (!uploaded.ok) return { ok: false, error: "UPLOAD_FAILED" };
 
   // `formatShareTimestamp` (server/domain/project.ts): ora Bucureștiului explicit, NU ora locală a
