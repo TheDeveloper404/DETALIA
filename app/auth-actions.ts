@@ -63,7 +63,15 @@ export async function signInWithEmailAction(formData: FormData): Promise<void> {
       redirect: false,
     })) as string | undefined;
   } catch (err) {
-    if (err instanceof AuthError) redirect(`${authPath}?error=${encodeURIComponent(err.type)}`);
+    if (err instanceof AuthError) {
+      // SEC-P05 (audit securitate 2026-08-20): `AccessDenied` (cont SUSPENDAT — signIn callback din
+      // lib/auth.ts) distingea aici un al treilea răspuns față de doar succes/RateLimited — un
+      // atacator putea afla că un email e înregistrat ȘI suspendat. Tratăm identic cu succesul
+      // (/verify-request), ca la liniile 53-54 mai sus. NU se aplică lui proxy.ts/require-active-user.ts
+      // (acolo e un user DEJA autentificat, cu sesiune stale — nicio enumerare posibilă).
+      if (err.type === "AccessDenied") redirect("/verify-request");
+      redirect(`${authPath}?error=${encodeURIComponent(err.type)}`);
+    }
     throw err;
   }
 

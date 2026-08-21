@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const auditMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/audit", () => ({ audit: auditMock }));
+
 // `SECRET` se citește la nivel de modul din process.env → pentru fiecare scenariu (cu/fără secret)
 // re-importăm modulul proaspăt (vi.resetModules) DUPĂ ce am setat env-ul, altfel toate testele ar vedea
 // valoarea citită la primul import.
@@ -15,6 +18,22 @@ describe("verifyTurnstile", () => {
   afterEach(() => {
     global.fetch = originalFetch;
     vi.unstubAllEnvs();
+    auditMock.mockClear();
+  });
+
+  // SEC-N03 (audit securitate 2026-08-20): secretul lipsă în producție dezactiva anti-bot-ul TĂCUT —
+  // fără acest semnal, o rotire greșită de env (scope Preview confundat cu Production) trecea
+  // neobservată. Pattern identic cu lib/rate-limit.ts (rate_limit_disabled_in_prod).
+  describe("fără TURNSTILE_SECRET_KEY ÎN PRODUCȚIE", () => {
+    beforeEach(() => {
+      vi.stubEnv("TURNSTILE_SECRET_KEY", "");
+      vi.stubEnv("VERCEL_ENV", "production");
+    });
+
+    it("emite audit error la load-ul modulului", async () => {
+      await loadVerifyTurnstile();
+      expect(auditMock).toHaveBeenCalledWith("turnstile_disabled_in_prod", {}, "error");
+    });
   });
 
   describe("fără TURNSTILE_SECRET_KEY (dev/local)", () => {

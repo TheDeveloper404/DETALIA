@@ -70,7 +70,7 @@ async function sessionContextFor(browser: Browser, baseURL: string | undefined, 
 // `thumbnailUrl` server-side, deci are nevoie de un URL Blob valid, nu doar un string oarecare.
 async function seedCanvasWithThumbnail(ownerId: string, name: string): Promise<{ id: string; thumbnailUrl: string }> {
   const blob = new Blob([Buffer.from(TINY_PNG_BASE64, "base64")], { type: "image/png" });
-  const uploaded = await uploadCanvasThumbnail(blob);
+  const uploaded = await uploadCanvasThumbnail(blob, ownerId);
   if (!uploaded.ok) throw new Error(`Seed thumbnail upload failed: ${uploaded.error}`);
   const [row] = await db
     .insert(canvases)

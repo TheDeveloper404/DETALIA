@@ -66,7 +66,7 @@ export async function saveCanvasThumbnailAction(
   if (!(thumb instanceof File) || thumb.size === 0) return { ok: true }; // nimic de urcat → no-op
 
   // SEC-02: câmpul de fișier e controlat de client → re-encodăm cu sharp (magic bytes + strip + plafon).
-  const upload = await uploadCanvasThumbnail(thumb);
+  const upload = await uploadCanvasThumbnail(thumb, userId);
   if (!upload.ok) return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
 
   const res = await saveCanvasThumbnail({
