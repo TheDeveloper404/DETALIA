@@ -73,6 +73,10 @@ jobs:
         if: steps.detect.outputs.ready == 'true'
         run: npm run check:blob-writes --if-present
 
+      - name: Citire "details" fără gardă de vizibilitate proiect (gardă anti-recidivă)
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run check:visibility --if-present
+
       - name: Lint
         if: steps.detect.outputs.ready == 'true'
         run: npm run lint --if-present
