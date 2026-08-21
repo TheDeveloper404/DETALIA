@@ -12,6 +12,31 @@ export const DETAIL_STATUS = {
 } as const;
 type DetailStatus = (typeof DETAIL_STATUS)[keyof typeof DETAIL_STATUS];
 
+// Stare de VIZIBILITATE a unui detaliu — un singur loc care interpretează combinația
+// status+projectId, în loc ca fiecare repo/service să reinterpreteze aceleași două coloane.
+// `releasedFromProjectId` și `anonymizedAt` NU intră aici: nu schimbă CINE poate vedea detaliul
+// (primul e doar breadcrumb istoric, al doilea ascunde identitatea autorului, nu conținutul).
+export const DETAIL_VISIBILITY = {
+  DRAFT: "DRAFT", // vizibil doar autorului
+  PROJECT_PRIVATE: "PROJECT_PRIVATE", // vizibil doar membrilor proiectului
+  PUBLIC: "PUBLIC", // vizibil comunității (feed, profil, căutare)
+  REMOVED: "REMOVED", // status rezervat, neimplementat încă (nicio cale din cod nu-l setează azi)
+} as const;
+export type DetailVisibility = (typeof DETAIL_VISIBILITY)[keyof typeof DETAIL_VISIBILITY];
+
+export function getDetailVisibility(detail: {
+  status: string;
+  projectId: string | null;
+}): DetailVisibility {
+  if (detail.status === DETAIL_STATUS.REMOVED) return DETAIL_VISIBILITY.REMOVED;
+  if (detail.status === DETAIL_STATUS.DRAFT) return DETAIL_VISIBILITY.DRAFT;
+  return detail.projectId ? DETAIL_VISIBILITY.PROJECT_PRIVATE : DETAIL_VISIBILITY.PUBLIC;
+}
+
+export function isPubliclyVisible(detail: { status: string; projectId: string | null }): boolean {
+  return getDetailVisibility(detail) === DETAIL_VISIBILITY.PUBLIC;
+}
+
 // Limite de conținut (produs, nu securitate). Mărimea feed-ului e un knob de produs.
 export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 5000;

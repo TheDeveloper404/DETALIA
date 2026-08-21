@@ -764,8 +764,7 @@ export async function isDetailSavedByUser(userId: string, detailId: string): Pro
   return !!row;
 }
 
-// Care dintre detaliile date sunt deja salvate de user — batch (feed), evită N+1 (pattern identic cu
-// getMyPositions din validationService).
+// Care dintre detaliile date sunt deja salvate de user — batch (feed), evită N+1.
 export async function listSavedDetailIds(userId: string, detailIds: string[]): Promise<string[]> {
   if (detailIds.length === 0) return [];
   const rows = await db

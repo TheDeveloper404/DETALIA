@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_LOCATION,
   DESCRIPTION_MAX_LENGTH,
+  DETAIL_STATUS,
+  DETAIL_VISIBILITY,
   LOCATION_MAX_LENGTH,
   MAX_DETAIL_CATEGORIES,
   MAX_DETAIL_RESOURCES,
   MAX_RESOURCE_URL_LENGTH,
   TITLE_MAX_LENGTH,
+  getDetailVisibility,
   isHttpUrl,
+  isPubliclyVisible,
   validateDetailInput,
 } from "./detail";
 
@@ -29,6 +33,42 @@ describe("isHttpUrl — allowlist strict (valoarea ajunge în href)", () => {
     expect(isHttpUrl("data:text/html,<script>")).toBe(false);
     expect(isHttpUrl("file:///etc/passwd")).toBe(false);
     expect(isHttpUrl("not a url")).toBe(false);
+  });
+});
+
+describe("getDetailVisibility — starea unică, dedusă din status+projectId", () => {
+  it("DRAFT rămâne DRAFT indiferent de projectId", () => {
+    expect(getDetailVisibility({ status: DETAIL_STATUS.DRAFT, projectId: null })).toBe(
+      DETAIL_VISIBILITY.DRAFT,
+    );
+    expect(getDetailVisibility({ status: DETAIL_STATUS.DRAFT, projectId: "p1" })).toBe(
+      DETAIL_VISIBILITY.DRAFT,
+    );
+  });
+
+  it("PUBLISHED + projectId = PROJECT_PRIVATE", () => {
+    expect(getDetailVisibility({ status: DETAIL_STATUS.PUBLISHED, projectId: "p1" })).toBe(
+      DETAIL_VISIBILITY.PROJECT_PRIVATE,
+    );
+  });
+
+  it("PUBLISHED fără projectId = PUBLIC", () => {
+    expect(getDetailVisibility({ status: DETAIL_STATUS.PUBLISHED, projectId: null })).toBe(
+      DETAIL_VISIBILITY.PUBLIC,
+    );
+  });
+
+  it("REMOVED rămâne REMOVED indiferent de projectId", () => {
+    expect(getDetailVisibility({ status: DETAIL_STATUS.REMOVED, projectId: "p1" })).toBe(
+      DETAIL_VISIBILITY.REMOVED,
+    );
+  });
+
+  it("isPubliclyVisible e adevărat DOAR pe PUBLIC", () => {
+    expect(isPubliclyVisible({ status: DETAIL_STATUS.PUBLISHED, projectId: null })).toBe(true);
+    expect(isPubliclyVisible({ status: DETAIL_STATUS.PUBLISHED, projectId: "p1" })).toBe(false);
+    expect(isPubliclyVisible({ status: DETAIL_STATUS.DRAFT, projectId: null })).toBe(false);
+    expect(isPubliclyVisible({ status: DETAIL_STATUS.REMOVED, projectId: null })).toBe(false);
   });
 });
 

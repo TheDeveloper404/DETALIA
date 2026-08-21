@@ -7,18 +7,6 @@ import { projectMembers, roles, users } from "@/db/schema";
 
 import { verifiedCondition } from "@/server/repos/repoHelpers";
 
-// Rândul de membru (poate fi eliminat — `removedAt` setat). `null` dacă userul nu a fost NICIODATĂ
-// membru al acestui proiect (nu s-a inserat rând). Vezi `isActiveMember` mai jos pentru verificarea
-// „membru ACUM".
-export async function getMembership(projectId: string, userId: string) {
-  const [row] = await db
-    .select()
-    .from(projectMembers)
-    .where(and(eq(projectMembers.projectId, projectId), eq(projectMembers.userId, userId)))
-    .limit(1);
-  return row ?? null;
-}
-
 export async function isActiveMember(projectId: string, userId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: projectMembers.id })

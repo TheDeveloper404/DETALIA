@@ -5,25 +5,6 @@ import { db } from "@/db";
 import { roles, users, validations } from "@/db/schema";
 import type { RoleSnapshot, TargetType, ValidationPosition } from "@/server/domain/validation";
 
-// Pozițiile userului curent pe mai multe ținte deodată (batch, pentru feed) — fără N+1.
-export async function listUserPositionsForTargets(
-  userId: string,
-  targetType: TargetType,
-  targetIds: string[],
-) {
-  if (targetIds.length === 0) return [];
-  return db
-    .select({ targetId: validations.targetId, position: validations.position })
-    .from(validations)
-    .where(
-      and(
-        eq(validations.userId, userId),
-        eq(validations.targetType, targetType),
-        inArray(validations.targetId, targetIds),
-      ),
-    );
-}
-
 // Upsert: o singură poziție per (user, targetType, targetId) — reversibilă prin schimbarea poziției.
 // Conflictul pe constrângerea unică `validations_user_target_unique` → update poziție + snapshot.
 export async function upsertPosition(input: {

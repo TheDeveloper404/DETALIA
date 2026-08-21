@@ -631,8 +631,7 @@ export async function isDetailSaved(userId: string, detailId: string): Promise<b
   return isDetailSavedByUser(userId, detailId);
 }
 
-// Care dintre detaliile date sunt salvate de userul curent — batch (feed), un singur query pt tot feed-ul
-// (pattern identic cu getMyPositions din validationService).
+// Care dintre detaliile date sunt salvate de userul curent — batch (feed), un singur query pt tot feed-ul.
 export async function getMySavedDetailIds(userId: string, detailIds: string[]): Promise<Set<string>> {
   const ids = detailIds.filter(isUuid);
   if (ids.length === 0) return new Set();
