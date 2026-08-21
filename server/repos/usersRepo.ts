@@ -22,14 +22,6 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
   return !!row;
 }
 
-// Existența unui cont după id — folosit în poarta de onboarding (proxy.ts) ca să distingem
-// „logat, fără rol încă" (redirect la /onboarding) de „userul a dispărut din DB" (curățare/GDPR
-// cu JWT stale încă viu) — al doilea caz trebuie delogat, nu trimis într-o buclă de onboarding.
-export async function userExistsById(userId: string): Promise<boolean> {
-  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.id, userId)).limit(1);
-  return !!row;
-}
-
 // Poarta de sesiune din proxy.ts (SEC-002, 2026-08-09) — status + rol PROASPETE din DB, într-un
 // singur SELECT (LEFT JOIN pe roles, care oricum e unic per user). Înlocuiește gating-ul anterior pe
 // `authToken.status` (înghețat la login, poate fi ore/zile stale) cu o verificare reală, la costul unui

@@ -16,13 +16,26 @@ vi.mock("@/db", async () => {
 });
 
 const { db } = await import("@/db");
-const { details, users, projects, projectMembers, savedDetails, supplierOffers, validations, comments, sketches } =
-  await import("@/db/schema");
+const {
+  details,
+  users,
+  projects,
+  projectMembers,
+  savedDetails,
+  supplierOffers,
+  validations,
+  comments,
+  sketches,
+  notifications,
+} = await import("@/db/schema");
 const { listFeed, countPublishedDetails, listSavedDetails, listOfferedDetails } = await import("./detailsRepo");
 const { listTopAuthors } = await import("./usersRepo");
 const { listAuthorDetails, listAuthorSketches, getContributionCounts, getProfileStats } = await import(
   "./profileRepo"
 );
+const { getPublicSketchTeaser } = await import("./sketchesRepo");
+const { getNotifications } = await import("@/server/services/notificationService");
+const { insertNotification } = await import("./notificationsRepo");
 
 async function makeUser(email: string) {
   const [row] = await db.insert(users).values({ email }).returning({ id: users.id });
@@ -179,5 +192,125 @@ describe("Vizibilitate proiect pe listele PRIVATE — /saved și Ofertele mele (
   it("listOfferedDetails: membrul eliminat nu mai vede oferta pe detaliul de proiect", async () => {
     const rows = await listOfferedDetails(removedMember);
     expect(rows.map((r) => r.id)).toEqual([publicDetailId]);
+  });
+});
+
+// Cele două căi rămase, documentate ca neacoperite în CLAUDE.md §„Un invariant transversal nou..."
+// până acum (/s/[id] și notify*) — ambele deja gărzuite în cod (2026-08-09 / SEC-011 2026-08-11),
+// dar fără test de regresie propriu. Adăugate aici, nu redesign — invariantul ține deja.
+describe("Vizibilitate proiect pe /s/[id] (teaser public de schiță)", () => {
+  let author: string;
+  let publicSketchId: string;
+  let projectSketchId: string;
+
+  beforeAll(async () => {
+    author = await makeUser("proj-vis-sketch-author@test.local");
+
+    const [project] = await db
+      .insert(projects)
+      .values({ ownerId: author, name: "Proiect schiță", inviteToken: "fixture-placeholder-not-a-secret" })
+      .returning({ id: projects.id });
+
+    const [pub] = await db
+      .insert(details)
+      .values({ title: "Detaliu public pt schiță", authorId: author })
+      .returning({ id: details.id });
+
+    const [prj] = await db
+      .insert(details)
+      .values({ title: "Detaliu de proiect pt schiță", authorId: author, projectId: project.id })
+      .returning({ id: details.id });
+
+    const [pubSketch] = await db
+      .insert(sketches)
+      .values({ detailId: pub.id, authorId: author, status: "PUBLISHED", thumbnailUrl: "https://x/pub.png" })
+      .returning({ id: sketches.id });
+    publicSketchId = pubSketch.id;
+
+    const [prjSketch] = await db
+      .insert(sketches)
+      .values({ detailId: prj.id, authorId: author, status: "PUBLISHED", thumbnailUrl: "https://x/prj.png" })
+      .returning({ id: sketches.id });
+    projectSketchId = prjSketch.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(sketches);
+    await db.delete(details);
+    await db.delete(projects);
+    await db.delete(users);
+  });
+
+  it("schița pe detaliu public e vizibilă pe teaser", async () => {
+    const row = await getPublicSketchTeaser(publicSketchId);
+    expect(row?.id).toBe(publicSketchId);
+  });
+
+  it("schița pe detaliu de proiect NU e vizibilă pe teaser-ul public, indiferent de viewer", async () => {
+    const row = await getPublicSketchTeaser(projectSketchId);
+    expect(row).toBeNull();
+  });
+});
+
+describe("Vizibilitate proiect pe notify* — titlul se ascunde dacă destinatarul pierde accesul (SEC-011)", () => {
+  let owner: string;
+  let removedMember: string;
+  let publicDetailId: string;
+  let projectDetailId: string;
+
+  beforeAll(async () => {
+    owner = await makeUser("proj-vis-notif-owner@test.local");
+    removedMember = await makeUser("proj-vis-notif-removed@test.local");
+
+    const [project] = await db
+      .insert(projects)
+      .values({ ownerId: owner, name: "Proiect notif", inviteToken: "fixture-placeholder-not-a-secret" })
+      .returning({ id: projects.id });
+
+    await db.insert(projectMembers).values({ projectId: project.id, userId: removedMember, removedAt: new Date() });
+
+    const [pub] = await db
+      .insert(details)
+      .values({ title: "Detaliu public notif", authorId: owner })
+      .returning({ id: details.id });
+    publicDetailId = pub.id;
+
+    const [prj] = await db
+      .insert(details)
+      .values({ title: "Detaliu de proiect notif", authorId: owner, projectId: project.id })
+      .returning({ id: details.id });
+    projectDetailId = prj.id;
+
+    // Notificări primite de fostul membru CÂT ÎNCĂ AVEA acces (ex. a fost adăugat ca "SKETCH_PROPOSED").
+    await insertNotification({
+      recipientUserId: removedMember,
+      type: "SKETCH_PROPOSED",
+      payloadJson: { detailId: publicDetailId, detailTitle: "Detaliu public notif" },
+    });
+    await insertNotification({
+      recipientUserId: removedMember,
+      type: "SKETCH_PROPOSED",
+      payloadJson: { detailId: projectDetailId, detailTitle: "Detaliu de proiect notif" },
+    });
+  });
+
+  afterAll(async () => {
+    await db.delete(notifications);
+    await db.delete(details);
+    await db.delete(projectMembers);
+    await db.delete(projects);
+    await db.delete(users);
+  });
+
+  it("titlul detaliului public rămâne vizibil", async () => {
+    const rows = await getNotifications(removedMember);
+    const row = rows.find((r) => (r.payloadJson as { detailId?: string }).detailId === publicDetailId);
+    expect((row?.payloadJson as { detailTitle?: string }).detailTitle).toBe("Detaliu public notif");
+  });
+
+  it("titlul detaliului de proiect e ascuns după eliminarea din proiect", async () => {
+    const rows = await getNotifications(removedMember);
+    const row = rows.find((r) => (r.payloadJson as { detailId?: string }).detailId === projectDetailId);
+    expect((row?.payloadJson as { detailTitle?: string }).detailTitle).toBe("un detaliu la care nu mai ai acces");
   });
 });
