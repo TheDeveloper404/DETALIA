@@ -27,7 +27,11 @@ vi.mock("next/navigation", () => ({
 // nu ne pasă de comportamentul lui, doar de forma folosită în auth-actions.ts (`instanceof AuthError`).
 vi.mock("next-auth", () => ({
   AuthError: class AuthError extends Error {
-    type = "AuthError";
+    type: string;
+    constructor(type = "AuthError") {
+      super(type);
+      this.type = type;
+    }
   },
 }));
 
@@ -43,6 +47,8 @@ vi.mock("@/lib/turnstile", () => ({ verifyTurnstile }));
 vi.mock("@/server/repos/usersRepo", () => ({ userExistsByEmail }));
 
 vi.mock("@/lib/auth", () => ({ signIn }));
+
+import { AuthError } from "next-auth";
 
 import { signInWithEmailAction } from "./auth-actions";
 
@@ -128,6 +134,28 @@ describe("signInWithEmailAction", () => {
       expect.objectContaining({ email: "user@x.ro", redirectTo: "/feed" }),
     );
     expect(url).toBe("/feed");
+  });
+
+  it("SEC-P05: cont SUSPENDAT (AuthError type AccessDenied) → /verify-request, NU ?error=AccessDenied (anti-enumerare)", async () => {
+    checkLimit.mockResolvedValue({ ok: true });
+    verifyTurnstile.mockResolvedValue(true);
+    userExistsByEmail.mockResolvedValueOnce(true);
+    signIn.mockRejectedValueOnce(new AuthError("AccessDenied"));
+
+    const url = await runExpectingRedirect(formData({ email: "suspendat@x.ro", authPath: "/login" }));
+
+    expect(url).toBe("/verify-request");
+  });
+
+  it("alte erori Auth.js (ex. EmailSignInError) rămân vizibile — nu sunt un vector de enumerare", async () => {
+    checkLimit.mockResolvedValue({ ok: true });
+    verifyTurnstile.mockResolvedValue(true);
+    userExistsByEmail.mockResolvedValueOnce(true);
+    signIn.mockRejectedValueOnce(new AuthError("EmailSignInError"));
+
+    const url = await runExpectingRedirect(formData({ email: "user@x.ro", authPath: "/login" }));
+
+    expect(url).toBe("/login?error=EmailSignInError");
   });
 
   it.each(["//evil.com", "/\\evil.com", "https://evil.com", "javascript:alert(1)"])(

@@ -1,0 +1,14 @@
+{
+  "detailsRepo.ts::hasAnyCategory": true,
+  "detailsRepo.ts::updateDetailRow": true,
+  "detailsRepo.ts::listDetailDraftsByAuthor": true,
+  "detailsRepo.ts::incrementDetailViews": true,
+  "detailsRepo.ts::getDetailById": true,
+  "detailsRepo.ts::getDetailForEdit": true,
+  "detailsRepo.ts::publishDetailRow": true,
+  "detailsRepo.ts::listProjectIdForDetails": true,
+  "detailsRepo.ts::getProjectDetailImage": true,
+  "detailsRepo.ts::releaseDetailToCommunity": true,
+  "detailsRepo.ts::anonymizeDetailAuthor": true,
+  "detailsRepo.ts::deleteDetailCascade": true
+}

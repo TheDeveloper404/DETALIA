@@ -18,6 +18,7 @@ import {
   resolveDeletionMode,
   validateDetailInput,
 } from "@/server/domain/detail";
+import { isOwnBlobUrl, isUsersBlobUrl } from "@/lib/blob-url";
 import { shouldCountView } from "@/lib/rate-limit";
 import { deleteBlobs } from "@/lib/storage";
 import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
@@ -58,6 +59,15 @@ import {
   getProject,
   getProjectAccess,
 } from "@/server/services/projectService";
+
+// SEC-N01: o resursă (IMAGE/PDF/CAD) al cărei URL e din STORE-UL nostru de Blob dar nu aparține
+// userului curent ar permite unui atacator să atașeze URL-ul altui user pe propriul detaliu — la
+// ștergerea acelui detaliu, `deleteDetailCascade` colectează și URL-ul, iar `deleteBlobs` (lib/storage.ts)
+// filtrează doar pe store, nu pe proprietar, deci șterge fișierul VICTIMEI din Blob. Link-uri externe
+// (non-Blob, ex. LINK spre un normativ) rămân permise — riscul e specific store-ului nostru.
+function hasForeignBlobResource(resources: DetailResourceInput[], userId: string): boolean {
+  return resources.some((r) => r.url && isOwnBlobUrl(r.url) && !isUsersBlobUrl(r.url, userId));
+}
 
 type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_PROJECT_MEMBER";
 
@@ -110,6 +120,9 @@ export async function createDetail(input: {
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
+  if (hasForeignBlobResource(value.resources, input.authorId)) {
+    return { ok: false, error: "INVALID_RESOURCE" };
+  }
 
   // 3) Integritate FK verificată în service (fiecare categorie bifată trebuie să existe).
   // SEC-11: id malformat → INVALID_CATEGORY (nu eroare SQL pe coloana uuid).
@@ -201,6 +214,9 @@ export async function updateDetail(input: {
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
+  if (hasForeignBlobResource(value.resources, input.userId)) {
+    return { ok: false, error: "INVALID_RESOURCE" };
+  }
 
   // 3) Integritate FK categorii (id malformat → INVALID_CATEGORY, nu eroare SQL).
   if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
@@ -285,6 +301,9 @@ export async function createDetailDraft(
   const validation = await validateDraft(input);
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
+  if (hasForeignBlobResource(value.resources, input.authorId)) {
+    return { ok: false, error: "INVALID_RESOURCE" };
+  }
 
   if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
   const existingCount = await countExistingCategoryIds(value.categoryIds);
@@ -323,6 +342,9 @@ export async function saveDetailDraft(
   const validation = await validateDraft(input);
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
+  if (hasForeignBlobResource(value.resources, input.authorId)) {
+    return { ok: false, error: "INVALID_RESOURCE" };
+  }
 
   if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
   const existingCount = await countExistingCategoryIds(value.categoryIds);
@@ -372,6 +394,9 @@ export async function publishDetailDraft(
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
+  if (hasForeignBlobResource(value.resources, input.authorId)) {
+    return { ok: false, error: "INVALID_RESOURCE" };
+  }
 
   if (value.categoryIds.some((id) => !isUuid(id))) return { ok: false, error: "INVALID_CATEGORY" };
   const existingCount = await countExistingCategoryIds(value.categoryIds);

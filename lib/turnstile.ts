@@ -3,8 +3,17 @@
 // Resend/DB. Perechea: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (client) + `TURNSTILE_SECRET_KEY` (server).
 //
 // No-op fără secret configurat (dev local fără chei) → semnătura rămâne aceeași, fluxul de auth merge.
+import { audit } from "@/lib/audit";
+
 const SECRET = process.env.TURNSTILE_SECRET_KEY;
 const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+// SEC-N03 (audit securitate 2026-08-20): fără acest semnal, lipsa secretului în producție dezactiva
+// anti-bot-ul TĂCUT — același mod de eșec ca RATE_LIMIT_FAIL_OPEN, dar fără nicio alertă (vezi
+// lib/rate-limit.ts:43-45, pattern identic). Un cold start per deploy, nu per request.
+if (!SECRET && process.env.VERCEL_ENV === "production") {
+  audit("turnstile_disabled_in_prod", {}, "error");
+}
 
 export async function verifyTurnstile(
   token: string | null,

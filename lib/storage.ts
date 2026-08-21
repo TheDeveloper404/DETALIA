@@ -21,22 +21,22 @@ export type UploadImageResult = { ok: true; url: string } | { ok: false; error: 
 // dimensiuni) — un Blob generat de NOI (canvas/export), dar câmpul de fișier al unui server action e
 // tot controlat de client, deci nu se are încredere în el fără verificare reală. Foldere separate per
 // tip de conținut (nu doar cosmetic — la curățare/audit se disting blob-urile după prefixul din URL).
-async function uploadImage(blob: Blob, folder: string): Promise<UploadImageResult> {
+async function uploadImage(blob: Blob, folder: string, userId: string): Promise<UploadImageResult> {
   if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
   if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
-  const processed = await processAndUploadImage(blob, folder);
+  const processed = await processAndUploadImage(blob, folder, userId);
   if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
   return { ok: true, url: processed.url };
 }
 
 // Thumbnail al unei schițe (randat client-side la SEND).
-export async function uploadSketchThumbnail(blob: Blob): Promise<UploadImageResult> {
-  return uploadImage(blob, "sketches");
+export async function uploadSketchThumbnail(blob: Blob, userId: string): Promise<UploadImageResult> {
+  return uploadImage(blob, "sketches", userId);
 }
 
 // Thumbnail al unei planșe (compus client-side la salvare — imagini + strokes pe canvas offscreen).
-export async function uploadCanvasThumbnail(blob: Blob): Promise<UploadImageResult> {
-  return uploadImage(blob, "canvases");
+export async function uploadCanvasThumbnail(blob: Blob, userId: string): Promise<UploadImageResult> {
+  return uploadImage(blob, "canvases", userId);
 }
 
 // Copie înghețată a unei planșe, partajată într-un proiect (Faza B, §6B) — primește bytes-urile deja
@@ -44,8 +44,8 @@ export async function uploadCanvasThumbnail(blob: Blob): Promise<UploadImageResu
 // export proaspăt client-side. Blob-ul urcat aici e NOU (nu doar referință la URL-ul original): dacă
 // planșa sursă e ștearsă/regenerată după partajare, `deleteCanvas` șterge blob-ul EI — al nostru rămâne
 // independent.
-export async function uploadProjectCanvasShare(blob: Blob): Promise<UploadImageResult> {
-  return uploadImage(blob, "project-shares");
+export async function uploadProjectCanvasShare(blob: Blob, userId: string): Promise<UploadImageResult> {
+  return uploadImage(blob, "project-shares", userId);
 }
 
 // Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile

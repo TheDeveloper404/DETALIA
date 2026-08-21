@@ -69,6 +69,14 @@ jobs:
         if: steps.detect.outputs.ready == 'true'
         run: npm run check:subqueries --if-present
 
+      - name: Write-path Blob fără gardă de ownership (gardă anti-recidivă SEC-N01)
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run check:blob-writes --if-present
+
+      - name: Citire "details" fără gardă de vizibilitate proiect (gardă anti-recidivă)
+        if: steps.detect.outputs.ready == 'true'
+        run: npm run check:visibility --if-present
+
       - name: Lint
         if: steps.detect.outputs.ready == 'true'
         run: npm run lint --if-present

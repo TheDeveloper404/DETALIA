@@ -125,14 +125,17 @@ export async function reprocessBlobImage(url: string, folder: string, userId: st
 
 // Variantă pentru bytes deja pe server (ex. thumbnail-ul de schiță, trimis ca Blob printr-un server action).
 // Validează + re-encodează și urcă curat. null = invalid.
+// SEC-N04: prefixat cu `u/<userId>/` ca restul store-ului (impus server-side în /api/blob/upload) — altfel
+// aceste URL-uri nu pot fi validate de `isUsersBlobUrl` ca aparținând userului care le-a urcat.
 export async function processAndUploadImage(
   blob: Blob,
   folder: string,
+  userId: string,
 ): Promise<{ ok: true; url: string } | { ok: false }> {
   const clean = await cleanImageBuffer(Buffer.from(await blob.arrayBuffer()));
   if (!clean) return { ok: false };
   try {
-    const uploaded = await put(`${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
+    const uploaded = await put(`u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
       access: "public",
       addRandomSuffix: false,
       contentType: clean.contentType,
