@@ -4,6 +4,7 @@
   "detailsRepo.ts::listDetailDraftsByAuthor": true,
   "detailsRepo.ts::incrementDetailViews": true,
   "detailsRepo.ts::getDetailById": true,
+  "detailsRepo.ts::getDetailsByIds": true,
   "detailsRepo.ts::getDetailForEdit": true,
   "detailsRepo.ts::publishDetailRow": true,
   "detailsRepo.ts::listProjectIdForDetails": true,
