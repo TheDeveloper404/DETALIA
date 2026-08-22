@@ -236,6 +236,17 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   (2026-08-18, pe infra PGlite din `db/test-db.ts`) verifică simultan 7 căi publice (feed, autori, profil,
   statistici) că exclud detaliile de proiect. NU acoperă încă: `/s/[id]`, `notify*`, `/saved`+„Ofertele
   mele", `plansaService` — o cale nouă de citire în afara astea tot trebuie verificată manual.
+- **`workflow_dispatch` din GitHub UI — dropdown-ul de branch rămâne pe `main` dacă nu-l schimbi explicit
+  ÎNAINTE de „Run workflow"** *(găsit 2026-08-22, `zap-baseline.yml`)*: selectarea vizuală a altui branch nu
+  se prinde întotdeauna dacă e făcută după ce dialogul e deja deschis pe default — rularea pornește tăcut pe
+  `main`, fără eroare, doar cu codul vechi. Verifică ÎNTOTDEAUNA `headBranch` din rulare (`gh run view <id>
+  --json headBranch`) înainte să tragi concluzii dintr-un rezultat neașteptat — nu presupune că branch-ul
+  cerut e cel care a rulat efectiv. Cel mai sigur: declanșează din CLI cu `--ref <branch>` explicit.
+- **Step-ul `ZAP Baseline Scan` apare roșu („failed") în UI chiar și când scanul a rulat complet și corect**
+  *(comportament normal al `zaproxy/action-baseline`, nu bug)*: acțiunea marchează step-ul failed automat
+  când găsește orice WARN/FAIL (`fail_action` default true) — roșu ≠ scan eșuat. Dovada reală de succes:
+  liniile `Total of N URLs` + `PASS/WARN-NEW` din log, și step-ul `Upload raport` verde (artifact urcat).
+  Nu trage concluzia „a picat" doar din statusul vizual al job-ului.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul
