@@ -1,8 +1,10 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import type { Metadata } from "next";
 
 import { AuthShell } from "@/components/auth-shell";
+import { validateCallbackUrl } from "@/lib/verify-callback-url";
 import {
   Card,
   CardContent,
@@ -28,7 +30,9 @@ export default async function VerifyPage({
   searchParams: Promise<{ u?: string }>;
 }) {
   const { u } = await searchParams;
-  const target = validateCallbackUrl(u);
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  const target = validateCallbackUrl(u, host);
 
   return (
     <AuthShell mode="login">
@@ -75,26 +79,4 @@ export default async function VerifyPage({
       </Card>
     </AuthShell>
   );
-}
-
-// SEC-03: allowlist strict — acceptăm DOAR URL-ul de callback Auth.js pe originea noastră
-// (`/api/auth/callback/...`), niciodată un URL arbitrar (anti open-redirect/phishing).
-function validateCallbackUrl(raw: string | undefined): string | null {
-  if (!raw) return null;
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    return null;
-  }
-  const base = process.env.AUTH_URL ?? "http://localhost:3000";
-  let expectedOrigin: string;
-  try {
-    expectedOrigin = new URL(base).origin;
-  } catch {
-    return null;
-  }
-  if (parsed.origin !== expectedOrigin) return null;
-  if (!parsed.pathname.startsWith("/api/auth/callback/")) return null;
-  return parsed.toString();
 }

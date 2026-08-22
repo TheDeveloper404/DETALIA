@@ -8,6 +8,7 @@
 import { cache } from "react";
 
 import { audit } from "@/lib/audit";
+import { isOwnBlobUrl } from "@/lib/blob-url";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import {
@@ -396,6 +397,11 @@ export async function shareCanvasToProject(input: {
   if (!access.hasAccess) return { ok: false, error: "FORBIDDEN" };
 
   if (!canvas.thumbnailUrl) return { ok: false, error: "EMPTY_CANVAS" };
+  // SEC-07 (audit 2026-08-22): `thumbnailUrl` e scris exclusiv server-side (saveCanvasThumbnail), NU
+  // vine direct din client — zero risc SSRF azi. Gardă defensivă, aliniată cu restul fetch-urilor
+  // server-side de blob (`lib/project-image-proxy.ts`), ca să nu rămână singura excepție dacă vreodată
+  // acest câmp ajunge acceptat ca URL direct din client.
+  if (!isOwnBlobUrl(canvas.thumbnailUrl)) return { ok: false, error: "UPLOAD_FAILED" };
 
   if ((await countCanvasSharesByProject(input.projectId)) >= MAX_CANVAS_SHARES_PER_PROJECT) {
     return { ok: false, error: "LIMIT_REACHED" };
