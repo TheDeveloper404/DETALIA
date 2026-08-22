@@ -19,6 +19,7 @@ import { cookies } from "next/headers";
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
 import { magicLinkEmailHtml, magicLinkEmailText, sendEmail } from "@/lib/email";
+import { resolveMagicLinkBaseUrl } from "@/lib/magic-link-url";
 
 // TTL magic link (minute) → secunde. Default prudent: 15 min dacă env lipsește.
 const magicLinkTtlMinutes = Number(process.env.MAGIC_LINK_TTL_MINUTES ?? "15");
@@ -61,12 +62,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       from: process.env.EMAIL_FROM,
       maxAge: magicLinkMaxAgeSeconds,
       // Email brand DETALIA pentru magic link (înlocuiește template-ul default Resend).
-      async sendVerificationRequest({ identifier: email, url }) {
+      async sendVerificationRequest({ identifier: email, url, request }) {
         // Anti-prefetch FĂRĂ click în plus: emailul trimite linkul către /verify, care se
         // auto-confirmă din JS la încărcare (window.location → callback-ul Auth.js). Un browser real
         // rulează JS → ajunge instant în feed. Scanerele de securitate ale clienților de mail fac GET
         // pe pagină dar NU rulează JS → nu consumă tokenul one-time. Vezi app/verify/page.tsx.
-        const base = process.env.AUTH_URL ?? "http://localhost:3000";
+        const base = resolveMagicLinkBaseUrl(request);
         const clickThroughUrl = `${base}/verify?u=${encodeURIComponent(url)}`;
         const ok = await sendEmail({
           to: email,
