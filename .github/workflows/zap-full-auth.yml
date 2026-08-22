@@ -1,0 +1,72 @@
+name: ZAP full scan (authenticated)
+
+# Pas 2 din planul de testare DAST (vezi zap-baseline.yml pentru pas 1). Scan ACTIV (fuzzing SQLi/XSS
+# etc., nu doar pasiv ca baseline-ul) și AUTENTIFICAT — folosește o sesiune reală (cookie Auth.js de la
+# un cont de test dedicat pe `dev`, NU cont real) ca să acopere și zonele din spatele login-ului
+# (feed, proiecte, detalii). NU rulează automat — trimite atacuri reale către o aplicație live, pornește
+# DOAR manual (workflow_dispatch), cu URL-ul dat explicit la trigger.
+#
+# ATENȚIE: scanul activ poate crea date/declanșa acțiuni reale pe orice URL pe care ZAP îl descoperă și
+# nu e explicit exclus prin `exclude_paths` la trigger. Verifică lista de excluderi ÎNAINTE de fiecare
+# rulare — nu presupune că cea de la rularea trecută mai e suficientă dacă s-au adăugat rute noi.
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: "URL-ul de scanat (preview stabil, NU production)"
+        required: true
+        type: string
+      exclude_paths:
+        description: >-
+          Regex-uri de exclus din scanul activ, câte unul pe linie (ex. acțiuni ireversibile: ștergere
+          proiect/detaliu/schiță, invitații care trimit email real, orice declanșează notificări reale).
+          Gol = nimic exclus (NU recomandat pe un cont cu date reale).
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  zap-full-auth:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Construiește opțiunile de excludere (Global Exclude URL)
+        id: excludes
+        run: |
+          OPTS=""
+          i=0
+          while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            OPTS="$OPTS -config globalexcludeurl.url_list.url($i).regex=$line"
+            OPTS="$OPTS -config globalexcludeurl.url_list.url($i).description=exclude-$i"
+            OPTS="$OPTS -config globalexcludeurl.url_list.url($i).enabled=true"
+            i=$((i+1))
+          done <<< "${{ inputs.exclude_paths }}"
+          {
+            echo "cmd_options<<EOF"
+            echo "-a -j $OPTS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: ZAP Full Scan (authenticated)
+        uses: zaproxy/action-full-scan@v0.13.0
+        env:
+          # Cookie-ul de sesiune (cont de test dedicat pe `dev`) — vezi ZAP_SESSION_COOKIE, secret GitHub.
+          # Bypass-ul Vercel Deployment Protection e pe query string (target de mai jos), nu pe header aici
+          # — mecanismul ZAP_AUTH_HEADER suportă un singur header custom, deja folosit pentru cookie.
+          ZAP_AUTH_HEADER: Cookie
+          ZAP_AUTH_HEADER_VALUE: ${{ secrets.ZAP_SESSION_COOKIE }}
+        with:
+          target: "${{ inputs.target_url }}/?x-vercel-protection-bypass=${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}&x-vercel-set-bypass-cookie=true"
+          cmd_options: ${{ steps.excludes.outputs.cmd_options }}
+
+      - name: Upload raport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-full-auth-report
+          path: report_html.html
+          if-no-files-found: ignore
