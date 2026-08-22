@@ -2,18 +2,24 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Fișier NOU (plansaService nu avea teste unitare până acum) — scop ÎNGUST, deliberat: doar poarta de
 // acces la proiect adăugată la /code-review (2026-08-09), nu acoperire completă a serviciului.
-const { getDetailById } = vi.hoisted(() => ({ getDetailById: vi.fn() }));
+const { getDetailById, getDetailsByIds } = vi.hoisted(() => ({
+  getDetailById: vi.fn(),
+  getDetailsByIds: vi.fn(),
+}));
 const { getCanvasById, listItems } = vi.hoisted(() => ({ getCanvasById: vi.fn(), listItems: vi.fn() }));
 const { canAccessProjectDetail } = vi.hoisted(() => ({ canAccessProjectDetail: vi.fn() }));
-const { getSketchById } = vi.hoisted(() => ({ getSketchById: vi.fn() }));
+const { getSketchById, getSketchesByIds } = vi.hoisted(() => ({
+  getSketchById: vi.fn(),
+  getSketchesByIds: vi.fn(),
+}));
 
-vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById }));
+vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById, getDetailsByIds }));
 vi.mock("@/server/repos/plansaRepo", () => ({
   getCanvasById,
   insertItem: vi.fn(),
   listItems,
 }));
-vi.mock("@/server/repos/sketchesRepo", () => ({ getSketchById }));
+vi.mock("@/server/repos/sketchesRepo", () => ({ getSketchById, getSketchesByIds }));
 vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 
@@ -49,12 +55,15 @@ describe("getCanvasForEdit — membru eliminat nu mai vede detaliul la reîncăr
   it("item direct (fără schiță) pe un detaliu de proiect fără acces → tratat ca dispărut (skip)", async () => {
     vi.mocked(getCanvasById).mockResolvedValueOnce({ id: CANVAS_ID, ownerId: OWNER, name: "P", state: null } as never);
     vi.mocked(listItems).mockResolvedValueOnce([{ detailId: DETAIL_ID, sketchId: null }] as never);
-    vi.mocked(getDetailById).mockResolvedValueOnce({
-      id: DETAIL_ID,
-      title: "Detaliu privat",
-      imageUrl: "https://blob/x.png",
-      projectId: "proj-1",
-    } as never);
+    vi.mocked(getSketchesByIds).mockResolvedValueOnce(new Map() as never);
+    vi.mocked(getDetailsByIds).mockResolvedValueOnce(
+      new Map([
+        [
+          DETAIL_ID,
+          { id: DETAIL_ID, title: "Detaliu privat", imageUrl: "https://blob/x.png", projectId: "proj-1" },
+        ],
+      ]) as never,
+    );
     vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
 
     const res = await getCanvasForEdit({ canvasId: CANVAS_ID, ownerId: OWNER });
@@ -65,15 +74,12 @@ describe("getCanvasForEdit — membru eliminat nu mai vede detaliul la reîncăr
   it("item de schiță pe un detaliu de proiect fără acces → tratat ca dispărut (skip)", async () => {
     vi.mocked(getCanvasById).mockResolvedValueOnce({ id: CANVAS_ID, ownerId: OWNER, name: "P", state: null } as never);
     vi.mocked(listItems).mockResolvedValueOnce([{ detailId: DETAIL_ID, sketchId: "sk-1" }] as never);
-    vi.mocked(getSketchById).mockResolvedValueOnce({
-      status: "PUBLISHED",
-      thumbnailUrl: "https://blob/sk.png",
-    } as never);
-    vi.mocked(getDetailById).mockResolvedValueOnce({
-      id: DETAIL_ID,
-      title: "Detaliu privat",
-      projectId: "proj-1",
-    } as never);
+    vi.mocked(getSketchesByIds).mockResolvedValueOnce(
+      new Map([["sk-1", { status: "PUBLISHED", thumbnailUrl: "https://blob/sk.png" }]]) as never,
+    );
+    vi.mocked(getDetailsByIds).mockResolvedValueOnce(
+      new Map([[DETAIL_ID, { id: DETAIL_ID, title: "Detaliu privat", projectId: "proj-1" }]]) as never,
+    );
     vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
 
     const res = await getCanvasForEdit({ canvasId: CANVAS_ID, ownerId: OWNER });
@@ -84,12 +90,15 @@ describe("getCanvasForEdit — membru eliminat nu mai vede detaliul la reîncăr
   it("cu acces la proiect → itemul apare normal", async () => {
     vi.mocked(getCanvasById).mockResolvedValueOnce({ id: CANVAS_ID, ownerId: OWNER, name: "P", state: null } as never);
     vi.mocked(listItems).mockResolvedValueOnce([{ detailId: DETAIL_ID, sketchId: null }] as never);
-    vi.mocked(getDetailById).mockResolvedValueOnce({
-      id: DETAIL_ID,
-      title: "Detaliu proiect",
-      imageUrl: "https://blob/x.png",
-      projectId: "proj-1",
-    } as never);
+    vi.mocked(getSketchesByIds).mockResolvedValueOnce(new Map() as never);
+    vi.mocked(getDetailsByIds).mockResolvedValueOnce(
+      new Map([
+        [
+          DETAIL_ID,
+          { id: DETAIL_ID, title: "Detaliu proiect", imageUrl: "https://blob/x.png", projectId: "proj-1" },
+        ],
+      ]) as never,
+    );
     vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(true);
 
     const res = await getCanvasForEdit({ canvasId: CANVAS_ID, ownerId: OWNER });
@@ -101,6 +110,41 @@ describe("getCanvasForEdit — membru eliminat nu mai vede detaliul la reîncăr
         name: "P",
         document: null,
         items: [{ detailId: DETAIL_ID, sketchId: null, imageUrl: "https://blob/x.png", title: "Detaliu proiect" }],
+      },
+    });
+  });
+
+  it("N+1 fix: 2 item-uri pe ACELAȘI proiect → un singur query per repo + o singură verificare de acces (dedup)", async () => {
+    const DETAIL_ID_2 = "33333333-3333-4333-8333-333333333333";
+    vi.mocked(getCanvasById).mockResolvedValueOnce({ id: CANVAS_ID, ownerId: OWNER, name: "P", state: null } as never);
+    vi.mocked(listItems).mockResolvedValueOnce([
+      { detailId: DETAIL_ID, sketchId: null },
+      { detailId: DETAIL_ID_2, sketchId: null },
+    ] as never);
+    vi.mocked(getSketchesByIds).mockResolvedValueOnce(new Map() as never);
+    vi.mocked(getDetailsByIds).mockResolvedValueOnce(
+      new Map([
+        [DETAIL_ID, { id: DETAIL_ID, title: "D1", imageUrl: "https://blob/1.png", projectId: "proj-1" }],
+        [DETAIL_ID_2, { id: DETAIL_ID_2, title: "D2", imageUrl: "https://blob/2.png", projectId: "proj-1" }],
+      ]) as never,
+    );
+    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(true);
+
+    const res = await getCanvasForEdit({ canvasId: CANVAS_ID, ownerId: OWNER });
+
+    expect(getDetailsByIds).toHaveBeenCalledTimes(1);
+    expect(getDetailsByIds).toHaveBeenCalledWith([DETAIL_ID, DETAIL_ID_2]);
+    expect(canAccessProjectDetail).toHaveBeenCalledTimes(1);
+    expect(res).toEqual({
+      ok: true,
+      value: {
+        id: CANVAS_ID,
+        name: "P",
+        document: null,
+        items: [
+          { detailId: DETAIL_ID, sketchId: null, imageUrl: "https://blob/1.png", title: "D1" },
+          { detailId: DETAIL_ID_2, sketchId: null, imageUrl: "https://blob/2.png", title: "D2" },
+        ],
       },
     });
   });

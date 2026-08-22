@@ -276,6 +276,20 @@ export async function getDetailById(id: string) {
   return row ?? null;
 }
 
+// Variantă batch a `getDetailById` — ACEEAȘI formă/filtrare (PUBLISHED-only), doar pe mai multe id-uri
+// dintr-un singur query, în loc de un query per id într-o buclă (N+1). Folosită unde apelantul are deja
+// toate id-urile dinainte (ex. `plansaService.getCanvasForEdit`).
+export async function getDetailsByIds(ids: string[]) {
+  if (ids.length === 0) return new Map<string, Awaited<ReturnType<typeof getDetailById>>>();
+  const rows = await db
+    .select(detailWithAuthorColumns)
+    .from(details)
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(and(inArray(details.id, ids), eq(details.status, DETAIL_STATUS.PUBLISHED)));
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
 // Fetch pt pagina de EDITARE — spre deosebire de `getDetailById`, NU filtrează pe status (owner-ul
 // trebuie să-și poată edita atât un detaliu publicat, cât și o ciornă DRAFT). Scoping-ul pe owner e
 // AICI, în query (nu doar verificat după) — un DRAFT al altui user nu trebuie niciodată să ajungă la

@@ -17,7 +17,7 @@ import {
   validateCanvasDocument,
   validateCanvasName,
 } from "@/server/domain/plansa";
-import { getDetailById } from "@/server/repos/detailsRepo";
+import { getDetailById, getDetailsByIds } from "@/server/repos/detailsRepo";
 import {
   type CanvasListItem,
   deleteCanvasOwned,
@@ -34,7 +34,7 @@ import {
   updateDocumentOwned,
   updateThumbnailOwned,
 } from "@/server/repos/plansaRepo";
-import { getSketchById } from "@/server/repos/sketchesRepo";
+import { getSketchById, getSketchesByIds } from "@/server/repos/sketchesRepo";
 import { canAccessProjectDetail } from "@/server/services/projectService";
 
 type CanvasError =
@@ -245,21 +245,40 @@ export async function getCanvasForEdit(input: {
   if (!canvas || canvas.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
 
   const rows = await listItems(input.canvasId);
+
+  // Batching (era N+1: câte un `getSketchById`/`getDetailById`/`canAccessProjectDetail` per item,
+  // secvențial) — două query-uri `IN (...)` pe toate id-urile, plus verificarea de acces la proiect
+  // deduplicată per `projectId` (mai multe item-uri pot ținti același proiect).
+  const sketchIds = [...new Set(rows.map((r) => r.sketchId).filter((id): id is string => id !== null))];
+  const detailIds = [...new Set(rows.map((r) => r.detailId))];
+  const [sketchesById, detailsById] = await Promise.all([
+    getSketchesByIds(sketchIds),
+    getDetailsByIds(detailIds),
+  ]);
+
+  const projectIds = [...new Set(
+    [...detailsById.values()].map((d) => d?.projectId).filter((id): id is string => !!id),
+  )];
+  const accessByProject = new Map<string, boolean>(
+    await Promise.all(
+      projectIds.map(async (projectId) =>
+        [projectId, await canAccessProjectDetail({ projectId, userId: input.ownerId })] as const,
+      ),
+    ),
+  );
+
   const items: CanvasEditItem[] = [];
   for (const row of rows) {
     if (row.sketchId) {
-      const sketch = await getSketchById(row.sketchId);
+      const sketch = sketchesById.get(row.sketchId);
       // SEC-002: schiță ascunsă la release → tratată ca dispărută, la fel ca ștearsă/retrasă.
       if (!sketch || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl || sketch.hiddenAfterRelease)
         continue;
-      const detail = await getDetailById(row.detailId);
+      const detail = detailsById.get(row.detailId);
       // Proiecte (2026-08-09, gol găsit la /code-review): un membru ELIMINAT din proiect nu mai
       // trebuie să vadă, la fiecare reîncărcare a planșei, titlul/thumbnailul unui detaliu care a
       // rămas privat — tratat ca „dispărut", la fel ca un detaliu șters/nepublicat.
-      if (
-        detail?.projectId &&
-        !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.ownerId }))
-      ) {
+      if (detail?.projectId && !accessByProject.get(detail.projectId)) {
         continue;
       }
       items.push({
@@ -269,11 +288,8 @@ export async function getCanvasForEdit(input: {
         title: detail?.title ?? "Schiță",
       });
     } else {
-      const detail = await getDetailById(row.detailId); // null dacă șters/nepublicat → rămâne placeholder
-      if (
-        detail?.projectId &&
-        !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.ownerId }))
-      ) {
+      const detail = detailsById.get(row.detailId); // undefined dacă șters/nepublicat → rămâne placeholder
+      if (detail?.projectId && !accessByProject.get(detail.projectId)) {
         continue;
       }
       if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: detail.imageUrl!, title: detail.title });

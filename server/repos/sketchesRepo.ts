@@ -120,6 +120,15 @@ export async function getSketchById(id: string) {
   return row ?? null;
 }
 
+// Variantă batch a `getSketchById` — un singur query pe mai multe id-uri, în loc de unul per id
+// într-o buclă (N+1). Folosită unde apelantul are deja toate id-urile dinainte (ex.
+// `plansaService.getCanvasForEdit`).
+export async function getSketchesByIds(ids: string[]) {
+  if (ids.length === 0) return new Map<string, Awaited<ReturnType<typeof getSketchById>>>();
+  const rows = await db.select().from(sketches).where(inArray(sketches.id, ids));
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
 // `note` opțional: undefined = nu se atinge coloana (autosave-uri vechi/apeluri fără notă nu o șterg).
 export async function updateStrokes(id: string, strokesJson: Stroke[], note?: string | null) {
   const set: { strokesJson: Stroke[]; note?: string | null } = { strokesJson };
