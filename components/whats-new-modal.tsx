@@ -9,18 +9,23 @@ import { confirmAnnouncementSeenAction } from "@/app/(app)/profile/actions";
 
 import { DialogOverlay } from "./dialog-overlay";
 
-export function WhatsNewModal({ items }: { items: AnnouncementItem[] }) {
+export function WhatsNewModal({ items, delayMs = 0 }: { items: AnnouncementItem[]; delayMs?: number }) {
   // Captat O SINGURĂ DATĂ la mount (nu re-citit din prop) — pagina se poate re-randa pe server (ex.
   // `FeedEntrance` face `router.replace()` la ?welcome=1), iar la a doua trecere `items` vine deja gol
   // (fusese marcat văzut instant de efectul de mai jos), ceea ce închidea panoul instant după deschidere.
   const [shown] = useState(items);
-  const [open, setOpen] = useState(shown.length > 0);
+  const [open, setOpen] = useState(false);
 
-  // Marchează versiunea ca văzută imediat ce se afișează — un refresh nu trebuie să retrigger-uiască
-  // panoul. Fire-and-forget: e o simplă bifă, nu blochează UI-ul dacă rețeaua e lentă.
+  // Marchează versiunea ca văzută abia când panoul chiar devine vizibil (nu mai devreme) — dacă userul
+  // închide tab-ul în fereastra de întârziere, anunțul rămâne nevăzut, nu „ars" degeaba.
   useEffect(() => {
-    if (shown.length > 0) void confirmAnnouncementSeenAction();
-  }, [shown]);
+    if (shown.length === 0) return;
+    const timer = setTimeout(() => {
+      setOpen(true);
+      void confirmAnnouncementSeenAction();
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [shown, delayMs]);
 
   if (!open || shown.length === 0) return null;
 

@@ -551,7 +551,15 @@ const CANVAS_ID = "44444444-4444-4444-8444-444444444444";
 const SHARE_ID = "55555555-5555-4555-8555-555555555555";
 
 function canvasRow(overrides: Partial<{ id: string; ownerId: string; name: string; thumbnailUrl: string | null }> = {}) {
-  return { id: CANVAS_ID, ownerId: OWNER_ID, name: "Planșa mea", thumbnailUrl: "https://blob/thumb.png", ...overrides };
+  return {
+    id: CANVAS_ID,
+    ownerId: OWNER_ID,
+    name: "Planșa mea",
+    // SEC-07: trebuie să treacă `isOwnBlobUrl` (formă reală de Blob), altfel guard-ul nou respinge
+    // fixture-ul înainte să apuce să testeze restul fluxului.
+    thumbnailUrl: "https://abc123.public.blob.vercel-storage.com/thumb.png",
+    ...overrides,
+  };
 }
 
 describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele obligatorii", () => {
@@ -576,6 +584,22 @@ describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
     const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
     expect(res).toEqual({ ok: false, error: "EMPTY_CANVAS" });
+  });
+
+  // SEC-07 (audit 2026-08-22): gardă defensivă nouă — `thumbnailUrl` nu vine azi din client (scris
+  // exclusiv server-side), dar dacă vreodată ar veni, un URL din afara store-ului nostru trebuie refuzat
+  // ÎNAINTE de fetch (aliniat cu restul fetch-urilor server-side de blob).
+  it("thumbnailUrl dintr-un domeniu care NU e store-ul nostru de Blob → UPLOAD_FAILED, fără fetch", async () => {
+    vi.mocked(getCanvasById).mockResolvedValueOnce(
+      canvasRow({ thumbnailUrl: "https://evil.com/fake-thumb.png" }) as never,
+    );
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const res = await shareCanvasToProject({ canvasId: CANVAS_ID, projectId: PROJECT_ID, userId: OWNER_ID });
+    expect(res).toEqual({ ok: false, error: "UPLOAD_FAILED" });
+    expect(fetchSpy).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it("planșă proprie + membru activ → partajează, cu numele planșei + dată în titlu", async () => {

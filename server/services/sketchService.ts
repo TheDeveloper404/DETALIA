@@ -274,6 +274,18 @@ export async function deleteSketch(input: {
   if (!sketch) return { ok: false, error: "SKETCH_NOT_FOUND" };
 
   const detail = await getDetailById(sketch.detailId);
+
+  // SEC-02 (audit 2026-08-22): gol în clasa SEC-009 — un actor eliminat din proiect nu mai are voie
+  // să scrie pe conținutul rămas acolo, la fel ca la publish()/updateDetail()/deleteDetail(). Fără
+  // gardă aici, un ex-membru putea șterge propria schiță publicată în proiect după ce a fost eliminat
+  // (avea încă `sketchId`-ul din istoric/notificări, chiar dacă pagina detaliului îl blochează).
+  if (
+    detail?.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.actorUserId }))
+  ) {
+    return { ok: false, error: "SKETCH_NOT_FOUND" };
+  }
+
   const isSketchAuthor = sketch.authorId === input.actorUserId;
   // `ownerId` (proprietarul real), NU `authorId` (mascat de anonimizare, poate fi null) — altfel
   // autorul unui detaliu retras pierde dreptul de moderare pe propriile schițe.
@@ -402,6 +414,16 @@ export async function updateAnnotation(input: {
   // Doar rândul de adnotare e editabil așa — o schiță normală rămâne imuabilă după publicare.
   if (!sketch.isAnnotation) return { ok: false, error: "FORBIDDEN" };
   if (sketch.status !== SKETCH_STATUS.PUBLISHED) return { ok: false, error: "INVALID_STATE" };
+
+  // SEC-02 (audit 2026-08-22): gol în clasa SEC-009 — un autor eliminat din proiect nu mai are voie să
+  // rescrie adnotarea rămasă acolo, la fel ca la publish()/deleteSketch()/updateDetail().
+  const detail = await getDetailById(sketch.detailId);
+  if (
+    detail?.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.authorId }))
+  ) {
+    return { ok: false, error: "SKETCH_NOT_FOUND" };
+  }
 
   const validation = validateStrokes(input.strokes);
   if (!validation.ok) {
