@@ -17,6 +17,7 @@ import { buildCspHeader } from "@/lib/csp";
 import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
 import { getUserGateInfo } from "@/server/repos/usersRepo";
+import { isPublicPath } from "@/lib/public-paths";
 
 // Rutele de cron invocate de Vercel (fără sesiune de user) — autorizare reală prin CRON_SECRET, în
 // handler. EXACTE (nu un prefix larg gen "/api/cron"), ca o rută cron nouă să NU devină public/scutită de
@@ -136,9 +137,9 @@ export default async function proxy(req: NextRequest) {
     return Response.redirect(new URL("/feed", origin));
   }
 
-  const isPublic = PUBLIC_PATHS.some(
-    (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`)),
-  );
+  // SEC-05: „/projects/join” și „/s” n-au sens ca path exact (cer strict un token/id după) — dacă
+  // sunt accesate exact (fără segment), NU trebuie tratate ca publice (vezi lib/public-paths.ts).
+  const isPublic = isPublicPath(pathname, PUBLIC_PATHS, ["/projects/join", "/s"]);
 
   // Neautentificat pe rută protejată → redirect la login, cu callback de revenire.
   if (!isPublic && !isLoggedIn) {

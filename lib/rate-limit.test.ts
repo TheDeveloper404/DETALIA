@@ -2,7 +2,7 @@ import type { Ratelimit } from "@upstash/ratelimit";
 import type { Redis } from "@upstash/redis";
 import { describe, expect, it, vi } from "vitest";
 
-import { checkLimit, hashEmail, shouldCountView, withTestHeadroom } from "./rate-limit";
+import { checkLimit, extractClientIpFromForwardedFor, hashEmail, shouldCountView, withTestHeadroom } from "./rate-limit";
 
 // Fake minimal — shouldCountView apelează doar `.set(key, value, opts)`. Vezi comentariul de la
 // fakeLimiter mai jos pentru de ce nu testăm cu Redis real.
@@ -117,5 +117,22 @@ describe("shouldCountView — dedup vizualizări (SEC/2026-08-09)", () => {
       throw new Error("Redis unavailable");
     });
     expect(await shouldCountView("detail-1:user-1", client)).toBe(true);
+  });
+});
+
+describe("extractClientIpFromForwardedFor — SEC-04 (audit 2026-08-22)", () => {
+  it("un singur IP (cazul Vercel: header suprascris, fără hop-uri de client) → îl întoarce", () => {
+    expect(extractClientIpFromForwardedFor("203.0.113.5")).toBe("203.0.113.5");
+  });
+
+  it("SEC: ia ULTIMUL IP din listă, nu primul — atacatorul controlează doar prefixul adăugat de el", () => {
+    // Un reverse-proxy care ADAUGĂ (nu suprascrie) pune IP-ul real client ULTIMUL în listă; primul
+    // e orice a trimis clientul în request-ul original (rotativ, ocolește limiterele pe IP).
+    expect(extractClientIpFromForwardedFor("1.2.3.4, 203.0.113.5")).toBe("203.0.113.5");
+    expect(extractClientIpFromForwardedFor("attacker-controlled, 9.9.9.9, 203.0.113.5")).toBe("203.0.113.5");
+  });
+
+  it("trim pe spații în jurul virgulei", () => {
+    expect(extractClientIpFromForwardedFor("1.2.3.4 ,  203.0.113.5  ")).toBe("203.0.113.5");
   });
 });
