@@ -10,6 +10,14 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
   // HSTS: și Vercel îl pune, dar îl declarăm explicit (2 ani + subdomenii + preload).
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  // Izolare cross-origin (găsit lipsă la ZAP full-scan, 2026-08-22). COOP/CORP = `same-origin`, sigur
+  // (aplicația nu servește nimic menit să fie încorporat/citit din alt origin). COEP = `credentialless`,
+  // NU `require-corp`: Vercel Blob (imagini publice) și widget-ul Turnstile sunt cross-origin fără
+  // header `Cross-Origin-Resource-Policy` propriu — `require-corp` le-ar bloca; `credentialless` le
+  // lasă să încarce (fără cookies, care oricum nu sunt necesare pentru resurse publice).
+  { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
+  { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
 ];
 
 const nextConfig: NextConfig = {
@@ -49,7 +57,13 @@ const nextConfig: NextConfig = {
       // să existe (ZAP: "CSP Header Not Set", risc real aproape nul, dar ieftin de închis).
       {
         source: "/(robots.txt|sitemap.xml)",
-        headers: [{ key: "Content-Security-Policy", value: "default-src 'none'" }],
+        // `frame-ancestors`/`form-action` NU fac fallback la `default-src` (particularitate CSP) —
+        // explicite aici ca să nu apară „Failure to Define Directive with No Fallback" la scanere
+        // (ZAP 2026-08-22). Risc real era deja zero: fără content HTML de framing/formulare pe aceste
+        // rute, plus `X-Frame-Options: DENY` (mai sus) acoperea deja framing-ul.
+        headers: [
+          { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'; form-action 'none'" },
+        ],
       },
     ];
   },

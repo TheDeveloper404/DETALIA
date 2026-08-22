@@ -173,10 +173,23 @@ export function hashAuditId(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);
 }
 
-// IP-ul clientului din headerele de proxy (Vercel pune x-forwarded-for). Primul IP din listă.
+// SEC-04 (audit 2026-08-22): un reverse-proxy configurat implicit (ex. nginx cu
+// `$proxy_add_x_forwarded_for`) DOAR ADAUGĂ la valoarea trimisă de client, deci primul IP din listă
+// devine controlabil de atacator (bypass pe toate limiterele pe IP) pe orice infrastructură din afara
+// Vercel. Ultimul IP din listă e mereu cel adăugat de hop-ul cel mai apropiat (proxy-ul de încredere).
+// Extras ca funcție pură, testabilă fără `next/headers`.
+export function extractClientIpFromForwardedFor(fwd: string): string {
+  const parts = fwd.split(",");
+  return parts[parts.length - 1]!.trim();
+}
+
+// IP-ul clientului din headerele de proxy. Vercel suprascrie `x-forwarded-for` la fiecare request și
+// NU propagă IP-uri externe (verificat în docs Vercel) — pe Vercel valoarea conține STRICT IP-ul real,
+// deci primul == ultimul. Vezi `extractClientIpFromForwardedFor` — sigur pe Vercel azi ȘI corect pe
+// orice migrare viitoare (VPS/nginx), fără schimbare de cod.
 export async function clientIp(): Promise<string> {
   const h = await headers();
   const fwd = h.get("x-forwarded-for");
-  if (fwd) return fwd.split(",")[0]!.trim();
+  if (fwd) return extractClientIpFromForwardedFor(fwd);
   return h.get("x-real-ip") ?? "unknown";
 }

@@ -313,6 +313,56 @@ describe("updateAnnotation — editarea adnotării existente din pagina de Edita
     expect(res).toEqual({ ok: true });
     expect(updateStrokes).toHaveBeenCalledWith(SID, validStrokes, "explicație nouă");
   });
+
+  // SEC-02 (audit de securitate, 2026-08-22): gol în clasa SEC-009 — un autor eliminat din proiect
+  // păstra dreptul de a-și rescrie adnotarea rămasă acolo.
+  it("SEC-02: autorul, eliminat între timp din proiect → SKETCH_NOT_FOUND, fără scriere", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "PUBLISHED", isAnnotation: true }) as never,
+    );
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      projectId: "proj-1",
+      title: "T",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(false);
+
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: OWNER,
+      strokes: validStrokes,
+    });
+
+    expect(res).toEqual({ ok: false, error: "SKETCH_NOT_FOUND" });
+    expect(updateStrokes).not.toHaveBeenCalled();
+  });
+
+  it("SEC-02: autorul, încă membru al proiectului → editarea merge normal", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(
+      draft({ authorId: OWNER, status: "PUBLISHED", isAnnotation: true }) as never,
+    );
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      projectId: "proj-1",
+      title: "T",
+    } as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(true);
+
+    const res = await updateAnnotation({
+      detailId: DID,
+      sketchId: SID,
+      authorId: OWNER,
+      strokes: validStrokes,
+    });
+
+    expect(res).toEqual({ ok: true });
+    expect(updateStrokes).toHaveBeenCalledWith(SID, validStrokes, undefined);
+  });
 });
 
 describe("IDOR — doar autorul schiței o poate atinge cât e DRAFT", () => {
@@ -559,6 +609,44 @@ describe("DELETE — moderare post-publicare (autor schiță SAU autor detaliu)"
     } as never);
     vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
     vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+
+    const r = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
+
+    expect(r).toEqual({ ok: true });
+    expect(deleteSketchCascade).toHaveBeenCalledTimes(1);
+  });
+
+  // SEC-02 (audit de securitate, 2026-08-22): gol în clasa SEC-009 — un membru eliminat din proiect
+  // păstra dreptul de a-și șterge propria schiță publicată acolo (avea încă sketchId din istoric/
+  // notificări, chiar dacă pagina detaliului îl blochează la citire).
+  it("SEC-02: autorul schiței, eliminat între timp din proiect → SKETCH_NOT_FOUND, fără cascadă", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      projectId: "proj-1",
+      title: "T",
+    } as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(false);
+
+    const r = await deleteSketch({ sketchId: SID, actorUserId: SKETCH_AUTHOR });
+
+    expect(r).toEqual({ ok: false, error: "SKETCH_NOT_FOUND" });
+    expect(deleteSketchCascade).not.toHaveBeenCalled();
+  });
+
+  it("SEC-02: autorul detaliului, încă membru al proiectului → ștergerea merge normal", async () => {
+    vi.mocked(getDetailById).mockResolvedValue({
+      id: DID,
+      ownerId: OWNER,
+      authorId: OWNER,
+      projectId: "proj-1",
+      title: "T",
+    } as never);
+    vi.mocked(getSketchById).mockResolvedValue(draft({ status: "PUBLISHED" }) as never);
+    vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
+    vi.mocked(canAccessProjectDetail).mockResolvedValue(true);
 
     const r = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
 
@@ -924,7 +1012,10 @@ describe("Proiecte — notificarea de ștergere nu scurge titlul unui detaliu pr
       projectId: "proj-1",
     } as never);
     vi.mocked(deleteSketchCascade).mockResolvedValue(null as never);
-    vi.mocked(canAccessProjectDetail).mockResolvedValue(false);
+    // SEC-02 (audit 2026-08-22): guard-ul NOU verifică accesul ACTORULUI (OWNER, care moderează —
+    // încă membru), separat de verificarea existentă pentru DESTINATARUL notificării (SKETCH_AUTHOR,
+    // eliminat). Mock per-user, ca să nu se confunde cele două.
+    vi.mocked(canAccessProjectDetail).mockImplementation(async ({ userId }) => userId === OWNER);
 
     const res = await deleteSketch({ sketchId: SID, actorUserId: OWNER });
 
