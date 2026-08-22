@@ -67,6 +67,54 @@ Reguli:
   Conținutul demo a fost ELIMINAT din `db/seed.ts` (2026-06-28, vezi CHANGELOG) — nu mai există flag `SEED_DEMO`.
 - Curățare prod (dacă se murdărește): Neon → SQL Editor → ramura `production` → `DELETE FROM ...` (păstrând `categories`).
 
+### Variabile de mediu în Vercel — scope explicit, FĂRĂ moștenire automată (lecție 2026-08-22)
+
+Vercel are 3 scope-uri independente per variabilă: **Production**, **Preview**, **Development**. Bifarea
+unui scope NU o propagă automat la celelalte — o variabilă setată doar pe Production e complet absentă
+pe Preview (nu „moștenește", nu dă eroare, doar lipsește din `process.env`, silențios). Găsit concret:
+`AUTH_URL` exista doar pe Production → pe Preview magic link-ul ieșea cu `http://localhost:3000`
+(fallback din cod), fără nicio eroare vizibilă în logs.
+
+**De reținut la orice cod care citește un env pe server**: dacă lipsește pe un scope, comportamentul de
+fallback trebuie gândit explicit (eroare vizibilă, nu tăcere) — vezi `lib/email.ts:181`
+(`console.warn` dacă lipsesc chei, nu aruncă).
+
+**Capcană separată, găsită tot 2026-08-22**: setarea unui `AUTH_URL` FIX pe scope Preview „ancorează"
+toate redirect-urile Auth.js (inclusiv `signOut`) la acel domeniu, indiferent de deployment-ul real care
+a primit cererea — a stricat E2E (delogarea trimitea userul spre alias-ul `git-dev`, nu spre domeniul
+deployment-ului testat). Fix aplicat: linkul din emailul de magic-link (`lib/magic-link-url.ts`,
+`resolveMagicLinkBaseUrl`) ia domeniul din header-ele request-ului curent (`x-forwarded-host`/`host`),
+NU din `AUTH_URL` — deci `AUTH_URL` NU mai trebuie setat pe Preview (rămâne doar pe Production, dacă e
+nevoie acolo). **SEC**: header-ele astea vin din request, deci sunt potențial controlate de client —
+domeniul e verificat contra unei allowlist (`detalia.ro` + `detalia-*.vercel.app`) înainte de folosire;
+un host necunoscut (falsificat) NU e folosit, cade pe `AUTH_URL`/localhost, ca să nu scurgă tokenul
+one-time din link spre un domeniu al unui atacator. Fiecare deployment LEGITIM își rezolvă propriul
+domeniu din propriul request — niciun risc de „bridge" către alt mediu.
+
+### Deployment Protection (SSO) pe Preview — cum accesează unelte automate (ZAP, teste)
+
+Preview-urile Vercel sunt în spatele unui login SSO Vercel by default — orice request neautentificat
+primește 302 spre `vercel.com/sso-api`. Pentru unelte automate (CI, scanere de securitate) există
+**Protection Bypass for Automation**: un secret (`VERCEL_AUTOMATION_BYPASS_SECRET`, deja în secrets
+GitHub) trecut fie ca header `x-vercel-protection-bypass: <secret>`, fie ca query param
+`?x-vercel-protection-bypass=<secret>&x-vercel-set-bypass-cookie=true` pe URL-ul de preview — vezi
+`.github/workflows/zap-baseline.yml` / `zap-full-auth.yml` pentru exemple funcționale, verificate.
+NU trebuie regenerat/căutat din nou la fiecare test — valoarea existentă rămâne validă până e regenerată
+explicit din Vercel → Project Settings → Deployment Protection.
+
+**Separat, pentru teste AUTENTIFICATE** (dincolo de SSO-ul Vercel, în aplicație): trebuie un cookie de
+sesiune Auth.js real, de la un cont de TEST dedicat pe `dev` (NU cont de producție — un scan activ/fuzzing
+poate crea date la întâmplare sau declanșa acțiuni ireversibile). Cookie-ul (`__Secure-authjs.session-token`,
+din DevTools → Application → Cookies, după login manual pe preview) se pune ca secret GitHub separat
+(`ZAP_SESSION_COOKIE`) și se trece prin mecanismul `ZAP_AUTH_HEADER`/`ZAP_AUTH_HEADER_VALUE` al acțiunii
+ZAP ca header `Cookie`. Cookie-ul expiră (~30 zile, sesiune JWT) — se reînnoiește manual când expiră,
+fără să fie nevoie de cont de test nou (contul rămâne valid, doar sesiunea se reface prin login).
+
+**De ce nu există „bridge" dev↔prod prin niciunul din mecanismele de mai sus**: bypass-ul SSO e per-URL de
+preview (nu funcționează pe `detalia.ro`), cookie-ul de sesiune e legat de domeniul pe care a fost emis
+(cookie-urile nu traversează domenii), iar bazele de date Neon (`dev`/`production`) sunt complet separate
+— un cont creat pe preview NU apare niciodată în producție.
+
 ### Cheatsheet SQL — curățare producție
 
 **Curățare totală** (păstrează `categories` și `platform_settings`):
