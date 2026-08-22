@@ -24,8 +24,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Debug - verify Vercel bypass header works (temporar, de scos după diagnostic)
+        env:
+          SECRET_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          echo "Lungime secret: ${#SECRET_VALUE}"
+          echo "--- fara header (asteptat 401/302 SSO) ---"
+          curl -sI "${{ inputs.target_url }}" | head -5
+          echo "--- cu header bypass (asteptat 200) ---"
+          curl -sI -H "x-vercel-protection-bypass: ${SECRET_VALUE}" -H "x-vercel-set-bypass-cookie: true" "${{ inputs.target_url }}" | head -5
+
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
+        env:
+          # Preview-urile Vercel sunt în spatele Deployment Protection (SSO) — fără header-ul de bypass,
+          # orice request neautentificat primește 302 spre vercel.com/sso-api, iar ZAP ajunge să scaneze
+          # pagina de login a Vercel, nu aplicația (găsit 2026-08-22: findings false-pozitive despre
+          # stripe.com/twitter.com/vercel.live — toate ale Vercel, nu ale noastre).
+          ZAP_AUTH_HEADER: x-vercel-protection-bypass
+          ZAP_AUTH_HEADER_VALUE: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         with:
           target: ${{ inputs.target_url }}
           # Raport ca artifact GitHub Actions, nu comentariu automat pe PR (nu rulează pe PR).
