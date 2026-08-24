@@ -268,7 +268,7 @@ export function ValidationPanel({
             `VISIBLE_POSITIONS`, „Vezi mai multe" pentru rest — vezi UI-REGISTRY.md. */}
         {positions.length > 0 && (
           <>
-            <ul className="mt-4 flex flex-col gap-2.5 border-t border-[#eee6da] pt-4">
+            <ul data-testid="validation-positions-list" className="mt-4 flex flex-col gap-2.5 border-t border-[#eee6da] pt-4">
               {visiblePositions.map((p) => (
                 <li key={p.userId} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="flex min-w-0 items-center gap-2">
