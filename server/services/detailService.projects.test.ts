@@ -15,9 +15,15 @@ const {
   insertSavedDetail: vi.fn(),
   deleteSavedDetail: vi.fn(),
 }));
-const { canAccessProjectDetail } = vi.hoisted(() => ({ canAccessProjectDetail: vi.fn() }));
+const { canAccessProjectDetail, isDetailAuthorRemovedFromProject } = vi.hoisted(() => ({
+  canAccessProjectDetail: vi.fn(),
+  isDetailAuthorRemovedFromProject: vi.fn(),
+}));
 
-vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail }));
+vi.mock("@/server/services/projectService", () => ({
+  canAccessProjectDetail,
+  isDetailAuthorRemovedFromProject,
+}));
 
 // Repo-ul e mock-uit integral: testăm regulile serviciului (poarta de acces la proiect), nu SQL-ul.
 vi.mock("@/server/repos/detailsRepo", () => ({

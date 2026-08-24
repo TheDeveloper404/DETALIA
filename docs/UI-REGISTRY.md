@@ -121,5 +121,15 @@ instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al pagini
 
 ---
 
+## Paginare stil forum (`FeedPagination`)
+**Componentă canonică:** [`app/(app)/feed/feed-pagination.tsx`](../app/(app)/feed/feed-pagination.tsx).
+
+Anterior/Următor + numere (fereastră ±2 din pagina curentă, cu „…" — `feedPageWindow` în
+`server/domain/detail.ts`), paginare REALĂ pe server (`?page=`), NU scroll infinit — decizie de produs
+2026-08-16 („caracter de comunitate", vezi CONTEXT.md). Diferă de `ShowMoreButton` de mai sus (aia e
+expand client-side pe liste mărginite, nu paginare reală). `?page=` peste ultima pagină → redirect la
+ultima pagină validă (nu „Niciun rezultat" fals), vezi `feed/page.tsx`. Pentru orice listă nouă care
+poate crește nelimitat pe server (nu doar N vizibile din DB), reutilizează acest pattern.
+
 ## Neacoperit încă (adaugă pe măsură ce apare)
 Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/notificare inline.

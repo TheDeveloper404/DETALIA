@@ -1,6 +1,7 @@
 "use client";
 
 import { Hand } from "lucide-react";
+import Link from "next/link";
 import { useActionState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -63,8 +64,10 @@ export function SupplierOfferPanel({ offers }: { offers: SupplierOfferRow[] }) {
       <ul className="flex flex-col gap-2">
         {offers.map((o) => (
           <li key={o.userId} className="flex items-center gap-2">
-            <AvatarInitials name={o.userName} imageUrl={o.userImage} size={26} />
-            <span className="truncate text-sm font-semibold">{o.userName ?? "Anonim"}</span>
+            <Link href={`/profile/${o.userId}`} className="flex min-w-0 items-center gap-2 no-underline">
+              <AvatarInitials name={o.userName} imageUrl={o.userImage} size={26} />
+              <span className="truncate text-sm font-semibold hover:underline">{o.userName ?? "Anonim"}</span>
+            </Link>
             <RolePill roleMain={o.roleMain} subRole={o.subRole} verified={o.verification === "VERIFIED"} />
           </li>
         ))}

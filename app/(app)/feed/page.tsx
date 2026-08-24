@@ -12,6 +12,7 @@ import { WhatsNewModal } from "@/components/whats-new-modal";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
 import { getUnseenAnnouncement } from "@/server/services/announcementService";
+import { resolveFeedPage } from "@/server/domain/detail";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import {
@@ -27,23 +28,26 @@ import { getPlatformState } from "@/server/services/settingsService";
 
 import { FeedEmpty } from "./feed-empty";
 import { FeedEntrance } from "./feed-entrance";
+import { FeedPagination } from "./feed-pagination";
 
 export const metadata: Metadata = { title: "Feed" };
 
-// Feed = suprafața principală autenticată. Finit (~20), sortabil, filtrabil pe categorie.
-// Layout pe 3 coloane (sidebar · feed · rail) — gen GitHub/LinkedIn, dens/profesional. Fără scroll infinit.
+// Feed = suprafața principală autenticată. Paginat (50/pagină), sortabil, filtrabil pe categorie.
+// Layout pe 3 coloane (sidebar · feed · rail) — gen GitHub/LinkedIn, dens/profesional. Fără scroll
+// infinit — paginare stil forum (decizie 2026-08-16), păstrează filtrele active (?cat=/?q=).
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; q?: string; welcome?: string; tour?: string }>;
+  searchParams: Promise<{ cat?: string; q?: string; welcome?: string; tour?: string; page?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const { cat, q: rawQ, welcome, tour } = await searchParams;
+  const { cat, q: rawQ, welcome, tour, page: rawPage } = await searchParams;
   const q = rawQ?.trim() || null;
+  const page = resolveFeedPage(rawPage);
 
   const [categories, totalPublished, role, authors, media, platform, debated, unseenAnnouncement, savedCount] =
     await Promise.all([
@@ -68,7 +72,19 @@ export default async function FeedPage({
     : null;
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
-  const details = await getFeed({ categoryId: activeId, q });
+  const { details, totalPages } = await getFeed({ categoryId: activeId, q, page });
+
+  // `?page=` peste ultima pagină reală (filtru schimbat între timp, link vechi/manipulat) → redirect la
+  // ultima pagină validă, NU „Niciun rezultat" fals pentru un filtru care chiar are rezultate.
+  if (page > totalPages) {
+    const params = new URLSearchParams();
+    if (activeId) params.set("cat", activeId);
+    if (q) params.set("q", q);
+    if (totalPages > 1) params.set("page", String(totalPages));
+    const qs = params.toString();
+    redirect(qs ? `/feed?${qs}` : "/feed");
+  }
+
   const mySavedIds = await getMySavedDetailIds(
     session.user.id,
     details.map((d) => d.id),
@@ -130,17 +146,20 @@ export default async function FeedPage({
         {details.length === 0 ? (
           <FeedEmpty filtered={!!activeId || !!q} search={!!q} />
         ) : (
-          <div className="flex flex-col gap-4">
-            {details.map((d) => (
-              <DetailCard
-                key={d.id}
-                detail={d}
-                currentUserId={session.user.id}
-                isSaved={mySavedIds.has(d.id)}
-                searchQuery={q}
-              />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col gap-4">
+              {details.map((d) => (
+                <DetailCard
+                  key={d.id}
+                  detail={d}
+                  currentUserId={session.user.id}
+                  isSaved={mySavedIds.has(d.id)}
+                  searchQuery={q}
+                />
+              ))}
+            </div>
+            <FeedPagination page={page} totalPages={totalPages} categoryId={activeId} q={q} />
+          </>
         )}
       </main>
 
