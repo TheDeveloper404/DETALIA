@@ -207,7 +207,7 @@ test("getFeed: comentariul/validarea/schița ALTCUIVA se numără corect în con
     await approve({ userId: authorUserId, targetType: "DETAIL", targetId: detailId });
 
     const feed = await getFeed({ q: "contoare" });
-    const row = feed.find((d) => d.id === detailId);
+    const row = feed.details.find((d) => d.id === detailId);
     expect(row).toBeDefined();
     // Dacă bug-ul de corelare revine, contoarele cad silențios la 0 — nu la o eroare.
     expect(row?.commentCount).toBe(1);
@@ -246,13 +246,43 @@ test("getFeed: approveCount numără DOAR aprobările, validationCount rămâne 
     });
 
     const feed = await getFeed({ q: "approveCount" });
-    const row = feed.find((d) => d.id === detailId);
+    const row = feed.details.find((d) => d.id === detailId);
     expect(row).toBeDefined();
     expect(row?.validationCount).toBe(1);
     expect(row?.approveCount).toBe(0);
   } finally {
     await db.delete(comments).where(eq(comments.targetId, detailId));
     await db.delete(validations).where(eq(validations.targetId, detailId));
+    await db.delete(details).where(eq(details.id, detailId));
+  }
+});
+
+// Căutarea folosește `ILIKE`, care compară caractere literal — fără fold explicit, un termen fără
+// diacritice nu găsește un titlu cu diacritice (și invers). Testat contra DB real (nu mock): fold-ul
+// se face cu `translate()` direct în SQL, comportament de Postgres, nu de aplicație.
+test("getFeed: căutarea e insensibilă la diacritice (ambele direcții)", async () => {
+  const { testerUserId, categoryId } = getSeed();
+  const tag = Date.now();
+
+  const created = await createDetail({
+    authorId: testerUserId,
+    title: `Poartă metalică țeavă zincată ${tag}`,
+    categoryIds: [categoryId],
+    imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
+  });
+  expect(created.ok).toBe(true);
+  if (!created.ok) return;
+  const detailId = created.detailId;
+
+  try {
+    // Termen FĂRĂ diacritice → găsește titlul CU diacritice.
+    const byPlain = await getFeed({ q: `Poarta metalica ${tag}` });
+    expect(byPlain.details.find((d) => d.id === detailId)).toBeDefined();
+
+    // Termen CU diacritice (variantă sedilă) → găsește tot.
+    const byDiacritic = await getFeed({ q: `ţeavă zincată ${tag}` });
+    expect(byDiacritic.details.find((d) => d.id === detailId)).toBeDefined();
+  } finally {
     await db.delete(details).where(eq(details.id, detailId));
   }
 });

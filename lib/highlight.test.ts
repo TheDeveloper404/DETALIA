@@ -44,4 +44,24 @@ describe("highlightMatches", () => {
       { text: " 2)", matched: false },
     ]);
   });
+
+  it("termen fără diacritice găsește text CU diacritice — segmentul evidențiat păstrează diacriticele originale", () => {
+    expect(highlightMatches("Poartă metalică țeavă", "poarta")).toEqual([
+      { text: "Poartă", matched: true },
+      { text: " metalică țeavă", matched: false },
+    ]);
+  });
+
+  it("termen CU diacritice găsește text fără diacritice", () => {
+    expect(highlightMatches("Teava zincata", "țeavă")).toEqual([
+      { text: "Teava", matched: true },
+      { text: " zincata", matched: false },
+    ]);
+  });
+
+  it("diacritice cu sedilă (ş/ţ) — echivalente cu virgulă dedesubt (ș/ț) la potrivire", () => {
+    expect(highlightMatches("Uşă şi ţeavă", "ușă și țeavă")).toEqual([
+      { text: "Uşă şi ţeavă", matched: true },
+    ]);
+  });
 });

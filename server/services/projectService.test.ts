@@ -90,6 +90,7 @@ import {
   getProjectAccess,
   getProjectForViewer,
   getProjectPreviewByToken,
+  isDetailAuthorRemovedFromProject,
   joinProjectByToken,
   reassignOrDeleteOwnedProjectsOnAccountDeletion,
   regenerateInviteLink,
@@ -503,6 +504,36 @@ describe("canReleaseDetailToCommunity — regula «orfan», parte DB", () => {
       requesterId: STRANGER_ID,
     });
     expect(res).toEqual({ allowed: false, error: "FORBIDDEN" });
+  });
+});
+
+describe("isDetailAuthorRemovedFromProject — badge de afișare, NU poartă de acces", () => {
+  it("autorul E owner-ul proiectului → mereu false, fără query de membru", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    const res = await isDetailAuthorRemovedFromProject({ projectId: PROJECT_ID, authorId: OWNER_ID });
+    expect(res).toBe(false);
+    expect(isActiveMember).not.toHaveBeenCalled();
+  });
+
+  it("autor ÎNCĂ membru activ → false", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(true);
+    const res = await isDetailAuthorRemovedFromProject({ projectId: PROJECT_ID, authorId: MEMBER_ID });
+    expect(res).toBe(false);
+  });
+
+  it("autor NU mai e membru activ → true", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
+    vi.mocked(isActiveMember).mockResolvedValueOnce(false);
+    const res = await isDetailAuthorRemovedFromProject({ projectId: PROJECT_ID, authorId: MEMBER_ID });
+    expect(res).toBe(true);
+  });
+
+  it("proiect inexistent → false, fără query de membru", async () => {
+    vi.mocked(getProjectById).mockResolvedValueOnce(null as never);
+    const res = await isDetailAuthorRemovedFromProject({ projectId: PROJECT_ID, authorId: MEMBER_ID });
+    expect(res).toBe(false);
+    expect(isActiveMember).not.toHaveBeenCalled();
   });
 });
 

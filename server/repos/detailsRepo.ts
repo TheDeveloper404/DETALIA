@@ -1,6 +1,7 @@
 // Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
 // Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
 import { and, count, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { type PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
@@ -18,6 +19,7 @@ import {
   users,
   validations,
 } from "@/db/schema";
+import { foldDiacritics } from "@/lib/diacritics";
 import { DETAIL_STATUS, type DetailResourceInput } from "@/server/domain/detail";
 
 // Creează detaliul + categoriile + resursele într-un SINGUR `db.batch` (atomic). Neon HTTP nu are
@@ -642,25 +644,62 @@ export async function countPublishedDetails(): Promise<number> {
   return row?.count ?? 0;
 }
 
-// Feed finit: doar PUBLISHED, opțional filtrat pe categorie, limitat.
+// Filtrele VARIABILE ale feed-ului (categorie/căutare) — extrase doar pe partea care chiar se
+// schimbă, ca să nu diverge `listFeed` de `countFeedMatches` (numărătoarea paginării TREBUIE să
+// numere exact ce randează pagina). Garda de vizibilitate (status+projectId, invariantul STABIL,
+// „un detaliu de proiect nu apare NICIODATĂ în feed-ul public") rămâne scrisă LITERAL în corpul
+// fiecărei funcții de mai jos, nu aici — scripts/check-visibility-guard.mjs scanează textul
+// corpului fiecărei funcții care atinge `details`, nu urmărește apeluri către helpere.
+// Fold diacritice pe coloană — `translate()` e NATIV Postgres (fără extensia `unaccent`, care ar cere
+// migrare/aprobare pe Neon pt o mapare pe care oricum o avem deja în JS). Mapare 1-la-1 IDENTICĂ cu
+// `lib/diacritics.ts` (`foldDiacritics`) — trebuie ținute sincron manual (nicio sursă comună posibilă,
+// una rulează în Postgres, cealaltă în JS). Acoperă ambele codări (virgulă dedesubt ș/ț ȘI sedilă ş/ţ,
+// vezi comentariul din lib/diacritics.ts) — datele existente pot avea oricare.
+const FOLD_DIACRITICS_FROM = "ăâîșşțţĂÂÎȘŞȚŢ";
+const FOLD_DIACRITICS_TO = "aaissttAAISSTT";
+function foldDiacriticsSql(column: PgColumn) {
+  return sql`translate(${column}, ${FOLD_DIACRITICS_FROM}, ${FOLD_DIACRITICS_TO})`;
+}
+
+function feedFilterConditions(input: { categoryId?: string | null; q?: string | null }) {
+  const conds = [];
+  if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
+  // Căutare pe titlu SAU descriere (ILIKE, case-insensitive + insensibilă la diacritice — ILIKE
+  // singur compară caractere literal, `ț`/`ș`/`ă`/etc. nu se potrivesc cu echivalentul lor fără
+  // diacritice). Doar titlul era prea îngust: un termen tehnic din descriere (nu reluat în titlu)
+  // întorcea zero rezultate, deși detaliul chiar vorbea despre el (2026-08-18, raportat). `%`/`_`/`\`
+  // din input escapate literal; fold-ul diacriticelor se aplică ÎNAINTE de escapare (nu afectează
+  // caracterele de escapat).
+  if (input.q) {
+    const term = `%${foldDiacritics(input.q).replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
+    conds.push(
+      or(
+        sql`${foldDiacriticsSql(details.title)} ilike ${term}`,
+        sql`${foldDiacriticsSql(details.description)} ilike ${term}`,
+      )!,
+    );
+  }
+  return conds;
+}
+
+// Feed paginat (50/pagină, decizie 2026-08-16): doar PUBLISHED, opțional filtrat pe categorie/căutare.
 // Sortare strict cronologică (cele mai noi primele) — interacțiunile sunt afișate per card
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
 // (listTopDebated) e cel care sortează pe scor de interacțiune, global, independent de acest feed.
-export async function listFeed(input: { categoryId?: string | null; q?: string | null; limit: number }) {
+export async function listFeed(input: {
+  categoryId?: string | null;
+  q?: string | null;
+  limit: number;
+  offset?: number;
+}) {
   // Proiecte (2026-08-09): feed-ul comunității nu include NICIODATĂ detalii de proiect, indiferent
   // cine e viewer-ul — asta e explicit vederea PUBLICĂ. Membrii unui proiect îl văd pe pagina lui,
   // nu aici (vezi projectService.listProjectDetails).
-  const conds = [eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)];
-  if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
-  // Căutare pe titlu SAU descriere (ILIKE, case-insensitive) — doar titlul era prea îngust: un termen
-  // tehnic din descriere (nu reluat în titlu) întorcea zero rezultate, deși detaliul chiar vorbea despre
-  // el (2026-08-18, raportat). `%` din input e escapat ca să fie literal.
-  if (input.q) {
-    const term = `%${input.q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
-    conds.push(or(sql`${details.title} ilike ${term}`, sql`${details.description} ilike ${term}`)!);
-  }
-  const where = and(...conds);
-
+  const where = and(
+    eq(details.status, DETAIL_STATUS.PUBLISHED),
+    isNull(details.projectId),
+    ...feedFilterConditions(input),
+  );
   return db
     .select({
       ...detailWithAuthorColumns,
@@ -676,7 +715,24 @@ export async function listFeed(input: { categoryId?: string | null; q?: string |
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(where)
     .orderBy(desc(details.createdAt))
-    .limit(input.limit);
+    .limit(input.limit)
+    .offset(input.offset ?? 0);
+}
+
+// Total de rezultate pentru filtrele curente ale feed-ului — baza numărului de pagini din UI. SEPARAT
+// de `countPublishedDetails` (aia e „toate", fără filtre, pentru sidebar).
+export async function countFeedMatches(input: { categoryId?: string | null; q?: string | null }): Promise<number> {
+  // Aceeași gardă ca listFeed mai sus (vezi comentariul de-acolo) — literală aici și ea, intenționat.
+  const where = and(
+    eq(details.status, DETAIL_STATUS.PUBLISHED),
+    isNull(details.projectId),
+    ...feedFilterConditions(input),
+  );
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(details)
+    .where(where);
+  return row?.count ?? 0;
 }
 
 // „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune (validări+comentarii+
@@ -691,6 +747,9 @@ export async function listTopDebated(limit: number) {
       // Aceeași mască de anonimizare ca în `detailWithAuthorColumns` — altfel rail-ul „cele mai
       // dezbătute" ar fi continuat să afișeze numele unui autor care s-a retras.
       isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
+      // Mascat identic cu `detailWithAuthorColumns` (vezi comentariul de-acolo) — un autor retras nu
+      // trebuie să poarte un id deschidabil ca /profile/<id> nici în rail-ul public.
+      authorId: sql<string | null>`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
       authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
       authorImage: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.image} end`,
       authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
@@ -725,6 +784,7 @@ export async function listRelatedDetails(input: {
       id: details.id,
       title: details.title,
       // Vezi nota de la `listTopDebated`: masca de anonimizare se aplică pe FIECARE cale de citire.
+      authorId: sql<string | null>`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
       authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
       authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
         else ${details.authorRoleSnapshot}->>'roleMain' end`,

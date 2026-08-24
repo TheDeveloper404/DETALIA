@@ -335,6 +335,7 @@ export default async function DetailPage({
               subRole: detail.authorSubRole,
               verification: detail.authorVerification,
             }}
+            authorRemovedFromProject={detail.authorRemovedFromProject}
             detailValidation={validation}
             isDetailAuthor={isAuthor}
             deletionMode={deletionPreview?.mode}
@@ -360,24 +361,34 @@ export default async function DetailPage({
           <ul className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((r) => (
               <li key={r.id} className="rounded-2xl border border-border bg-card p-4">
+                {/* Numele autorului e link SEPARAT (nu imbricat în cel de mai jos — un <a> în alt <a> e
+                    HTML invalid). Autor retras (authorId mascat null în SQL) → text simplu, fără link. */}
                 <Link href={`/details/${r.id}`} className="group block">
                   <span className="block font-heading text-[14px] font-semibold leading-snug text-foreground/90 group-hover:text-primary">
                     {r.title}
                   </span>
-                  <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    {r.authorName && (
-                      <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
-                    )}
-                    <RolePill
-                      roleMain={r.authorRoleMain}
-                      subRole={r.authorSubRole}
-                      verified={r.authorVerification === "VERIFIED"}
-                    />
-                    <span className="font-mono text-[11px] text-[#a59a88]">
-                      {r.commentCount} com · {r.sketchCount} schițe
-                    </span>
-                  </span>
                 </Link>
+                <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {r.authorName &&
+                    (r.authorId ? (
+                      <Link
+                        href={`/profile/${r.authorId}`}
+                        className="text-[12px] text-muted-foreground no-underline hover:text-foreground hover:underline"
+                      >
+                        {r.authorName}
+                      </Link>
+                    ) : (
+                      <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
+                    ))}
+                  <RolePill
+                    roleMain={r.authorRoleMain}
+                    subRole={r.authorSubRole}
+                    verified={r.authorVerification === "VERIFIED"}
+                  />
+                  <span className="font-mono text-[11px] text-[#a59a88]">
+                    {r.commentCount} com · {r.sketchCount} schițe
+                  </span>
+                </span>
               </li>
             ))}
           </ul>

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
+import { REMOVED_PROJECT_AUTHOR_LABEL } from "@/server/domain/project";
 import {
   composeStackStrokes,
   REMOVED_AUTHOR_LABEL,
@@ -97,6 +98,7 @@ export function DetailWorkspace({
   imageUrl,
   header,
   detailAuthor,
+  authorRemovedFromProject = false,
   detailValidation,
   isDetailAuthor,
   deletionMode,
@@ -115,6 +117,10 @@ export function DetailWorkspace({
   imageUrl: string;
   header: DetailHeader;
   detailAuthor: Author;
+  // Autorul detaliului mai e membru activ al proiectului în care a fost publicat? (doar detalii ÎNCĂ
+  // private, projectId setat — vezi projectService.isDetailAuthorRemovedFromProject). Badge de
+  // AFIȘARE, nu poartă de acces — numele/poza rămân vizibile, doar apartenența s-a schimbat.
+  authorRemovedFromProject?: boolean;
   detailValidation: ValidationView;
   isDetailAuthor: boolean;
   // Calculat pe server (`getDeletionPreview`): ce face „Șterge" pe acest detaliu ACUM.
@@ -361,7 +367,13 @@ export function DetailWorkspace({
                   {detailAuthor.name ?? "Anonim"}
                 </span>
               </Link>
-            ) : (
+            ) : null}
+            {detailAuthor.id && authorRemovedFromProject && (
+              <span className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                {REMOVED_PROJECT_AUTHOR_LABEL}
+              </span>
+            )}
+            {!detailAuthor.id && (
               <span className="flex items-center gap-2">
                 <AvatarInitials name={null} imageUrl={null} size={38} />
                 <span className="font-heading text-[15.5px] font-bold text-muted-foreground">

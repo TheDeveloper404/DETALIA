@@ -41,7 +41,44 @@ export function isPubliclyVisible(detail: { status: string; projectId: string | 
 export const TITLE_MAX_LENGTH = 200;
 export const DESCRIPTION_MAX_LENGTH = 5000;
 export const MAX_DETAIL_RESOURCES = 3;
-export const DEFAULT_FEED_SIZE = 30; // feed finit, fără scroll infinit (caracter de comunitate)
+// Paginare stil forum (decizie 2026-08-16), NU scroll infinit (caracter de comunitate, vezi CONTEXT.md).
+export const FEED_PAGE_SIZE = 50;
+
+// `?page=` din URL → număr de pagină valid (1-based). Orice input netrust (lipsă, text, 0, negativ,
+// zecimal) cade pe 1 — silent, fără eroare (un link vechi/manipulat nu trebuie să spargă feed-ul).
+export function resolveFeedPage(raw: string | string[] | undefined): number {
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : 1;
+}
+
+export function feedOffset(page: number, pageSize: number = FEED_PAGE_SIZE): number {
+  return (page - 1) * pageSize;
+}
+
+// Minim 1 (chiar și cu 0 rezultate) — o pagină goală tot trebuie să poată randa „Pagina 1 din 1".
+export function feedTotalPages(total: number, pageSize: number = FEED_PAGE_SIZE): number {
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
+// Lista de numere de pagină de randat în bara de paginare — fereastră în jurul paginii curente
+// (`radius` pagini de fiecare parte) + prima/ultima mereu vizibile, cu „…" pentru golul dintre ele.
+// La un total mic (cazul curent, sub o mână de pagini) fereastra acoperă deja tot — „…" apare abia
+// când corpusul chiar crește.
+export function feedPageWindow(current: number, total: number, radius = 2): (number | "ellipsis")[] {
+  if (total <= 1) return [1];
+  const pages = new Set<number>([1, total]);
+  for (let p = current - radius; p <= current + radius; p++) {
+    if (p >= 1 && p <= total) pages.add(p);
+  }
+  const sorted = [...pages].sort((a, b) => a - b);
+  const result: (number | "ellipsis")[] = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push("ellipsis");
+    result.push(sorted[i]);
+  }
+  return result;
+}
 // SEC-11 — plafon defensiv pe nr. de categorii bifate (regula de produs e „oricâte" — capul e doar anti-abuz, nu produs).
 export const MAX_DETAIL_CATEGORIES = 10;
 export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonabilă de browser/DB)

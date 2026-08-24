@@ -47,9 +47,10 @@
   2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau o librărie,
   treci prin dashboard-ul de erori (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
   ce nu se mai poate reproduce, cu un comentariu scurt de ce. Nu se auto-curăță la refactor.
-- **Reminder săptămânal observabilitate** (rutină cloud `/schedule`, luni 09:00 RO) — doar notificare push,
-  fără verificare automată de Claude; **PostHog e sursa unică** (Sentry decommission FĂCUT 2026-07-16, mai
-  devreme decât planul ~07-22 — vezi CHANGELOG).
+- **Reminder săptămânal observabilitate** (rutină cloud `/schedule`, luni 09:00 RO — recreată 2026-08-24
+  după ce lipsea din lista de rutine active; verifică `id`-ul curent cu `/schedule list` dacă pare iar
+  dispărută) — doar notificare push, fără verificare automată de Claude; **PostHog e sursa unică** (Sentry
+  decommission FĂCUT 2026-07-16, mai devreme decât planul ~07-22 — vezi CHANGELOG).
 - **Liste de pe profil (Detalii/Schițe/Activitate) — fără paginare reală la scară** *(decizie de business,
   2026-07-16)*: UI-ul arată primele 4 + „Vezi încă N" (client-side, `components/profile-view.tsx`), dar
   `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`) NU au `LIMIT` — se aduc din DB

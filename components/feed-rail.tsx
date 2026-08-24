@@ -20,6 +20,8 @@ export type RailDebated = {
   id: string;
   title: string;
   categories: { id: string; name: string; slug: string }[];
+  // null și pentru autor retras (mascat în SQL, vezi detailsRepo.ts) — fără link spre profil în acel caz.
+  authorId: string | null;
   authorName: string | null;
   authorImage: string | null;
   authorRoleMain: string | null;
@@ -81,10 +83,12 @@ export function FeedRail({
           <ul className="flex list-none flex-col gap-3.5 p-0">
             {debated.map((d, i) => (
               <li key={d.id} className={i > 0 ? "border-t border-[#eee6da] pt-3.5" : undefined}>
-                <Link href={`/details/${d.id}`} className="block no-underline">
-                  <div className="mb-1.5 flex items-center gap-2">
+                {/* Link separat de cel spre detaliu de mai jos (nu imbricat — un <a> în alt <a> e HTML
+                    invalid). Autor retras (authorId mascat null în SQL) → fără link, doar text. */}
+                {d.authorId ? (
+                  <Link href={`/profile/${d.authorId}`} className="mb-1.5 flex items-center gap-2 no-underline">
                     <AvatarInitials name={d.authorName} imageUrl={d.authorImage} size={22} />
-                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground hover:text-foreground">
                       {d.authorName ?? "Anonim"}
                       {d.authorVerification === "VERIFIED" && (
                         <span className="ml-1 text-[#d99a2b]" title="Rol verificat">★</span>
@@ -93,7 +97,19 @@ export function FeedRail({
                       {d.authorSubRole ??
                         (d.authorRoleMain ? (ROLE_MAIN_LABELS[d.authorRoleMain as RoleMain] ?? d.authorRoleMain) : "—")}
                     </span>
+                  </Link>
+                ) : (
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <AvatarInitials name={d.authorName} imageUrl={d.authorImage} size={22} />
+                    <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
+                      {d.authorName ?? "Anonim"}
+                      {" · "}
+                      {d.authorSubRole ??
+                        (d.authorRoleMain ? (ROLE_MAIN_LABELS[d.authorRoleMain as RoleMain] ?? d.authorRoleMain) : "—")}
+                    </span>
                   </div>
+                )}
+                <Link href={`/details/${d.id}`} className="block no-underline">
                   <div className="font-semibold leading-snug text-foreground hover:text-primary">{d.title}</div>
                   {d.categories.length > 0 && (
                     <span className="mt-1 inline-block rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">

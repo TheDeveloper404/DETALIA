@@ -10,9 +10,13 @@ import {
   MAX_DETAIL_RESOURCES,
   MAX_RESOURCE_URL_LENGTH,
   TITLE_MAX_LENGTH,
+  feedOffset,
+  feedPageWindow,
+  feedTotalPages,
   getDetailVisibility,
   isHttpUrl,
   isPubliclyVisible,
+  resolveFeedPage,
   validateDetailInput,
 } from "./detail";
 
@@ -305,5 +309,72 @@ describe("validateDetailInput — strict:false (CIORNĂ)", () => {
 
   it("strict (implicit) tot cere imagine + categorie — comportamentul vechi neschimbat", () => {
     expect(validateDetailInput(draftBase)).toEqual({ ok: false, error: "CATEGORY_REQUIRED" });
+  });
+});
+
+describe("resolveFeedPage — `?page=` din URL → număr de pagină valid", () => {
+  it("input lipsă → 1", () => {
+    expect(resolveFeedPage(undefined)).toBe(1);
+  });
+
+  it("număr valid (string) → parsat", () => {
+    expect(resolveFeedPage("3")).toBe(3);
+  });
+
+  it("array (Next.js searchParams cu param repetat) → primul element", () => {
+    expect(resolveFeedPage(["2", "5"])).toBe(2);
+  });
+
+  it("text non-numeric, 0, negativ, zecimal → cad pe 1 (fără eroare)", () => {
+    expect(resolveFeedPage("abc")).toBe(1);
+    expect(resolveFeedPage("0")).toBe(1);
+    expect(resolveFeedPage("-3")).toBe(1);
+    expect(resolveFeedPage("1.5")).toBe(1);
+  });
+});
+
+describe("feedOffset — offset SQL din numărul de pagină", () => {
+  it("pagina 1 → offset 0", () => {
+    expect(feedOffset(1, 50)).toBe(0);
+  });
+
+  it("pagina 3, mărime 50 → offset 100", () => {
+    expect(feedOffset(3, 50)).toBe(100);
+  });
+});
+
+describe("feedTotalPages — numărul de pagini pentru un total de rezultate", () => {
+  it("0 rezultate → tot 1 pagină (nu 0 — «Pagina 1 din 1» pe listă goală)", () => {
+    expect(feedTotalPages(0, 50)).toBe(1);
+  });
+
+  it("exact un multiplu de pageSize → nu adaugă o pagină goală în plus", () => {
+    expect(feedTotalPages(100, 50)).toBe(2);
+  });
+
+  it("55 rezultate, 50/pagină → 2 pagini", () => {
+    expect(feedTotalPages(55, 50)).toBe(2);
+  });
+});
+
+describe("feedPageWindow — ce numere de pagină se randează în bara de paginare", () => {
+  it("un singur total → doar [1]", () => {
+    expect(feedPageWindow(1, 1)).toEqual([1]);
+  });
+
+  it("total mic (sub fereastră) → toate paginile, fără elipsă", () => {
+    expect(feedPageWindow(1, 4)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("pagina curentă la mijlocul unui total mare → fereastră + elipsă pe ambele capete", () => {
+    expect(feedPageWindow(10, 20, 2)).toEqual([1, "ellipsis", 8, 9, 10, 11, 12, "ellipsis", 20]);
+  });
+
+  it("pagina curentă aproape de început → elipsă doar la final", () => {
+    expect(feedPageWindow(1, 20, 2)).toEqual([1, 2, 3, "ellipsis", 20]);
+  });
+
+  it("pagina curentă aproape de sfârșit → elipsă doar la început", () => {
+    expect(feedPageWindow(20, 20, 2)).toEqual([1, "ellipsis", 18, 19, 20]);
   });
 });
