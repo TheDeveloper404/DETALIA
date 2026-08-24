@@ -275,8 +275,9 @@ test("getFeed: căutarea e insensibilă la diacritice (ambele direcții)", async
   const detailId = created.detailId;
 
   try {
-    // Termen FĂRĂ diacritice → găsește titlul CU diacritice.
-    const byPlain = await getFeed({ q: `Poarta metalica ${tag}` });
+    // Termen FĂRĂ diacritice → găsește titlul CU diacritice. Fraza completă, în ordinea din titlu —
+    // căutarea e substring contiguu (un singur ILIKE %...%), nu tokenizată pe cuvinte.
+    const byPlain = await getFeed({ q: `Poarta metalica teava zincata ${tag}` });
     expect(byPlain.details.find((d) => d.id === detailId)).toBeDefined();
 
     // Termen CU diacritice (variantă sedilă) → găsește tot.

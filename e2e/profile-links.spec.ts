@@ -24,6 +24,18 @@ function detailUrl(): string {
 }
 
 test.describe("Nume/poză din panoul de validare → link spre profil", () => {
+  // Detaliul seedat e PARTAJAT cu authed.spec.ts, care lasă intenționat o poziție DISAPPROVE la finalul
+  // suitei „Validare pe rol" (vezi authed.spec.ts:66-67) — fără curățare ÎNAINTE, butonul „Aprobă" ar
+  // rămâne dezactivat (disabled={myPos !== null && !approved}) dacă acest fișier rulează după acela.
+  test.beforeEach(async () => {
+    const { testerUserId, detailId } = getSeed();
+    await db
+      .delete(validations)
+      .where(
+        and(eq(validations.userId, testerUserId), eq(validations.targetType, "DETAIL"), eq(validations.targetId, detailId)),
+      );
+  });
+
   test.afterEach(async () => {
     const { testerUserId, detailId } = getSeed();
     await db
