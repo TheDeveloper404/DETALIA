@@ -52,8 +52,11 @@ test.describe("Nume/poză din panoul de validare → link spre profil", () => {
     await page.getByRole("button", { name: "Aprobă", exact: true }).click();
 
     // Rândul de poziție (nume + rol) din lista „Pozițiile celorlalți" — vezi validation-panel.tsx —
-    // conține acum un link explicit spre /profile/<userId>, căutat direct după href.
-    const profileLink = page.locator(`a[href="/profile/${testerUserId}"]`);
+    // conține acum un link explicit spre /profile/<userId>, căutat direct după href. Scopat la
+    // data-testid="validation-positions-list": pe acest detaliu testerUserId e ȘI autorul, deci
+    // href-ul identic /profile/<testerUserId> mai apare (de 2 ori) în comments-section.tsx (avatar +
+    // nume), dacă există un comentariu rezidural al lui — un locator page-wide ar da strict-mode violation.
+    const profileLink = page.getByTestId("validation-positions-list").locator(`a[href="/profile/${testerUserId}"]`);
     await expect(profileLink).toBeVisible();
     await profileLink.click();
 
