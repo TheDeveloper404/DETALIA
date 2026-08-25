@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { toggleSupplierOffer } from "@/server/services/supplierOfferService";
 
@@ -39,7 +39,7 @@ export async function toggleSupplierOfferAction(
   captureServerEvent(userId, res.offering ? "supplier_offer_raised" : "supplier_offer_withdrawn", {
     detail_id: detailId,
   });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   revalidatePath(`/details/${detailId}`);
   return { error: null, offering: res.offering };

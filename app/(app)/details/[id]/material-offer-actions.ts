@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
-import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { MaterialOfferFileInput } from "@/server/domain/materialOffer";
@@ -63,7 +63,7 @@ export async function sendMaterialOfferAction(
   captureServerEvent(userId, res.isNew ? "material_offer_sent" : "material_offer_edited", {
     detail_id: detailId,
   });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   revalidatePath(`/details/${detailId}`);
   revalidatePath("/profile");
@@ -87,7 +87,7 @@ export async function withdrawMaterialOfferAction(
   await withdrawSupplierParticipation({ userId, detailId });
 
   captureServerEvent(userId, "material_offer_withdrawn", { detail_id: detailId });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   revalidatePath(`/details/${detailId}`);
   revalidatePath("/profile");

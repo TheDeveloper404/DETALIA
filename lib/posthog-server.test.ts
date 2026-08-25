@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const captureMock = vi.fn();
+const flushMock = vi.fn();
 vi.mock("posthog-node", () => ({
   PostHog: vi.fn().mockImplementation(function PostHog() {
-    return { capture: captureMock, flush: vi.fn() };
+    return { capture: captureMock, flush: flushMock };
   }),
 }));
 
@@ -13,6 +14,7 @@ describe("captureServerEvent", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "test-token";
     captureMock.mockClear();
+    flushMock.mockReset();
   });
 
   afterEach(() => {
@@ -47,5 +49,61 @@ describe("captureServerEvent", () => {
       event: "onboarding_completed",
       properties: { environment: "preview" },
     });
+  });
+});
+
+// Regresie 2026-08-25: flush() n-are un timeout strâns implicit — pe un serverless function care apoi
+// face redirect() către user, un răspuns lent/agățat de la PostHog bloca acțiunea întreagă (schița
+// rămânea "Se publică…" minute în șir, deși scrierea în DB deja reușise). flushPostHogEvents() trebuie
+// să nu depășească niciodată plafonul, indiferent cum se comportă flush()-ul real.
+describe("flushPostHogEvents", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "test-token";
+    flushMock.mockReset();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    process.env = { ...ORIGINAL_ENV };
+    vi.resetModules();
+  });
+
+  it("se rezolvă imediat dacă flush() real răspunde rapid", async () => {
+    flushMock.mockResolvedValue(undefined);
+    const { flushPostHogEvents } = await import("./posthog-server");
+
+    let resolved = false;
+    const p = flushPostHogEvents().then(() => {
+      resolved = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await p;
+
+    expect(resolved).toBe(true);
+  });
+
+  it("nu depășește plafonul de 2s dacă flush() real rămâne agățat", async () => {
+    flushMock.mockImplementation(() => new Promise(() => {})); // never resolves
+    const { flushPostHogEvents } = await import("./posthog-server");
+
+    let resolved = false;
+    const p = flushPostHogEvents().then(() => {
+      resolved = true;
+    });
+
+    await vi.advanceTimersByTimeAsync(1999);
+    expect(resolved).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await p;
+    expect(resolved).toBe(true);
+  });
+
+  it("nu aruncă mai departe dacă flush() real respinge promisiunea", async () => {
+    flushMock.mockRejectedValue(new Error("network down"));
+    const { flushPostHogEvents } = await import("./posthog-server");
+
+    await expect(flushPostHogEvents()).resolves.toBeUndefined();
   });
 });
