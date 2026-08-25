@@ -32,7 +32,6 @@ import {
   getDetailForEdit,
   anonymizeDetailAuthor,
   countDetailInteractions,
-  countFeedMatches,
   countPublishedDetails,
   getDetailResources,
   incrementDetailViews,
@@ -40,7 +39,7 @@ import {
   insertSavedDetail,
   isDetailSavedByUser,
   listDetailDraftsByAuthor,
-  listFeed,
+  listFeedWithTotal,
   listTopDebated,
   listRelatedDetails,
   countSavedDetails,
@@ -626,9 +625,10 @@ export async function getDeletionPreview(input: {
 }
 
 // Feed paginat (50/pagină), opțional filtrat pe categorie / căutare pe titlu+descriere, strict
-// cronologic. Fără scroll infinit (decizie de produs, vezi CONTEXT.md). Întoarce și `totalPages`,
-// calculat din ACELEAȘI filtre (countFeedMatches) — altfel un total „global" ar da un număr de pagini
-// greșit sub un filtru activ.
+// cronologic. Fără scroll infinit (decizie de produs, vezi CONTEXT.md). Rândurile ȘI totalul vin din
+// ACELAȘI `db.batch` (listFeedWithTotal) — un singur snapshot de bază, indiferent dacă pagina e
+// populată sau goală (findere Greptile pe PR #255, 2026-08-25: query-uri independente puteau vedea
+// stări diferite dacă un detaliu era publicat/șters exact între cele două).
 export async function getFeed(options?: {
   categoryId?: string | null;
   q?: string | null;
@@ -645,20 +645,12 @@ export async function getFeed(options?: {
   const rawPage = options?.page;
   const page = Number.isSafeInteger(rawPage) && rawPage! > 0 ? rawPage! : 1;
 
-  const rows = await listFeed({ categoryId, q, limit, offset: feedOffset(page, limit) });
-
-  let total: number;
-  let details: Omit<(typeof rows)[number], "totalMatches">[];
-  if (rows.length > 0) {
-    total = rows[0].totalMatches;
-    details = rows.map(({ totalMatches: _totalMatches, ...row }) => row);
-  } else {
-    // 0 rânduri: fie zero rezultate reale, fie offset dincolo de ultima pagină (`count(*) over()` nu
-    // întoarce nimic fără rânduri de bază) — recurgem la count separat DOAR în acest caz rar; totalul
-    // corect e necesar pentru redirectul la ultima pagină validă din page.tsx.
-    total = await countFeedMatches({ categoryId, q });
-    details = [];
-  }
+  const { rows: details, total } = await listFeedWithTotal({
+    categoryId,
+    q,
+    limit,
+    offset: feedOffset(page, limit),
+  });
 
   return { details, total, page, totalPages: feedTotalPages(total, limit) };
 }

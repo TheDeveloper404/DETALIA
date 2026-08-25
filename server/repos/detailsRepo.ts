@@ -693,6 +693,18 @@ function feedFilterConditions(input: { categoryId?: string | null; q?: string | 
   return conds;
 }
 
+// Gardă comună feed (2026-08-09): NICIODATĂ detalii de proiect, indiferent cine e viewer-ul — asta e
+// explicit vederea PUBLICĂ. Membrii unui proiect îl văd pe pagina lui, nu aici (vezi
+// projectService.listProjectDetails). Partajată de listFeed/countFeedMatches/listFeedWithTotal —
+// ACELAȘI filtru peste tot, nu duplicat divergent.
+function feedWhere(input: { categoryId?: string | null; q?: string | null }) {
+  return and(
+    eq(details.status, DETAIL_STATUS.PUBLISHED),
+    isNull(details.projectId),
+    ...feedFilterConditions(input),
+  );
+}
+
 // Feed paginat (50/pagină, decizie 2026-08-16): doar PUBLISHED, opțional filtrat pe categorie/căutare.
 // Sortare strict cronologică (cele mai noi primele) — interacțiunile sunt afișate per card
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
@@ -703,14 +715,6 @@ export async function listFeed(input: {
   limit: number;
   offset?: number;
 }) {
-  // Proiecte (2026-08-09): feed-ul comunității nu include NICIODATĂ detalii de proiect, indiferent
-  // cine e viewer-ul — asta e explicit vederea PUBLICĂ. Membrii unui proiect îl văd pe pagina lui,
-  // nu aici (vezi projectService.listProjectDetails).
-  const where = and(
-    eq(details.status, DETAIL_STATUS.PUBLISHED),
-    isNull(details.projectId),
-    ...feedFilterConditions(input),
-  );
   return db
     .select({
       ...detailWithAuthorColumns,
@@ -720,17 +724,11 @@ export async function listFeed(input: {
       sketchCount,
       validatorAvatars,
       interactionCount: interactionScore,
-      // Totalul de rezultate ale filtrului curent, calculat de Postgres ca fereastră peste ACELAȘI
-      // query — nu un count() separat. Un query separat (rulat concurent cu acesta) ar putea vedea o
-      // stare de bază diferită dacă un detaliu e publicat/șters exact între cele două (findere Greptile
-      // pe PR #255, 2026-08-25): rândurile paginate și totalul ar putea disagreea. Cu count(*) over(),
-      // ambele vin din același snapshot — nu mai există fereastra de inconsistență.
-      totalMatches: sql<number>`count(*) over()::int`,
     })
     .from(details)
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(where)
+    .where(feedWhere(input))
     // details.id ca tiebreaker: createdAt NU e unique — fără el, rânduri cu același timestamp nu au
     // ordine garantată între cereri LIMIT/OFFSET diferite (pot apărea duplicate sau sărite la limita
     // de pagină).
@@ -742,17 +740,50 @@ export async function listFeed(input: {
 // Total de rezultate pentru filtrele curente ale feed-ului — baza numărului de pagini din UI. SEPARAT
 // de `countPublishedDetails` (aia e „toate", fără filtre, pentru sidebar).
 export async function countFeedMatches(input: { categoryId?: string | null; q?: string | null }): Promise<number> {
-  // Aceeași gardă ca listFeed mai sus (vezi comentariul de-acolo) — literală aici și ea, intenționat.
-  const where = and(
-    eq(details.status, DETAIL_STATUS.PUBLISHED),
-    isNull(details.projectId),
-    ...feedFilterConditions(input),
-  );
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(details)
-    .where(where);
+    .where(feedWhere(input));
   return row?.count ?? 0;
+}
+
+// Rândurile paginate + totalul, într-un SINGUR `db.batch` (atomic — o rundă HTTP, vezi comentariul de
+// la `insertDetailWithRelations`). Findere Greptile pe PR #255 (2026-08-25): `listFeed`/`countFeedMatches`
+// rulate ca query-uri INDEPENDENTE puteau vedea stări de bază diferite dacă un detaliu era publicat/șters
+// exact între cele două — rândurile și totalul puteau disagreea (inclusiv pe pagina goală: un total nou
+// ar fi declarat pagina validă, dar rândurile rămâneau vechi, goale). Batch elimină fereastra de
+// inconsistență complet, pentru ambele cazuri (populat sau gol) — nu doar un fallback pe cazul comun.
+export async function listFeedWithTotal(input: {
+  categoryId?: string | null;
+  q?: string | null;
+  limit: number;
+  offset?: number;
+}): Promise<{ rows: Awaited<ReturnType<typeof listFeed>>; total: number }> {
+  const rowsQuery = db
+    .select({
+      ...detailWithAuthorColumns,
+      validationCount,
+      approveCount,
+      commentCount,
+      sketchCount,
+      validatorAvatars,
+      interactionCount: interactionScore,
+    })
+    .from(details)
+    .leftJoin(users, eq(users.id, details.authorId))
+    .leftJoin(roles, eq(roles.userId, details.authorId))
+    .where(feedWhere(input))
+    .orderBy(desc(details.createdAt), desc(details.id))
+    .limit(input.limit)
+    .offset(input.offset ?? 0);
+
+  const totalQuery = db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(details)
+    .where(feedWhere(input));
+
+  const [rows, totalRows] = await db.batch([rowsQuery, totalQuery]);
+  return { rows, total: totalRows[0]?.count ?? 0 };
 }
 
 // „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune (validări+comentarii+
@@ -972,6 +1003,4 @@ export async function listOfferedDetails(userId: string) {
     .orderBy(desc(supplierOffers.createdAt));
 }
 
-// `totalMatches` (count(*) over()) e detaliu intern al paginării feed-ului, nu parte din contractul
-// public al unui card — `detailService.getFeed` îl strip-uiește înainte să întoarcă `details`.
-export type FeedItem = Omit<Awaited<ReturnType<typeof listFeed>>[number], "totalMatches">;
+export type FeedItem = Awaited<ReturnType<typeof listFeed>>[number];
