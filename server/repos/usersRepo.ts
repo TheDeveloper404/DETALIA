@@ -1,6 +1,7 @@
 // Repo users — extensii DETALIA peste tabelul gestionat de Auth.js. Singurul loc cu acces Drizzle pe `users`.
 // Auth.js gestionează crearea/sesiunile; aici doar actualizăm câmpuri de profil (ex: poza).
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { accounts, details, roles, sessions, userStatus, users } from "@/db/schema";
@@ -326,4 +327,89 @@ export async function getNotificationActor(userId: string) {
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;
+}
+
+export async function getReferralCode(userId: string): Promise<string | null> {
+  const [row] = await db.select({ referralCode: users.referralCode }).from(users).where(eq(users.id, userId)).limit(1);
+  return row?.referralCode ?? null;
+}
+
+// Scrie codul DOAR dacă userul încă nu are unul (WHERE suplimentar, nu doar `set`) — atomic, ca doi
+// request-uri concurente (dublu-click pe „generează link") să nu poată amândouă crede că au reușit cu
+// coduri diferite. `.returning()` gol = altcineva l-a scris deja între timp (retry-ul apelantului
+// citește ce există acum, nu mai insistă cu codul lui).
+export async function setReferralCodeIfAbsent(userId: string, code: string): Promise<boolean> {
+  const rows = await db
+    .update(users)
+    .set({ referralCode: code })
+    .where(and(eq(users.id, userId), sql`${users.referralCode} is null`))
+    .returning({ id: users.id });
+  return rows.length > 0;
+}
+
+export async function getUserIdByReferralCode(code: string): Promise<string | null> {
+  const [row] = await db.select({ id: users.id }).from(users).where(eq(users.referralCode, code)).limit(1);
+  return row?.id ?? null;
+}
+
+// O SINGURĂ dată — gardă suplimentară aici (nu doar în service), ca un apel greșit să nu poată
+// suprascrie un `referredByUserId` deja setat.
+export async function setReferredByIfAbsent(userId: string, referrerId: string): Promise<boolean> {
+  const rows = await db
+    .update(users)
+    .set({ referredByUserId: referrerId })
+    .where(and(eq(users.id, userId), sql`${users.referredByUserId} is null`))
+    .returning({ id: users.id });
+  return rows.length > 0;
+}
+
+export async function countReferrals(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(users)
+    .where(eq(users.referredByUserId, userId));
+  return row?.count ?? 0;
+}
+
+export type ReferralRow = { referredUserId: string; referredName: string | null; joinedAt: Date };
+
+// Ultimii referiți ai unui user (profil propriu — „ai adus N oameni") — nu doar contorul, și cine sunt.
+export async function listReferrals(userId: string): Promise<ReferralRow[]> {
+  const rows = await db
+    .select({ referredUserId: users.id, referredName: users.name, joinedAt: users.createdAt })
+    .from(users)
+    .where(eq(users.referredByUserId, userId))
+    .orderBy(desc(users.createdAt));
+  return rows;
+}
+
+export type AdminReferralRow = {
+  referrerUserId: string;
+  referrerName: string | null;
+  referrerEmail: string;
+  referredUserId: string;
+  referredName: string | null;
+  referredEmail: string;
+  joinedAt: Date;
+};
+
+// Panou admin — STRICT conversii reușite (cont chiar creat prin link), fără funnel de click-uri
+// neconvertite (decizie de produs 2026-08-25 — nu există alt tip de rând de arătat aici). Self-join
+// cu alias Drizzle (nu SQL brut) — evită orice ambiguitate de coloană pe auto-join.
+export async function listAllReferrals(): Promise<AdminReferralRow[]> {
+  const referrer = alias(users, "referrer");
+  const rows = await db
+    .select({
+      referrerUserId: referrer.id,
+      referrerName: referrer.name,
+      referrerEmail: referrer.email,
+      referredUserId: users.id,
+      referredName: users.name,
+      referredEmail: users.email,
+      joinedAt: users.createdAt,
+    })
+    .from(users)
+    .innerJoin(referrer, eq(referrer.id, users.referredByUserId))
+    .orderBy(desc(users.createdAt));
+  return rows;
 }

@@ -59,6 +59,12 @@ const MAX_PROJECTS_PER_OWNER = Number(process.env.PROJECT_MAX_PER_OWNER ?? 50);
 const MAX_MEMBERS_PER_PROJECT = Number(process.env.PROJECT_MAX_MEMBERS ?? 100);
 const MAX_CANVAS_SHARES_PER_PROJECT = Number(process.env.PROJECT_MAX_CANVAS_SHARES ?? 100);
 
+// `getDetail` (detailService) cheamă, în ACELAȘI request, atât `getProjectAccess` cât și
+// `isDetailAuthorRemovedFromProject` pe același `projectId` — fără memoizare, asta ar dubla query-ul
+// pe `projects` la fiecare încărcare de pagină de detaliu de proiect. Argument primitiv (string id),
+// nu obiect — `cache()` compară cu Object.is, vezi comentariul de la `getProjectForViewer` mai jos.
+const getProjectByIdCached = cache(getProjectById);
+
 export type CreateProjectResult =
   | { ok: true; projectId: string; inviteToken: string }
   | { ok: false; error: "EMPTY" | "TOO_LONG" | "LIMIT_REACHED" };
@@ -109,7 +115,7 @@ export async function getProjectAccess(input: {
   // SEC-11: id malformat → „nu există" (nu eroare SQL pe coloana uuid). Poartă centrală — majoritatea
   // funcțiilor de mai jos trec prin asta, dar cele care citesc direct getProjectById au propria gardă.
   if (!isUuid(input.projectId)) return { isOwner: false, isActiveMember: false, hasAccess: false };
-  const project = await getProjectById(input.projectId);
+  const project = await getProjectByIdCached(input.projectId);
   if (!project) return { isOwner: false, isActiveMember: false, hasAccess: false };
   const isOwner = project.ownerId === input.userId;
   // Owner-ul nu are neapărat un rând în project_members (vezi db/schema.ts) — nu mai plătim query-ul
@@ -344,6 +350,18 @@ export async function canReleaseDetailToCommunity(input: {
 
   const allowed = canReleaseToCommunity({ isDetailAuthor, isProjectOwner, authorIsActiveMember });
   return allowed ? { allowed: true } : { allowed: false, error: "FORBIDDEN" };
+}
+
+// „Autor eliminat" pe conținut — badge de AFIȘARE pe pagina detaliului (NU e poartă de acces, detaliul
+// rămâne vizibil normal prin canAccessProjectDetail). Verificare LIVE, aceeași regulă ca
+// `authorIsActiveMember` din canReleaseDetailToCommunity: owner-ul propriului proiect e mereu „activ".
+export async function isDetailAuthorRemovedFromProject(input: {
+  projectId: string;
+  authorId: string;
+}): Promise<boolean> {
+  const project = await getProjectByIdCached(input.projectId);
+  if (!project || input.authorId === project.ownerId) return false;
+  return !(await isActiveMember(input.projectId, input.authorId));
 }
 
 // Passthrough deliberat (nu logică de business) — expus ca alte servicii (detailService) să nu ocolească

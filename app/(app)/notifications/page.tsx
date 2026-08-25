@@ -66,7 +66,9 @@ export default async function NotificationsPage() {
               </div>
             );
             return (
-              <li key={n.id}>{href ? <Link href={href}>{content}</Link> : content}</li>
+              <li key={n.id} data-testid={`notification-${n.id}`}>
+                {href ? <Link href={href}>{content}</Link> : content}
+              </li>
             );
           })}
         </ul>

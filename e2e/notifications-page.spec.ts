@@ -28,7 +28,11 @@ test.describe.serial("Pagina /notifications", () => {
     try {
       await page.goto("/notifications");
       await expect(page.getByRole("heading", { name: "Notificări" })).toBeVisible();
-      await expect(page.getByText(`E2E Author a schițat peste „${detailTitle}”.`)).toBeVisible();
+      // Scopat pe testid-ul RÂNDULUI (row.id), nu pe text: alte spec-uri rulate în paralel pot genera o
+      // notificare SKETCH_PROPOSED cu text BYTE-IDENTIC pe același detaliu seedat (același actor, același
+      // titlu) — un `getByText` global devine ambiguu (bug găsit 2026-08-25, strict-mode violation).
+      const notif = page.getByTestId(`notification-${row.id}`);
+      await expect(notif.getByText(`E2E Author a schițat peste „${detailTitle}”.`)).toBeVisible();
 
       await expect
         .poll(async () => {

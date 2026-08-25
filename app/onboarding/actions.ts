@@ -1,11 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 
-import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
+import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { normalizeWebsite } from "@/lib/url";
 import { completeOnboarding } from "@/server/services/onboardingService";
+import { applyReferral } from "@/server/services/referralService";
 
 export type OnboardingState = { error: string | null };
 
@@ -107,12 +110,26 @@ export async function onboardingAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
+  // Referral (2026-08-25) — auxiliar, un eșec aici NU trebuie să strice onboarding-ul (deja salvat).
+  // Cookie-ul pus de proxy.ts la vizita /signup?ref=<cod>; consumat O SINGURĂ DATĂ (șters oricum,
+  // reușit sau nu — un cod invalid nu trebuie reîncercat la fiecare re-submit al formularului).
+  try {
+    const cookieStore = await cookies();
+    const refCode = cookieStore.get(REFERRAL_COOKIE_NAME)?.value;
+    if (refCode) {
+      await applyReferral({ newUserId: userId, referralCode: refCode });
+      cookieStore.delete(REFERRAL_COOKIE_NAME);
+    }
+  } catch (err) {
+    console.error("[onboardingAction] applyReferral eșuată (non-fatal)", { userId, err });
+  }
+
   captureServerEvent(userId, "onboarding_completed", {
     role_main: roleMain,
     sub_role: subRole,
     secondary_role: secondaryRole,
   });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   // Profil complet → direct în feed (frecare minimă la primul contact). `tour=1`: singurul punct
   // real de „user chiar nou" — declanșează turul ghidat o singură dată (vezi product-tour.tsx).

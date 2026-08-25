@@ -18,6 +18,8 @@ import {
 import { getUserRole } from "@/server/services/roleService";
 import { getAnnotations, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
+import { getMaterialOffersForOwner, getMyMaterialOffer } from "@/server/services/materialOfferService";
+import { isPubliclyVisible } from "@/server/domain/detail";
 import { hasSeenDetailTour } from "@/server/services/tourService";
 import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
 import { canReleaseDetailToCommunity, getProject } from "@/server/services/projectService";
@@ -178,14 +180,18 @@ export default async function DetailPage({
   const deletionPreview = isAuthor ? await getDeletionPreview({ detailId: detail.id, userId }) : null;
   // 4 citiri independente (doar userId/detail.id) — paralelizate, nu secvențiale (eficiență găsită la
   // code-review 2026-07-16: doar ultimele 2 erau în Promise.all, restul adăugau latență evitabilă).
-  const [saved, role, supplierOffers, offeringSupplier, tourSeen] = await Promise.all([
-    isDetailSaved(userId, detail.id),
-    getUserRole(userId),
-    getSupplierOffers(detail.id),
-    isOfferingSupplier(userId, detail.id),
-    hasSeenDetailTour(userId),
-  ]);
+  const [saved, role, supplierOffers, offeringSupplier, tourSeen, myMaterialOffer, materialOffers] =
+    await Promise.all([
+      isDetailSaved(userId, detail.id),
+      getUserRole(userId),
+      getSupplierOffers(detail.id),
+      isOfferingSupplier(userId, detail.id),
+      hasSeenDetailTour(userId),
+      getMyMaterialOffer(userId, detail.id),
+      getMaterialOffersForOwner(userId, detail.id), // gol pt oricine altcineva decât autorul (server-side)
+    ]);
   const isFurnizor = role?.roleMain === "FURNIZOR";
+  const isDetailPublic = isPubliclyVisible(detail);
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
@@ -335,6 +341,7 @@ export default async function DetailPage({
               subRole: detail.authorSubRole,
               verification: detail.authorVerification,
             }}
+            authorRemovedFromProject={detail.authorRemovedFromProject}
             detailValidation={validation}
             isDetailAuthor={isAuthor}
             deletionMode={deletionPreview?.mode}
@@ -347,6 +354,9 @@ export default async function DetailPage({
             isCurrentUserFurnizor={isFurnizor}
             isOfferingSupplier={offeringSupplier}
             supplierOffers={supplierOffers}
+            isDetailPublic={isDetailPublic}
+            myMaterialOffer={myMaterialOffer}
+            materialOffers={materialOffers}
             tourSeen={tourSeen}
           />
       </div>
@@ -360,24 +370,34 @@ export default async function DetailPage({
           <ul className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((r) => (
               <li key={r.id} className="rounded-2xl border border-border bg-card p-4">
+                {/* Numele autorului e link SEPARAT (nu imbricat în cel de mai jos — un <a> în alt <a> e
+                    HTML invalid). Autor retras (authorId mascat null în SQL) → text simplu, fără link. */}
                 <Link href={`/details/${r.id}`} className="group block">
                   <span className="block font-heading text-[14px] font-semibold leading-snug text-foreground/90 group-hover:text-primary">
                     {r.title}
                   </span>
-                  <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                    {r.authorName && (
-                      <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
-                    )}
-                    <RolePill
-                      roleMain={r.authorRoleMain}
-                      subRole={r.authorSubRole}
-                      verified={r.authorVerification === "VERIFIED"}
-                    />
-                    <span className="font-mono text-[11px] text-[#a59a88]">
-                      {r.commentCount} com · {r.sketchCount} schițe
-                    </span>
-                  </span>
                 </Link>
+                <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {r.authorName &&
+                    (r.authorId ? (
+                      <Link
+                        href={`/profile/${r.authorId}`}
+                        className="text-[12px] text-muted-foreground no-underline hover:text-foreground hover:underline"
+                      >
+                        {r.authorName}
+                      </Link>
+                    ) : (
+                      <span className="text-[12px] text-muted-foreground">{r.authorName}</span>
+                    ))}
+                  <RolePill
+                    roleMain={r.authorRoleMain}
+                    subRole={r.authorSubRole}
+                    verified={r.authorVerification === "VERIFIED"}
+                  />
+                  <span className="font-mono text-[11px] text-[#a59a88]">
+                    {r.commentCount} com · {r.sketchCount} schițe
+                  </span>
+                </span>
               </li>
             ))}
           </ul>

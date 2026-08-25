@@ -83,3 +83,44 @@ describe("listFeed — counts de interacțiune (subquery corelat pe details.id)"
     expect(b.sketchCount).toBe(0);
   });
 });
+
+describe("listFeed — createdAt identic → details.id ca tiebreaker (ordine stabilă)", () => {
+  let detailX: string;
+  let detailY: string;
+
+  beforeAll(async () => {
+    const author = await makeUser("author-tiebreak@test.local");
+    // createdAt IDENTIC pe ambele — fără tiebreaker, Postgres nu garantează ordinea între cereri
+    // LIMIT/OFFSET diferite pentru rânduri cu aceeași valoare de sortare.
+    const tiedAt = new Date("2026-01-01T00:00:00.000Z");
+    const [rowX] = await db
+      .insert(details)
+      .values({ title: "Detaliu X", authorId: author, createdAt: tiedAt })
+      .returning({ id: details.id });
+    detailX = rowX.id;
+    const [rowY] = await db
+      .insert(details)
+      .values({ title: "Detaliu Y", authorId: author, createdAt: tiedAt })
+      .returning({ id: details.id });
+    detailY = rowY.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(details);
+    await db.delete(users);
+  });
+
+  it("ordonează după details.id (desc) când createdAt e egal, identic la cereri repetate", async () => {
+    const first = (await listFeed({ limit: 10 })).map((r) => r.id);
+    const second = (await listFeed({ limit: 10 })).map((r) => r.id);
+    expect(first).toEqual(second);
+
+    const posX = first.indexOf(detailX);
+    const posY = first.indexOf(detailY);
+    expect(posX).toBeGreaterThanOrEqual(0);
+    expect(posY).toBeGreaterThanOrEqual(0);
+
+    const expectedFirst = detailX > detailY ? detailX : detailY;
+    expect(first[Math.min(posX, posY)]).toBe(expectedFirst);
+  });
+});

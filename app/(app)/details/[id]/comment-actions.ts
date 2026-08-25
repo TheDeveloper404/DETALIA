@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import type { TargetType } from "@/server/domain/validation";
 import {
@@ -64,7 +64,7 @@ export async function addCommentAction(
     is_reply: !!parentCommentId,
     has_image: !!imageUrl,
   });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   revalidatePath(`/details/${detailId}`);
   return { error: null, ok: true };

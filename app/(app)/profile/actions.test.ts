@@ -32,6 +32,7 @@ vi.mock("@/lib/auth", () => ({ auth, signOut, clearSessionCookie }));
 vi.mock("@/lib/posthog-server", () => ({
   getPostHogClient: () => ({ capture: posthogCapture, flush: posthogFlush }),
   captureServerEvent: posthogCapture,
+  flushPostHogEvents: posthogFlush,
 }));
 
 vi.mock("@/lib/rate-limit", () => ({

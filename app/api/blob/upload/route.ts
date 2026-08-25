@@ -11,17 +11,27 @@ import {
   ALLOWED_CAD_TYPES,
   ALLOWED_DOC_TYPES,
   ALLOWED_IMAGE_TYPES,
+  ALLOWED_MATERIAL_EXTENSIONS,
+  ALLOWED_MATERIAL_TYPES,
   MAX_AVATAR_BYTES,
   MAX_CAD_BYTES,
   MAX_DOC_BYTES,
   MAX_IMAGE_BYTES,
+  MAX_MATERIAL_BYTES,
 } from "@/lib/upload-limits";
 
 // "kind" vine din clientPayload (setat de client în uploadFileToBlob) — alege allowlist-ul de
 // tip/mărime pe server. Default "image" dacă lipsește/e necunoscut (fail-safe, cel mai restrictiv).
-type UploadKind = "image" | "avatar" | "pdf" | "cad";
+type UploadKind = "image" | "avatar" | "pdf" | "cad" | "materials";
 function resolveKind(clientPayload: string | null): UploadKind {
-  if (clientPayload === "avatar" || clientPayload === "pdf" || clientPayload === "cad") return clientPayload;
+  if (
+    clientPayload === "avatar" ||
+    clientPayload === "pdf" ||
+    clientPayload === "cad" ||
+    clientPayload === "materials"
+  ) {
+    return clientPayload;
+  }
   return "image";
 }
 
@@ -86,6 +96,19 @@ export async function POST(request: Request): Promise<NextResponse> {
           return {
             allowedContentTypes: [...ALLOWED_CAD_TYPES],
             maximumSizeInBytes: MAX_CAD_BYTES,
+            addRandomSuffix: true,
+          };
+        }
+        if (kind === "materials") {
+          // xls/xlsx/csv n-au content-type de încredere din browser (la fel ca CAD) → gate real pe
+          // extensia din pathname (controlat de noi, vezi uploadFileToBlob).
+          const ext = pathname.split(".").pop()?.toLowerCase();
+          if (!ext || !(ALLOWED_MATERIAL_EXTENSIONS as readonly string[]).includes(ext)) {
+            throw new Error("INVALID_TYPE");
+          }
+          return {
+            allowedContentTypes: [...ALLOWED_MATERIAL_TYPES],
+            maximumSizeInBytes: MAX_MATERIAL_BYTES,
             addRandomSuffix: true,
           };
         }

@@ -47,9 +47,10 @@
   2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau o librărie,
   treci prin dashboard-ul de erori (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
   ce nu se mai poate reproduce, cu un comentariu scurt de ce. Nu se auto-curăță la refactor.
-- **Reminder săptămânal observabilitate** (rutină cloud `/schedule`, luni 09:00 RO) — doar notificare push,
-  fără verificare automată de Claude; **PostHog e sursa unică** (Sentry decommission FĂCUT 2026-07-16, mai
-  devreme decât planul ~07-22 — vezi CHANGELOG).
+- **Reminder săptămânal observabilitate** (rutină cloud `/schedule`, luni 09:00 RO — recreată 2026-08-24
+  după ce lipsea din lista de rutine active; verifică `id`-ul curent cu `/schedule list` dacă pare iar
+  dispărută) — doar notificare push, fără verificare automată de Claude; **PostHog e sursa unică** (Sentry
+  decommission FĂCUT 2026-07-16, mai devreme decât planul ~07-22 — vezi CHANGELOG).
 - **Liste de pe profil (Detalii/Schițe/Activitate) — fără paginare reală la scară** *(decizie de business,
   2026-07-16)*: UI-ul arată primele 4 + „Vezi încă N" (client-side, `components/profile-view.tsx`), dar
   `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`) NU au `LIMIT` — se aduc din DB
@@ -64,6 +65,14 @@
   ca istoricul din `db/migrations/` să rămână sincron cu `db/schema.ts` — vezi capcana din secțiunea de
   mai jos („`db/migrations/` poate diverge silențios..."). `db:generate` NU atinge nicio bază (doar diff schema→istoric local),
   deci e sigur de rulat oricând, spre deosebire de `db:push`/`db:migrate`.
+- **Revizuire lunară allowlist Dependabot** (mutat din backlog, 2026-08-25): o excepție tolerată azi pe
+  `brace-expansion` (dismissed 2026-07-27 ca `tolerable_risk`, dev/build-time only) — la checkpoint-ul
+  lunar verifică dacă a apărut fix compatibil (eslint 10 stabil?) → upgrade + scoate intrarea din
+  allowlist-ul Dependabot.
+- **DAST (ZAP) — lunar, sau la orice implementare mare** (regulă 2026-08-25): trecere cu cei 3 pași
+  deja folosiți (2026-08-22): `zap-baseline.yml` (neautentificat) → `zap-full-auth.yml` (autentificat,
+  cookie de sesiune de test) → skill `dast-preview` (ad-hoc, țintit pe findere specifice, cere URL de
+  preview explicit de la Liviu). Nu se pornește automat de Claude — Liviu declanșează sau cere explicit.
 
 ---
 
@@ -247,6 +256,18 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   când găsește orice WARN/FAIL (`fail_action` default true) — roșu ≠ scan eșuat. Dovada reală de succes:
   liniile `Total of N URLs` + `PASS/WARN-NEW` din log, și step-ul `Upload raport` verde (artifact urcat).
   Nu trage concluzia „a picat" doar din statusul vizual al job-ului.
+- **Tab/selecție „activă" ținută ca INDEX de array, nu ca id → schimbă silențios ce se afișează dacă
+  lista se reordonează sub picioarele userului** *(bug real de produs, 2026-08-25,
+  `detail-workspace.tsx`, găsit din eșecul intermitent `sketch.spec.ts:74`, dovedit cu screenshot, nu
+  presupus)*: `setTabAndUrl` făcea `router.replace` pe query string, care re-fetch-uiește datele de pe
+  server; dacă altcineva publică o schiță pe ACELAȘI detaliu în același interval, ordinea (cea mai
+  nouă primă) se schimbă, iar un index numeric rămas fix arăta tăcut ALTĂ schiță (autor greșit, buton
+  de ștergere legat de formularul greșit) — reproductibil real, nu doar în e2e, oricând doi useri
+  interacționează simultan pe același conținut. Fix: tab-ul activ ținut ca `id | null`, derivat prin
+  `find` cu fallback sigur pe starea de bază dacă id-ul nu mai există — exact pattern-ul deja folosit
+  în ACELAȘI fișier pentru `openAnnotation`/`layersOwnerId` (comentat acolo explicit: „comparăm cu
+  id-ul, nu cu indexul"), doar că nu fusese aplicat și tab-ului propriu-zis. Orice stare nouă de
+  „element activ dintr-o listă care se poate schimba sub el" → id, niciodată index.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul

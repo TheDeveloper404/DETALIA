@@ -228,10 +228,28 @@ strict privată — util când lucrezi cu o echipă la detalii înainte să le f
 
 ## 11c. Oferte de la furnizori
 
-Dacă rolul tău e **Furnizor**, poți „ridica mâna" pe orice detaliu public — un semnal către autor că
-poți oferta materialele descrise. Click din nou pe același buton retrage oferta (reversibil). Autorul
-primește o notificare doar la primul semnal, nu la fiecare retragere/reofertare. Nu poți oferta pe
-propriul detaliu.
+Dacă rolul tău e **Furnizor**, poți „ridica mâna" pe orice detaliu **public** — un semnal către autor
+că poți oferta materialele descrise. Nu poți oferta pe propriul detaliu, și nu funcționează pe detaliile
+dintr-un proiect privat.
+
+**Trimiterea unei oferte reale.** Când apeși butonul (fie prima dată, fie ulterior), se deschide un
+formular unde poți atașa un **mesaj scurt** + **fișiere** (PDF, Excel sau CSV — de exemplu o listă de
+materiale cu prețuri). Apeși „Trimite oferta" și autorul primește o notificare. Poți reveni oricând la
+același buton ca să **editezi** oferta (schimbi mesajul, adaugi/înlocuiești fișiere) — autorul primește
+o notificare nouă la fiecare editare. Un singur click pe „Retrage oferta"/„Renunță" din formular șterge
+totul și coboară din nou mâna — revii exact la starea inițială.
+
+**Cine vede oferta.** STRICT autorul detaliului — pe pagina lui apare o secțiune privată cu toate
+ofertele primite (cine, ce mesaj, ce fișiere de descărcat). Tu, ca furnizor, îți regăsești istoricul
+propriilor oferte trimise în tabul **„Ofertele mele"** din propriul profil.
+
+## 11d. Linkul tău de referral (invită un prieten)
+
+Pe propriul profil ai o secțiune cu un **link personal** — îl copiezi și-l trimiți cuiva. Dacă persoana
+respectivă își face cont în DETALIA prin acel link, primești o **notificare** că s-a alăturat. La **10
+oameni aduși**, primești un badge special, „Creștem împreună", vizibil pe profilul tău.
+
+Linkul e vizibil DOAR ție, pe propriul profil — nimeni altcineva nu-l vede când îți vizitează profilul.
 
 ## 12. Notificări
 
@@ -239,6 +257,8 @@ Primești o notificare **în platformă** (nu pe email) când:
 - cineva schițează peste un detaliu al tău;
 - autorul unui detaliu îți șterge schița;
 - un furnizor „ridică mâna" pe unul din detaliile tale (prima dată);
+- primești o ofertă de materiale (sau furnizorul o editează ulterior);
+- cineva s-a înscris în platformă prin linkul tău de referral;
 - alte evenimente relevante pentru conținutul tău.
 
 ---
@@ -283,7 +303,8 @@ Orice profil (al tău sau al altcuiva) arată public:
 - **rolul și subrolul**, cu steluța de verificare dacă e cazul;
 - **data la care ai venit pe platformă** („Membru din …");
 - **badge-uri de reputație** — Bronz/Argint/Aur, câte unul pentru fiecare tip de activitate (detalii
-  publicate, schițe propuse, validări date, validări primite). Se calculează automat din activitatea ta
+  publicate, schițe propuse, validări date, validări primite), plus un badge special „Creștem împreună"
+  (un singur nivel, la 10 useri aduși prin linkul de referral). Se calculează automat din activitatea ta
   — nu le acorzi manual, nu le poți pierde odată câștigate. Când treci un prag nou, primești un mesaj
   scurt de felicitare la următoarea vizită pe propriul profil.
 - statistici, un heatmap de contribuții pe ultimul an, și taburile Detalii/Schițe/Activitate.

@@ -4,7 +4,7 @@
 
 export type BadgeTier = "bronze" | "silver" | "gold";
 
-export type BadgeId = "contributor" | "illustrator" | "validator" | "trusted" | "consistent";
+export type BadgeId = "contributor" | "illustrator" | "validator" | "trusted" | "consistent" | "growth";
 
 export type BadgeDef = {
   id: BadgeId;
@@ -44,6 +44,14 @@ export const BADGE_DEFS: readonly BadgeDef[] = [
     description: "Zile active în ultimul an",
     thresholds: { bronze: 30, silver: 100, gold: 250 },
   },
+  // Badge SINGLE (nu tiered) — decizie de produs 2026-08-25: cele 3 praguri identice fac
+  // `tierFor` să sară direct la „gold" la 10, fără trepte intermediare de arătat.
+  {
+    id: "growth",
+    label: "Creștem împreună",
+    description: "Useri aduși prin linkul de referral",
+    thresholds: { bronze: 10, silver: 10, gold: 10 },
+  },
 ] as const;
 
 export type BadgeInputs = {
@@ -52,6 +60,7 @@ export type BadgeInputs = {
   validationsGiven: number;
   validationsReceived: number;
   activeDaysLastYear: number;
+  referralsCount: number;
 };
 
 const METRIC_OF: Record<BadgeId, keyof BadgeInputs> = {
@@ -60,6 +69,7 @@ const METRIC_OF: Record<BadgeId, keyof BadgeInputs> = {
   validator: "validationsGiven",
   trusted: "validationsReceived",
   consistent: "activeDaysLastYear",
+  growth: "referralsCount",
 };
 
 function tierFor(value: number, thresholds: Record<BadgeTier, number>): BadgeTier | null {

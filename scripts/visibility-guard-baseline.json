@@ -11,5 +11,6 @@
   "detailsRepo.ts::getProjectDetailImage": true,
   "detailsRepo.ts::releaseDetailToCommunity": true,
   "detailsRepo.ts::anonymizeDetailAuthor": true,
-  "detailsRepo.ts::deleteDetailCascade": true
+  "detailsRepo.ts::deleteDetailCascade": true,
+  "detailsRepo.ts::feedFilterConditions": true
 }

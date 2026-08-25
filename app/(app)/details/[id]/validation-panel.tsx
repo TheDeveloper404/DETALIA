@@ -1,6 +1,7 @@
 "use client";
 
 import { Pencil, PenLine } from "lucide-react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { startTransition, useActionState, useOptimistic, useState } from "react";
 
@@ -267,12 +268,14 @@ export function ValidationPanel({
             `VISIBLE_POSITIONS`, „Vezi mai multe" pentru rest — vezi UI-REGISTRY.md. */}
         {positions.length > 0 && (
           <>
-            <ul className="mt-4 flex flex-col gap-2.5 border-t border-[#eee6da] pt-4">
+            <ul data-testid="validation-positions-list" className="mt-4 flex flex-col gap-2.5 border-t border-[#eee6da] pt-4">
               {visiblePositions.map((p) => (
                 <li key={p.userId} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="flex min-w-0 items-center gap-2">
-                    <AvatarInitials name={p.userName} imageUrl={p.userImage} size={28} />
-                    <span className="truncate text-sm font-semibold">{p.userName ?? "Anonim"}</span>
+                    <Link href={`/profile/${p.userId}`} className="flex min-w-0 items-center gap-2 no-underline">
+                      <AvatarInitials name={p.userName} imageUrl={p.userImage} size={28} />
+                      <span className="truncate text-sm font-semibold hover:underline">{p.userName ?? "Anonim"}</span>
+                    </Link>
                     <RolePill roleMain={p.roleMain} subRole={p.subRole} verified={p.verification === "VERIFIED"} />
                   </span>
                   <span
