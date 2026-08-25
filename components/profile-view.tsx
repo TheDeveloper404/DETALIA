@@ -9,6 +9,7 @@ import { BADGE_DEFS, type EarnedBadge } from "@/server/domain/badges";
 import { PersonSilhouette } from "./avatar-initials";
 import { BadgeEarnedPopup } from "./badge-earned-popup";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
+import { ReferralLinkCard } from "./referral-link-card";
 import { ShowMoreButton } from "./show-more-button";
 
 // Vizualizare de profil stil LinkedIn pentru construcții — prezentațional, props-driven, alimentată
@@ -86,6 +87,8 @@ export type ProfileViewData = {
   contributions: ContributionDay[]; // heatmap ultimul an (zile aliniate pe săptămâni, nivel 0..4)
   contributionsTotal: number;
   materialOffers: ProfileMaterialOfferItem[]; // gol dacă !viewerIsOwner — strict privat, vezi profileService
+  referralsCount: number; // PUBLIC (intră în badge-ul „Creștem împreună", vizibil oricui)
+  referralCode: string | null; // null dacă !viewerIsOwner — linkul e privat, doar pe propriul profil
 };
 
 type Tab = "detalii" | "schite" | "activitate" | "oferte";
@@ -322,6 +325,11 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
           </ul>
         </details>
       </div>
+
+      {/* Link de referral — STRICT pe propriul profil (privat), 2026-08-25. */}
+      {data.viewerIsOwner && data.referralCode && (
+        <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
+      )}
 
       {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
           nume, stil LinkedIn — 2026-08-17). */}

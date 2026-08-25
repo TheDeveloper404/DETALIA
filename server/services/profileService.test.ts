@@ -15,9 +15,13 @@ vi.mock("@/server/repos/profileRepo", () => ({
 vi.mock("@/server/repos/usersRepo", () => ({
   getPublicProfile: vi.fn(),
   updateSeenBadges: vi.fn(),
+  countReferrals: vi.fn().mockResolvedValue(0),
 }));
 vi.mock("@/server/repos/materialOffersRepo", () => ({
   listMaterialOffersBySupplier: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/server/services/referralService", () => ({
+  getOrCreateReferralCode: vi.fn().mockResolvedValue("REFCODE1"),
 }));
 
 import { getContributionCounts, getProfileStats } from "@/server/repos/profileRepo";

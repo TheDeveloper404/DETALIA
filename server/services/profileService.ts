@@ -24,7 +24,9 @@ import {
   listAuthorSketches,
 } from "@/server/repos/profileRepo";
 import { listMaterialOffersBySupplier } from "@/server/repos/materialOffersRepo";
+import { getOrCreateReferralCode } from "@/server/services/referralService";
 import {
+  countReferrals,
   getPublicProfile,
   getUserMedia,
   getUserProfile,
@@ -103,9 +105,10 @@ const SKETCH_STATUS_VIEW: Record<
 // n-are nevoie de activitate/detalii/schițe — doar de statisticile care intră în calculul de badge).
 async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
   const { startMs } = contributionWindow();
-  const [stats, contribCounts] = await Promise.all([
+  const [stats, contribCounts, referralsCount] = await Promise.all([
     getProfileStats(userId),
     getContributionCounts(userId, new Date(startMs)),
+    countReferrals(userId),
   ]);
   // `contribCounts` conține DOAR zilele cu activitate (>0) — mărimea mapului = nr. de zile active.
   return computeBadges({
@@ -114,6 +117,7 @@ async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
     validationsGiven: stats.validationsGiven,
     validationsReceived: stats.validationsReceived,
     activeDaysLastYear: contribCounts.size,
+    referralsCount,
   });
 }
 
@@ -140,16 +144,22 @@ export const getProfileView = cache(async (
 
   const { startMs, todayMs } = contributionWindow();
 
-  const [stats, detailRows, sketchRows, activity, contribCounts, materialOffers] = await Promise.all([
-    getProfileStats(userId),
-    listAuthorDetails(userId),
-    listAuthorSketches(userId),
-    listAuthorActivity(userId, ACTIVITY_LIMIT),
-    getContributionCounts(userId, new Date(startMs)),
-    // Istoricul ofertelor de materiale trimise — STRICT privat (2026-08-25): nici măcar interogat
-    // dacă viewer-ul nu e proprietarul, nu doar ascuns în UI (apărare în adâncime).
-    userId === viewerId ? listMaterialOffersBySupplier(userId) : Promise.resolve([]),
-  ]);
+  const [stats, detailRows, sketchRows, activity, contribCounts, materialOffers, referralsCount, referralCode] =
+    await Promise.all([
+      getProfileStats(userId),
+      listAuthorDetails(userId),
+      listAuthorSketches(userId),
+      listAuthorActivity(userId, ACTIVITY_LIMIT),
+      getContributionCounts(userId, new Date(startMs)),
+      // Istoricul ofertelor de materiale trimise — STRICT privat (2026-08-25): nici măcar interogat
+      // dacă viewer-ul nu e proprietarul, nu doar ascuns în UI (apărare în adâncime).
+      userId === viewerId ? listMaterialOffersBySupplier(userId) : Promise.resolve([]),
+      // Badge-ul „Creștem împreună" e PUBLIC (afișat oricui vizitează profilul) — count simplu, citire.
+      countReferrals(userId),
+      // Codul de referral (link-ul propriu-zis) se generează LENEȘ, DOAR pe propriul profil — nu are
+      // sens (și ar fi un write inutil) să generăm un cod la vizita altcuiva pe profil.
+      userId === viewerId ? getOrCreateReferralCode(userId) : Promise.resolve(null),
+    ]);
 
   // Generează zilele heatmap-ului (Luni→Duminică, UTC), fiecare cu nivelul derivat din counts.
   const contributions = [];
@@ -168,6 +178,7 @@ export const getProfileView = cache(async (
     validationsGiven: stats.validationsGiven,
     validationsReceived: stats.validationsReceived,
     activeDaysLastYear,
+    referralsCount,
   });
 
   const roleLabel = roleLabelOf(profile.roleMain, profile.subRole);
@@ -263,6 +274,8 @@ export const getProfileView = cache(async (
     contributions,
     contributionsTotal,
     // gol dacă !viewerIsOwner (nici măcar interogat — vezi Promise.all de mai sus)
+    referralsCount,
+    referralCode, // null dacă !viewerIsOwner (n-a fost nici generat/citit — vezi Promise.all de mai sus)
     materialOffers: materialOffers.map(
       (o): ProfileMaterialOfferItem => ({
         id: o.offerId,

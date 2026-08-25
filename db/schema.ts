@@ -67,6 +67,8 @@ export const notificationType = pgEnum("notification_type", [
   "MATERIAL_OFFER_SENT",
   // Aceeași ofertă a fost editată ulterior (fișier/mesaj adăugat) — notificare separată, nu re-trimitere.
   "MATERIAL_OFFER_EDITED",
+  // Cineva s-a înscris prin linkul de referral al userului (2026-08-25).
+  "REFERRAL_JOINED",
 ]);
 
 // ════════════════════ (A) Tabele Auth.js (adapter Drizzle) ════════════════════
@@ -115,6 +117,14 @@ export const users = pgTable("users", {
   // punct de intrare), pagina de detaliu se poate deschide din zeci de locuri diferite → nu există un
   // moment unic „utilizator nou" de agățat un query param; de-aia flag persistat, nu URL.
   seenDetailTour: boolean().notNull().default(false),
+  // Link de referral (2026-08-25) — cod scurt, generat LENEȘ (la prima cerere a linkului, nu la
+  // creare cont — 26 useri deja existenți n-ar avea unul altfel). NU e UUID-ul userului (înșirabil) —
+  // vezi server/domain/referral.ts pt formatul exact.
+  referralCode: text().unique(),
+  // Cine a adus acest user pe platformă — setat O SINGURĂ DATĂ, la finalul onboarding-ului (primul
+  // moment cu server action, deci acces la cookie-ul de intenție pus la vizita pe /signup?ref=...).
+  // `onDelete: "set null"` — dacă referrer-ul e vreodată șters, userul adus NU dispare/se strică.
+  referredByUserId: uuid().references((): AnyPgColumn => users.id, { onDelete: "set null" }),
 });
 
 export const accounts = pgTable(

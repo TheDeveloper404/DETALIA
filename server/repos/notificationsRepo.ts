@@ -11,7 +11,8 @@ export type NotificationType =
   | "SKETCH_DELETED"
   | "SUPPLIER_OFFERED"
   | "MATERIAL_OFFER_SENT"
-  | "MATERIAL_OFFER_EDITED";
+  | "MATERIAL_OFFER_EDITED"
+  | "REFERRAL_JOINED";
 
 export async function insertNotification(input: {
   recipientUserId: string;

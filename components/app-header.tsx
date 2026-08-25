@@ -19,6 +19,7 @@ type NotificationPayload = {
   sketchAuthorSubRole?: string | null;
   sketchAuthorVerified?: boolean;
   supplierName?: string | null;
+  joinedUserName?: string | null;
 };
 
 // Header global — apare DOAR pentru useri autentificați (landing/login/signup rămân fără header).
@@ -38,7 +39,7 @@ export async function AppHeader() {
     return {
       id: n.id,
       type: n.type,
-      actorName: p.sketchAuthorName ?? p.supplierName ?? null,
+      actorName: p.sketchAuthorName ?? p.supplierName ?? p.joinedUserName ?? null,
       actorRole: p.sketchAuthorRole ?? null,
       actorSubRole: p.sketchAuthorSubRole ?? null,
       actorVerified: p.sketchAuthorVerified ?? false,

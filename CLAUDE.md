@@ -65,6 +65,10 @@
   ca istoricul din `db/migrations/` să rămână sincron cu `db/schema.ts` — vezi capcana din secțiunea de
   mai jos („`db/migrations/` poate diverge silențios..."). `db:generate` NU atinge nicio bază (doar diff schema→istoric local),
   deci e sigur de rulat oricând, spre deosebire de `db:push`/`db:migrate`.
+- **Revizuire lunară allowlist Dependabot** (mutat din backlog, 2026-08-25): o excepție tolerată azi pe
+  `brace-expansion` (dismissed 2026-07-27 ca `tolerable_risk`, dev/build-time only) — la checkpoint-ul
+  lunar verifică dacă a apărut fix compatibil (eslint 10 stabil?) → upgrade + scoate intrarea din
+  allowlist-ul Dependabot.
 
 ---
 
