@@ -2,10 +2,11 @@
 
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
-> _Ultima verificare față de cod: 2026-08-16 — sincronizat cu `db/schema.ts` (adăugate tabelele
-> `projects`, `project_members`, `project_canvas_shares`, `comment_likes`, `supplier_offers`;
-> `details.location`/`.project_id`/`.released_from_project_id`; coloanele de stack/retragere pe
-> `sketches`; `validations.hidden_after_release` — vezi CHANGELOG pentru datele fiecărei schimbări)._
+> _Ultima verificare față de cod: 2026-08-25 — resincronizat cu `db/schema.ts` (adăugate tabelele
+> `material_offers`/`material_offer_files`; coloanele `users.referral_code`/`.referred_by_user_id`;
+> completat tabelul `users` cu coloanele care lipseau din doc de mai demult — `phone`/`phone_visible`/
+> `email_visible`, `seen_badges`, `last_seen_announcement_version`, `seen_detail_tour`; enum
+> `notification_type` la zi — vezi CHANGELOG 2026-08-25 pentru detaliu)._
 >
 > Versiunea „de adevăr" a schemei va fi **codul Drizzle** (`db/schema.ts`) + migrațiile, generate în Faza 0.
 > Acest doc fixează **proiectarea concretă** (tipuri, enum-uri, constrângeri, indici) ca să nu improvizăm la scaffold.
@@ -24,7 +25,8 @@ target_type            : DETAIL | SKETCH        -- polimorfism validare/comentar
 validation_position    : APPROVE | DISAPPROVE
 sketch_status          : DRAFT | PUBLISHED  (PENDING_ACCEPTANCE | REJECTED = valori istorice, nemaifolosite)
 detail_resource_type   : IMAGE | LINK | TEXT | PDF | CAD
-notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED  (SKETCH_ACCEPTED | SKETCH_REJECTED = istoric)
+notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED | MATERIAL_OFFER_SENT |
+                          MATERIAL_OFFER_EDITED | REFERRAL_JOINED  (SKETCH_ACCEPTED | SKETCH_REJECTED = istoric)
 ```
 
 ---
@@ -47,6 +49,13 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED  (S
 | `company` | text | firma reprezentată (opțional, auto-declarat) |
 | `cover_image` | text | copertă profil (Blob) |
 | `cover_position` | integer | default `50`; poziția verticală a coperții (object-position Y, 0..100) |
+| `phone` | text | nullable; contact opțional |
+| `phone_visible` / `email_visible` | boolean | default `false` — opt-in explicit, altfel privat inclusiv pt proprietar (2026-08-17) |
+| `seen_badges` | jsonb | default `{}` — ultimul snapshot de badge-uri VĂZUT (id→tier), pt pop-up „badge nou" |
+| `last_seen_announcement_version` | text | nullable — ultima versiune văzută a panoului „Ce e nou" |
+| `seen_detail_tour` | boolean | default `false` — turul ghidat de pe pagina de detaliu, arătat vreodată? |
+| `referral_code` | text | nullable, **UNIQUE** — cod scurt de referral, generat LENEȘ la prima cerere a linkului (2026-08-25) |
+| `referred_by_user_id` | uuid FK→users.id | nullable, `ON DELETE SET NULL` — cine a adus acest user, setat O SINGURĂ DATĂ (2026-08-25) |
 | `created_at` | timestamptz | (NU există `updated_at` pe `users`) |
 
 > Tabelele Auth.js (`accounts`, `sessions`, `verification_tokens`) sunt gestionate de adapterul Drizzle — vezi `db/schema.ts`, nu le mâna manual.
@@ -244,6 +253,33 @@ PK compus `(user_id, detail_id)` → un user nu poate salva același detaliu de 
 PK compus `(user_id, detail_id)`, identic model cu `saved_details`: al doilea click = retragere (DELETE),
 nu a doua ramură de stare. Entitate separată de `validations` — doar vizibilitate comercială, fără
 semantica de aprobare/dezaprobare.
+
+### `material_offers` + `material_offer_files` (ofertă REALĂ de materiale, fișiere, 2026-08-25)
+Distinct de `supplier_offers` (aia e doar flag-ul „pot oferta", fără fișiere). O ofertă = mesaj +
+fișiere (PDF/Excel/CSV), STRICT pe detalii PUBLICE, vizibilă doar autorului detaliului.
+
+| coloană (`material_offers`) | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `detail_id` | uuid FK→details.id | cascade; **index** |
+| `supplier_id` | uuid FK→users.id | cascade; **index** |
+| `message` | text | not null |
+| `created_at` / `updated_at` | timestamptz | |
+
+**UNIQUE** `(detail_id, supplier_id)` — o singură ofertă per furnizor per detaliu (se editează, nu se
+duplică).
+
+| coloană (`material_offer_files`) | tip | note |
+|---|---|---|
+| `id` | uuid PK | |
+| `offer_id` | uuid FK→material_offers.id | cascade; **index** |
+| `url` | text | not null (Blob, propriul store) |
+| `file_name` | text | not null |
+| `file_size` | integer | not null |
+| `created_at` | timestamptz | |
+
+La `ANONYMIZE` (autor retras, detaliul rămâne) ofertele se șterg EXPLICIT — excepție deliberată față
+de comentarii/schițe, care rămân (relația furnizor↔autor și-a pierdut sensul).
 
 ### Admin — autentificare SEPARATĂ de useri
 Adminii NU sunt useri ai platformei: login propriu prin magic link (allowlist `ADMIN_EMAILS` din env, fără

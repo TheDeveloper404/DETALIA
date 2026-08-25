@@ -37,7 +37,9 @@ border-border bg-card p-5`) + `role="dialog" aria-modal="true"` + `Escape` = can
 close + wrapper `role="dialog" aria-modal="true"`, lăsând `panelClassName`/`children` complet la
 latitudinea apelantului (nu impune stil vizual, doar structura+comportamentul comune). Folosit de
 `InviteMembersButton` și `AddContentModal` (`app/(app)/projects/[id]/`) — extras 2026-08-16 din 2
-implementări identice caracter cu caracter (QODO, 2026-08-11).
+implementări identice caracter cu caracter (QODO, 2026-08-11). Al treilea consumator: `MaterialOfferModal`
+(`app/(app)/details/[id]/material-offer-modal.tsx`, 2026-08-25) — modalul de trimis/editat/retras oferte
+de materiale.
 
 **Divergență rămasă (de reconciliat, nu de rezolvat acum):** același `role="dialog"` + `aria-modal="true"`
 e încă reimplementat manual, cu markup diferit, în: `intro-splash.tsx`, `profile-view.tsx`,
