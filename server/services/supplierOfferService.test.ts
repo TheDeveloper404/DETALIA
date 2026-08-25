@@ -10,7 +10,6 @@ vi.mock("@/server/repos/supplierOffersRepo", () => ({
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ getNotificationActor: vi.fn() }));
 vi.mock("@/server/services/notificationService", () => ({ notifySupplierOffered: vi.fn() }));
-vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail: vi.fn() }));
 
 import { getDetailById, insertSavedDetail } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
@@ -20,7 +19,6 @@ import {
 } from "@/server/repos/supplierOffersRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import { notifySupplierOffered } from "@/server/services/notificationService";
-import { canAccessProjectDetail } from "@/server/services/projectService";
 
 import { toggleSupplierOffer } from "./supplierOfferService";
 
@@ -158,45 +156,24 @@ describe("efectele secundare (auto-save, notificare) sunt izolate — un eșec a
   });
 });
 
-// Proiecte (2026-08-09, gol găsit la /code-review): un FURNIZOR din afara proiectului putea oferta
-// pe un detaliu privat, ocolind poarta de acces.
-describe("Proiecte — non-membru nu poate oferta pe un detaliu de proiect", () => {
-  it("fără acces la proiect → TARGET_NOT_FOUND, fără scriere", async () => {
+// Restrâns la detalii PUBLICE (2026-08-25, decizie de produs): pe proiecte private nu are sens
+// comercial. Înlocuiește vechea regulă (2026-08-09) de „non-membru nu poate oferta" — acum NIMENI
+// nu poate, indiferent de membership (simplificare + restricție, nu doar redenumire).
+describe("Restrâns la detalii publice — un detaliu de proiect respinge oricine", () => {
+  it("detaliu cu projectId setat → TARGET_NOT_FOUND, fără scriere (indiferent de membership)", async () => {
     vi.mocked(getDetailById).mockResolvedValue({
       id: DETAIL_ID,
       ownerId: "owner-x",
       authorId: "owner-x",
+      status: "PUBLISHED",
       title: "T",
       projectId: "proj-1",
     } as never);
-    vi.mocked(canAccessProjectDetail).mockResolvedValueOnce(false);
 
     const res = await toggleSupplierOffer(input);
 
     expect(res).toEqual({ ok: false, error: "TARGET_NOT_FOUND" });
     expect(insertSupplierOfferIfAbsent).not.toHaveBeenCalled();
-    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: "u-1" });
-  });
-});
-
-// Gol găsit la /code-review, 2026-08-09: destinatarul notificării (detail.ownerId) e o persoană
-// DIFERITĂ de furnizorul care ofertează — accesul lui la proiect trebuie verificat separat.
-describe("Proiecte — notificarea de ofertă nu scurge titlul unui detaliu privat către un owner eliminat", () => {
-  it("owner-ul detaliului eliminat din proiect → oferta se înregistrează, dar FĂRĂ notifySupplierOffered", async () => {
-    vi.mocked(getDetailById).mockResolvedValue({
-      id: DETAIL_ID,
-      ownerId: "owner-x",
-      authorId: "owner-x",
-      title: "T",
-      projectId: "proj-1",
-    } as never);
-    vi.mocked(canAccessProjectDetail).mockImplementation(async ({ userId }: { userId: string }) => userId === "u-1");
-
-    const res = await toggleSupplierOffer(input);
-
-    expect(res).toEqual({ ok: true, offering: true });
-    expect(insertSupplierOfferIfAbsent).toHaveBeenCalled();
     expect(notifySupplierOffered).not.toHaveBeenCalled();
-    expect(canAccessProjectDetail).toHaveBeenCalledWith({ projectId: "proj-1", userId: "owner-x" });
   });
 });

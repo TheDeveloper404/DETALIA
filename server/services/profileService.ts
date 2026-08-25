@@ -5,6 +5,7 @@ import { cache } from "react";
 
 import type {
   ProfileActivityItem,
+  ProfileMaterialOfferItem,
   ProfileViewData,
 } from "@/components/profile-view";
 import { reprocessBlobImage } from "@/lib/image-processing";
@@ -22,6 +23,7 @@ import {
   listAuthorDetails,
   listAuthorSketches,
 } from "@/server/repos/profileRepo";
+import { listMaterialOffersBySupplier } from "@/server/repos/materialOffersRepo";
 import {
   getPublicProfile,
   getUserMedia,
@@ -138,12 +140,15 @@ export const getProfileView = cache(async (
 
   const { startMs, todayMs } = contributionWindow();
 
-  const [stats, detailRows, sketchRows, activity, contribCounts] = await Promise.all([
+  const [stats, detailRows, sketchRows, activity, contribCounts, materialOffers] = await Promise.all([
     getProfileStats(userId),
     listAuthorDetails(userId),
     listAuthorSketches(userId),
     listAuthorActivity(userId, ACTIVITY_LIMIT),
     getContributionCounts(userId, new Date(startMs)),
+    // Istoricul ofertelor de materiale trimise — STRICT privat (2026-08-25): nici măcar interogat
+    // dacă viewer-ul nu e proprietarul, nu doar ascuns în UI (apărare în adâncime).
+    userId === viewerId ? listMaterialOffersBySupplier(userId) : Promise.resolve([]),
   ]);
 
   // Generează zilele heatmap-ului (Luni→Duminică, UTC), fiecare cu nivelul derivat din counts.
@@ -257,6 +262,17 @@ export const getProfileView = cache(async (
     editHref: "/profile/edit",
     contributions,
     contributionsTotal,
+    // gol dacă !viewerIsOwner (nici măcar interogat — vezi Promise.all de mai sus)
+    materialOffers: materialOffers.map(
+      (o): ProfileMaterialOfferItem => ({
+        id: o.offerId,
+        detailId: o.detailId,
+        detailTitle: o.detailTitle,
+        message: o.message,
+        fileCount: o.fileCount,
+        time: relativeTime(o.updatedAt),
+      }),
+    ),
   };
 });
 

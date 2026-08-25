@@ -44,6 +44,24 @@ export const ALLOWED_CAD_TYPES = [
 ] as const;
 export const ALLOWED_CAD_EXTENSIONS = ["dwg", "dxf"] as const;
 
+// Oferte de materiale (Furnizor) — PDF/Excel/CSV. La fel ca CAD: xls/xlsx/csv n-au un content-type de
+// încredere din browser (Excel vechi trimite des "application/octet-stream" sau "application/vnd.ms-excel"
+// și pentru .xlsx) → gate real pe extensia din pathname (vezi /api/blob/upload), content-type e doar
+// informativ aici.
+export const MAX_MATERIAL_MB = 25;
+export const MAX_MATERIAL_BYTES = MAX_MATERIAL_MB * 1024 * 1024;
+export const MAX_MATERIAL_FILES_PER_OFFER = 10;
+export const ALLOWED_MATERIAL_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+  "application/vnd.ms-excel", // .xls (și des trimis greșit pt .xlsx/.csv)
+  "text/csv",
+  "application/csv",
+  "text/plain", // unele browsere trimit asta pt .csv
+  "application/octet-stream",
+] as const;
+export const ALLOWED_MATERIAL_EXTENSIONS = ["pdf", "xlsx", "xls", "csv"] as const;
+
 // URL valid de Blob al store-ului nostru (acces public). Folosit la persistarea URL-ului întors
 // de upload-ul client → nu acceptăm URL-uri arbitrare în DB.
 export const BLOB_URL_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;

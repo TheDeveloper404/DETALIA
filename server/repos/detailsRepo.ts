@@ -10,6 +10,8 @@ import {
   detailCategories,
   detailResources,
   details,
+  materialOfferFiles,
+  materialOffers,
   projectMembers,
   projects,
   roles,
@@ -566,16 +568,25 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
     .from(comments)
     .where(comWhere);
 
+  // Fișierele ofertelor de materiale — la fel, citite ÎNAINTE (join pe material_offers, care e cascada
+  // reală de la details; material_offer_files cascadă mai departe de la material_offers).
+  const materialOfferFileRows = await db
+    .select({ url: materialOfferFiles.url })
+    .from(materialOfferFiles)
+    .innerJoin(materialOffers, eq(materialOffers.id, materialOfferFiles.offerId))
+    .where(eq(materialOffers.detailId, detailId));
+
   await db.batch([
     db.delete(validations).where(valWhere),
     db.delete(comments).where(comWhere),
-    db.delete(details).where(eq(details.id, detailId)), // cascade → detail_resources + sketches
+    db.delete(details).where(eq(details.id, detailId)), // cascade → detail_resources + sketches + material_offers(+files)
   ]);
 
   return [
     ...sketchRows.map((s) => s.thumbnailUrl),
     ...resourceRows.map((r) => r.url),
     ...commentImageRows.map((c) => c.imageUrl),
+    ...materialOfferFileRows.map((f) => f.url),
   ].filter((u): u is string => !!u);
 }
 
@@ -709,6 +720,12 @@ export async function listFeed(input: {
       sketchCount,
       validatorAvatars,
       interactionCount: interactionScore,
+      // Totalul de rezultate ale filtrului curent, calculat de Postgres ca fereastră peste ACELAȘI
+      // query — nu un count() separat. Un query separat (rulat concurent cu acesta) ar putea vedea o
+      // stare de bază diferită dacă un detaliu e publicat/șters exact între cele două (findere Greptile
+      // pe PR #255, 2026-08-25): rândurile paginate și totalul ar putea disagreea. Cu count(*) over(),
+      // ambele vin din același snapshot — nu mai există fereastra de inconsistență.
+      totalMatches: sql<number>`count(*) over()::int`,
     })
     .from(details)
     .leftJoin(users, eq(users.id, details.authorId))
@@ -955,4 +972,6 @@ export async function listOfferedDetails(userId: string) {
     .orderBy(desc(supplierOffers.createdAt));
 }
 
-export type FeedItem = Awaited<ReturnType<typeof listFeed>>[number];
+// `totalMatches` (count(*) over()) e detaliu intern al paginării feed-ului, nu parte din contractul
+// public al unui card — `detailService.getFeed` îl strip-uiește înainte să întoarcă `details`.
+export type FeedItem = Omit<Awaited<ReturnType<typeof listFeed>>[number], "totalMatches">;

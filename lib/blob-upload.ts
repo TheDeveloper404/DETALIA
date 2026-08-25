@@ -73,12 +73,13 @@ export async function uploadImageToBlob(
   return blob.url;
 }
 
-// PDF/CAD (DWG/DXF): extensia se ia din NUMELE fișierului (file.type e nesigur/gol pt CAD în
-// multe browsere) — serverul revalidează oricum extensia din pathname pentru "cad" (vezi route).
+// PDF/CAD (DWG/DXF)/materiale (Excel/CSV): extensia se ia din NUMELE fișierului (file.type e nesigur/
+// gol în multe browsere pentru aceste tipuri) — serverul revalidează oricum extensia din pathname
+// pentru "cad"/"materials" (vezi route).
 export async function uploadDocToBlob(
   folder: string,
   file: File,
-  kind: "pdf" | "cad",
+  kind: "pdf" | "cad" | "materials",
 ): Promise<string> {
   const userId = await requireCurrentUserId();
   const nameExt = file.name.split(".").pop()?.toLowerCase();

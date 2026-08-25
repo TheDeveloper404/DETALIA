@@ -41,6 +41,15 @@ type ProfileSketchItem = {
   statusKind: "approved" | "disputed" | "open";
 };
 
+export type ProfileMaterialOfferItem = {
+  id: string;
+  detailId: string;
+  detailTitle: string;
+  message: string;
+  fileCount: number;
+  time: string;
+};
+
 export type ProfileActivityItem = {
   id: string;
   kind: "approve" | "disapprove" | "comment" | "publish";
@@ -76,9 +85,10 @@ export type ProfileViewData = {
   viewerIsOwner: boolean; // ascunde „Editează profil" pentru vizitatori (profil public read-only)
   contributions: ContributionDay[]; // heatmap ultimul an (zile aliniate pe săptămâni, nivel 0..4)
   contributionsTotal: number;
+  materialOffers: ProfileMaterialOfferItem[]; // gol dacă !viewerIsOwner — strict privat, vezi profileService
 };
 
-type Tab = "detalii" | "schite" | "activitate";
+type Tab = "detalii" | "schite" | "activitate" | "oferte";
 
 export function ProfileView({ data }: { data: ProfileViewData }) {
   const [tab, setTab] = useState<Tab>("detalii");
@@ -326,11 +336,19 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
           <TabButton active={tab === "activitate"} onClick={() => setTab("activitate")}>
             Activitate
           </TabButton>
+          {/* Strict privat (2026-08-25) — datele nici nu ajung aici dacă !viewerIsOwner (vezi
+              profileService: fetch condiționat), dar tab-ul e ascuns oricum, dublă barieră. */}
+          {data.viewerIsOwner && (
+            <TabButton active={tab === "oferte"} onClick={() => setTab("oferte")}>
+              Ofertele mele
+            </TabButton>
+          )}
         </div>
 
         {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
         {tab === "schite" && <SketchesTab items={data.sketches} />}
         {tab === "activitate" && <ActivityTab items={data.activity} />}
+        {tab === "oferte" && data.viewerIsOwner && <MaterialOffersTab items={data.materialOffers} />}
       </div>
     </div>
   );
@@ -605,6 +623,41 @@ function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
             </div>
           );
         })}
+      </div>
+      {!expanded && items.length > TAB_PAGE_SIZE && (
+        <ShowMoreButton onClick={() => setExpanded(true)} />
+      )}
+    </>
+  );
+}
+
+// Strict privat (viewerIsOwner) — istoricul propriilor oferte de materiale trimise, cu link către
+// detaliul respectiv. Descărcarea fișierelor propriu-zise se face de pe pagina detaliului (secțiunea
+// autorului), nu de aici — aici e doar un istoric „cui i-am trimis ce".
+function MaterialOffersTab({ items }: { items: ProfileMaterialOfferItem[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (items.length === 0) return <EmptyTab>Nicio ofertă de materiale trimisă încă.</EmptyTab>;
+  const visible = expanded ? items : items.slice(0, TAB_PAGE_SIZE);
+  return (
+    <>
+      <div className="flex flex-col gap-3.5">
+        {visible.map((o) => (
+          <Link
+            key={o.id}
+            href={`/details/${o.detailId}`}
+            className="flex flex-col gap-1.5 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
+          >
+            <div className="font-mono text-[11px] text-muted-foreground">Ofertă pe · {o.detailTitle}</div>
+            {o.message && <p className="line-clamp-2 text-sm text-foreground">{o.message}</p>}
+            <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+              <span>
+                {o.fileCount} {o.fileCount === 1 ? "fișier" : "fișiere"}
+              </span>
+              <span>·</span>
+              <span>{o.time}</span>
+            </div>
+          </Link>
+        ))}
       </div>
       {!expanded && items.length > TAB_PAGE_SIZE && (
         <ShowMoreButton onClick={() => setExpanded(true)} />
