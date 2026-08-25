@@ -84,6 +84,8 @@ export default defineConfig({
         /detail-draft\.spec\.ts/,
         /detail-edit\.spec\.ts/,
         /feed\.spec\.ts/,
+        /feed-pagination\.spec\.ts/,
+        /profile-links\.spec\.ts/,
         /sketch-numbering\.spec\.ts/,
         /sketch-stack\.spec\.ts/,
         /feed-search\.spec\.ts/,

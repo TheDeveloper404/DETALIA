@@ -37,7 +37,9 @@ border-border bg-card p-5`) + `role="dialog" aria-modal="true"` + `Escape` = can
 close + wrapper `role="dialog" aria-modal="true"`, lăsând `panelClassName`/`children` complet la
 latitudinea apelantului (nu impune stil vizual, doar structura+comportamentul comune). Folosit de
 `InviteMembersButton` și `AddContentModal` (`app/(app)/projects/[id]/`) — extras 2026-08-16 din 2
-implementări identice caracter cu caracter (QODO, 2026-08-11).
+implementări identice caracter cu caracter (QODO, 2026-08-11). Al treilea consumator: `MaterialOfferModal`
+(`app/(app)/details/[id]/material-offer-modal.tsx`, 2026-08-25) — modalul de trimis/editat/retras oferte
+de materiale.
 
 **Divergență rămasă (de reconciliat, nu de rezolvat acum):** același `role="dialog"` + `aria-modal="true"`
 e încă reimplementat manual, cu markup diferit, în: `intro-splash.tsx`, `profile-view.tsx`,
@@ -120,6 +122,16 @@ instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al pagini
   snapshot, nu de prop-ul live.
 
 ---
+
+## Paginare stil forum (`FeedPagination`)
+**Componentă canonică:** [`app/(app)/feed/feed-pagination.tsx`](../app/(app)/feed/feed-pagination.tsx).
+
+Anterior/Următor + numere (fereastră ±2 din pagina curentă, cu „…" — `feedPageWindow` în
+`server/domain/detail.ts`), paginare REALĂ pe server (`?page=`), NU scroll infinit — decizie de produs
+2026-08-16 („caracter de comunitate", vezi CONTEXT.md). Diferă de `ShowMoreButton` de mai sus (aia e
+expand client-side pe liste mărginite, nu paginare reală). `?page=` peste ultima pagină → redirect la
+ultima pagină validă (nu „Niciun rezultat" fals), vezi `feed/page.tsx`. Pentru orice listă nouă care
+poate crește nelimitat pe server (nu doar N vizibile din DB), reutilizează acest pattern.
 
 ## Neacoperit încă (adaugă pe măsură ce apare)
 Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/notificare inline.

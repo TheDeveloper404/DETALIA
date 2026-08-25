@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
+import { REMOVED_PROJECT_AUTHOR_LABEL } from "@/server/domain/project";
 import {
   composeStackStrokes,
   REMOVED_AUTHOR_LABEL,
@@ -31,7 +32,10 @@ import type { TargetPosition } from "@/server/repos/validationsRepo";
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
 import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
+import type { ExistingMaterialOffer } from "./material-offer-modal";
+import { MaterialOfferPanel } from "./material-offer-panel";
 import { SupplierOfferButton, SupplierOfferPanel } from "./supplier-offer-panel";
+import type { MaterialOfferForDetail } from "@/server/repos/materialOffersRepo";
 import { ValidationPanel } from "./validation-panel";
 
 // Antetul detaliului (titlu/autor/params/descriere) — mutat în capul cardului workspace (model 3.jpeg).
@@ -97,6 +101,7 @@ export function DetailWorkspace({
   imageUrl,
   header,
   detailAuthor,
+  authorRemovedFromProject = false,
   detailValidation,
   isDetailAuthor,
   deletionMode,
@@ -109,12 +114,19 @@ export function DetailWorkspace({
   isCurrentUserFurnizor = false,
   isOfferingSupplier = false,
   supplierOffers,
+  isDetailPublic,
+  myMaterialOffer = null,
+  materialOffers,
   tourSeen,
 }: {
   detailId: string;
   imageUrl: string;
   header: DetailHeader;
   detailAuthor: Author;
+  // Autorul detaliului mai e membru activ al proiectului în care a fost publicat? (doar detalii ÎNCĂ
+  // private, projectId setat — vezi projectService.isDetailAuthorRemovedFromProject). Badge de
+  // AFIȘARE, nu poartă de acces — numele/poza rămân vizibile, doar apartenența s-a schimbat.
+  authorRemovedFromProject?: boolean;
   detailValidation: ValidationView;
   isDetailAuthor: boolean;
   // Calculat pe server (`getDeletionPreview`): ce face „Șterge" pe acest detaliu ACUM.
@@ -134,17 +146,26 @@ export function DetailWorkspace({
   isCurrentUserFurnizor?: boolean; // doar afișare condiționată — gating real e pe server
   isOfferingSupplier?: boolean;
   supplierOffers: SupplierOfferRow[];
+  // Oferă materiale (2026-08-25) — restrâns la detalii PUBLICE (gating real e pe server, la fel ca mai
+  // sus). Oferta proprie a furnizorului curent (pt buton „Editează") + ofertele primite (DOAR pt autor).
+  isDetailPublic: boolean;
+  myMaterialOffer?: ExistingMaterialOffer | null;
+  materialOffers: MaterialOfferForDetail[];
 }) {
-  // 0 = detaliul de bază; 1..N = schițele (index i → sketches[i-1]). După o ștergere lista se scurtează
-  // → clamp pe un tab valid. `?sketch=<id>` din URL (dacă e prezent) deschide direct pe tab-ul acela.
+  // Tab activ = null (detaliul de bază) sau id-ul unei schițe. `?sketch=<id>` din URL (dacă e prezent)
+  // deschide direct pe tab-ul acela. NU un index de array (bug real, găsit 2026-08-25 din eșecul
+  // `sketch.spec.ts:74`): `setTabAndUrl` face `router.replace` pe query string, care re-fetch-uiește
+  // `sketches` de pe server — dacă ÎNTRE TIMP altcineva publică o schiță pe același detaliu, ordinea
+  // (cea mai nouă primă) se schimbă sub tab-ul deschis, iar un index rămas fix ar arăta silențios ALTĂ
+  // schiță (autor greșit, buton „Șterge" pe formularul greșit). Comparăm cu id-ul, la fel ca
+  // `openAnnotation`/`layersOwnerId` mai jos: „nu mai există la id-ul ăsta" cade sigur pe tab-ul de bază.
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
-  const [tab, setTab] = useState(() => {
+  const [activeSketchId, setActiveSketchId] = useState<string | null>(() => {
     const wanted = searchParams.get("sketch");
-    if (!wanted) return 0;
-    const idx = sketches.findIndex((s) => s.id === wanted);
-    return idx >= 0 ? idx + 1 : 0;
+    if (!wanted) return null;
+    return sketches.some((s) => s.id === wanted) ? wanted : null;
   });
   // Adnotarea pornește DESCHISĂ implicit (2026-08-11, decizie de produs: e „startul dezbaterii", trebuie
   // vizibilă din prima, nu ascunsă după un click). Cel mult UNA (MAX_ANNOTATIONS_PER_DETAIL = 1) —
@@ -165,23 +186,20 @@ export function DetailWorkspace({
   // Adnotarea deschisă acum (sau null). Derivată, nu stare separată: dacă adnotarea deschisă e ștearsă,
   // lista revine fără ea de pe server și `find` întoarce undefined → UI-ul se închide singur, corect.
   const openAnnotation = annotations.find((a) => a.id === openAnnotationId) ?? null;
-  const safeTab = Math.min(tab, sketches.length); // max = N (ultima schiță)
-  const isBase = safeTab === 0;
-  const activeSketch = isBase ? null : sketches[safeTab - 1];
+  const activeSketch = activeSketchId ? (sketches.find((s) => s.id === activeSketchId) ?? null) : null;
+  const isBase = activeSketch === null;
 
   // Sincronizează URL-ul cu tab-ul activ (shallow, fără reload) — altfel bara de adresă a browserului nu
   // reflectă schița deschisă, iar „copiază link-ul din browser" (regula 2026-07-06: fără buton dedicat de
   // link privat) ar trimite mereu pe tab de bază, nu pe schița pe care o vezi.
-  function setTabAndUrl(next: number) {
-    setTab(next);
-    const sketchId = next === 0 ? null : sketches[next - 1]?.id;
+  function setTabAndUrl(sketchId: string | null) {
+    setActiveSketchId(sketchId);
     router.replace(sketchId ? `${pathname}?sketch=${sketchId}` : pathname, { scroll: false });
   }
 
   // Mențiunile din comentarii selectează un tab de schiță după id.
   function selectSketch(sketchId: string) {
-    const idx = sketches.findIndex((s) => s.id === sketchId);
-    if (idx >= 0) setTabAndUrl(idx + 1);
+    if (sketches.some((s) => s.id === sketchId)) setTabAndUrl(sketchId);
   }
 
   // Eticheta unei schițe: „Nume" sau „Nume — schița N" când același autor are mai multe. Ordinalul e
@@ -219,12 +237,11 @@ export function DetailWorkspace({
   // Stare DOAR de vizualizare, resetată la schimbarea tabului (`key`-ul derivat de mai jos): nu se
   // persistă per user — la fiecare deschidere vezi stack-ul întreg, nu o preferință veche.
   const [hiddenLayerIds, setHiddenLayerIds] = useState<Set<string>>(new Set());
-  const activeSketchId = activeSketch?.id ?? null;
   // Resetăm bifele când se schimbă schița activă. Comparăm cu id-ul, nu cu indexul: după o ștergere,
   // același index poate însemna altă schiță.
-  const [layersOwnerId, setLayersOwnerId] = useState<string | null>(activeSketchId);
-  if (layersOwnerId !== activeSketchId) {
-    setLayersOwnerId(activeSketchId);
+  const [layersOwnerId, setLayersOwnerId] = useState<string | null>(activeSketch?.id ?? null);
+  if (layersOwnerId !== (activeSketch?.id ?? null)) {
+    setLayersOwnerId(activeSketch?.id ?? null);
     setHiddenLayerIds(new Set());
   }
 
@@ -361,7 +378,13 @@ export function DetailWorkspace({
                   {detailAuthor.name ?? "Anonim"}
                 </span>
               </Link>
-            ) : (
+            ) : null}
+            {detailAuthor.id && authorRemovedFromProject && (
+              <span className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2 py-0.5 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                {REMOVED_PROJECT_AUTHOR_LABEL}
+              </span>
+            )}
+            {!detailAuthor.id && (
               <span className="flex items-center gap-2">
                 <AvatarInitials name={null} imageUrl={null} size={38} />
                 <span className="font-heading text-[15.5px] font-bold text-muted-foreground">
@@ -475,7 +498,7 @@ export function DetailWorkspace({
           >
             <button
               type="button"
-              onClick={() => setTabAndUrl(0)}
+              onClick={() => setTabAndUrl(null)}
               title={detailAuthor.name ?? "Autor detaliu"}
               aria-label={detailAuthor.name ?? "Autor detaliu"}
               aria-current={isBase ? "true" : undefined}
@@ -503,17 +526,17 @@ export function DetailWorkspace({
                 </span>
               )}
             </button>
-            {sketches.map((s, i) => {
+            {sketches.map((s) => {
               // Eticheta e IDENTICĂ cu cea a mențiunilor din dezbatere (comments-section) — cititorul
               // le poate corela. Vezi `sketchLabel` pentru regula ordinalului stabil.
               const label = sketchLabel(s);
-              const isActive = safeTab === i + 1;
+              const isActive = activeSketch?.id === s.id;
               return (
                 <button
                   key={s.id}
                   type="button"
                   data-testid={`sketch-tab-${s.id}`}
-                  onClick={() => setTabAndUrl(i + 1)}
+                  onClick={() => setTabAndUrl(s.id)}
                   title={label}
                   aria-label={label}
                   aria-current={isActive ? "true" : undefined}
@@ -555,9 +578,16 @@ export function DetailWorkspace({
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
             <div data-tour="detail-actions" className="absolute bottom-3 right-3 z-[3] flex items-center gap-2">
               {/* „Ofertă" — DOAR pe tab-ul de bază (materialele țin de detaliu, nu de o schiță anume),
-                  DOAR furnizori, NICIODATĂ pe propriul detaliu (2026-08-18, mutat lângă „Schițează"). */}
-              {isBase && !isDetailAuthor && isCurrentUserFurnizor && (
-                <SupplierOfferButton detailId={detailId} isOffering={isOfferingSupplier} />
+                  DOAR furnizori, NICIODATĂ pe propriul detaliu (2026-08-18, mutat lângă „Schițează").
+                  DOAR pe detalii PUBLICE (2026-08-25) — pe proiecte private n-are sens comercial.
+                  Click-ul (ridicare SAU click ulterior) deschide modalul de ofertă materiale — vezi
+                  SupplierOfferButton. */}
+              {isBase && !isDetailAuthor && isCurrentUserFurnizor && isDetailPublic && (
+                <SupplierOfferButton
+                  detailId={detailId}
+                  isOffering={isOfferingSupplier}
+                  existingOffer={myMaterialOffer}
+                />
               )}
               {startSketchBtn}
             </div>
@@ -573,7 +603,7 @@ export function DetailWorkspace({
             />
             {!isBase && (
               <span
-                key={`badge-${safeTab}`}
+                key={`badge-${activeSketch?.id ?? "base"}`}
                 className="absolute left-3 top-3 z-[2] animate-in fade-in rounded-md border border-[#e6dccd] bg-white/85 px-2 py-1 font-mono text-[10px] uppercase tracking-wide text-[#7c7060] duration-200"
               >
                 schiță peste detaliu
@@ -634,7 +664,7 @@ export function DetailWorkspace({
                 priority
               />
               {!isBase && (
-                <div key={`sketch-${safeTab}`} className="absolute inset-0 animate-in fade-in duration-200">
+                <div key={`sketch-${activeSketch?.id ?? "base"}`} className="absolute inset-0 animate-in fade-in duration-200">
                   <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
                 </div>
               )}
@@ -754,6 +784,8 @@ export function DetailWorkspace({
             voteSlot={voteSlotEl}
           />
           {isBase && <SupplierOfferPanel offers={supplierOffers} />}
+          {/* STRICT autor — server-ul întoarce listă goală pt oricine altcineva (dublă barieră). */}
+          {isBase && isDetailAuthor && <MaterialOfferPanel offers={materialOffers} />}
         </div>
       </section>
 

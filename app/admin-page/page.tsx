@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/admin-auth";
 import { listUsersForAdmin } from "@/server/repos/usersRepo";
 import { getPlatformState } from "@/server/services/settingsService";
+import { getAllReferralsForAdmin } from "@/server/services/referralService";
 
 import { adminLogoutAction } from "./actions";
+import { AdminReferralsTable } from "./admin-referrals-table";
 import { MaintenanceForm } from "./maintenance-form";
 import { UsersTable } from "./users-table";
 
@@ -21,9 +23,10 @@ export default async function AdminPage() {
     redirect("/admin-page/login");
   }
 
-  const [users, platform] = await Promise.all([
+  const [users, platform, referrals] = await Promise.all([
     listUsersForAdmin(),
     getPlatformState(),
+    getAllReferralsForAdmin(),
   ]);
 
   return (
@@ -63,6 +66,14 @@ export default async function AdminPage() {
         </div>
 
         <UsersTable users={users} />
+      </section>
+
+      {/* ─── Referrals ─── */}
+      <section className="mt-8">
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-base font-semibold">Conversii prin link de referral</h2>
+        </div>
+        <AdminReferralsTable rows={referrals} />
       </section>
     </main>
   );

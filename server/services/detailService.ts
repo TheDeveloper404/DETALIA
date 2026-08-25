@@ -10,8 +10,10 @@
 import { cache } from "react";
 
 import {
-  DEFAULT_FEED_SIZE,
+  FEED_PAGE_SIZE,
   DETAIL_STATUS,
+  feedOffset,
+  feedTotalPages,
   type DetailDeletionMode,
   type DetailResourceInput,
   type DetailValidationError,
@@ -22,6 +24,7 @@ import { isOwnBlobUrl, isUsersBlobUrl } from "@/lib/blob-url";
 import { shouldCountView } from "@/lib/rate-limit";
 import { deleteBlobs } from "@/lib/storage";
 import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
+import { deleteMaterialOffersForDetail } from "@/server/repos/materialOffersRepo";
 import {
   deleteDetailCascade,
   deleteSavedDetail,
@@ -36,7 +39,7 @@ import {
   insertSavedDetail,
   isDetailSavedByUser,
   listDetailDraftsByAuthor,
-  listFeed,
+  listFeedWithTotal,
   listTopDebated,
   listRelatedDetails,
   countSavedDetails,
@@ -58,6 +61,7 @@ import {
   canReleaseDetailToCommunity,
   getProject,
   getProjectAccess,
+  isDetailAuthorRemovedFromProject,
 } from "@/server/services/projectService";
 
 // SEC-N01: o resursă (IMAGE/PDF/CAD) al cărei URL e din STORE-UL nostru de Blob dar nu aparține
@@ -472,12 +476,17 @@ export const getDetail = cache(async (id: string, requesterId: string) => {
   if (!isUuid(id)) return null;
   const detail = await getDetailById(id);
   if (!detail) return null;
+  let authorRemovedFromProject = false;
   if (detail.projectId) {
     const allowed = await canAccessProjectDetail({ projectId: detail.projectId, userId: requesterId });
     if (!allowed) return null;
+    authorRemovedFromProject = await isDetailAuthorRemovedFromProject({
+      projectId: detail.projectId,
+      authorId: detail.ownerId,
+    });
   }
   const resources = await getDetailResources(id);
-  return { ...detail, resources };
+  return { ...detail, resources, authorRemovedFromProject };
 });
 
 export type ReleaseToCommunityResult =
@@ -583,6 +592,21 @@ export async function deleteDetail(input: {
     subRole: role?.subRole ?? null,
     verificationStatus: role?.verificationStatus ?? "UNVERIFIED",
   });
+
+  // Ofertele de materiale NU rămân la anonimizare (spre deosebire de comentarii/schițe) — decizie de
+  // produs 2026-08-25: relația furnizor↔autor și-a pierdut sensul odată ce autorul s-a retras, iar
+  // fișierele n-ar mai avea cui să-i fie utile. FK cascade NU acoperă asta (detaliul rămâne, nu se
+  // șterge) — ștergere explicită, best-effort (nu blochează retragerea autorului dacă eșuează).
+  try {
+    const offerUrls = await deleteMaterialOffersForDetail(input.detailId);
+    await deleteBlobs(offerUrls);
+  } catch (err) {
+    console.error("[detailService] deleteMaterialOffersForDetail eșuat la anonimizare (non-fatal)", {
+      detailId: input.detailId,
+      err,
+    });
+  }
+
   // false = altcineva (altă filă/dublu-click) a anonimizat între timp — rezultatul dorit există deja.
   return { ok: true, mode: "ANONYMIZE", alreadyDone: !anonymized };
 }
@@ -600,14 +624,35 @@ export async function getDeletionPreview(input: {
   return { mode: resolveDeletionMode(await countDetailInteractions(input.detailId)) };
 }
 
-// Feed finit (~20), opțional filtrat pe categorie / căutare pe titlu+descriere, strict cronologic. Fără scroll infinit.
-export async function getFeed(options?: { categoryId?: string | null; q?: string | null; limit?: number }) {
-  const limit = options?.limit ?? DEFAULT_FEED_SIZE;
-  return listFeed({
-    categoryId: options?.categoryId ?? null,
-    q: options?.q?.trim() || null,
+// Feed paginat (50/pagină), opțional filtrat pe categorie / căutare pe titlu+descriere, strict
+// cronologic. Fără scroll infinit (decizie de produs, vezi CONTEXT.md). Rândurile ȘI totalul vin din
+// ACELAȘI `db.batch` (listFeedWithTotal) — un singur snapshot de bază, indiferent dacă pagina e
+// populată sau goală (findere Greptile pe PR #255, 2026-08-25: query-uri independente puteau vedea
+// stări diferite dacă un detaliu era publicat/șters exact între cele două).
+export async function getFeed(options?: {
+  categoryId?: string | null;
+  q?: string | null;
+  page?: number;
+  limit?: number;
+}) {
+  const categoryId = options?.categoryId ?? null;
+  const q = options?.q?.trim() || null;
+  // Input netrust (nu doar din URL — `getFeed` e un service public, apelabil direct): aceeași regulă
+  // strictă ca `resolveFeedPage` (server/domain/detail.ts), NU doar „pozitiv" — un 2.5 necalificat ar
+  // da un OFFSET SQL nefracționar, iar un întreg peste MAX_SAFE_INTEGER ar da Infinity la feedOffset.
+  const rawLimit = options?.limit;
+  const limit = Number.isSafeInteger(rawLimit) && rawLimit! > 0 ? rawLimit! : FEED_PAGE_SIZE;
+  const rawPage = options?.page;
+  const page = Number.isSafeInteger(rawPage) && rawPage! > 0 ? rawPage! : 1;
+
+  const { rows: details, total } = await listFeedWithTotal({
+    categoryId,
+    q,
     limit,
+    offset: feedOffset(page, limit),
   });
+
+  return { details, total, page, totalPages: feedTotalPages(total, limit) };
 }
 
 // „Toate detaliile" din sidebar — numărătoare directă, cu ACEEAȘI vizibilitate ca `getFeed` (fără

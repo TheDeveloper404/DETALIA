@@ -14,6 +14,8 @@ import { hashToken } from "@/lib/admin-token-hash";
 import { audit } from "@/lib/audit";
 import { createCachedSettingsReader } from "@/lib/cached-settings-reader";
 import { buildCspHeader } from "@/lib/csp";
+import { REFERRAL_COOKIE_MAX_AGE_SECONDS, REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
+import { isValidReferralCodeFormat } from "@/server/domain/referral";
 import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
 import { getUserGateInfo } from "@/server/repos/usersRepo";
@@ -213,6 +215,23 @@ export default async function proxy(req: NextRequest) {
   requestHeaders.set("content-security-policy", csp);
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("content-security-policy", csp);
+
+  // Referral (2026-08-25): `/signup?ref=<cod>` → cookie de intenție, consumat DOAR la finalul
+  // onboarding-ului (app/onboarding/actions.ts) — nu aici, unde încă nu există niciun cont creat.
+  // Format validat ACUM (nu doar la consum) — un cod evident greșit nu merită să stea 30 de zile
+  // într-un cookie. Nu suprascriem un cookie deja pus (primul link vizitat câștigă, nu ultimul).
+  if (pathname === "/signup" && !isLoggedIn) {
+    const ref = req.nextUrl.searchParams.get("ref")?.trim().toUpperCase() ?? null;
+    if (ref && isValidReferralCodeFormat(ref) && !req.cookies.get(REFERRAL_COOKIE_NAME)) {
+      res.cookies.set(REFERRAL_COOKIE_NAME, ref, {
+        path: "/",
+        maxAge: REFERRAL_COOKIE_MAX_AGE_SECONDS,
+        httpOnly: true,
+        sameSite: "lax",
+        secure: isHttps,
+      });
+    }
+  }
   // Rutele protejate nu intră în bfcache-ul browserului — pe un calculator partajat, „Back" după logout
   // nu mai poate reafișa pagina din cache-ul de istoric (mutațiile erau oricum blocate fără cookie;
   // asta acoperă și citirea tranzitorie).

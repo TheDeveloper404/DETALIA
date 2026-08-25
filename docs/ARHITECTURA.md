@@ -106,6 +106,11 @@ Entitățile principale (schema completă, cu tipuri și constrângeri: `db/sche
 **Altele**
 - `savedDetails` — detalii salvate de un user (listă privată).
 - `supplierOffers` — semnalul „pot oferta materiale" al unui furnizor verificat, pe un detaliu.
+- `materialOffers` / `materialOfferFiles` — ofertă REALĂ de materiale (mesaj + fișiere PDF/Excel/CSV),
+  distinctă de `supplierOffers` (aia e doar flag-ul de interes, fără fișiere). STRICT pe detalii
+  publice, vizibilă doar autorului detaliului (2026-08-25).
+- `users.referralCode` / `.referredByUserId` — link de referral: cod scurt per user (generat lenes),
+  cine a adus un cont nou (setat o singură dată, la finalul onboarding-ului) (2026-08-25).
 - `adminLoginTokens` / `adminSessions` / `platformSettings` — panou de administrare (mentenanță,
   listă useri) separat de sesiunea normală.
 

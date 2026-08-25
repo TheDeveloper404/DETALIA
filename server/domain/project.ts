@@ -53,6 +53,12 @@ export function hasProjectAccess(input: { isOwner: boolean; isActiveMember: bool
 // proiect (nu mai e membru activ), owner-ul proiectului poate scoate detaliul „orfan" în locul lui.
 // Owner-ul NU poate scoate detaliul cât timp autorul e încă membru activ — nu e moderare, e decizia
 // autorului asupra propriului conținut.
+// Eticheta UI pentru badge-ul „autor eliminat din proiect" (detailAuthorRemovedFromProject, vezi
+// projectService.isDetailAuthorRemovedFromProject) — DIFERITĂ de REMOVED_AUTHOR_LABEL din
+// server/domain/sketch.ts (aia e pentru identitate RETRASĂ prin ștergere de cont, nu doar eliminare
+// din proiect: numele/poza rămân vizibile aici, doar apartenența la proiect s-a schimbat).
+export const REMOVED_PROJECT_AUTHOR_LABEL = "Autor eliminat din proiect";
+
 export function canReleaseToCommunity(input: {
   isDetailAuthor: boolean;
   isProjectOwner: boolean;

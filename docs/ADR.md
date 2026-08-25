@@ -1,6 +1,7 @@
 # DETALIA — Decizii de arhitectură (ADR — formă scurtă)
 
-> **Actualizat 2026-08-07: proiectul a trecut din faza MVP în v1 — 100% funcțională, 19 useri activi.**
+> **Actualizat 2026-08-07: proiectul a trecut din faza MVP în v1 — 100% funcțională, 26 useri activi
+> (2026-08-25).**
 > Deciziile de mai jos rămân valabile ca înregistrare istorică (context → decizie de la momentul
 > respectiv) — referințele la „MVP" din corpul lor nu sunt retro-editate.
 >
@@ -134,6 +135,19 @@ un marcaj „ce am arătat deja".
 curente. Suprafață mică de securitate (citire agregată + un snapshot per user), verificată ad-hoc, nu
 printr-un audit formal dedicat — vezi `docs/SECURITATE.md` §„Suprafață neacoperită de audit formal".
 _(CHANGELOG 2026-08-17, ARHITECTURA §5)_
+
+## ADR-016 — Captarea intenției de referral peste magic-link, prin cookie + consum la onboarding
+**Context:** link de referral (`?ref=<cod>`) trebuie legat de contul nou creat — dar în auth passwordless
+(ADR-002), contul se creează într-un request SEPARAT (click pe magic link din email), fără nicio legătură
+directă cu vizita inițială pe `/signup?ref=`. Verificat cu context7: `events.createUser` (Auth.js v5) nu
+primește `request`/cookies în semnătură — nu era un loc sigur de citit intenția.
+**Decizie (2026-08-25):** `proxy.ts` pune un cookie de intenție (httpOnly, 30 zile) la vizita pe
+`/signup?ref=<cod>`; `app/onboarding/actions.ts` (singurul punct din flux cu Server Action, deci cu
+voie să scrie/citească cookie-uri) îl consumă O SINGURĂ DATĂ, la finalul contului nou — fără să ating
+intern Auth.js/adapterul Drizzle.
+**Consecințe:** pattern reutilizabil pentru orice intenție viitoare care trebuie să supraviețuiască
+round-trip-ul de magic-link (nu doar referral) — cookie la intrare, consum la primul Server Action
+disponibil după autentificare (azi: onboarding). _(CHANGELOG 2026-08-25, SCHEMA.md)_
 
 ---
 

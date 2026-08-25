@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
-import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs, uploadSketchThumbnail } from "@/lib/storage";
 import { publish, saveStrokes } from "@/server/services/sketchService";
@@ -102,7 +102,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     detail_id: detailId,
     has_thumbnail: !!thumbnailUrl,
   });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   redirect(`/details/${detailId}`);
 }
