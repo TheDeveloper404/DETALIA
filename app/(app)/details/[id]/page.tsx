@@ -18,6 +18,8 @@ import {
 import { getUserRole } from "@/server/services/roleService";
 import { getAnnotations, getTeanc } from "@/server/services/sketchService";
 import { getSupplierOffers, isOfferingSupplier } from "@/server/services/supplierOfferService";
+import { getMaterialOffersForOwner, getMyMaterialOffer } from "@/server/services/materialOfferService";
+import { isPubliclyVisible } from "@/server/domain/detail";
 import { hasSeenDetailTour } from "@/server/services/tourService";
 import { getTargetValidationViews, getTargetValidationView } from "@/server/services/validationService";
 import { canReleaseDetailToCommunity, getProject } from "@/server/services/projectService";
@@ -178,14 +180,18 @@ export default async function DetailPage({
   const deletionPreview = isAuthor ? await getDeletionPreview({ detailId: detail.id, userId }) : null;
   // 4 citiri independente (doar userId/detail.id) — paralelizate, nu secvențiale (eficiență găsită la
   // code-review 2026-07-16: doar ultimele 2 erau în Promise.all, restul adăugau latență evitabilă).
-  const [saved, role, supplierOffers, offeringSupplier, tourSeen] = await Promise.all([
-    isDetailSaved(userId, detail.id),
-    getUserRole(userId),
-    getSupplierOffers(detail.id),
-    isOfferingSupplier(userId, detail.id),
-    hasSeenDetailTour(userId),
-  ]);
+  const [saved, role, supplierOffers, offeringSupplier, tourSeen, myMaterialOffer, materialOffers] =
+    await Promise.all([
+      isDetailSaved(userId, detail.id),
+      getUserRole(userId),
+      getSupplierOffers(detail.id),
+      isOfferingSupplier(userId, detail.id),
+      hasSeenDetailTour(userId),
+      getMyMaterialOffer(userId, detail.id),
+      getMaterialOffersForOwner(userId, detail.id), // gol pt oricine altcineva decât autorul (server-side)
+    ]);
   const isFurnizor = role?.roleMain === "FURNIZOR";
+  const isDetailPublic = isPubliclyVisible(detail);
 
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
@@ -348,6 +354,9 @@ export default async function DetailPage({
             isCurrentUserFurnizor={isFurnizor}
             isOfferingSupplier={offeringSupplier}
             supplierOffers={supplierOffers}
+            isDetailPublic={isDetailPublic}
+            myMaterialOffer={myMaterialOffer}
+            materialOffers={materialOffers}
             tourSeen={tourSeen}
           />
       </div>

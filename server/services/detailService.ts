@@ -24,6 +24,7 @@ import { isOwnBlobUrl, isUsersBlobUrl } from "@/lib/blob-url";
 import { shouldCountView } from "@/lib/rate-limit";
 import { deleteBlobs } from "@/lib/storage";
 import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
+import { deleteMaterialOffersForDetail } from "@/server/repos/materialOffersRepo";
 import {
   deleteDetailCascade,
   deleteSavedDetail,
@@ -592,6 +593,21 @@ export async function deleteDetail(input: {
     subRole: role?.subRole ?? null,
     verificationStatus: role?.verificationStatus ?? "UNVERIFIED",
   });
+
+  // Ofertele de materiale NU rămân la anonimizare (spre deosebire de comentarii/schițe) — decizie de
+  // produs 2026-08-25: relația furnizor↔autor și-a pierdut sensul odată ce autorul s-a retras, iar
+  // fișierele n-ar mai avea cui să-i fie utile. FK cascade NU acoperă asta (detaliul rămâne, nu se
+  // șterge) — ștergere explicită, best-effort (nu blochează retragerea autorului dacă eșuează).
+  try {
+    const offerUrls = await deleteMaterialOffersForDetail(input.detailId);
+    await deleteBlobs(offerUrls);
+  } catch (err) {
+    console.error("[detailService] deleteMaterialOffersForDetail eșuat la anonimizare (non-fatal)", {
+      detailId: input.detailId,
+      err,
+    });
+  }
+
   // false = altcineva (altă filă/dublu-click) a anonimizat între timp — rezultatul dorit există deja.
   return { ok: true, mode: "ANONYMIZE", alreadyDone: !anonymized };
 }
@@ -629,10 +645,20 @@ export async function getFeed(options?: {
   const rawPage = options?.page;
   const page = Number.isSafeInteger(rawPage) && rawPage! > 0 ? rawPage! : 1;
 
-  const [details, total] = await Promise.all([
-    listFeed({ categoryId, q, limit, offset: feedOffset(page, limit) }),
-    countFeedMatches({ categoryId, q }),
-  ]);
+  const rows = await listFeed({ categoryId, q, limit, offset: feedOffset(page, limit) });
+
+  let total: number;
+  let details: Omit<(typeof rows)[number], "totalMatches">[];
+  if (rows.length > 0) {
+    total = rows[0].totalMatches;
+    details = rows.map(({ totalMatches: _totalMatches, ...row }) => row);
+  } else {
+    // 0 rânduri: fie zero rezultate reale, fie offset dincolo de ultima pagină (`count(*) over()` nu
+    // întoarce nimic fără rânduri de bază) — recurgem la count separat DOAR în acest caz rar; totalul
+    // corect e necesar pentru redirectul la ultima pagină validă din page.tsx.
+    total = await countFeedMatches({ categoryId, q });
+    details = [];
+  }
 
   return { details, total, page, totalPages: feedTotalPages(total, limit) };
 }

@@ -9,7 +9,9 @@ export type NotificationType =
   | "SKETCH_ACCEPTED"
   | "SKETCH_REJECTED"
   | "SKETCH_DELETED"
-  | "SUPPLIER_OFFERED";
+  | "SUPPLIER_OFFERED"
+  | "MATERIAL_OFFER_SENT"
+  | "MATERIAL_OFFER_EDITED";
 
 export async function insertNotification(input: {
   recipientUserId: string;

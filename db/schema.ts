@@ -63,6 +63,10 @@ export const notificationType = pgEnum("notification_type", [
   "SKETCH_DELETED",
   // Un FURNIZOR a „ridicat mâna" (poate oferta materiale) pe detaliul autorului — doar la primul click.
   "SUPPLIER_OFFERED",
+  // Ofertă de materiale (fișiere) trimisă de un Furnizor pe un detaliu al autorului.
+  "MATERIAL_OFFER_SENT",
+  // Aceeași ofertă a fost editată ulterior (fișier/mesaj adăugat) — notificare separată, nu re-trimitere.
+  "MATERIAL_OFFER_EDITED",
 ]);
 
 // ════════════════════ (A) Tabele Auth.js (adapter Drizzle) ════════════════════
@@ -605,6 +609,51 @@ export const supplierOffers = pgTable(
     primaryKey({ columns: [t.userId, t.detailId] }),
     index("supplier_offers_detail_id_idx").on(t.detailId),
   ],
+);
+
+// Ofertă de materiale a unui Furnizor pe un detaliu — DISTINCTĂ de `supplier_offers` (aia e doar
+// flag-ul „pot oferta", boolean, fără fișiere). O ofertă = mesaj + fișiere (PDF/Excel/CSV), vizibilă
+// STRICT autorului detaliului (2026-08-25, decizie de produs). O singură ofertă per (furnizor, detaliu)
+// — se editează, nu se duplică (unique index mai jos).
+export const materialOffers = pgTable(
+  "material_offers",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    detailId: uuid()
+      .notNull()
+      .references(() => details.id, { onDelete: "cascade" }),
+    supplierId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    message: text().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp({ withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("material_offers_detail_supplier_uq").on(t.detailId, t.supplierId),
+    index("material_offers_detail_id_idx").on(t.detailId),
+    index("material_offers_supplier_id_idx").on(t.supplierId),
+  ],
+);
+
+// Fișierele unei oferte de materiale — separate de `materialOffers` (o ofertă poate avea 0..N fișiere,
+// adăugate/înlocuite la editare, fără să afecteze mesajul sau data ofertei).
+export const materialOfferFiles = pgTable(
+  "material_offer_files",
+  {
+    id: uuid().defaultRandom().primaryKey(),
+    offerId: uuid()
+      .notNull()
+      .references(() => materialOffers.id, { onDelete: "cascade" }),
+    url: text().notNull(),
+    fileName: text().notNull(),
+    fileSize: integer().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("material_offer_files_offer_id_idx").on(t.offerId)],
 );
 
 // Notificare (in-app + email).

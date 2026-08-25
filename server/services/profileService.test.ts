@@ -16,9 +16,13 @@ vi.mock("@/server/repos/usersRepo", () => ({
   getPublicProfile: vi.fn(),
   updateSeenBadges: vi.fn(),
 }));
+vi.mock("@/server/repos/materialOffersRepo", () => ({
+  listMaterialOffersBySupplier: vi.fn().mockResolvedValue([]),
+}));
 
 import { getContributionCounts, getProfileStats } from "@/server/repos/profileRepo";
 import { getPublicProfile, updateSeenBadges } from "@/server/repos/usersRepo";
+import { listMaterialOffersBySupplier } from "@/server/repos/materialOffersRepo";
 
 import { getProfileView, markBadgesSeen, memberSinceOf, roleLabelOf } from "./profileService";
 
@@ -167,5 +171,44 @@ describe("getProfileView — contact (telefon/email) strict opt-in prin bifă, I
     const view = await getProfileView(USER_ID, OTHER_ID);
     expect(view?.email).toBe("ion@exemplu.ro");
     expect(view?.phone).toBeNull();
+  });
+});
+
+// Ofertele de materiale (2026-08-25) — STRICT privat: nici măcar interogate dacă viewer-ul nu e
+// proprietarul (apărare în adâncime, nu doar ascundere în UI — vezi profile-view.tsx).
+describe("getProfileView — materialOffers strict privat (viewerIsOwner)", () => {
+  it("proprietarul își vede profilul → listMaterialOffersBySupplier CHEMATĂ, rezultatul expus", async () => {
+    vi.mocked(listMaterialOffersBySupplier).mockResolvedValueOnce([
+      {
+        offerId: "offer-1",
+        detailId: "detail-1",
+        detailTitle: "Detaliu X",
+        message: "Am atașat lista",
+        createdAt: new Date("2026-08-20T00:00:00Z"),
+        updatedAt: new Date("2026-08-20T00:00:00Z"),
+        fileCount: 2,
+      },
+    ] as never);
+
+    const view = await getProfileView(USER_ID, USER_ID);
+
+    expect(listMaterialOffersBySupplier).toHaveBeenCalledWith(USER_ID);
+    expect(view?.materialOffers).toEqual([
+      {
+        id: "offer-1",
+        detailId: "detail-1",
+        detailTitle: "Detaliu X",
+        message: "Am atașat lista",
+        fileCount: 2,
+        time: expect.any(String),
+      },
+    ]);
+  });
+
+  it("vizitator (nu proprietarul) → listMaterialOffersBySupplier NECHEMATĂ, materialOffers gol", async () => {
+    const view = await getProfileView(USER_ID, OTHER_ID);
+
+    expect(listMaterialOffersBySupplier).not.toHaveBeenCalled();
+    expect(view?.materialOffers).toEqual([]);
   });
 });

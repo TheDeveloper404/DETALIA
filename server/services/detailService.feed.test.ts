@@ -95,4 +95,32 @@ describe("getFeed — paginare (50/pagină)", () => {
 
     expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ limit: 50 }));
   });
+
+  it("cu rânduri întoarse → total vine din count(*) over() (totalMatches pe rând), FĂRĂ apel separat la countFeedMatches", async () => {
+    vi.mocked(listFeed).mockResolvedValueOnce([
+      { id: "d1", totalMatches: 120 },
+      { id: "d2", totalMatches: 120 },
+    ] as unknown as Awaited<ReturnType<typeof listFeed>>);
+    // Nu `.not.toHaveBeenCalled()` — mock-ul e comun testelor din fișier, nu se resetează între ele.
+    const callsBefore = vi.mocked(countFeedMatches).mock.calls.length;
+
+    const res = await getFeed({ page: 1 });
+
+    expect(vi.mocked(countFeedMatches).mock.calls.length).toBe(callsBefore);
+    expect(res.total).toBe(120);
+    expect(res.totalPages).toBe(3); // 120 / 50 → 3 pagini
+    // totalMatches e detaliu intern — nu trebuie să ajungă în rândurile returnate către UI.
+    expect(res.details).toEqual([{ id: "d1" }, { id: "d2" }]);
+  });
+
+  it("0 rânduri (offset dincolo de ultima pagină) → recurge la countFeedMatches pt totalul corect", async () => {
+    vi.mocked(listFeed).mockResolvedValueOnce([]);
+    vi.mocked(countFeedMatches).mockResolvedValueOnce(37);
+
+    const res = await getFeed({ page: 99 });
+
+    expect(countFeedMatches).toHaveBeenCalledWith({ categoryId: null, q: null });
+    expect(res.total).toBe(37);
+    expect(res.details).toEqual([]);
+  });
 });

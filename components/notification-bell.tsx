@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bell, Check, CheckCheck, Hand, Pencil, Trash2, X } from "lucide-react";
+import { ArrowRight, Bell, Check, CheckCheck, FileText, Hand, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -13,7 +13,14 @@ import { RolePill } from "./role-pill";
 
 export type NotificationView = {
   id: string;
-  type: "SKETCH_PROPOSED" | "SKETCH_ACCEPTED" | "SKETCH_REJECTED" | "SKETCH_DELETED" | "SUPPLIER_OFFERED";
+  type:
+    | "SKETCH_PROPOSED"
+    | "SKETCH_ACCEPTED"
+    | "SKETCH_REJECTED"
+    | "SKETCH_DELETED"
+    | "SUPPLIER_OFFERED"
+    | "MATERIAL_OFFER_SENT"
+    | "MATERIAL_OFFER_EDITED";
   actorName: string | null;
   actorRole: string | null;
   actorSubRole: string | null;
@@ -50,6 +57,16 @@ const TYPE_STYLE = {
     sqBorder: "#cfe3d2",
     icon: <Hand className="size-4 text-[#2f6b3f]" strokeWidth={2} />,
   },
+  MATERIAL_OFFER_SENT: {
+    sqBg: "#e9f2ea",
+    sqBorder: "#cfe3d2",
+    icon: <FileText className="size-4 text-[#2f6b3f]" strokeWidth={2} />,
+  },
+  MATERIAL_OFFER_EDITED: {
+    sqBg: "#f6ede4",
+    sqBorder: "#ecdcc8",
+    icon: <FileText className="size-4 text-primary" strokeWidth={2} />,
+  },
 } as const;
 
 // Textul notificării pe datele reale din payload (fără a inventa rol/identitate lipsă).
@@ -79,6 +96,22 @@ function NotificationText({ n }: { n: NotificationView }) {
       <>
         <b className="font-bold text-foreground">{n.actorName ?? "Un furnizor"}</b> poate oferta
         materiale pentru {ref}.
+      </>
+    );
+  }
+  if (n.type === "MATERIAL_OFFER_SENT") {
+    return (
+      <>
+        <b className="font-bold text-foreground">{n.actorName ?? "Un furnizor"}</b> ți-a trimis o ofertă
+        de materiale pentru {ref}.
+      </>
+    );
+  }
+  if (n.type === "MATERIAL_OFFER_EDITED") {
+    return (
+      <>
+        <b className="font-bold text-foreground">{n.actorName ?? "Un furnizor"}</b> a actualizat oferta
+        de materiale pentru {ref}.
       </>
     );
   }

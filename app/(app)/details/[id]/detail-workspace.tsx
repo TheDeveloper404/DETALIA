@@ -32,7 +32,10 @@ import type { TargetPosition } from "@/server/repos/validationsRepo";
 import { CommentsSection, type MentionSketch } from "./comments-section";
 import { DetailActionsMenu } from "./detail-actions-menu";
 import { deleteSketchAction, startSketchAction } from "./sketch-review-actions";
+import type { ExistingMaterialOffer } from "./material-offer-modal";
+import { MaterialOfferPanel } from "./material-offer-panel";
 import { SupplierOfferButton, SupplierOfferPanel } from "./supplier-offer-panel";
+import type { MaterialOfferForDetail } from "@/server/repos/materialOffersRepo";
 import { ValidationPanel } from "./validation-panel";
 
 // Antetul detaliului (titlu/autor/params/descriere) — mutat în capul cardului workspace (model 3.jpeg).
@@ -111,6 +114,9 @@ export function DetailWorkspace({
   isCurrentUserFurnizor = false,
   isOfferingSupplier = false,
   supplierOffers,
+  isDetailPublic,
+  myMaterialOffer = null,
+  materialOffers,
   tourSeen,
 }: {
   detailId: string;
@@ -140,6 +146,11 @@ export function DetailWorkspace({
   isCurrentUserFurnizor?: boolean; // doar afișare condiționată — gating real e pe server
   isOfferingSupplier?: boolean;
   supplierOffers: SupplierOfferRow[];
+  // Oferă materiale (2026-08-25) — restrâns la detalii PUBLICE (gating real e pe server, la fel ca mai
+  // sus). Oferta proprie a furnizorului curent (pt buton „Editează") + ofertele primite (DOAR pt autor).
+  isDetailPublic: boolean;
+  myMaterialOffer?: ExistingMaterialOffer | null;
+  materialOffers: MaterialOfferForDetail[];
 }) {
   // Tab activ = null (detaliul de bază) sau id-ul unei schițe. `?sketch=<id>` din URL (dacă e prezent)
   // deschide direct pe tab-ul acela. NU un index de array (bug real, găsit 2026-08-25 din eșecul
@@ -567,9 +578,16 @@ export function DetailWorkspace({
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
             <div data-tour="detail-actions" className="absolute bottom-3 right-3 z-[3] flex items-center gap-2">
               {/* „Ofertă" — DOAR pe tab-ul de bază (materialele țin de detaliu, nu de o schiță anume),
-                  DOAR furnizori, NICIODATĂ pe propriul detaliu (2026-08-18, mutat lângă „Schițează"). */}
-              {isBase && !isDetailAuthor && isCurrentUserFurnizor && (
-                <SupplierOfferButton detailId={detailId} isOffering={isOfferingSupplier} />
+                  DOAR furnizori, NICIODATĂ pe propriul detaliu (2026-08-18, mutat lângă „Schițează").
+                  DOAR pe detalii PUBLICE (2026-08-25) — pe proiecte private n-are sens comercial.
+                  Click-ul (ridicare SAU click ulterior) deschide modalul de ofertă materiale — vezi
+                  SupplierOfferButton. */}
+              {isBase && !isDetailAuthor && isCurrentUserFurnizor && isDetailPublic && (
+                <SupplierOfferButton
+                  detailId={detailId}
+                  isOffering={isOfferingSupplier}
+                  existingOffer={myMaterialOffer}
+                />
               )}
               {startSketchBtn}
             </div>
@@ -766,6 +784,8 @@ export function DetailWorkspace({
             voteSlot={voteSlotEl}
           />
           {isBase && <SupplierOfferPanel offers={supplierOffers} />}
+          {/* STRICT autor — server-ul întoarce listă goală pt oricine altcineva (dublă barieră). */}
+          {isBase && isDetailAuthor && <MaterialOfferPanel offers={materialOffers} />}
         </div>
       </section>
 

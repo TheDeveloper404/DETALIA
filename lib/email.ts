@@ -170,6 +170,34 @@ export function supplierOfferedEmailText(who: string, detailTitle: string, url: 
   return `Un furnizor poate oferta materiale\n\n${who} a semnalat că poate oferta materiale pentru detaliul tău „${detailTitle}".\n\nVezi detaliul:\n${url}`;
 }
 
+export function materialOfferSentEmailHtml(who: string, detailTitle: string, url: string): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Ai primit o ofertă de materiale</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      ${esc(who)} a trimis o ofertă de materiale pentru detaliul tău <strong style="color:${BRAND.text};">${esc(detailTitle)}</strong>.
+    </p>
+    ${emailButton(url, "Vezi oferta")}
+  `);
+}
+
+export function materialOfferSentEmailText(who: string, detailTitle: string, url: string): string {
+  return `Ai primit o ofertă de materiale\n\n${who} a trimis o ofertă de materiale pentru detaliul tău „${detailTitle}".\n\nVezi oferta:\n${url}`;
+}
+
+export function materialOfferEditedEmailHtml(who: string, detailTitle: string, url: string): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Ofertă de materiale actualizată</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      ${esc(who)} a actualizat oferta de materiale pentru detaliul tău <strong style="color:${BRAND.text};">${esc(detailTitle)}</strong>.
+    </p>
+    ${emailButton(url, "Vezi oferta")}
+  `);
+}
+
+export function materialOfferEditedEmailText(who: string, detailTitle: string, url: string): string {
+  return `Ofertă de materiale actualizată\n\n${who} a actualizat oferta de materiale pentru detaliul tău „${detailTitle}".\n\nVezi oferta:\n${url}`;
+}
+
 export async function sendEmail(input: {
   to: string;
   subject: string;

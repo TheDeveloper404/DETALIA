@@ -2,6 +2,10 @@
 // Notificările in-app se scriu mereu; emailul se trimite dacă există credențiale (altfel no-op).
 
 import {
+  materialOfferEditedEmailHtml,
+  materialOfferEditedEmailText,
+  materialOfferSentEmailHtml,
+  materialOfferSentEmailText,
   plainSubject,
   sendEmail,
   sketchDeletedEmailHtml,
@@ -187,6 +191,42 @@ export async function notifySupplierOffered(input: {
     emailSubject: plainSubject(`${who} poate oferta materiale pentru „${input.detailTitle}"`),
     emailHtml: supplierOfferedEmailHtml(who, input.detailTitle, url),
     emailText: supplierOfferedEmailText(who, input.detailTitle, url),
+  });
+}
+
+export async function notifyMaterialOfferSent(input: {
+  recipientUserId: string;
+  detailId: string;
+  detailTitle: string;
+  supplierName: string | null;
+}) {
+  const who = input.supplierName ?? "Un furnizor";
+  const url = detailUrl(input.detailId);
+  await notify({
+    recipientUserId: input.recipientUserId,
+    type: "MATERIAL_OFFER_SENT",
+    payloadJson: { detailId: input.detailId, detailTitle: input.detailTitle, supplierName: input.supplierName },
+    emailSubject: plainSubject(`${who} ți-a trimis o ofertă de materiale pentru „${input.detailTitle}"`),
+    emailHtml: materialOfferSentEmailHtml(who, input.detailTitle, url),
+    emailText: materialOfferSentEmailText(who, input.detailTitle, url),
+  });
+}
+
+export async function notifyMaterialOfferEdited(input: {
+  recipientUserId: string;
+  detailId: string;
+  detailTitle: string;
+  supplierName: string | null;
+}) {
+  const who = input.supplierName ?? "Un furnizor";
+  const url = detailUrl(input.detailId);
+  await notify({
+    recipientUserId: input.recipientUserId,
+    type: "MATERIAL_OFFER_EDITED",
+    payloadJson: { detailId: input.detailId, detailTitle: input.detailTitle, supplierName: input.supplierName },
+    emailSubject: plainSubject(`${who} a actualizat oferta de materiale pentru „${input.detailTitle}"`),
+    emailHtml: materialOfferEditedEmailHtml(who, input.detailTitle, url),
+    emailText: materialOfferEditedEmailText(who, input.detailTitle, url),
   });
 }
 
