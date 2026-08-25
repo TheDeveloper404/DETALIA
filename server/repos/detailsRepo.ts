@@ -693,18 +693,6 @@ function feedFilterConditions(input: { categoryId?: string | null; q?: string | 
   return conds;
 }
 
-// Gardă comună feed (2026-08-09): NICIODATĂ detalii de proiect, indiferent cine e viewer-ul — asta e
-// explicit vederea PUBLICĂ. Membrii unui proiect îl văd pe pagina lui, nu aici (vezi
-// projectService.listProjectDetails). Partajată de listFeed/countFeedMatches/listFeedWithTotal —
-// ACELAȘI filtru peste tot, nu duplicat divergent.
-function feedWhere(input: { categoryId?: string | null; q?: string | null }) {
-  return and(
-    eq(details.status, DETAIL_STATUS.PUBLISHED),
-    isNull(details.projectId),
-    ...feedFilterConditions(input),
-  );
-}
-
 // Feed paginat (50/pagină, decizie 2026-08-16): doar PUBLISHED, opțional filtrat pe categorie/căutare.
 // Sortare strict cronologică (cele mai noi primele) — interacțiunile sunt afișate per card
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
@@ -715,6 +703,15 @@ export async function listFeed(input: {
   limit: number;
   offset?: number;
 }) {
+  // Proiecte (2026-08-09): feed-ul comunității nu include NICIODATĂ detalii de proiect, indiferent
+  // cine e viewer-ul — asta e explicit vederea PUBLICĂ. Membrii unui proiect îl văd pe pagina lui,
+  // nu aici (vezi projectService.listProjectDetails). Gardă INLINE, nu extrasă într-un helper —
+  // scriptul mecanic `check:visibility` (CI) verifică STRICT prezența ei în ACEEAȘI funcție.
+  const where = and(
+    eq(details.status, DETAIL_STATUS.PUBLISHED),
+    isNull(details.projectId),
+    ...feedFilterConditions(input),
+  );
   return db
     .select({
       ...detailWithAuthorColumns,
@@ -728,7 +725,7 @@ export async function listFeed(input: {
     .from(details)
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(feedWhere(input))
+    .where(where)
     // details.id ca tiebreaker: createdAt NU e unique — fără el, rânduri cu același timestamp nu au
     // ordine garantată între cereri LIMIT/OFFSET diferite (pot apărea duplicate sau sărite la limita
     // de pagină).
@@ -740,10 +737,16 @@ export async function listFeed(input: {
 // Total de rezultate pentru filtrele curente ale feed-ului — baza numărului de pagini din UI. SEPARAT
 // de `countPublishedDetails` (aia e „toate", fără filtre, pentru sidebar).
 export async function countFeedMatches(input: { categoryId?: string | null; q?: string | null }): Promise<number> {
+  // Aceeași gardă ca listFeed mai sus (vezi comentariul de-acolo) — literală aici și ea, intenționat.
+  const where = and(
+    eq(details.status, DETAIL_STATUS.PUBLISHED),
+    isNull(details.projectId),
+    ...feedFilterConditions(input),
+  );
   const [row] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(details)
-    .where(feedWhere(input));
+    .where(where);
   return row?.count ?? 0;
 }
 
@@ -759,6 +762,12 @@ export async function listFeedWithTotal(input: {
   limit: number;
   offset?: number;
 }): Promise<{ rows: Awaited<ReturnType<typeof listFeed>>; total: number }> {
+  // Aceeași gardă ca listFeed mai sus — literală aici și ea, intenționat (vezi comentariul din listFeed).
+  const where = and(
+    eq(details.status, DETAIL_STATUS.PUBLISHED),
+    isNull(details.projectId),
+    ...feedFilterConditions(input),
+  );
   const rowsQuery = db
     .select({
       ...detailWithAuthorColumns,
@@ -772,7 +781,7 @@ export async function listFeedWithTotal(input: {
     .from(details)
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(feedWhere(input))
+    .where(where)
     .orderBy(desc(details.createdAt), desc(details.id))
     .limit(input.limit)
     .offset(input.offset ?? 0);
@@ -780,7 +789,7 @@ export async function listFeedWithTotal(input: {
   const totalQuery = db
     .select({ count: sql<number>`count(*)::int` })
     .from(details)
-    .where(feedWhere(input));
+    .where(where);
 
   const [rows, totalRows] = await db.batch([rowsQuery, totalQuery]);
   return { rows, total: totalRows[0]?.count ?? 0 };
