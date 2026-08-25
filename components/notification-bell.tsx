@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bell, Check, CheckCheck, FileText, Hand, Pencil, Trash2, X } from "lucide-react";
+import { ArrowRight, Bell, Check, CheckCheck, FileText, Hand, Pencil, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -20,7 +20,8 @@ export type NotificationView = {
     | "SKETCH_DELETED"
     | "SUPPLIER_OFFERED"
     | "MATERIAL_OFFER_SENT"
-    | "MATERIAL_OFFER_EDITED";
+    | "MATERIAL_OFFER_EDITED"
+    | "REFERRAL_JOINED";
   actorName: string | null;
   actorRole: string | null;
   actorSubRole: string | null;
@@ -67,6 +68,11 @@ const TYPE_STYLE = {
     sqBorder: "#ecdcc8",
     icon: <FileText className="size-4 text-primary" strokeWidth={2} />,
   },
+  REFERRAL_JOINED: {
+    sqBg: "#e9f2ea",
+    sqBorder: "#cfe3d2",
+    icon: <UserPlus className="size-4 text-[#2f6b3f]" strokeWidth={2} />,
+  },
 } as const;
 
 // Textul notificării pe datele reale din payload (fără a inventa rol/identitate lipsă).
@@ -112,6 +118,14 @@ function NotificationText({ n }: { n: NotificationView }) {
       <>
         <b className="font-bold text-foreground">{n.actorName ?? "Un furnizor"}</b> a actualizat oferta
         de materiale pentru {ref}.
+      </>
+    );
+  }
+  if (n.type === "REFERRAL_JOINED") {
+    return (
+      <>
+        <b className="font-bold text-foreground">{n.actorName ?? "Cineva"}</b> s-a înscris în DETALIA
+        prin linkul tău de referral.
       </>
     );
   }

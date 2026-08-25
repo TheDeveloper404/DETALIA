@@ -8,6 +8,7 @@ const ZERO = {
   validationsGiven: 0,
   validationsReceived: 0,
   activeDaysLastYear: 0,
+  referralsCount: 0,
 };
 
 describe("computeBadges", () => {
@@ -47,22 +48,29 @@ describe("computeBadges", () => {
       validationsGiven: 0,
       validationsReceived: 0,
       activeDaysLastYear: 0,
+      referralsCount: 0,
     });
     expect(badges).toEqual([
       { id: "contributor", label: "Contribuitor", description: "Detalii de execuție publicate", tier: "bronze" },
     ]);
   });
 
-  it("toate metricile la maxim → toate cele 5 badge-uri, treapta aur", () => {
+  it("toate metricile la maxim → toate cele 6 badge-uri, treapta aur", () => {
     const badges = computeBadges({
       published: 25,
       sketches: 25,
       validationsGiven: 75,
       validationsReceived: 75,
       activeDaysLastYear: 250,
+      referralsCount: 10,
     });
-    expect(badges).toHaveLength(5);
+    expect(badges).toHaveLength(6);
     expect(badges.every((b) => b.tier === "gold")).toBe(true);
+  });
+
+  it("badge single „Creștem împreună” — sub prag → nimic, la prag → direct gold (fără trepte intermediare)", () => {
+    expect(computeBadges({ ...ZERO, referralsCount: 9 }).find((b) => b.id === "growth")).toBeUndefined();
+    expect(computeBadges({ ...ZERO, referralsCount: 10 }).find((b) => b.id === "growth")?.tier).toBe("gold");
   });
 });
 

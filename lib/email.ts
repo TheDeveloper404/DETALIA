@@ -198,6 +198,20 @@ export function materialOfferEditedEmailText(who: string, detailTitle: string, u
   return `Ofertă de materiale actualizată\n\n${who} a actualizat oferta de materiale pentru detaliul tău „${detailTitle}".\n\nVezi oferta:\n${url}`;
 }
 
+export function referralJoinedEmailHtml(who: string, profileUrl: string): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Cineva s-a alăturat prin linkul tău</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+      ${esc(who)} și-a făcut cont în DETALIA prin linkul tău de referral.
+    </p>
+    ${emailButton(profileUrl, "Vezi profilul tău")}
+  `);
+}
+
+export function referralJoinedEmailText(who: string, profileUrl: string): string {
+  return `Cineva s-a alăturat prin linkul tău\n\n${who} și-a făcut cont în DETALIA prin linkul tău de referral.\n\nVezi profilul tău:\n${profileUrl}`;
+}
+
 export async function sendEmail(input: {
   to: string;
   subject: string;

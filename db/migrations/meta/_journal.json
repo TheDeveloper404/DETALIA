@@ -148,6 +148,13 @@
       "when": 1787665738107,
       "tag": "0020_volatile_hardball",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787674502286,
+      "tag": "0021_curly_loki",
+      "breakpoints": true
     }
   ]
 }

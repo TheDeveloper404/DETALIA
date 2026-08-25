@@ -7,6 +7,8 @@ import {
   materialOfferSentEmailHtml,
   materialOfferSentEmailText,
   plainSubject,
+  referralJoinedEmailHtml,
+  referralJoinedEmailText,
   sendEmail,
   sketchDeletedEmailHtml,
   sketchDeletedEmailText,
@@ -31,6 +33,11 @@ import { getProjectAccess } from "@/server/services/projectService";
 function detailUrl(detailId: string): string {
   const base = process.env.AUTH_URL ?? "http://localhost:3000";
   return `${base}/details/${detailId}`;
+}
+
+function ownProfileUrl(): string {
+  const base = process.env.AUTH_URL ?? "http://localhost:3000";
+  return `${base}/profile`;
 }
 
 // Emailurile de notificare sunt OPRITE implicit (decizie de produs 2026-07-03): notificarea in-app ajunge,
@@ -227,6 +234,19 @@ export async function notifyMaterialOfferEdited(input: {
     emailSubject: plainSubject(`${who} a actualizat oferta de materiale pentru „${input.detailTitle}"`),
     emailHtml: materialOfferEditedEmailHtml(who, input.detailTitle, url),
     emailText: materialOfferEditedEmailText(who, input.detailTitle, url),
+  });
+}
+
+export async function notifyReferralJoined(input: { recipientUserId: string; joinedUserName: string | null }) {
+  const who = input.joinedUserName ?? "Cineva";
+  const url = ownProfileUrl();
+  await notify({
+    recipientUserId: input.recipientUserId,
+    type: "REFERRAL_JOINED",
+    payloadJson: { joinedUserName: input.joinedUserName },
+    emailSubject: plainSubject(`${who} s-a alăturat prin linkul tău de referral`),
+    emailHtml: referralJoinedEmailHtml(who, url),
+    emailText: referralJoinedEmailText(who, url),
   });
 }
 
