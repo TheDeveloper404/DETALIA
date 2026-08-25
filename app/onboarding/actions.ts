@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
-import { captureServerEvent, getPostHogClient } from "@/lib/posthog-server";
+import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { normalizeWebsite } from "@/lib/url";
@@ -129,7 +129,7 @@ export async function onboardingAction(
     sub_role: subRole,
     secondary_role: secondaryRole,
   });
-  await getPostHogClient().flush();
+  await flushPostHogEvents();
 
   // Profil complet → direct în feed (frecare minimă la primul contact). `tour=1`: singurul punct
   // real de „user chiar nou" — declanșează turul ghidat o singură dată (vezi product-tour.tsx).
