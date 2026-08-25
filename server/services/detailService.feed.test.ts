@@ -77,4 +77,22 @@ describe("getFeed — paginare (50/pagină)", () => {
 
     expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ offset: 0 }));
   });
+
+  it("page peste Number.MAX_SAFE_INTEGER (finit, dar unsafe) → cade pe 1, nu offset Infinity", async () => {
+    vi.mocked(listFeed).mockResolvedValueOnce([]);
+    vi.mocked(countFeedMatches).mockResolvedValueOnce(0);
+
+    await getFeed({ page: 1e308 });
+
+    expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ offset: 0 }));
+  });
+
+  it("limit netrust (apelant direct, nu doar UI) — zecimal/negativ/unsafe → cade pe FEED_PAGE_SIZE (50)", async () => {
+    vi.mocked(listFeed).mockResolvedValueOnce([]);
+    vi.mocked(countFeedMatches).mockResolvedValueOnce(0);
+
+    await getFeed({ limit: -1 });
+
+    expect(listFeed).toHaveBeenCalledWith(expect.objectContaining({ limit: 50 }));
+  });
 });
