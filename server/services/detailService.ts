@@ -621,12 +621,13 @@ export async function getFeed(options?: {
 }) {
   const categoryId = options?.categoryId ?? null;
   const q = options?.q?.trim() || null;
-  const limit = options?.limit ?? FEED_PAGE_SIZE;
   // Input netrust (nu doar din URL — `getFeed` e un service public, apelabil direct): aceeași regulă
   // strictă ca `resolveFeedPage` (server/domain/detail.ts), NU doar „pozitiv" — un 2.5 necalificat ar
-  // da un OFFSET SQL nefracționar.
+  // da un OFFSET SQL nefracționar, iar un întreg peste MAX_SAFE_INTEGER ar da Infinity la feedOffset.
+  const rawLimit = options?.limit;
+  const limit = Number.isSafeInteger(rawLimit) && rawLimit! > 0 ? rawLimit! : FEED_PAGE_SIZE;
   const rawPage = options?.page;
-  const page = Number.isInteger(rawPage) && rawPage! > 0 ? rawPage! : 1;
+  const page = Number.isSafeInteger(rawPage) && rawPage! > 0 ? rawPage! : 1;
 
   const [details, total] = await Promise.all([
     listFeed({ categoryId, q, limit, offset: feedOffset(page, limit) }),

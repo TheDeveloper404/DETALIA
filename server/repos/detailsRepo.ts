@@ -714,7 +714,10 @@ export async function listFeed(input: {
     .leftJoin(users, eq(users.id, details.authorId))
     .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(where)
-    .orderBy(desc(details.createdAt))
+    // details.id ca tiebreaker: createdAt NU e unique — fără el, rânduri cu același timestamp nu au
+    // ordine garantată între cereri LIMIT/OFFSET diferite (pot apărea duplicate sau sărite la limita
+    // de pagină).
+    .orderBy(desc(details.createdAt), desc(details.id))
     .limit(input.limit)
     .offset(input.offset ?? 0);
 }

@@ -248,6 +248,18 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   când găsește orice WARN/FAIL (`fail_action` default true) — roșu ≠ scan eșuat. Dovada reală de succes:
   liniile `Total of N URLs` + `PASS/WARN-NEW` din log, și step-ul `Upload raport` verde (artifact urcat).
   Nu trage concluzia „a picat" doar din statusul vizual al job-ului.
+- **Tab/selecție „activă" ținută ca INDEX de array, nu ca id → schimbă silențios ce se afișează dacă
+  lista se reordonează sub picioarele userului** *(bug real de produs, 2026-08-25,
+  `detail-workspace.tsx`, găsit din eșecul intermitent `sketch.spec.ts:74`, dovedit cu screenshot, nu
+  presupus)*: `setTabAndUrl` făcea `router.replace` pe query string, care re-fetch-uiește datele de pe
+  server; dacă altcineva publică o schiță pe ACELAȘI detaliu în același interval, ordinea (cea mai
+  nouă primă) se schimbă, iar un index numeric rămas fix arăta tăcut ALTĂ schiță (autor greșit, buton
+  de ștergere legat de formularul greșit) — reproductibil real, nu doar în e2e, oricând doi useri
+  interacționează simultan pe același conținut. Fix: tab-ul activ ținut ca `id | null`, derivat prin
+  `find` cu fallback sigur pe starea de bază dacă id-ul nu mai există — exact pattern-ul deja folosit
+  în ACELAȘI fișier pentru `openAnnotation`/`layersOwnerId` (comentat acolo explicit: „comparăm cu
+  id-ul, nu cu indexul"), doar că nu fusese aplicat și tab-ului propriu-zis. Orice stare nouă de
+  „element activ dintr-o listă care se poate schimba sub el" → id, niciodată index.
 
 ### Guardrails de repo (active)
 - **Documentația = parte din Definition of Done.** Orice set de modificări actualizează `CHANGELOG.md` + docul

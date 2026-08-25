@@ -49,7 +49,9 @@ export const FEED_PAGE_SIZE = 50;
 export function resolveFeedPage(raw: string | string[] | undefined): number {
   const value = Array.isArray(raw) ? raw[0] : raw;
   const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : 1;
+  // isSafeInteger, nu doar isInteger — un "1e308" e finit și whole, dar depășește
+  // Number.MAX_SAFE_INTEGER; (n - 1) * pageSize ar putea da Infinity la feedOffset.
+  return Number.isSafeInteger(n) && n > 0 ? n : 1;
 }
 
 export function feedOffset(page: number, pageSize: number = FEED_PAGE_SIZE): number {

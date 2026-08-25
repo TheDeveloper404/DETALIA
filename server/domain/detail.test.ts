@@ -331,6 +331,10 @@ describe("resolveFeedPage — `?page=` din URL → număr de pagină valid", () 
     expect(resolveFeedPage("-3")).toBe(1);
     expect(resolveFeedPage("1.5")).toBe(1);
   });
+
+  it("întreg peste Number.MAX_SAFE_INTEGER (ex. 1e308, finit dar unsafe) → cade pe 1, nu offset Infinity", () => {
+    expect(resolveFeedPage("1e308")).toBe(1);
+  });
 });
 
 describe("feedOffset — offset SQL din numărul de pagină", () => {
