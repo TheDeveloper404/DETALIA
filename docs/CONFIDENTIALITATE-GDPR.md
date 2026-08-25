@@ -17,6 +17,8 @@
 | Nume + rol declarat | afișare transparentă lângă contribuții (inima produsului) | execuția serviciului | cât e contul activ |
 | Dovezi verificare (nr. OAR / CUI) | verificarea rolului → badge | consimțământ (userul vine singur) | până la verificare + termen rezonabil |
 | Conținut (validări, comentarii, schițe) | funcționarea comunității | execuția serviciului | cât e contul activ |
+| Fișiere ofertă de materiale (PDF/Excel/CSV) | comunicare comercială Furnizor↔autor detaliu, STRICT privată (2026-08-25) | execuția serviciului | cât există oferta (ștearsă la retragere/anonimizare detaliu) |
+| Relație de referral (cine a adus pe cine) | atribuire badge + istoric, vizibil autorului relației + admin (2026-08-25) | execuția serviciului | cât e contul activ; nescrisă la ștergere cont (non-PII, cod random) |
 | Token magic link | login | execuția serviciului | one-time, expiră (TTL din env) |
 | Metadate tehnice (loguri) | securitate, debugging | interes legitim | scurt; **fără PII în loguri** |
 

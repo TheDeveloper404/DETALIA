@@ -69,6 +69,10 @@
   `brace-expansion` (dismissed 2026-07-27 ca `tolerable_risk`, dev/build-time only) — la checkpoint-ul
   lunar verifică dacă a apărut fix compatibil (eslint 10 stabil?) → upgrade + scoate intrarea din
   allowlist-ul Dependabot.
+- **DAST (ZAP) — lunar, sau la orice implementare mare** (regulă 2026-08-25): trecere cu cei 3 pași
+  deja folosiți (2026-08-22): `zap-baseline.yml` (neautentificat) → `zap-full-auth.yml` (autentificat,
+  cookie de sesiune de test) → skill `dast-preview` (ad-hoc, țintit pe findere specifice, cere URL de
+  preview explicit de la Liviu). Nu se pornește automat de Claude — Liviu declanșează sau cere explicit.
 
 ---
 
