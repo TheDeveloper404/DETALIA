@@ -60,4 +60,16 @@ test.describe.serial("Paginare feed (50/pagină)", () => {
     await expect(page.getByText("Niciun Rezultat")).toHaveCount(0);
     await expect(page.locator("article")).toHaveCount(TOTAL - FEED_PAGE_SIZE);
   });
+
+  // Regresie: `resolveFeedPage` folosea `Number.isInteger`, care NU exclude numere finite dar
+  // peste Number.MAX_SAFE_INTEGER (ex. 1e308) — `feedOffset` depășea Number.MAX_VALUE și dădea
+  // Infinity, trimis direct ca OFFSET la Postgres → 500. Fix: Number.isSafeInteger.
+  test("?page= cu valoare finită dar unsafe (1e308) → redirect la ultima pagină validă, nu 500", async ({
+    page,
+  }) => {
+    const response = await page.goto(`/feed?q=${TAG}&page=1e308`);
+    expect(response?.status()).toBeLessThan(500);
+    await expect(page).toHaveURL(/page=2/);
+    await expect(page.locator("article")).toHaveCount(TOTAL - FEED_PAGE_SIZE);
+  });
 });
