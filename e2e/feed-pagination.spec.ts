@@ -9,7 +9,11 @@ import { getSeed } from "./seed";
 // Paginare feed (decizie 2026-08-16): 50/pagină, stil forum (Anterior/Următor + numere), NU scroll
 // infinit. `TAG` unic pe rulare izolează seed-ul acestui test de restul feed-ului (căutare `?q=`),
 // ca numărul de carduri per pagină să fie exact predictibil, indiferent ce mai există în DB.
-const TAG = `e2epag${Date.now()}`;
+// NU un prefix care conține „e2e" (bug găsit 2026-08-25): titlurile bulk deveneau vizibile la orice
+// căutare a termenului „E2E" din alte spec-uri rulate în paralel (ex. feed-search.spec.ts), împingând
+// detaliul lor țintă de pe prima pagină de rezultate — izolare unidirecțională (proteja acest test de
+// restul, nu restul de acest test).
+const TAG = `pgtest${Date.now()}`;
 const TOTAL = FEED_PAGE_SIZE + 5; // forțează exact 2 pagini: 50 + 5
 
 test.describe.serial("Paginare feed (50/pagină)", () => {
