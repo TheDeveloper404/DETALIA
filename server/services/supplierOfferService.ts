@@ -1,6 +1,8 @@
 // Service „ridic mâna" Furnizor — INIMA regulii: doar FURNIZOR (verificat din DB, nu din client) poate
-// semnala că poate oferta materiale pe un detaliu. Reversibil (al doilea click retrage). Notificare
-// in-app către autor DOAR la primul click (nu la fiecare retragere/reofertare).
+// semnala că poate oferta materiale pe un detaliu. Reversibil (al doilea click retrage).
+// FĂRĂ notificare aici (2026-08-26, feedback: „la ridicare mână nu ar trebui să primesc notificare,
+// ci doar când oferta e trimisă") — notificarea reală vine din materialOfferService
+// (notifyMaterialOfferSent/Edited), la trimiterea CONȚINUTULUI ofertei, nu la simpla ridicare a mâinii.
 
 import { isPubliclyVisible } from "@/server/domain/detail";
 import { isUuid } from "@/server/domain/ids";
@@ -12,8 +14,6 @@ import {
   isSupplierOfferedByUser,
   listSupplierOffersForDetail,
 } from "@/server/repos/supplierOffersRepo";
-import { getNotificationActor } from "@/server/repos/usersRepo";
-import { notifySupplierOffered } from "@/server/services/notificationService";
 
 type SupplierOfferError = "NO_ROLE" | "NOT_FURNIZOR" | "TARGET_NOT_FOUND" | "CANNOT_OFFER_OWN";
 export type SupplierOfferResult =
@@ -54,35 +54,16 @@ export async function toggleSupplierOffer(input: {
     return { ok: true, offering: false };
   }
 
-  // Oferta e deja confirmată în DB (insertedNow === true) — restul e strict auxiliar (auto-save +
-  // notificare). Un eșec aici NU trebuie să-l facă pe user să vadă o eroare și să reîncerce: al doilea
-  // click ar citi oferta deja existentă și ar interpreta-o drept RETRAGERE (vezi comentariul de mai sus),
-  // anulând silențios oferta abia pusă. De-cuplat deliberat de rezultatul întors userului.
+  // Oferta e deja confirmată în DB (insertedNow === true) — auto-save-ul e strict auxiliar. Un eșec
+  // aici NU trebuie să-l facă pe user să vadă o eroare și să reîncerce: al doilea click ar citi oferta
+  // deja existentă și ar interpreta-o drept RETRAGERE (vezi comentariul de mai sus), anulând silențios
+  // oferta abia pusă. De-cuplat deliberat de rezultatul întors userului.
   try {
     // Auto-save: ca oferta să nu se piardă în Feed — userul o regăsește în /saved fără căutare.
     // Doar la ridicare, nu la retragere (n-are sens să-i ștergem un bookmark pus manual din alt motiv).
     await insertSavedDetail(input.userId, input.detailId);
   } catch (err) {
     console.error("[supplierOfferService] insertSavedDetail eșuat (non-fatal)", {
-      userId: input.userId,
-      detailId: input.detailId,
-      err,
-    });
-  }
-
-  try {
-    // Detaliul e garantat PUBLIC aici (verificat mai sus) — destinatarul (detail.ownerId) are mereu
-    // acces, fără verificare de membership de proiect (asta era necesară doar cât detaliile de proiect
-    // erau încă permise pe acest flux; nu mai sunt).
-    const actor = await getNotificationActor(input.userId);
-    await notifySupplierOffered({
-      recipientUserId: detail.ownerId,
-      detailId: input.detailId,
-      detailTitle: detail.title,
-      supplierName: actor?.name ?? null,
-    });
-  } catch (err) {
-    console.error("[supplierOfferService] notifySupplierOffered eșuat (non-fatal)", {
       userId: input.userId,
       detailId: input.detailId,
       err,
