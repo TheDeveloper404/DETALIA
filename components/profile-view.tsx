@@ -111,6 +111,10 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
       {data.viewerIsOwner && <BadgeEarnedPopup badges={data.newlyEarnedBadges} />}
+      {/* Wrapper NON-overflow-hidden — cardul de mai jos are overflow-hidden (colțurile banner-ului),
+          care ar tăia popover-ul de referral dacă ar sta în interior (P1 Greptile, 2026-08-26: exact
+          asta se întâmpla). Referralul stă poziționat absolut aici, deasupra cardului, nu în el. */}
+      <div className="relative">
       {/* Card unic pt banner + antet (avatar/nume/badge/bio) — coerent cu bara de statistici de mai
           jos, care are deja propriul chenar (2026-07-16: „le-aș pune și pe astea într-un
           container"). */}
@@ -144,13 +148,6 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       {/* Header de profil. Avatarul iese peste banner; numele/rolul stau SUB banner, pe fundal —
           așa un cover închis sau aglomerat nu mai acoperă numele. */}
       <div className="relative px-5 pb-5">
-        {/* Referral — colțul antetului, mai vizibil decât lângă badge-uri (2026-08-26). Poziționat aici
-            (nu în banner-ul cu overflow-hidden de mai sus) ca popover-ul de sub buton să nu fie tăiat. */}
-        {data.viewerIsOwner && data.referralCode && (
-          <div className="absolute right-5 top-3 z-10">
-            <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
-          </div>
-        )}
         <span
           title={
             data.verified
@@ -288,6 +285,18 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
           </div>
         )}
       </div>
+      </div>
+
+      {/* Referral — colțul antetului, peste banner (nu peste rândul cu avatarul, care începe abia sub
+          banner) — evită suprapunerea cu cei 104px de avatar pe orice lățime de ecran (P1 Greptile,
+          2026-08-26: varianta anterioară era poziționată în header-ul de sub banner, unde chiar se
+          suprapunea pe mobil). Poziționat în afara cardului cu overflow-hidden de mai sus (nu în
+          interior) ca popover-ul cu linkul să nu fie tăiat. */}
+      {data.viewerIsOwner && data.referralCode && (
+        <div className="absolute right-3 top-3 z-10 sm:right-5">
+          <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
+        </div>
+      )}
       </div>
 
       {/* „Conținutul meu" — aceleași 4 destinații ca în sidebar-ul feed-ului (feed-sidebar.tsx),
