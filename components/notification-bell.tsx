@@ -158,12 +158,16 @@ export function NotificationBell({
 
   useEffect(() => {
     const timer = setInterval(() => {
-      void getNotificationsAction().then((fresh) => {
-        setNotifications(fresh.notifications);
-        setCount(fresh.count);
-        setAllRead(false);
-        setReadIds(new Set());
-      });
+      // .catch pe deployment skew (ID de Server Action expirat pe un tab rămas deschis peste un
+      // deploy nou) — eșec așteptat, se rezolvă singur la următoarea navigare/reload, nu la fiecare 20s.
+      void getNotificationsAction()
+        .then((fresh) => {
+          setNotifications(fresh.notifications);
+          setCount(fresh.count);
+          setAllRead(false);
+          setReadIds(new Set());
+        })
+        .catch(() => {});
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, []);
