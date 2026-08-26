@@ -6,7 +6,7 @@
 
 import { isPubliclyVisible } from "@/server/domain/detail";
 import { isUuid } from "@/server/domain/ids";
-import { getDetailById, insertSavedDetail } from "@/server/repos/detailsRepo";
+import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSupplierOffer,
@@ -52,22 +52,6 @@ export async function toggleSupplierOffer(input: {
     // corect e retragerea, nu o a doua notificare).
     await deleteSupplierOffer(input.userId, input.detailId);
     return { ok: true, offering: false };
-  }
-
-  // Oferta e deja confirmată în DB (insertedNow === true) — auto-save-ul e strict auxiliar. Un eșec
-  // aici NU trebuie să-l facă pe user să vadă o eroare și să reîncerce: al doilea click ar citi oferta
-  // deja existentă și ar interpreta-o drept RETRAGERE (vezi comentariul de mai sus), anulând silențios
-  // oferta abia pusă. De-cuplat deliberat de rezultatul întors userului.
-  try {
-    // Auto-save: ca oferta să nu se piardă în Feed — userul o regăsește în /saved fără căutare.
-    // Doar la ridicare, nu la retragere (n-are sens să-i ștergem un bookmark pus manual din alt motiv).
-    await insertSavedDetail(input.userId, input.detailId);
-  } catch (err) {
-    console.error("[supplierOfferService] insertSavedDetail eșuat (non-fatal)", {
-      userId: input.userId,
-      detailId: input.detailId,
-      err,
-    });
   }
 
   return { ok: true, offering: true };

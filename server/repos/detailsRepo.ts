@@ -605,39 +605,51 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
 // propagat aici. Reparat cu ACELAȘI pattern: `sql.identifier` calificat explicit, nu interpolare directă.
 const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
 const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
-const validationCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
-     and ${validations.hiddenAfterRelease} = false)`;
-// DOAR aprobările (2026-08-16, raportat): cardul de feed nu mai votează inline, dar tot arată
-// un count lângă o săgeată-sus — `validationCount` (aprob+dezaprob combinate) ar fi înșelător acolo,
-// ar sugera vizual că TOATE sunt aprobări. `validationCount` rămâne neschis pentru consumatorii care
-// chiar vor totalul (scorul de interacțiune, rail-ul „cele mai dezbătute").
-const approveCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
-     and ${validations.position} = 'APPROVE' and ${validations.hiddenAfterRelease} = false)`;
-const commentCount = sql<number>`(select count(*)::int from ${comments}
-   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
-     and ${comments.hiddenAfterRelease} = false)`;
 // „N schițe" = ce apare ca tab în teanc. Adnotarea (isAnnotation=true, 2026-08-11 — vezi
 // server/domain/sketch.ts) e exclusă; un desen ULTERIOR al autorului pe propriul detaliu, prin
 // „Schițează peste" normal, INTRĂ aici (nu mai e derivat din identitatea autorului).
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
      and ${sketches.isAnnotation} = false)`;
+// Schițele din teanc ale acestui detaliu (ACELAȘI filtru ca `sketchCount` — publicate, ne-adnotare) —
+// reutilizat ca sub-interogare de scop pentru validările pe SKETCH, ca să însumăm corect aprob/dezaprob
+// pe TOT firul (detaliu + schițe), nu doar pe foaia de bază (decizie de produs 2026-08-26: valoarea
+// unui detaliu vine din toată dezbaterea, nu din statusul postării inițiale).
+const detailSketchIds = sql`(select ${sketches.id} from ${sketches}
+   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
+     and ${sketches.isAnnotation} = false)`;
+const validationScope = sql`((${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})
+     or (${validations.targetType} = 'SKETCH' and ${validations.targetId} in ${detailSketchIds}))`;
+const validationCount = sql<number>`(select count(*)::int from ${validations}
+   where ${validationScope} and ${validations.hiddenAfterRelease} = false)`;
+// DOAR aprobările (2026-08-16, raportat): cardul de feed nu mai votează inline, dar tot arată
+// un count lângă o săgeată-sus — `validationCount` (aprob+dezaprob combinate) ar fi înșelător acolo,
+// ar sugera vizual că TOATE sunt aprobări. `validationCount` rămâne neschis pentru consumatorii care
+// chiar vor totalul (scorul de interacțiune, rail-ul „cele mai dezbătute").
+const approveCount = sql<number>`(select count(*)::int from ${validations}
+   where ${validationScope} and ${validations.position} = 'APPROVE' and ${validations.hiddenAfterRelease} = false)`;
+const commentCount = sql<number>`(select count(*)::int from ${comments}
+   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+     and ${comments.hiddenAfterRelease} = false)`;
 
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
 const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${sketchCount})`;
 
 // Avatarele validatorilor (max 5, cei mai recenți) pentru stiva de pe cardul de feed —
-// „cine a luat poziție". Subquery corelat → array JSON, ca să nu dublăm rândurile detaliului.
-// Overflow-ul (+N) îl calculează UI-ul din validationCount, nu îl aducem aici.
+// „cine a luat poziție" pe TOT firul (detaliu + schițe, vezi `validationScope`). Subquery corelat →
+// array JSON, ca să nu dublăm rândurile detaliului. Overflow-ul (+N) îl calculează UI-ul din validationCount.
+// `hiddenAfterRelease = false` OBLIGATORIU (găsit la review, 2026-08-26): la „Scoate în comunitate"
+// (SEC-001/002, releaseDetailToCommunity), validările altor membri decât autorul — pe detaliu SAU pe
+// oricare schiță a lui — se marchează hiddenAfterRelease=true tocmai ca să nu le fie expusă identitatea
+// public. Fără filtrul ăsta, avatarul+numele unui membru de proiect ar apărea pe cardul public din feed
+// exact în cazul pe care SEC-001/002 îl protejează explicit.
 const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
   select coalesce(json_agg(json_build_object('name', sub.name, 'image', sub.image)), '[]'::json)
   from (
     select ${users.name} as name, ${users.image} as image
     from ${validations}
     join ${users} on ${users.id} = ${validations.userId}
-    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
+    where ${validationScope} and ${validations.hiddenAfterRelease} = false
     order by ${validations.createdAt} desc
     limit 5
   ) sub
