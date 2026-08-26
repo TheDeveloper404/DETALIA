@@ -41,16 +41,6 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
     },
   },
   {
-    element: '[data-tour="projects"]',
-    popover: {
-      title: "Proiecte",
-      description:
-        "Spații de colaborare restrânsă, vizibile doar membrilor invitați — utile când lucrezi pe un caz concret, nu pentru comunitate. Tot aici, în sidebar, ai și planșele, detaliile salvate și ciornele.",
-      side: "right",
-      align: "start",
-    },
-  },
-  {
     element: '[data-tour="menu"]',
     popover: {
       title: "Meniul tău",
@@ -60,14 +50,6 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
     },
   },
 ];
-
-// Pasul „Proiecte" țintește un element din sidebar-ul feed-ului (`feed-sidebar.tsx`), ascuns sub
-// breakpoint-ul `lg` (`hidden lg:flex`) — pe mobil/tabletă driver.js l-ar sări tăcut, fără element de
-// evidențiat. Filtrat explicit (nu doar lăsat pe seama skip-ului silențios) ca numărătoarea de progres
-// („X din N") să rămână corectă pentru pașii chiar afișați (găsit de Greptile, 2026-08-26).
-export function getTourSteps(isDesktop: boolean): NonNullable<Config["steps"]> {
-  return isDesktop ? TOUR_STEPS : TOUR_STEPS.filter((step) => step.element !== '[data-tour="projects"]');
-}
 
 // Tur ghidat, o singură dată, la aterizarea din onboarding (`/feed?tour=1` — vezi `onboarding/actions.ts`).
 // NU la fiecare login (spre deosebire de `?welcome=1`, care e pe orice magic link) — semnalul de „user
@@ -91,11 +73,14 @@ export function ProductTour({ active }: { active: boolean }) {
     // Curăță ?tour=1 din URL imediat (fără reload) — refresh/înapoi nu mai repornesc turul.
     router.replace(pathname, { scroll: false });
 
-    const steps = getTourSteps(window.matchMedia("(min-width: 1024px)").matches);
-
     const tour = driver({
       showProgress: true,
       animate: true,
+      // `smoothScroll`/`duration` mai mare — implicit driver.js sare instant între ținte aflate în
+      // zone diferite ale paginii (`smoothScroll` default `false`); feedback 2026-08-26: „sare prea
+      // dintr-o dată" (verificat în docs driver.js, nu presupus).
+      smoothScroll: true,
+      duration: 500,
       overlayColor: "#211d18",
       overlayOpacity: 0.6,
       stagePadding: 6,
@@ -105,7 +90,7 @@ export function ProductTour({ active }: { active: boolean }) {
       nextBtnText: "Următorul",
       prevBtnText: "Înapoi",
       doneBtnText: "Am înțeles",
-      steps,
+      steps: TOUR_STEPS,
     });
 
     tour.drive();

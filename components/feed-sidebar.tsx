@@ -102,7 +102,6 @@ export function FeedSidebar({
       <nav aria-label="Conținutul meu" className="rounded-lg bg-card p-1 ring-1 ring-foreground/10">
         <Link
           href="/projects"
-          data-tour="projects"
           className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
         >
           <FolderKanban className="size-4 text-muted-foreground" strokeWidth={2} />

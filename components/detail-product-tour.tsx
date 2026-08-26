@@ -27,6 +27,8 @@ export function DetailProductTour({ seen }: { seen: boolean }) {
     const tour = driver({
       showProgress: true,
       animate: true,
+      smoothScroll: true,
+      duration: 500,
       overlayColor: "#211d18",
       overlayOpacity: 0.6,
       stagePadding: 6,

@@ -16,10 +16,11 @@ Modelul mental: **„StackOverflow pentru construcții"** — un detaliu este ca
 - **Comentarii** legate de detaliu sau de schiță, cu reacții (emoji) și aprecieri.
 - **Planșă privată** — un canvas personal (schițe/adnotări), separat de teancul public al unui detaliu, vizibil DOAR proprietarului.
 - **Proiecte** — spații de colaborare restrânsă între Autor și Invitați, cu detalii publicate direct în proiect (private până sunt „scoase în comunitate").
-- **Oferte de la furnizori** — un furnizor verificat poate semnala pe un detaliu că poate oferta materialele; autorul e notificat.
+- **Oferte de la furnizori** — un furnizor verificat poate trimite o ofertă reală pe un detaliu (mesaj + fișiere PDF/Excel/CSV), vizibilă strict autorului detaliului, care e notificat.
 - **Detalii salvate** și **oferte proprii**, ca liste private, separate de feed.
 - **Notificări** in-app (canalul email există în cod, dezactivat implicit).
 - **Profil public** cu rol, subrol, poză, dată de înscriere („Membru din …"), verificare opțională a rolului și **badge-uri de reputație** (Bronz/Argint/Aur, calculate din activitate — publicări, schițe, validări date/primite), cu pop-up de celebrare la primirea unui badge nou.
+- **Referral** — fiecare user are un link propriu de invitație; la 10 useri aduși prin el primește badge-ul „Creștem împreună".
 
 ## Cum funcționează
 
