@@ -45,17 +45,16 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
     popover: {
       title: "Proiecte",
       description:
-        "Spații de colaborare restrânsă, vizibile doar membrilor invitați — utile când lucrezi pe un caz concret, nu pentru comunitate.",
-      side: "bottom",
-      align: "end",
+        "Spații de colaborare restrânsă, vizibile doar membrilor invitați — utile când lucrezi pe un caz concret, nu pentru comunitate. Tot aici, în sidebar, ai și planșele, detaliile salvate și ciornele.",
+      side: "right",
+      align: "start",
     },
   },
   {
     element: '[data-tour="menu"]',
     popover: {
       title: "Meniul tău",
-      description:
-        "Planșele, ciornele nefinalizate și detaliile salvate — tot ce ai în lucru, la un click distanță.",
+      description: "Profilul tău și deconectarea, la un click distanță.",
       side: "bottom",
       align: "end",
     },

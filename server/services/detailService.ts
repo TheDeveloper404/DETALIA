@@ -44,7 +44,6 @@ import {
   listRelatedDetails,
   countSavedDetails,
   listSavedDetailIds,
-  listOfferedDetails,
   listSavedDetails,
   publishDetailRow,
   releaseDetailToCommunity as releaseDetailToCommunityRow,
@@ -716,13 +715,6 @@ export function getSavedDetails(userId: string) {
 // Numărul de detalii salvate de user — pastila din sidebar-ul feed-ului.
 export function getSavedDetailsCount(userId: string) {
   return countSavedDetails(userId);
-}
-
-// Pagina PRIVATĂ „Ofertele mele" (doar Furnizor). Ownership implicit prin userId din sesiune — gating-ul
-// de ROL (doar FURNIZOR poate accesa pagina) se face în pagină, nu aici (aceeași separare ca la restul
-// serviciilor: acesta doar citește datele userului, nu decide cine are voie să le ceară).
-export function getOfferedDetails(userId: string) {
-  return listOfferedDetails(userId);
 }
 
 // Autori activi pentru rail-ul din feed (top după detalii publicate).

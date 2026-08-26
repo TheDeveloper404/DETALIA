@@ -1,10 +1,8 @@
-import { FolderKanban } from "lucide-react";
 import Link from "next/link";
 
 import { auth } from "@/lib/auth";
 import { getNotifications } from "@/server/services/notificationService";
 import { getUserMedia } from "@/server/repos/usersRepo";
-import { getUserRole } from "@/server/services/roleService";
 
 import { BrandLogoHome, HomeIconLink } from "./feed-home-links";
 import { NotificationBell, type NotificationView } from "./notification-bell";
@@ -29,10 +27,9 @@ export async function AppHeader() {
 
   // Poza de profil vine din DB, nu din sesiune (JWT-ul cache-uiește `image` doar la login →
   // stale după onboarding/schimbare poză, până la re-login).
-  const [rows, media, role] = await Promise.all([
+  const [rows, media] = await Promise.all([
     getNotifications(session.user.id),
     getUserMedia(session.user.id),
-    getUserRole(session.user.id),
   ]);
   const notifications: NotificationView[] = rows.map((n) => {
     const p = (n.payloadJson ?? {}) as NotificationPayload;
@@ -60,20 +57,10 @@ export async function AppHeader() {
 
         <div className="flex items-center gap-1.5">
           <HomeIconLink />
-          <Link
-            href="/projects"
-            aria-label="Proiecte"
-            title="Proiecte"
-            data-tour="projects"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-          >
-            <FolderKanban className="size-5" strokeWidth={2} />
-          </Link>
           <NotificationBell notifications={notifications} count={unread} />
           <UserMenu
             name={media?.name ?? session.user.name ?? null}
             image={media?.image ?? null}
-            isFurnizor={role?.roleMain === "FURNIZOR"}
           />
         </div>
       </div>
