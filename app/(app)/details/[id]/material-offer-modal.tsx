@@ -192,13 +192,21 @@ export function MaterialOfferModal({
         )}
 
         <div className="mt-1 flex items-center justify-between gap-2">
-          <form action={withdrawAction}>
-            <input type="hidden" name="detailId" value={detailId} />
-            <Button type="submit" variant="ghost" size="sm" disabled={withdrawPending} className="gap-1.5 text-destructive">
-              <Trash2 className="size-3.5" strokeWidth={2} />
-              {existingOffer ? "Retrage oferta" : "Renunță"}
-            </Button>
-          </form>
+          {/* `formAction` pe buton, NU `<form>` imbricat în form-ul principal (HTML nu permite forms
+              nested — butonul „Renunță" trimitea silențios spre formAction-ul din afară, niciodată
+              spre withdrawAction; bug real, găsit 2026-08-26). Pattern documentat Next.js: mai multe
+              acțiuni distincte pe ACELAȘI form, via `formAction` pe butonul respectiv. */}
+          <Button
+            type="submit"
+            formAction={withdrawAction}
+            variant="ghost"
+            size="sm"
+            disabled={withdrawPending}
+            className="gap-1.5 text-destructive"
+          >
+            <Trash2 className="size-3.5" strokeWidth={2} />
+            {existingOffer ? "Retrage oferta" : "Renunță"}
+          </Button>
           <Button type="submit" disabled={pending || uploading || files.length === 0}>
             {pending ? "Se trimite..." : existingOffer ? "Salvează" : "Trimite oferta"}
           </Button>

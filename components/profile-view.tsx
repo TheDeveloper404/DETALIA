@@ -1,20 +1,6 @@
 "use client";
 
-import {
-  Bookmark,
-  CheckCircle2,
-  Crown,
-  FileText,
-  Flame,
-  FolderKanban,
-  Layers,
-  LayoutDashboard,
-  PencilLine,
-  ShieldCheck,
-  UserPlus,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { Bookmark, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -64,6 +50,9 @@ export type ProfileMaterialOfferItem = {
   message: string;
   fileCount: number;
   time: string;
+  // Prezent DOAR pe ofertele PRIMITE (viewer non-furnizor) — cine a trimis-o. `undefined` pe ofertele
+  // TRIMISE (viewer furnizor), unde furnizorul e chiar viewer-ul, nu are sens să se repete.
+  supplierName?: string | null;
 };
 
 export type ProfileActivityItem = {
@@ -102,6 +91,9 @@ export type ProfileViewData = {
   contributions: ContributionDay[]; // heatmap ultimul an (zile aliniate pe săptămâni, nivel 0..4)
   contributionsTotal: number;
   materialOffers: ProfileMaterialOfferItem[]; // gol dacă !viewerIsOwner — strict privat, vezi profileService
+  // "sent" (Furnizor) sau "received" (orice alt rol) — determină direcția din `materialOffers` de mai
+  // sus, explicit (nu dedus din date goale — un tab gol nu poate spune singur ce fel de gol e).
+  materialOffersDirection: "sent" | "received";
   referralsCount: number; // PUBLIC (intră în badge-ul „Creștem împreună", vizibil oricui)
   referralCode: string | null; // null dacă !viewerIsOwner — linkul e privat, doar pe propriul profil
 };
@@ -358,7 +350,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
         {tab === "schite" && <SketchesTab items={data.sketches} />}
         {tab === "activitate" && <ActivityTab items={data.activity} />}
-        {tab === "oferte" && data.viewerIsOwner && <MaterialOffersTab items={data.materialOffers} />}
+        {tab === "oferte" && data.viewerIsOwner && (
+          <MaterialOffersTab items={data.materialOffers} direction={data.materialOffersDirection} />
+        )}
       </div>
 
       {/* Contribuții — bara de statistici + heatmap + badge-uri, unificate într-un singur card
@@ -387,9 +381,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             )}
           </div>
           {data.badges.length > 0 ? (
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {data.badges.map((b) => (
-                <BadgeCard key={b.id} badge={b} />
+                <BadgePill key={b.id} badge={b} />
               ))}
             </div>
           ) : (
@@ -434,48 +428,37 @@ const BADGE_TIER_STYLE: Record<EarnedBadge["tier"], string> = {
   silver: "border-[#d6d6da] bg-[#f2f2f4] text-[#5a5a63]",
   gold: "border-[#f0e0b4] bg-[#fbf6ea] text-[#9a7b1f]",
 };
-const BADGE_TIER_ICON_BG: Record<EarnedBadge["tier"], string> = {
-  bronze: "bg-[#e9d2ba]",
-  silver: "bg-[#e2e2e6]",
-  gold: "bg-[#f3e3ae]",
-};
 const BADGE_TIER_LABEL: Record<EarnedBadge["tier"], string> = {
   bronze: "Bronz",
   silver: "Argint",
   gold: "Aur",
 };
 
-// O iconiță tematică per tip de badge — înainte era doar o steluță generică pt. toate (2026-08-26,
-// feedback: „arată sec"), acum fiecare tip se recunoaște vizual dintr-o privire.
-const BADGE_ICON: Record<BadgeId, LucideIcon> = {
-  contributor: FileText,
-  illustrator: PencilLine,
-  validator: CheckCircle2,
-  trusted: ShieldCheck,
-  consistent: Flame,
-  growth: UserPlus,
-  versatile: Layers,
-  powerhouse: Zap,
-  founder: Crown,
+// Emoji tematic per tip de badge — înainte o steluță generică pt. toate (2026-08-26, feedback:
+// „arată sec"), acum fiecare tip se recunoaște vizual dintr-o privire, direct în pastilă.
+const BADGE_EMOJI: Record<BadgeId, string> = {
+  contributor: "📝",
+  illustrator: "🎨",
+  validator: "✅",
+  trusted: "🛡️",
+  consistent: "🔥",
+  growth: "🤝",
+  versatile: "🧩",
+  powerhouse: "⚡",
 };
 
-function BadgeCard({ badge }: { badge: EarnedBadge }) {
-  const Icon = BADGE_ICON[badge.id];
+function BadgePill({ badge }: { badge: EarnedBadge }) {
   return (
-    <div
+    <span
       title={badge.description}
-      className={`flex items-center gap-3 rounded-lg border px-3.5 py-3 ${BADGE_TIER_STYLE[badge.tier]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold ${BADGE_TIER_STYLE[badge.tier]}`}
     >
-      <span className={`flex size-9 shrink-0 items-center justify-center rounded-full ${BADGE_TIER_ICON_BG[badge.tier]}`}>
-        <Icon className="size-[18px]" strokeWidth={2} />
+      <span aria-hidden>{BADGE_EMOJI[badge.id]}</span>
+      {badge.label}
+      <span className="font-mono text-[10.5px] font-normal opacity-75">
+        {BADGE_TIER_LABEL[badge.tier]}
       </span>
-      <div className="min-w-0">
-        <div className="truncate text-[13px] font-semibold">{badge.label}</div>
-        <div className="font-mono text-[10.5px] font-normal opacity-75">
-          {BADGE_TIER_LABEL[badge.tier]}
-        </div>
-      </div>
-    </div>
+    </span>
   );
 }
 
@@ -721,12 +704,24 @@ function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
   );
 }
 
-// Strict privat (viewerIsOwner) — istoricul propriilor oferte de materiale trimise, cu link către
-// detaliul respectiv. Descărcarea fișierelor propriu-zise se face de pe pagina detaliului (secțiunea
-// autorului), nu de aici — aici e doar un istoric „cui i-am trimis ce".
-function MaterialOffersTab({ items }: { items: ProfileMaterialOfferItem[] }) {
+// Strict privat (viewerIsOwner). Furnizor → istoricul propriilor oferte TRIMISE („cui i-am trimis
+// ce"); orice alt rol → ofertele PRIMITE pe propriile detalii („cine mi-a trimis ce", 2026-08-26).
+// Descărcarea fișierelor propriu-zise se face de pe pagina detaliului (secțiunea autorului), nu de aici.
+function MaterialOffersTab({
+  items,
+  direction,
+}: {
+  items: ProfileMaterialOfferItem[];
+  direction: "sent" | "received";
+}) {
   const [expanded, setExpanded] = useState(false);
-  if (items.length === 0) return <EmptyTab>Nicio ofertă de materiale trimisă încă.</EmptyTab>;
+  if (items.length === 0) {
+    return (
+      <EmptyTab>
+        {direction === "received" ? "Nicio ofertă de materiale primită încă." : "Nicio ofertă de materiale trimisă încă."}
+      </EmptyTab>
+    );
+  }
   const visible = expanded ? items : items.slice(0, TAB_PAGE_SIZE);
   return (
     <>
@@ -737,7 +732,11 @@ function MaterialOffersTab({ items }: { items: ProfileMaterialOfferItem[] }) {
             href={`/details/${o.detailId}`}
             className="flex flex-col gap-1.5 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
           >
-            <div className="font-mono text-[11px] text-muted-foreground">Ofertă pe · {o.detailTitle}</div>
+            <div className="font-mono text-[11px] text-muted-foreground">
+              {o.supplierName !== undefined
+                ? `De la ${o.supplierName ?? "Anonim"} · pe ${o.detailTitle}`
+                : `Ofertă pe · ${o.detailTitle}`}
+            </div>
             {o.message && <p className="line-clamp-2 text-sm text-foreground">{o.message}</p>}
             <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
               <span>
