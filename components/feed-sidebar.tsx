@@ -1,6 +1,6 @@
 // Coloana stângă a feed-ului — card mini de profil + listă de categorii (cu count + activ) + buton „Adaugă".
 // Prezentațional (props-driven): feed-ul real îi dă date din sesiune/DB, preview-ul din mock.
-import { Bookmark } from "lucide-react";
+import { Bookmark, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
 import Link from "next/link";
 
 import { PersonSilhouette } from "./avatar-initials";
@@ -97,17 +97,42 @@ export function FeedSidebar({
         </div>
       </Link>
 
-      {/* Detalii salvate — pastilă cu link direct spre /saved. */}
-      <Link
-        href="/saved"
-        className="flex items-center justify-between rounded-lg bg-card px-[18px] py-3 text-sm font-semibold text-foreground no-underline ring-1 ring-foreground/10 transition-colors hover:bg-secondary/60"
-      >
-        <span className="flex items-center gap-2">
-          <Bookmark className="size-4 text-muted-foreground" strokeWidth={2} />
-          Detalii salvate
-        </span>
-        <span className="font-mono text-xs text-muted-foreground">{savedCount}</span>
-      </Link>
+      {/* „Conținutul meu" — mutat aici din meniul de avatar (2026-08-26): erau ascunse sub un icon de
+          cont, nedescoperibile ca navigare de conținut. */}
+      <nav aria-label="Conținutul meu" className="rounded-lg bg-card p-1 ring-1 ring-foreground/10">
+        <Link
+          href="/projects"
+          data-tour="projects"
+          className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+        >
+          <FolderKanban className="size-4 text-muted-foreground" strokeWidth={2} />
+          Proiecte
+        </Link>
+        <Link
+          href="/canvases"
+          className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+        >
+          <LayoutDashboard className="size-4 text-muted-foreground" strokeWidth={2} />
+          Planșele mele
+        </Link>
+        <Link
+          href="/saved"
+          className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+        >
+          <span className="flex items-center gap-2">
+            <Bookmark className="size-4 text-muted-foreground" strokeWidth={2} />
+            Detalii salvate
+          </span>
+          <span className="font-mono text-xs text-muted-foreground">{savedCount}</span>
+        </Link>
+        <Link
+          href="/sketches/drafts"
+          className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+        >
+          <PencilLine className="size-4 text-muted-foreground" strokeWidth={2} />
+          Ciorne
+        </Link>
+      </nav>
 
       {/* Categorii. */}
       <nav
