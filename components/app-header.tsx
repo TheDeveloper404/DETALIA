@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { auth } from "@/lib/auth";
 import { getNotifications } from "@/server/services/notificationService";
 import { getUserMedia } from "@/server/repos/usersRepo";
