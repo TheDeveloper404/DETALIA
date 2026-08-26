@@ -8,8 +8,6 @@ vi.mock("@/server/repos/supplierOffersRepo", () => ({
   isSupplierOfferedByUser: vi.fn(),
   listSupplierOffersForDetail: vi.fn(),
 }));
-vi.mock("@/server/repos/usersRepo", () => ({ getNotificationActor: vi.fn() }));
-vi.mock("@/server/services/notificationService", () => ({ notifySupplierOffered: vi.fn() }));
 
 import { getDetailById, insertSavedDetail } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
@@ -17,8 +15,6 @@ import {
   deleteSupplierOffer,
   insertSupplierOfferIfAbsent,
 } from "@/server/repos/supplierOffersRepo";
-import { getNotificationActor } from "@/server/repos/usersRepo";
-import { notifySupplierOffered } from "@/server/services/notificationService";
 
 import { toggleSupplierOffer } from "./supplierOfferService";
 
@@ -40,12 +36,6 @@ beforeEach(() => {
     title: "Detaliu T",
   } as never);
   vi.mocked(insertSupplierOfferIfAbsent).mockResolvedValue(true);
-  vi.mocked(getNotificationActor).mockResolvedValue({
-    name: "Furnizor Ion",
-    roleMain: "FURNIZOR",
-    subRole: null,
-    verification: "UNVERIFIED",
-  } as never);
 });
 
 describe("gating pe rol — doar FURNIZOR poate ridica mâna (enforce pe server)", () => {
@@ -104,55 +94,31 @@ describe("nu poți oferta pe propriul detaliu — CANNOT_OFFER_OWN", () => {
   });
 });
 
-describe("toggle reversibil + notificare DOAR la primul click", () => {
-  it("primul click (nu oferta încă) → insert + auto-save + notifică autorul, offering: true", async () => {
+// FĂRĂ notificare la ridicarea mâinii (2026-08-26, feedback: notificarea reală vine STRICT din
+// materialOfferService, la trimiterea conținutului ofertei — vezi materialOfferService.test.ts).
+describe("toggle reversibil — DOAR ridicare/retragere mână, fără efect de notificare", () => {
+  it("primul click (nu oferta încă) → insert + auto-save, offering: true", async () => {
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: true });
     expect(insertSupplierOfferIfAbsent).toHaveBeenCalledWith("u-1", DETAIL_ID);
     expect(insertSavedDetail).toHaveBeenCalledWith("u-1", DETAIL_ID);
-    expect(notifySupplierOffered).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(notifySupplierOffered).mock.calls[0][0]).toMatchObject({
-      recipientUserId: "owner-x",
-      detailId: DETAIL_ID,
-      supplierName: "Furnizor Ion",
-    });
   });
 
-  it("al doilea click (deja ofertează, insert respinge conflictul) → retrage (delete), FĂRĂ notificare nouă, FĂRĂ auto-save, offering: false", async () => {
+  it("al doilea click (deja ofertează, insert respinge conflictul) → retrage (delete), FĂRĂ auto-save, offering: false", async () => {
     vi.mocked(insertSupplierOfferIfAbsent).mockResolvedValue(false);
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: false });
     expect(insertSupplierOfferIfAbsent).toHaveBeenCalledWith("u-1", DETAIL_ID);
     expect(deleteSupplierOffer).toHaveBeenCalledWith("u-1", DETAIL_ID);
-    expect(notifySupplierOffered).not.toHaveBeenCalled();
     expect(insertSavedDetail).not.toHaveBeenCalled();
-  });
-
-  // Regresie (bug găsit la code-review 2026-07-16): decizia de notificare trebuie să vină STRICT din
-  // rezultatul atomic al inserării, nu dintr-o citire separată dinainte — altfel 2 cereri concurente
-  // (dublu-click/tab dublu) puteau ambele citi „nu oferta încă" înainte ca vreuna să scrie, trimițând
-  // 2 notificări pentru un singur eveniment real.
-  it("insertul atomic decide notificarea — o citire separată de stare NU intervine în această decizie", async () => {
-    vi.mocked(insertSupplierOfferIfAbsent).mockResolvedValue(true);
-    await toggleSupplierOffer(input);
-    expect(notifySupplierOffered).toHaveBeenCalledTimes(1);
-    expect(deleteSupplierOffer).not.toHaveBeenCalled();
   });
 });
 
-describe("efectele secundare (auto-save, notificare) sunt izolate — un eșec acolo NU trebuie să strice rezultatul întors userului", () => {
+describe("efectul secundar (auto-save) e izolat — un eșec acolo NU trebuie să strice rezultatul întors userului", () => {
   it("insertSavedDetail aruncă → toggleSupplierOffer tot întoarce succes (fără să propage eroarea)", async () => {
     vi.mocked(insertSavedDetail).mockRejectedValue(new Error("DB tranzitoriu"));
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: true });
-    expect(notifySupplierOffered).toHaveBeenCalledTimes(1);
-  });
-
-  it("notifySupplierOffered aruncă → toggleSupplierOffer tot întoarce succes (oferta rămâne validă)", async () => {
-    vi.mocked(notifySupplierOffered).mockRejectedValue(new Error("email/notificare picată"));
-    const r = await toggleSupplierOffer(input);
-    expect(r).toEqual({ ok: true, offering: true });
-    expect(insertSavedDetail).toHaveBeenCalledWith("u-1", DETAIL_ID);
   });
 });
 
@@ -174,6 +140,5 @@ describe("Restrâns la detalii publice — un detaliu de proiect respinge oricin
 
     expect(res).toEqual({ ok: false, error: "TARGET_NOT_FOUND" });
     expect(insertSupplierOfferIfAbsent).not.toHaveBeenCalled();
-    expect(notifySupplierOffered).not.toHaveBeenCalled();
   });
 });
