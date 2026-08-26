@@ -104,18 +104,15 @@ describe("getProfileView — newlyEarnedBadges (pop-up „badge nou”, 2026-08-
       published: 1, sketches: 0, validationsGiven: 0, validationsReceived: 0,
     });
     const view = await getProfileView(USER_ID, USER_ID);
-    // PROFILE_ROW.createdAt (2026-03-15) e înainte de FOUNDER_CUTOFF → userul de test câștigă și
-    // „Fondator" (gold) pe lângă „Contribuitor" — ambele apar ca noi, fără snapshot anterior.
     expect(view?.newlyEarnedBadges).toEqual([
       { id: "contributor", label: "Contribuitor", description: "Detalii de execuție publicate", tier: "bronze" },
-      { id: "founder", label: "Fondator", description: "Membru din primele zile ale platformei", tier: "gold" },
     ]);
   });
 
   it("owner, badge deja în snapshot la același tier → NU mai apare în newlyEarnedBadges", async () => {
     vi.mocked(getPublicProfile).mockResolvedValue({
       ...PROFILE_ROW,
-      seenBadges: { contributor: "bronze", founder: "gold" },
+      seenBadges: { contributor: "bronze" },
     } as never);
     vi.mocked(getProfileStats).mockResolvedValue({
       published: 1, sketches: 0, validationsGiven: 0, validationsReceived: 0,
@@ -132,12 +129,7 @@ describe("markBadgesSeen", () => {
     });
     vi.mocked(getContributionCounts).mockResolvedValue(new Map([["2026-08-17", 1]]));
     await markBadgesSeen(USER_ID);
-    // + „founder" (gold) — PROFILE_ROW.createdAt e înainte de FOUNDER_CUTOFF.
-    expect(updateSeenBadges).toHaveBeenCalledWith(USER_ID, {
-      contributor: "bronze",
-      validator: "bronze",
-      founder: "gold",
-    });
+    expect(updateSeenBadges).toHaveBeenCalledWith(USER_ID, { contributor: "bronze", validator: "bronze" });
   });
 });
 

@@ -15,7 +15,6 @@ import { isUsersBlobUrl } from "@/lib/blob-url";
 import {
   computeBadges,
   diffNewBadges,
-  FOUNDER_CUTOFF,
   snapshotBadges,
   type EarnedBadge,
   type SeenBadges,
@@ -112,11 +111,10 @@ const SKETCH_STATUS_VIEW: Record<
 // n-are nevoie de activitate/detalii/schițe — doar de statisticile care intră în calculul de badge).
 async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
   const { startMs } = contributionWindow();
-  const [stats, contribCounts, referralsCount, profile] = await Promise.all([
+  const [stats, contribCounts, referralsCount] = await Promise.all([
     getProfileStats(userId),
     getContributionCounts(userId, new Date(startMs)),
     countReferrals(userId),
-    getPublicProfile(userId),
   ]);
   // `contribCounts` conține DOAR zilele cu activitate (>0) — mărimea mapului = nr. de zile active.
   return computeBadges({
@@ -128,7 +126,6 @@ async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
     referralsCount,
     combinedContribution: Math.min(stats.published, stats.sketches),
     activityVolume: stats.published + stats.sketches + stats.validationsGiven,
-    isFounder: profile && profile.createdAt < FOUNDER_CUTOFF ? 1 : 0,
   });
 }
 
@@ -192,7 +189,6 @@ export const getProfileView = cache(async (
     referralsCount,
     combinedContribution: Math.min(stats.published, stats.sketches),
     activityVolume: stats.published + stats.sketches + stats.validationsGiven,
-    isFounder: profile.createdAt < FOUNDER_CUTOFF ? 1 : 0,
   });
 
   const roleLabel = roleLabelOf(profile.roleMain, profile.subRole);
