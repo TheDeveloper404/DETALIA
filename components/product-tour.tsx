@@ -61,6 +61,14 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
   },
 ];
 
+// Pasul „Proiecte" țintește un element din sidebar-ul feed-ului (`feed-sidebar.tsx`), ascuns sub
+// breakpoint-ul `lg` (`hidden lg:flex`) — pe mobil/tabletă driver.js l-ar sări tăcut, fără element de
+// evidențiat. Filtrat explicit (nu doar lăsat pe seama skip-ului silențios) ca numărătoarea de progres
+// („X din N") să rămână corectă pentru pașii chiar afișați (găsit de Greptile, 2026-08-26).
+export function getTourSteps(isDesktop: boolean): NonNullable<Config["steps"]> {
+  return isDesktop ? TOUR_STEPS : TOUR_STEPS.filter((step) => step.element !== '[data-tour="projects"]');
+}
+
 // Tur ghidat, o singură dată, la aterizarea din onboarding (`/feed?tour=1` — vezi `onboarding/actions.ts`).
 // NU la fiecare login (spre deosebire de `?welcome=1`, care e pe orice magic link) — semnalul de „user
 // chiar nou" e finalizarea onboarding-ului, nu simpla autentificare.
@@ -83,6 +91,8 @@ export function ProductTour({ active }: { active: boolean }) {
     // Curăță ?tour=1 din URL imediat (fără reload) — refresh/înapoi nu mai repornesc turul.
     router.replace(pathname, { scroll: false });
 
+    const steps = getTourSteps(window.matchMedia("(min-width: 1024px)").matches);
+
     const tour = driver({
       showProgress: true,
       animate: true,
@@ -95,7 +105,7 @@ export function ProductTour({ active }: { active: boolean }) {
       nextBtnText: "Următorul",
       prevBtnText: "Înapoi",
       doneBtnText: "Am înțeles",
-      steps: TOUR_STEPS,
+      steps,
     });
 
     tour.drive();
