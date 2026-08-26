@@ -144,6 +144,13 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       {/* Header de profil. Avatarul iese peste banner; numele/rolul stau SUB banner, pe fundal —
           așa un cover închis sau aglomerat nu mai acoperă numele. */}
       <div className="relative px-5 pb-5">
+        {/* Referral — colțul antetului, mai vizibil decât lângă badge-uri (2026-08-26). Poziționat aici
+            (nu în banner-ul cu overflow-hidden de mai sus) ca popover-ul de sub buton să nu fie tăiat. */}
+        {data.viewerIsOwner && data.referralCode && (
+          <div className="absolute right-5 top-3 z-10">
+            <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
+          </div>
+        )}
         <span
           title={
             data.verified
@@ -283,37 +290,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       </div>
       </div>
 
-      {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
-          nume, stil LinkedIn — 2026-08-17). Mutate imediat sub antet, 2026-08-26 (conținutul propriu-zis
-          e prioritar față de badge-uri/contribuții mai jos pe pagină). */}
-      <div className="mt-6 min-w-0">
-        <div className="mb-5 flex gap-1 border-b border-border">
-          <TabButton active={tab === "detalii"} onClick={() => setTab("detalii")}>
-            Detalii
-          </TabButton>
-          <TabButton active={tab === "schite"} onClick={() => setTab("schite")}>
-            Schițe
-          </TabButton>
-          <TabButton active={tab === "activitate"} onClick={() => setTab("activitate")}>
-            Activitate
-          </TabButton>
-          {/* Strict privat (2026-08-25) — datele nici nu ajung aici dacă !viewerIsOwner (vezi
-              profileService: fetch condiționat), dar tab-ul e ascuns oricum, dublă barieră. */}
-          {data.viewerIsOwner && (
-            <TabButton active={tab === "oferte"} onClick={() => setTab("oferte")}>
-              Ofertele mele
-            </TabButton>
-          )}
-        </div>
-
-        {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
-        {tab === "schite" && <SketchesTab items={data.sketches} />}
-        {tab === "activitate" && <ActivityTab items={data.activity} />}
-        {tab === "oferte" && data.viewerIsOwner && <MaterialOffersTab items={data.materialOffers} />}
-      </div>
-
       {/* „Conținutul meu" — aceleași 4 destinații ca în sidebar-ul feed-ului (feed-sidebar.tsx),
-          mutate aici din meniul de avatar, 2026-08-26. Strict propriul profil. */}
+          mutate aici din meniul de avatar, 2026-08-25. Strict propriul profil. Imediat sub antet,
+          2026-08-26 (navigarea proprie e prioritară față de taburile de conținut de mai jos). */}
       {data.viewerIsOwner && (
         <div className="mt-6 flex flex-wrap gap-2 rounded-lg bg-card p-3 ring-1 ring-foreground/10">
           <Link
@@ -347,47 +326,38 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         </div>
       )}
 
-      {/* Badge-uri stil StackOverflow — Bronz/Argint/Aur, calculate live din statistici (server/domain/badges.ts). */}
-      <div className="mt-6 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
-        <div className="flex items-center justify-between gap-3">
-          <SectionLabel>Badge-uri</SectionLabel>
-          {/* Referral — STRICT pe propriul profil (privat), compact lângă badge-uri, 2026-08-26. */}
-          {data.viewerIsOwner && data.referralCode && (
-            <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
+      {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
+          nume, stil LinkedIn — 2026-08-17). */}
+      <div className="mt-6 min-w-0">
+        <div className="mb-5 flex gap-1 border-b border-border">
+          <TabButton active={tab === "detalii"} onClick={() => setTab("detalii")}>
+            Detalii
+          </TabButton>
+          <TabButton active={tab === "schite"} onClick={() => setTab("schite")}>
+            Schițe
+          </TabButton>
+          <TabButton active={tab === "activitate"} onClick={() => setTab("activitate")}>
+            Activitate
+          </TabButton>
+          {/* Strict privat (2026-08-25) — datele nici nu ajung aici dacă !viewerIsOwner (vezi
+              profileService: fetch condiționat), dar tab-ul e ascuns oricum, dublă barieră. */}
+          {data.viewerIsOwner && (
+            <TabButton active={tab === "oferte"} onClick={() => setTab("oferte")}>
+              Ofertele mele
+            </TabButton>
           )}
         </div>
-        {data.badges.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {data.badges.map((b) => (
-              <BadgePill key={b.id} badge={b} />
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-            Niciun badge încă — publică un detaliu, propune o schiță sau votează pe una existentă ca
-            să-l primești pe primul.
-          </p>
-        )}
 
-        <details className="mt-3 text-[13px]">
-          <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
-            Cum se obțin badge-urile?
-          </summary>
-          <ul className="mt-2.5 flex flex-col gap-1.5 text-muted-foreground">
-            {BADGE_DEFS.map((def) => (
-              <li key={def.id}>
-                <span className="font-semibold text-foreground">{def.label}</span> — {def.description}:{" "}
-                {def.thresholds.bronze === def.thresholds.gold
-                  ? `${def.thresholds.gold} Aur`
-                  : `${def.thresholds.bronze} Bronz · ${def.thresholds.silver} Argint · ${def.thresholds.gold} Aur`}
-              </li>
-            ))}
-          </ul>
-        </details>
+        {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
+        {tab === "schite" && <SketchesTab items={data.sketches} />}
+        {tab === "activitate" && <ActivityTab items={data.activity} />}
+        {tab === "oferte" && data.viewerIsOwner && <MaterialOffersTab items={data.materialOffers} />}
       </div>
 
-      {/* Contribuții — bara de statistici + heatmap unificate într-un singur card (spuneau oarecum
-          același lucru — activitate agregată — 2026-08-26, erau două containere separate înainte). */}
+      {/* Contribuții — bara de statistici + heatmap + badge-uri, unificate într-un singur card
+          (2026-08-26: badge-urile SUNT contribuții — calculate din aceleași statistici, server/domain/badges.ts
+          — n-avea sens un card separat). Referral-ul a fost mutat din antetul acestui card în colțul
+          antetului de profil (mai vizibil acolo). */}
       <div className="mt-6 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
         <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
           <Stat value={data.stats.published} label="Detalii publicate" />
@@ -398,6 +368,38 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         {/* ContributionGraph are propriul titlu „Contribuții în ultimul an" — nu-l dublăm cu un SectionLabel extern. */}
         <div className="mt-4">
           <ContributionGraph days={data.contributions} total={data.contributionsTotal} />
+        </div>
+
+        <div className="mt-5 border-t border-border pt-4">
+          <SectionLabel>Badge-uri</SectionLabel>
+          {data.badges.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {data.badges.map((b) => (
+                <BadgePill key={b.id} badge={b} />
+              ))}
+            </div>
+          ) : (
+            <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+              Niciun badge încă — publică un detaliu, propune o schiță sau votează pe una existentă ca
+              să-l primești pe primul.
+            </p>
+          )}
+
+          <details className="mt-3 text-[13px]">
+            <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
+              Cum se obțin badge-urile?
+            </summary>
+            <ul className="mt-2.5 flex flex-col gap-1.5 text-muted-foreground">
+              {BADGE_DEFS.map((def) => (
+                <li key={def.id}>
+                  <span className="font-semibold text-foreground">{def.label}</span> — {def.description}:{" "}
+                  {def.thresholds.bronze === def.thresholds.gold
+                    ? `${def.thresholds.gold} Aur`
+                    : `${def.thresholds.bronze} Bronz · ${def.thresholds.silver} Argint · ${def.thresholds.gold} Aur`}
+                </li>
+              ))}
+            </ul>
+          </details>
         </div>
       </div>
     </div>
