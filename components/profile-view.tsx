@@ -1,20 +1,6 @@
 "use client";
 
-import {
-  Bookmark,
-  CheckCircle2,
-  Crown,
-  FileText,
-  Flame,
-  FolderKanban,
-  Layers,
-  LayoutDashboard,
-  PencilLine,
-  ShieldCheck,
-  UserPlus,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
+import { Bookmark, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -387,9 +373,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             )}
           </div>
           {data.badges.length > 0 ? (
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               {data.badges.map((b) => (
-                <BadgeCard key={b.id} badge={b} />
+                <BadgePill key={b.id} badge={b} />
               ))}
             </div>
           ) : (
@@ -434,48 +420,37 @@ const BADGE_TIER_STYLE: Record<EarnedBadge["tier"], string> = {
   silver: "border-[#d6d6da] bg-[#f2f2f4] text-[#5a5a63]",
   gold: "border-[#f0e0b4] bg-[#fbf6ea] text-[#9a7b1f]",
 };
-const BADGE_TIER_ICON_BG: Record<EarnedBadge["tier"], string> = {
-  bronze: "bg-[#e9d2ba]",
-  silver: "bg-[#e2e2e6]",
-  gold: "bg-[#f3e3ae]",
-};
 const BADGE_TIER_LABEL: Record<EarnedBadge["tier"], string> = {
   bronze: "Bronz",
   silver: "Argint",
   gold: "Aur",
 };
 
-// O iconiță tematică per tip de badge — înainte era doar o steluță generică pt. toate (2026-08-26,
-// feedback: „arată sec"), acum fiecare tip se recunoaște vizual dintr-o privire.
-const BADGE_ICON: Record<BadgeId, LucideIcon> = {
-  contributor: FileText,
-  illustrator: PencilLine,
-  validator: CheckCircle2,
-  trusted: ShieldCheck,
-  consistent: Flame,
-  growth: UserPlus,
-  versatile: Layers,
-  powerhouse: Zap,
-  founder: Crown,
+// Emoji tematic per tip de badge — înainte o steluță generică pt. toate (2026-08-26, feedback:
+// „arată sec"), acum fiecare tip se recunoaște vizual dintr-o privire, direct în pastilă.
+const BADGE_EMOJI: Record<BadgeId, string> = {
+  contributor: "📝",
+  illustrator: "🎨",
+  validator: "✅",
+  trusted: "🛡️",
+  consistent: "🔥",
+  growth: "🤝",
+  versatile: "🧩",
+  powerhouse: "⚡",
 };
 
-function BadgeCard({ badge }: { badge: EarnedBadge }) {
-  const Icon = BADGE_ICON[badge.id];
+function BadgePill({ badge }: { badge: EarnedBadge }) {
   return (
-    <div
+    <span
       title={badge.description}
-      className={`flex items-center gap-3 rounded-lg border px-3.5 py-3 ${BADGE_TIER_STYLE[badge.tier]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold ${BADGE_TIER_STYLE[badge.tier]}`}
     >
-      <span className={`flex size-9 shrink-0 items-center justify-center rounded-full ${BADGE_TIER_ICON_BG[badge.tier]}`}>
-        <Icon className="size-[18px]" strokeWidth={2} />
+      <span aria-hidden>{BADGE_EMOJI[badge.id]}</span>
+      {badge.label}
+      <span className="font-mono text-[10.5px] font-normal opacity-75">
+        {BADGE_TIER_LABEL[badge.tier]}
       </span>
-      <div className="min-w-0">
-        <div className="truncate text-[13px] font-semibold">{badge.label}</div>
-        <div className="font-mono text-[10.5px] font-normal opacity-75">
-          {BADGE_TIER_LABEL[badge.tier]}
-        </div>
-      </div>
-    </div>
+    </span>
   );
 }
 

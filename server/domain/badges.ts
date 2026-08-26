@@ -12,8 +12,7 @@ export type BadgeId =
   | "consistent"
   | "growth"
   | "versatile"
-  | "powerhouse"
-  | "founder";
+  | "powerhouse";
 
 export type BadgeDef = {
   id: BadgeId;
@@ -75,18 +74,7 @@ export const BADGE_DEFS: readonly BadgeDef[] = [
     description: "Volum total de activitate (publicări + schițe + validări date)",
     thresholds: { bronze: 20, silver: 75, gold: 200 },
   },
-  // SINGLE, la fel ca „growth" — membru din primele zile (înainte de trecerea MVP→v1, 2026-08-07).
-  {
-    id: "founder",
-    label: "Fondator",
-    description: "Membru din primele zile ale platformei",
-    thresholds: { bronze: 1, silver: 1, gold: 1 },
-  },
 ] as const;
-
-// Prag „Fondator" — cutoff-ul MVP→v1 (100% funcțională, primii useri reali; vezi memoria/CHANGELOG
-// 2026-08-07). Apelantul (profileService) compară `createdAt < FOUNDER_CUTOFF` și trimite 0/1.
-export const FOUNDER_CUTOFF = new Date("2026-08-08T00:00:00.000Z");
 
 export type BadgeInputs = {
   published: number;
@@ -95,10 +83,9 @@ export type BadgeInputs = {
   validationsReceived: number;
   activeDaysLastYear: number;
   referralsCount: number;
-  // Derivate de apelant din metricile de mai sus / din `createdAt` — badges.ts rămâne pur, fără Date.
+  // Derivate de apelant din metricile de mai sus — badges.ts rămâne pur.
   combinedContribution: number; // min(published, sketches)
   activityVolume: number; // published + sketches + validationsGiven
-  isFounder: number; // 0 sau 1 (createdAt < FOUNDER_CUTOFF)
 };
 
 const METRIC_OF: Record<BadgeId, keyof BadgeInputs> = {
@@ -110,7 +97,6 @@ const METRIC_OF: Record<BadgeId, keyof BadgeInputs> = {
   growth: "referralsCount",
   versatile: "combinedContribution",
   powerhouse: "activityVolume",
-  founder: "isFounder",
 };
 
 function tierFor(value: number, thresholds: Record<BadgeTier, number>): BadgeTier | null {
