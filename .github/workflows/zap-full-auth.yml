@@ -31,10 +31,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Construiește opțiunile de excludere (Global Exclude URL)
         id: excludes
+        # `EXCLUDE_PATHS` prin `env:`, NU `${{ inputs.exclude_paths }}` interpolat direct în `run:` —
+        # interpolarea directă e text literal injectat în scriptul shell ÎNAINTE ca bash să-l ruleze
+        # (script injection clasic pe GitHub Actions — verificat de Semgrep, 2026-08-26). Prin `env:`,
+        # valoarea ajunge ca STRING la runtime, nu ca text executabil.
+        env:
+          EXCLUDE_PATHS: ${{ inputs.exclude_paths }}
         run: |
           OPTS=""
           i=0
@@ -44,7 +50,7 @@ jobs:
             OPTS="$OPTS -config globalexcludeurl.url_list.url($i).description=exclude-$i"
             OPTS="$OPTS -config globalexcludeurl.url_list.url($i).enabled=true"
             i=$((i+1))
-          done <<< "${{ inputs.exclude_paths }}"
+          done <<< "$EXCLUDE_PATHS"
           {
             echo "cmd_options<<EOF"
             echo "-a -j $OPTS"
@@ -52,7 +58,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: ZAP Full Scan (authenticated)
-        uses: zaproxy/action-full-scan@v0.13.0
+        uses: zaproxy/action-full-scan@3c58388149901b9a03b7718852c5ba889646c27c # v0.13.0
         env:
           # Cookie-ul de sesiune (cont de test dedicat pe `dev`) — vezi ZAP_SESSION_COOKIE, secret GitHub.
           # Bypass-ul Vercel Deployment Protection e pe query string (target de mai jos), nu pe header aici
@@ -65,7 +71,7 @@ jobs:
 
       - name: Upload raport
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zap-full-auth-report
           path: report_html.html
