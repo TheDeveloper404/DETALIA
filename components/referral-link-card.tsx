@@ -5,8 +5,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 // Strict pe propriul profil (viewerIsOwner, verificat de apelant) — link privat, cod deja generat de
 // server (profileService, lenes la prima vizită pe propriul profil).
-// Compact, lângă „Badge-uri" — click deschide un popover mic cu linkul (nu mai stă afișat lung pe
-// pagină), 2026-08-26 (feedback: UI-ul anterior, card întreg cu input vizibil, era prea proeminent.
+// Click deschide un popover mic cu linkul (nu mai stă afișat lung pe pagină), 2026-08-26 (feedback:
+// UI-ul inițial, card întreg cu input vizibil, era prea proeminent). Mutat în colțul antetului de
+// profil ca buton primary — mai vizibil decât varianta anterioară, discretă lângă „Badge-uri".
 export function ReferralLinkCard({ code, count }: { code: string; count: number }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -46,11 +47,11 @@ export function ReferralLinkCard({ code, count }: { code: string; count: number 
         type="button"
         onClick={() => setOpen((o) => !o)}
         title="Invită un prieten prin linkul tău de referral"
-        className="flex shrink-0 items-center gap-1.5 rounded-full border border-input bg-background px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-[#974a2e]"
       >
-        <UserPlus className="size-3.5" strokeWidth={2} />
-        Invită
-        {count > 0 && <span className="font-mono text-[11px]">· {count}</span>}
+        <UserPlus className="size-4" strokeWidth={2} />
+        Invită un prieten
+        {count > 0 && <span className="font-mono text-[12px] opacity-90">· {count}</span>}
       </button>
 
       {open && (
