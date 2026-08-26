@@ -6,7 +6,6 @@ import { FeedRail } from "@/components/feed-rail";
 import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
 import { MobileCategoryFilter } from "@/components/mobile-category-filter";
-import { computeAnnouncementDelayMs } from "@/lib/announcement-delay";
 import { ProductTour } from "@/components/product-tour";
 import { WhatsNewModal } from "@/components/whats-new-modal";
 import { auth } from "@/lib/auth";
@@ -99,7 +98,9 @@ export default async function FeedPage({
   return (
     <>
     <ProductTour active={tour === "1"} />
-    <WhatsNewModal items={unseenAnnouncement ?? []} delayMs={computeAnnouncementDelayMs(tour === "1")} />
+    {/* Suprimat complet la userul chiar nou (tur activ) — apare firesc la a DOUA vizită, nu întârziat
+        peste tur (2026-08-26, vezi comentariul din whats-new-modal.tsx). */}
+    <WhatsNewModal items={tour === "1" ? [] : (unseenAnnouncement ?? [])} />
     <FeedEntrance welcome={welcome === "1"}>
     <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
       <FeedSidebar

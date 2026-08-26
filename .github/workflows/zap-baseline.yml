@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.14.0
+        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
         env:
           # Preview-urile Vercel sunt în spatele Deployment Protection (SSO) — fără header-ul de bypass,
           # orice request neautentificat primește 302 spre vercel.com/sso-api, iar ZAP ajunge să scaneze
@@ -40,7 +40,7 @@ jobs:
 
       - name: Upload raport
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: zap-baseline-report
           path: report_html.html

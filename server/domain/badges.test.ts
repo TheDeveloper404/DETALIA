@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeBadges, diffNewBadges, snapshotBadges } from "./badges";
+import { computeBadges, diffNewBadges, FOUNDER_CUTOFF, snapshotBadges } from "./badges";
 
 const ZERO = {
   published: 0,
@@ -9,6 +9,9 @@ const ZERO = {
   validationsReceived: 0,
   activeDaysLastYear: 0,
   referralsCount: 0,
+  combinedContribution: 0,
+  activityVolume: 0,
+  isFounder: 0,
 };
 
 describe("computeBadges", () => {
@@ -42,20 +45,13 @@ describe("computeBadges", () => {
   });
 
   it("fiecare metrică alimentează DOAR badge-ul ei, nu se amestecă", () => {
-    const badges = computeBadges({
-      published: 1,
-      sketches: 0,
-      validationsGiven: 0,
-      validationsReceived: 0,
-      activeDaysLastYear: 0,
-      referralsCount: 0,
-    });
+    const badges = computeBadges({ ...ZERO, published: 1 });
     expect(badges).toEqual([
       { id: "contributor", label: "Contribuitor", description: "Detalii de execuție publicate", tier: "bronze" },
     ]);
   });
 
-  it("toate metricile la maxim → toate cele 6 badge-uri, treapta aur", () => {
+  it("toate metricile la maxim → toate cele 9 badge-uri, treapta aur", () => {
     const badges = computeBadges({
       published: 25,
       sketches: 25,
@@ -63,14 +59,42 @@ describe("computeBadges", () => {
       validationsReceived: 75,
       activeDaysLastYear: 250,
       referralsCount: 10,
+      combinedContribution: 15,
+      activityVolume: 200,
+      isFounder: 1,
     });
-    expect(badges).toHaveLength(6);
+    expect(badges).toHaveLength(9);
     expect(badges.every((b) => b.tier === "gold")).toBe(true);
   });
 
   it("badge single „Creștem împreună” — sub prag → nimic, la prag → direct gold (fără trepte intermediare)", () => {
     expect(computeBadges({ ...ZERO, referralsCount: 9 }).find((b) => b.id === "growth")).toBeUndefined();
     expect(computeBadges({ ...ZERO, referralsCount: 10 }).find((b) => b.id === "growth")?.tier).toBe("gold");
+  });
+
+  it("„Polivalent” (versatile) — sub prag → nimic, la prag → treapta corectă pe fiecare tier", () => {
+    expect(computeBadges({ ...ZERO, combinedContribution: 0 }).find((b) => b.id === "versatile")).toBeUndefined();
+    expect(computeBadges({ ...ZERO, combinedContribution: 1 }).find((b) => b.id === "versatile")?.tier).toBe("bronze");
+    expect(computeBadges({ ...ZERO, combinedContribution: 5 }).find((b) => b.id === "versatile")?.tier).toBe("silver");
+    expect(computeBadges({ ...ZERO, combinedContribution: 15 }).find((b) => b.id === "versatile")?.tier).toBe("gold");
+  });
+
+  it("„Motor al comunității” (powerhouse) — praguri tiered normale", () => {
+    expect(computeBadges({ ...ZERO, activityVolume: 19 }).find((b) => b.id === "powerhouse")).toBeUndefined();
+    expect(computeBadges({ ...ZERO, activityVolume: 20 }).find((b) => b.id === "powerhouse")?.tier).toBe("bronze");
+    expect(computeBadges({ ...ZERO, activityVolume: 75 }).find((b) => b.id === "powerhouse")?.tier).toBe("silver");
+    expect(computeBadges({ ...ZERO, activityVolume: 200 }).find((b) => b.id === "powerhouse")?.tier).toBe("gold");
+  });
+
+  it("badge single „Fondator” — 0 → nimic, 1 → direct gold", () => {
+    expect(computeBadges({ ...ZERO, isFounder: 0 }).find((b) => b.id === "founder")).toBeUndefined();
+    expect(computeBadges({ ...ZERO, isFounder: 1 }).find((b) => b.id === "founder")?.tier).toBe("gold");
+  });
+});
+
+describe("FOUNDER_CUTOFF", () => {
+  it("e cutoff-ul MVP→v1 documentat (2026-08-07/08)", () => {
+    expect(FOUNDER_CUTOFF.toISOString()).toBe("2026-08-08T00:00:00.000Z");
   });
 });
 
