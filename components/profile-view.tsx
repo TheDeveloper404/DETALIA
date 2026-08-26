@@ -1,11 +1,25 @@
 "use client";
 
-import { Bookmark, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
+import {
+  Bookmark,
+  CheckCircle2,
+  Crown,
+  FileText,
+  Flame,
+  FolderKanban,
+  Layers,
+  LayoutDashboard,
+  PencilLine,
+  ShieldCheck,
+  UserPlus,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { BADGE_DEFS, type EarnedBadge } from "@/server/domain/badges";
+import { BADGE_DEFS, type BadgeId, type EarnedBadge } from "@/server/domain/badges";
 
 import { PersonSilhouette } from "./avatar-initials";
 import { BadgeEarnedPopup } from "./badge-earned-popup";
@@ -111,10 +125,6 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
   return (
     <div className="mx-auto w-full max-w-[1080px] px-6 pb-16">
       {data.viewerIsOwner && <BadgeEarnedPopup badges={data.newlyEarnedBadges} />}
-      {/* Wrapper NON-overflow-hidden — cardul de mai jos are overflow-hidden (colțurile banner-ului),
-          care ar tăia popover-ul de referral dacă ar sta în interior (P1 Greptile, 2026-08-26: exact
-          asta se întâmpla). Referralul stă poziționat absolut aici, deasupra cardului, nu în el. */}
-      <div className="relative">
       {/* Card unic pt banner + antet (avatar/nume/badge/bio) — coerent cu bara de statistici de mai
           jos, care are deja propriul chenar (2026-07-16: „le-aș pune și pe astea într-un
           container"). */}
@@ -287,18 +297,6 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       </div>
       </div>
 
-      {/* Referral — colțul antetului, peste banner (nu peste rândul cu avatarul, care începe abia sub
-          banner) — evită suprapunerea cu cei 104px de avatar pe orice lățime de ecran (P1 Greptile,
-          2026-08-26: varianta anterioară era poziționată în header-ul de sub banner, unde chiar se
-          suprapunea pe mobil). Poziționat în afara cardului cu overflow-hidden de mai sus (nu în
-          interior) ca popover-ul cu linkul să nu fie tăiat. */}
-      {data.viewerIsOwner && data.referralCode && (
-        <div className="absolute right-3 top-3 z-10 sm:right-5">
-          <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
-        </div>
-      )}
-      </div>
-
       {/* „Conținutul meu" — aceleași 4 destinații ca în sidebar-ul feed-ului (feed-sidebar.tsx),
           mutate aici din meniul de avatar, 2026-08-25. Strict propriul profil. Imediat sub antet,
           2026-08-26 (navigarea proprie e prioritară față de taburile de conținut de mai jos). */}
@@ -380,11 +378,18 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         </div>
 
         <div className="mt-5 border-t border-border pt-4">
-          <SectionLabel>Badge-uri</SectionLabel>
+          <div className="flex items-center justify-between gap-3">
+            <SectionLabel>Badge-uri</SectionLabel>
+            {/* Referral — STRICT pe propriul profil (privat), lângă „Badge-uri" (2026-08-26: mutat
+                din colțul antetului, unde acoperea vizual imaginea de cover). */}
+            {data.viewerIsOwner && data.referralCode && (
+              <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
+            )}
+          </div>
           {data.badges.length > 0 ? (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {data.badges.map((b) => (
-                <BadgePill key={b.id} badge={b} />
+                <BadgeCard key={b.id} badge={b} />
               ))}
             </div>
           ) : (
@@ -429,24 +434,48 @@ const BADGE_TIER_STYLE: Record<EarnedBadge["tier"], string> = {
   silver: "border-[#d6d6da] bg-[#f2f2f4] text-[#5a5a63]",
   gold: "border-[#f0e0b4] bg-[#fbf6ea] text-[#9a7b1f]",
 };
+const BADGE_TIER_ICON_BG: Record<EarnedBadge["tier"], string> = {
+  bronze: "bg-[#e9d2ba]",
+  silver: "bg-[#e2e2e6]",
+  gold: "bg-[#f3e3ae]",
+};
 const BADGE_TIER_LABEL: Record<EarnedBadge["tier"], string> = {
   bronze: "Bronz",
   silver: "Argint",
   gold: "Aur",
 };
 
-function BadgePill({ badge }: { badge: EarnedBadge }) {
+// O iconiță tematică per tip de badge — înainte era doar o steluță generică pt. toate (2026-08-26,
+// feedback: „arată sec"), acum fiecare tip se recunoaște vizual dintr-o privire.
+const BADGE_ICON: Record<BadgeId, LucideIcon> = {
+  contributor: FileText,
+  illustrator: PencilLine,
+  validator: CheckCircle2,
+  trusted: ShieldCheck,
+  consistent: Flame,
+  growth: UserPlus,
+  versatile: Layers,
+  powerhouse: Zap,
+  founder: Crown,
+};
+
+function BadgeCard({ badge }: { badge: EarnedBadge }) {
+  const Icon = BADGE_ICON[badge.id];
   return (
-    <span
+    <div
       title={badge.description}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold ${BADGE_TIER_STYLE[badge.tier]}`}
+      className={`flex items-center gap-3 rounded-lg border px-3.5 py-3 ${BADGE_TIER_STYLE[badge.tier]}`}
     >
-      <Star size={11} />
-      {badge.label}
-      <span className="font-mono text-[10.5px] font-normal opacity-75">
-        {BADGE_TIER_LABEL[badge.tier]}
+      <span className={`flex size-9 shrink-0 items-center justify-center rounded-full ${BADGE_TIER_ICON_BG[badge.tier]}`}>
+        <Icon className="size-[18px]" strokeWidth={2} />
       </span>
-    </span>
+      <div className="min-w-0">
+        <div className="truncate text-[13px] font-semibold">{badge.label}</div>
+        <div className="font-mono text-[10.5px] font-normal opacity-75">
+          {BADGE_TIER_LABEL[badge.tier]}
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -2,6 +2,11 @@
 
 // Panou „Ce e nou" — apare o singură dată per versiune, la prima vizită după login, dacă userul n-a
 // văzut încă versiunea curentă (server/domain/announcements.ts). Fără CTA deocamdată (decizie 2026-08-17).
+// La userul chiar nou (tur vizual activ, `?tour=1`), apelantul (feed/page.tsx) NU trimite `items` deloc
+// — panoul rămâne complet suprimat pentru vizita asta, apare firesc la a DOUA vizită (2026-08-26: fostul
+// mecanism de întârziere de 60s se rupea la `router.replace()` din tur, care ștergea `?tour=1` și
+// declanșa un re-render cu `delayMs` schimbat de la 60000 la 0 — panoul apărea aproape instant, PESTE
+// tur, apoi uneori din nou, la timeout-ul vechi rămas agățat).
 import { useEffect, useState } from "react";
 
 import type { AnnouncementItem } from "@/server/domain/announcements";
@@ -9,23 +14,21 @@ import { confirmAnnouncementSeenAction } from "@/app/(app)/profile/actions";
 
 import { DialogOverlay } from "./dialog-overlay";
 
-export function WhatsNewModal({ items, delayMs = 0 }: { items: AnnouncementItem[]; delayMs?: number }) {
+export function WhatsNewModal({ items }: { items: AnnouncementItem[] }) {
   // Captat O SINGURĂ DATĂ la mount (nu re-citit din prop) — pagina se poate re-randa pe server (ex.
   // `FeedEntrance` face `router.replace()` la ?welcome=1), iar la a doua trecere `items` vine deja gol
   // (fusese marcat văzut instant de efectul de mai jos), ceea ce închidea panoul instant după deschidere.
   const [shown] = useState(items);
   const [open, setOpen] = useState(false);
 
-  // Marchează versiunea ca văzută abia când panoul chiar devine vizibil (nu mai devreme) — dacă userul
-  // închide tab-ul în fereastra de întârziere, anunțul rămâne nevăzut, nu „ars" degeaba.
   useEffect(() => {
     if (shown.length === 0) return;
     const timer = setTimeout(() => {
       setOpen(true);
       void confirmAnnouncementSeenAction();
-    }, delayMs);
+    }, 0);
     return () => clearTimeout(timer);
-  }, [shown, delayMs]);
+  }, [shown]);
 
   if (!open || shown.length === 0) return null;
 

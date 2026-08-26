@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           # Istoric complet → secret scanning vede toate commit-urile, nu doar HEAD.
           fetch-depth: 0
@@ -26,7 +26,7 @@ jobs:
       # de sesiune comis în e2e/.auth/. Licență cerută DOAR pe conturi de organizație; pe cont
       # personal rulează liber. Rulează indiferent de scaffold (fișierele există mereu).
       - name: Secret scan (gitleaks)
-        uses: gitleaks/gitleaks-action@v3
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -41,7 +41,7 @@ jobs:
 
       - name: Setup Node
         if: steps.detect.outputs.ready == 'true'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 24
           cache: npm
