@@ -19,6 +19,7 @@ vi.mock("@/server/repos/usersRepo", () => ({
 }));
 vi.mock("@/server/repos/materialOffersRepo", () => ({
   listMaterialOffersBySupplier: vi.fn().mockResolvedValue([]),
+  listMaterialOffersReceivedByAuthor: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("@/server/services/referralService", () => ({
   getOrCreateReferralCode: vi.fn().mockResolvedValue("REFCODE1"),
@@ -26,7 +27,7 @@ vi.mock("@/server/services/referralService", () => ({
 
 import { getContributionCounts, getProfileStats } from "@/server/repos/profileRepo";
 import { getPublicProfile, updateSeenBadges } from "@/server/repos/usersRepo";
-import { listMaterialOffersBySupplier } from "@/server/repos/materialOffersRepo";
+import { listMaterialOffersBySupplier, listMaterialOffersReceivedByAuthor } from "@/server/repos/materialOffersRepo";
 
 import { getProfileView, markBadgesSeen, memberSinceOf, roleLabelOf } from "./profileService";
 
@@ -181,7 +182,8 @@ describe("getProfileView — contact (telefon/email) strict opt-in prin bifă, I
 // Ofertele de materiale (2026-08-25) — STRICT privat: nici măcar interogate dacă viewer-ul nu e
 // proprietarul (apărare în adâncime, nu doar ascundere în UI — vezi profile-view.tsx).
 describe("getProfileView — materialOffers strict privat (viewerIsOwner)", () => {
-  it("proprietarul își vede profilul → listMaterialOffersBySupplier CHEMATĂ, rezultatul expus", async () => {
+  it("proprietar FURNIZOR → listMaterialOffersBySupplier CHEMATĂ (nu cea de primite), direction 'sent'", async () => {
+    vi.mocked(getPublicProfile).mockResolvedValue({ ...PROFILE_ROW, roleMain: "FURNIZOR" } as never);
     vi.mocked(listMaterialOffersBySupplier).mockResolvedValueOnce([
       {
         offerId: "offer-1",
@@ -197,6 +199,8 @@ describe("getProfileView — materialOffers strict privat (viewerIsOwner)", () =
     const view = await getProfileView(USER_ID, USER_ID);
 
     expect(listMaterialOffersBySupplier).toHaveBeenCalledWith(USER_ID);
+    expect(listMaterialOffersReceivedByAuthor).not.toHaveBeenCalled();
+    expect(view?.materialOffersDirection).toBe("sent");
     expect(view?.materialOffers).toEqual([
       {
         id: "offer-1",
@@ -209,10 +213,47 @@ describe("getProfileView — materialOffers strict privat (viewerIsOwner)", () =
     ]);
   });
 
-  it("vizitator (nu proprietarul) → listMaterialOffersBySupplier NECHEMATĂ, materialOffers gol", async () => {
+  it("proprietar NON-furnizor (ex. Executant) → listMaterialOffersReceivedByAuthor CHEMATĂ, direction 'received', cu numele furnizorului", async () => {
+    // PROFILE_ROW.roleMain = EXECUTANT (implicit din fixture) — testează exact regula de produs:
+    // „ca user obișnuit, ofertele mele = cele PRIMITE, nu cele trimise (n-a trimis niciodată)".
+    vi.mocked(listMaterialOffersReceivedByAuthor).mockResolvedValueOnce([
+      {
+        offerId: "offer-2",
+        detailId: "detail-2",
+        detailTitle: "Detaliu Y",
+        supplierId: "supplier-1",
+        supplierName: "Ion Furnizorul",
+        supplierImage: null,
+        message: "Ofertă materiale",
+        createdAt: new Date("2026-08-21T00:00:00Z"),
+        updatedAt: new Date("2026-08-21T00:00:00Z"),
+        fileCount: 1,
+      },
+    ] as never);
+
+    const view = await getProfileView(USER_ID, USER_ID);
+
+    expect(listMaterialOffersReceivedByAuthor).toHaveBeenCalledWith(USER_ID);
+    expect(listMaterialOffersBySupplier).not.toHaveBeenCalled();
+    expect(view?.materialOffersDirection).toBe("received");
+    expect(view?.materialOffers).toEqual([
+      {
+        id: "offer-2",
+        detailId: "detail-2",
+        detailTitle: "Detaliu Y",
+        message: "Ofertă materiale",
+        fileCount: 1,
+        time: expect.any(String),
+        supplierName: "Ion Furnizorul",
+      },
+    ]);
+  });
+
+  it("vizitator (nu proprietarul) → NICIUNA din cele două funcții chemate, materialOffers gol — indiferent de rol", async () => {
     const view = await getProfileView(USER_ID, OTHER_ID);
 
     expect(listMaterialOffersBySupplier).not.toHaveBeenCalled();
+    expect(listMaterialOffersReceivedByAuthor).not.toHaveBeenCalled();
     expect(view?.materialOffers).toEqual([]);
   });
 });

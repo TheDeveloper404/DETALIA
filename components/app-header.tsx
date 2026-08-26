@@ -1,22 +1,11 @@
 import { auth } from "@/lib/auth";
+import { mapNotificationRows } from "@/lib/notification-view";
 import { getNotifications } from "@/server/services/notificationService";
 import { getUserMedia } from "@/server/repos/usersRepo";
 
 import { BrandLogoHome, HomeIconLink } from "./feed-home-links";
-import { NotificationBell, type NotificationView } from "./notification-bell";
+import { NotificationBell } from "./notification-bell";
 import { UserMenu } from "./user-menu";
-
-type NotificationPayload = {
-  detailId?: string;
-  sketchId?: string;
-  detailTitle?: string;
-  sketchAuthorName?: string | null;
-  sketchAuthorRole?: string | null;
-  sketchAuthorSubRole?: string | null;
-  sketchAuthorVerified?: boolean;
-  supplierName?: string | null;
-  joinedUserName?: string | null;
-};
 
 // Header global — apare DOAR pentru useri autentificați (landing/login/signup rămân fără header).
 export async function AppHeader() {
@@ -29,23 +18,7 @@ export async function AppHeader() {
     getNotifications(session.user.id),
     getUserMedia(session.user.id),
   ]);
-  const notifications: NotificationView[] = rows.map((n) => {
-    const p = (n.payloadJson ?? {}) as NotificationPayload;
-    return {
-      id: n.id,
-      type: n.type,
-      actorName: p.sketchAuthorName ?? p.supplierName ?? p.joinedUserName ?? null,
-      actorRole: p.sketchAuthorRole ?? null,
-      actorSubRole: p.sketchAuthorSubRole ?? null,
-      actorVerified: p.sketchAuthorVerified ?? false,
-      detailTitle: p.detailTitle ?? "un detaliu",
-      href: p.detailId
-        ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}`
-        : null,
-      createdAt: n.createdAt.toISOString(),
-      unread: n.readAt === null,
-    };
-  });
+  const notifications = mapNotificationRows(rows);
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
