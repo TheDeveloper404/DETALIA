@@ -93,11 +93,15 @@ care modalul e reimplementat de 9 ori mai sus — nu există un `<Dialog>` shadc
 
 ---
 
-## Badge-uri de profil (`BadgePill`)
-`components/profile-view.tsx` — pill Bronz/Argint/Aur, calculate LIVE (fără DB nouă) de
-`server/domain/badges.ts` (`computeBadges`), pe praguri fixe din statisticile deja afișate în profil
-(detalii publicate, schițe, validări date/primite, zile active/an din heatmap). Prag nou/badge nou →
-editează `BADGE_DEFS` în `badges.ts`, testat de `badges.test.ts`.
+## Badge-uri de profil (`BadgeCard`)
+`components/profile-view.tsx` — card cu iconiță tematică per tip (`BADGE_ICON`, lucide) + tier
+Bronz/Argint/Aur, calculate LIVE (fără DB nouă) de `server/domain/badges.ts` (`computeBadges`), pe
+praguri fixe din statisticile deja afișate în profil (detalii publicate, schițe, validări date/
+primite, zile active/an din heatmap, referral, + combinații derivate: `combinedContribution`
+(min publicări/schițe), `activityVolume` (sumă), `isFounder` (cont creat înainte de
+`FOUNDER_CUTOFF`)). Redesenat din pill simplu în card cu iconiță 2026-08-26 (feedback: „arată sec").
+Prag nou/badge nou → editează `BADGE_DEFS` + `BADGE_ICON` (profile-view.tsx) în `badges.ts`, testat de
+`badges.test.ts`.
 
 ## Tur ghidat (`ProductTour` / `DetailProductTour`)
 Pattern comun (driver.js, restilizat pe paletă — `.detalia-tour-popover` în `globals.css`), DOUĂ
