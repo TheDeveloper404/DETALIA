@@ -1,5 +1,6 @@
 "use client";
 
+import { Bookmark, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -282,57 +283,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
       </div>
       </div>
 
-      {/* Bara de statistici. */}
-      <div className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
-        <Stat value={data.stats.published} label="Detalii publicate" />
-        <Stat value={data.stats.sketches} label="Schițe propuse" />
-        <Stat value={data.stats.validationsGiven} label="Validări date" />
-        <Stat value={data.stats.validationsReceived} label="Validări primite" />
-      </div>
-
-      {/* Heatmap de contribuții (ultimul an). */}
-      <div className="mt-6">
-        <ContributionGraph days={data.contributions} total={data.contributionsTotal} />
-      </div>
-
-      {/* Badge-uri stil StackOverflow — Bronz/Argint/Aur, calculate live din statistici (server/domain/badges.ts). */}
-      <div className="mt-6 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
-        <SectionLabel>Badge-uri</SectionLabel>
-        {data.badges.length > 0 ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {data.badges.map((b) => (
-              <BadgePill key={b.id} badge={b} />
-            ))}
-          </div>
-        ) : (
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-            Niciun badge încă — publică un detaliu, propune o schiță sau votează pe una existentă ca
-            să-l primești pe primul.
-          </p>
-        )}
-
-        <details className="mt-3 text-[13px]">
-          <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
-            Cum se obțin badge-urile?
-          </summary>
-          <ul className="mt-2.5 flex flex-col gap-1.5 text-muted-foreground">
-            {BADGE_DEFS.map((def) => (
-              <li key={def.id}>
-                <span className="font-semibold text-foreground">{def.label}</span> — {def.description}:{" "}
-                {def.thresholds.bronze} Bronz · {def.thresholds.silver} Argint · {def.thresholds.gold} Aur
-              </li>
-            ))}
-          </ul>
-        </details>
-      </div>
-
-      {/* Link de referral — STRICT pe propriul profil (privat), 2026-08-25. */}
-      {data.viewerIsOwner && data.referralCode && (
-        <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
-      )}
-
       {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
-          nume, stil LinkedIn — 2026-08-17). */}
+          nume, stil LinkedIn — 2026-08-17). Mutate imediat sub antet, 2026-08-26 (conținutul propriu-zis
+          e prioritar față de badge-uri/contribuții mai jos pe pagină). */}
       <div className="mt-6 min-w-0">
         <div className="mb-5 flex gap-1 border-b border-border">
           <TabButton active={tab === "detalii"} onClick={() => setTab("detalii")}>
@@ -357,6 +310,95 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         {tab === "schite" && <SketchesTab items={data.sketches} />}
         {tab === "activitate" && <ActivityTab items={data.activity} />}
         {tab === "oferte" && data.viewerIsOwner && <MaterialOffersTab items={data.materialOffers} />}
+      </div>
+
+      {/* „Conținutul meu" — aceleași 4 destinații ca în sidebar-ul feed-ului (feed-sidebar.tsx),
+          mutate aici din meniul de avatar, 2026-08-26. Strict propriul profil. */}
+      {data.viewerIsOwner && (
+        <div className="mt-6 flex flex-wrap gap-2 rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+          <Link
+            href="/projects"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+          >
+            <FolderKanban className="size-4 text-muted-foreground" strokeWidth={2} />
+            Proiecte
+          </Link>
+          <Link
+            href="/canvases"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+          >
+            <LayoutDashboard className="size-4 text-muted-foreground" strokeWidth={2} />
+            Planșele mele
+          </Link>
+          <Link
+            href="/saved"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+          >
+            <Bookmark className="size-4 text-muted-foreground" strokeWidth={2} />
+            Detalii salvate
+          </Link>
+          <Link
+            href="/sketches/drafts"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+          >
+            <PencilLine className="size-4 text-muted-foreground" strokeWidth={2} />
+            Ciorne
+          </Link>
+        </div>
+      )}
+
+      {/* Badge-uri stil StackOverflow — Bronz/Argint/Aur, calculate live din statistici (server/domain/badges.ts). */}
+      <div className="mt-6 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
+        <div className="flex items-center justify-between gap-3">
+          <SectionLabel>Badge-uri</SectionLabel>
+          {/* Referral — STRICT pe propriul profil (privat), compact lângă badge-uri, 2026-08-26. */}
+          {data.viewerIsOwner && data.referralCode && (
+            <ReferralLinkCard code={data.referralCode} count={data.referralsCount} />
+          )}
+        </div>
+        {data.badges.length > 0 ? (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {data.badges.map((b) => (
+              <BadgePill key={b.id} badge={b} />
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+            Niciun badge încă — publică un detaliu, propune o schiță sau votează pe una existentă ca
+            să-l primești pe primul.
+          </p>
+        )}
+
+        <details className="mt-3 text-[13px]">
+          <summary className="cursor-pointer select-none font-medium text-muted-foreground hover:text-foreground">
+            Cum se obțin badge-urile?
+          </summary>
+          <ul className="mt-2.5 flex flex-col gap-1.5 text-muted-foreground">
+            {BADGE_DEFS.map((def) => (
+              <li key={def.id}>
+                <span className="font-semibold text-foreground">{def.label}</span> — {def.description}:{" "}
+                {def.thresholds.bronze === def.thresholds.gold
+                  ? `${def.thresholds.gold} Aur`
+                  : `${def.thresholds.bronze} Bronz · ${def.thresholds.silver} Argint · ${def.thresholds.gold} Aur`}
+              </li>
+            ))}
+          </ul>
+        </details>
+      </div>
+
+      {/* Contribuții — bara de statistici + heatmap unificate într-un singur card (spuneau oarecum
+          același lucru — activitate agregată — 2026-08-26, erau două containere separate înainte). */}
+      <div className="mt-6 rounded-lg bg-card p-5 ring-1 ring-foreground/10">
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+          <Stat value={data.stats.published} label="Detalii publicate" />
+          <Stat value={data.stats.sketches} label="Schițe propuse" />
+          <Stat value={data.stats.validationsGiven} label="Validări date" />
+          <Stat value={data.stats.validationsReceived} label="Validări primite" />
+        </div>
+        {/* ContributionGraph are propriul titlu „Contribuții în ultimul an" — nu-l dublăm cu un SectionLabel extern. */}
+        <div className="mt-4">
+          <ContributionGraph days={data.contributions} total={data.contributionsTotal} />
+        </div>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { TOUR_STEPS } from "./product-tour";
+import { getTourSteps, TOUR_STEPS } from "./product-tour";
 
 // Selectorii `data-tour` real prezenți în DOM-ul paginii /feed (header + sidebar + FAB) — vezi
 // app-header.tsx, feed-sidebar.tsx, add-detail-fab.tsx, user-menu.tsx.
@@ -24,5 +24,19 @@ describe("TOUR_STEPS", () => {
       expect(step.popover?.title?.trim()).toBeTruthy();
       expect(step.popover?.description?.trim()).toBeTruthy();
     }
+  });
+});
+
+describe("getTourSteps", () => {
+  it("pe desktop include pasul „Proiecte” (ținta din sidebar e vizibilă)", () => {
+    const steps = getTourSteps(true);
+    expect(steps.some((s) => s.element === '[data-tour="projects"]')).toBe(true);
+    expect(steps).toHaveLength(TOUR_STEPS.length);
+  });
+
+  it("sub breakpoint-ul lg exclude pasul „Proiecte” (ținta e ascunsă în sidebar, hidden lg:flex)", () => {
+    const steps = getTourSteps(false);
+    expect(steps.some((s) => s.element === '[data-tour="projects"]')).toBe(false);
+    expect(steps).toHaveLength(TOUR_STEPS.length - 1);
   });
 });
