@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn(), insertSavedDetail: vi.fn() }));
+vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/supplierOffersRepo", () => ({
   deleteSupplierOffer: vi.fn(),
@@ -9,7 +9,7 @@ vi.mock("@/server/repos/supplierOffersRepo", () => ({
   listSupplierOffersForDetail: vi.fn(),
 }));
 
-import { getDetailById, insertSavedDetail } from "@/server/repos/detailsRepo";
+import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   deleteSupplierOffer,
@@ -96,29 +96,19 @@ describe("nu poți oferta pe propriul detaliu — CANNOT_OFFER_OWN", () => {
 
 // FĂRĂ notificare la ridicarea mâinii (2026-08-26, feedback: notificarea reală vine STRICT din
 // materialOfferService, la trimiterea conținutului ofertei — vezi materialOfferService.test.ts).
-describe("toggle reversibil — DOAR ridicare/retragere mână, fără efect de notificare", () => {
-  it("primul click (nu oferta încă) → insert + auto-save, offering: true", async () => {
+describe("toggle reversibil — DOAR ridicare/retragere mână, fără efect de notificare ȘI fără auto-save", () => {
+  it("primul click (nu oferta încă) → doar insert, offering: true", async () => {
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: true });
     expect(insertSupplierOfferIfAbsent).toHaveBeenCalledWith("u-1", DETAIL_ID);
-    expect(insertSavedDetail).toHaveBeenCalledWith("u-1", DETAIL_ID);
   });
 
-  it("al doilea click (deja ofertează, insert respinge conflictul) → retrage (delete), FĂRĂ auto-save, offering: false", async () => {
+  it("al doilea click (deja ofertează, insert respinge conflictul) → retrage (delete), offering: false", async () => {
     vi.mocked(insertSupplierOfferIfAbsent).mockResolvedValue(false);
     const r = await toggleSupplierOffer(input);
     expect(r).toEqual({ ok: true, offering: false });
     expect(insertSupplierOfferIfAbsent).toHaveBeenCalledWith("u-1", DETAIL_ID);
     expect(deleteSupplierOffer).toHaveBeenCalledWith("u-1", DETAIL_ID);
-    expect(insertSavedDetail).not.toHaveBeenCalled();
-  });
-});
-
-describe("efectul secundar (auto-save) e izolat — un eșec acolo NU trebuie să strice rezultatul întors userului", () => {
-  it("insertSavedDetail aruncă → toggleSupplierOffer tot întoarce succes (fără să propage eroarea)", async () => {
-    vi.mocked(insertSavedDetail).mockRejectedValue(new Error("DB tranzitoriu"));
-    const r = await toggleSupplierOffer(input);
-    expect(r).toEqual({ ok: true, offering: true });
   });
 });
 
