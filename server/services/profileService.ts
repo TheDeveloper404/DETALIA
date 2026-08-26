@@ -15,7 +15,6 @@ import { isUsersBlobUrl } from "@/lib/blob-url";
 import {
   computeBadges,
   diffNewBadges,
-  FOUNDER_CUTOFF,
   snapshotBadges,
   type EarnedBadge,
   type SeenBadges,
@@ -30,7 +29,10 @@ import {
   listAuthorDetails,
   listAuthorSketches,
 } from "@/server/repos/profileRepo";
-import { listMaterialOffersBySupplier } from "@/server/repos/materialOffersRepo";
+import {
+  listMaterialOffersBySupplier,
+  listMaterialOffersReceivedByAuthor,
+} from "@/server/repos/materialOffersRepo";
 import { getOrCreateReferralCode } from "@/server/services/referralService";
 import {
   countReferrals,
@@ -112,11 +114,10 @@ const SKETCH_STATUS_VIEW: Record<
 // n-are nevoie de activitate/detalii/schițe — doar de statisticile care intră în calculul de badge).
 async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
   const { startMs } = contributionWindow();
-  const [stats, contribCounts, referralsCount, profile] = await Promise.all([
+  const [stats, contribCounts, referralsCount] = await Promise.all([
     getProfileStats(userId),
     getContributionCounts(userId, new Date(startMs)),
     countReferrals(userId),
-    getPublicProfile(userId),
   ]);
   // `contribCounts` conține DOAR zilele cu activitate (>0) — mărimea mapului = nr. de zile active.
   return computeBadges({
@@ -128,7 +129,6 @@ async function computeCurrentBadges(userId: string): Promise<EarnedBadge[]> {
     referralsCount,
     combinedContribution: Math.min(stats.published, stats.sketches),
     activityVolume: stats.published + stats.sketches + stats.validationsGiven,
-    isFounder: profile && profile.createdAt < FOUNDER_CUTOFF ? 1 : 0,
   });
 }
 
@@ -162,9 +162,15 @@ export const getProfileView = cache(async (
       listAuthorSketches(userId),
       listAuthorActivity(userId, ACTIVITY_LIMIT),
       getContributionCounts(userId, new Date(startMs)),
-      // Istoricul ofertelor de materiale trimise — STRICT privat (2026-08-25): nici măcar interogat
-      // dacă viewer-ul nu e proprietarul, nu doar ascuns în UI (apărare în adâncime).
-      userId === viewerId ? listMaterialOffersBySupplier(userId) : Promise.resolve([]),
+      // Istoricul de oferte — STRICT privat (2026-08-25/26): nici măcar interogat dacă viewer-ul nu e
+      // proprietarul, nu doar ascuns în UI (apărare în adâncime). Furnizor → ofertele TRIMISE de el;
+      // orice alt rol → ofertele PRIMITE pe propriile detalii (2026-08-26, feedback: „Ofertele mele"
+      // n-avea sens ca tab gol pentru non-furnizori — trebuie să arate ce a primit, nu ce n-a trimis).
+      userId === viewerId
+        ? profile.roleMain === "FURNIZOR"
+          ? listMaterialOffersBySupplier(userId)
+          : listMaterialOffersReceivedByAuthor(userId)
+        : Promise.resolve([]),
       // Badge-ul „Creștem împreună" e PUBLIC (afișat oricui vizitează profilul) — count simplu, citire.
       countReferrals(userId),
       // Codul de referral (link-ul propriu-zis) se generează LENEȘ, DOAR pe propriul profil — nu are
@@ -192,7 +198,6 @@ export const getProfileView = cache(async (
     referralsCount,
     combinedContribution: Math.min(stats.published, stats.sketches),
     activityVolume: stats.published + stats.sketches + stats.validationsGiven,
-    isFounder: profile.createdAt < FOUNDER_CUTOFF ? 1 : 0,
   });
 
   const roleLabel = roleLabelOf(profile.roleMain, profile.subRole);
@@ -290,6 +295,7 @@ export const getProfileView = cache(async (
     // gol dacă !viewerIsOwner (nici măcar interogat — vezi Promise.all de mai sus)
     referralsCount,
     referralCode, // null dacă !viewerIsOwner (n-a fost nici generat/citit — vezi Promise.all de mai sus)
+    materialOffersDirection: profile.roleMain === "FURNIZOR" ? "sent" : "received",
     materialOffers: materialOffers.map(
       (o): ProfileMaterialOfferItem => ({
         id: o.offerId,
@@ -298,6 +304,7 @@ export const getProfileView = cache(async (
         message: o.message,
         fileCount: o.fileCount,
         time: relativeTime(o.updatedAt),
+        supplierName: (o as { supplierName?: string | null }).supplierName,
       }),
     ),
   };
