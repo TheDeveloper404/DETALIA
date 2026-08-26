@@ -55,7 +55,7 @@ export function ReferralLinkCard({ code, count }: { code: string; count: number 
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-10 mt-2 w-72 rounded-lg border border-input bg-card p-3 shadow-lg">
+        <div className="absolute right-0 top-full z-10 mt-2 w-72 max-w-[85vw] rounded-lg border border-input bg-card p-3 shadow-lg">
           <p className="text-[12.5px] leading-relaxed text-muted-foreground">
             Trimite-l unui prieten — dacă își face cont prin el, primești o notificare. La 10 useri
             aduși primești badge-ul „Creștem împreună&rdquo;.
