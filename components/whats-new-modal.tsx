@@ -30,6 +30,17 @@ export function WhatsNewModal({ items }: { items: AnnouncementItem[] }) {
     return () => clearTimeout(timer);
   }, [shown]);
 
+  // Blochează scroll-ul paginii cât panoul e deschis (2026-08-26, cerut) — DialogOverlay nu face asta
+  // singur (folosit și de alte modale unde nu s-a cerut), deci local aici, nu în componenta comună.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   if (!open || shown.length === 0) return null;
 
   return (

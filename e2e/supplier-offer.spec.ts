@@ -21,7 +21,10 @@ async function setRole(userId: string, roleMain: "FURNIZOR" | "PROIECTANT") {
 }
 
 test.describe.serial("supplier offer", () => {
-test("toggle: primul click → oferă + notificare reală; al doilea → retrage, fără notificare nouă", async () => {
+// FĂRĂ notificare la ridicarea mâinii (2026-08-26, feedback: notificarea reală trebuie să vină STRICT
+// la trimiterea conținutului ofertei — materialOfferService, nu de aici). Testul verifică explicit
+// absența ei, nu doar toggle-ul rândului din `supplier_offers`.
+test("toggle: primul click → oferă (FĂRĂ notificare); al doilea → retrage", async () => {
   const { detailId, testerUserId, authorUserId } = getSeed();
 
   // Curăță ORICE gunoi rămas din rulări anterioare întrerupte (test idempotent la pornire) — altfel un
@@ -57,9 +60,9 @@ test("toggle: primul click → oferă + notificare reală; al doilea → retrage
       .from(notifications)
       .where(and(eq(notifications.recipientUserId, authorUserId), eq(notifications.type, "SUPPLIER_OFFERED")));
     const match = notifRows.find((n) => (n.payloadJson as { detailId?: string })?.detailId === detailId);
-    expect(match).toBeTruthy();
+    expect(match).toBeUndefined();
 
-    // al doilea click: retrage — rândul dispare, FĂRĂ notificare nouă (contor rămâne 1)
+    // al doilea click: retrage — rândul dispare, tot fără notificare
     const r2 = await toggleSupplierOffer({ userId: testerUserId, detailId });
     expect(r2).toEqual({ ok: true, offering: false });
 
@@ -76,7 +79,7 @@ test("toggle: primul click → oferă + notificare reală; al doilea → retrage
     const matchesAfter = notifRowsAfter.filter(
       (n) => (n.payloadJson as { detailId?: string })?.detailId === detailId,
     );
-    expect(matchesAfter.length).toBe(1); // tot doar cea de la primul click
+    expect(matchesAfter.length).toBe(0);
   } finally {
     // NECONDIȚIONAT — rulează chiar dacă o asertare de mai sus a picat, altfel rândurile rămân
     // orfane și contaminează următoarea rulare (bug găsit 2026-07-16: exact asta s-a întâmplat).

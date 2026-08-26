@@ -29,6 +29,9 @@ export function DetailProductTour({ seen }: { seen: boolean }) {
       animate: true,
       smoothScroll: true,
       duration: 500,
+      // Blochează scroll-ul manual al paginii cât turul e activ (2026-08-26, cerut) — opțiune nativă
+      // driver.js, nu hand-rolled pe body; scroll-ul PROGRAMATIC dintre pași (smoothScroll) tot merge.
+      allowScroll: false,
       overlayColor: "#211d18",
       overlayOpacity: 0.6,
       stagePadding: 6,
