@@ -214,6 +214,53 @@ export async function listMaterialOffersBySupplier(supplierId: string): Promise<
   return listWithDetailTitleAndFileCount(offers);
 }
 
+export type ReceivedMaterialOfferRow = {
+  offerId: string;
+  detailId: string;
+  detailTitle: string;
+  supplierId: string;
+  supplierName: string | null;
+  supplierImage: string | null;
+  message: string;
+  createdAt: Date;
+  updatedAt: Date;
+  fileCount: number;
+};
+
+// Istoricul ofertelor PRIMITE de un user pe TOATE detaliile lui (nu doar unul) — pentru secțiunea din
+// profilul lui (privată, doar el vede — gating-ul e responsabilitatea apelantului, ca la restul
+// funcțiilor din acest fișier). Join pe `details.author_id`, nu pe un singur `detailId`.
+export async function listMaterialOffersReceivedByAuthor(authorId: string): Promise<ReceivedMaterialOfferRow[]> {
+  const offers = await db
+    .select({
+      offerId: materialOffers.id,
+      detailId: materialOffers.detailId,
+      detailTitle: details.title,
+      supplierId: materialOffers.supplierId,
+      supplierName: users.name,
+      supplierImage: users.image,
+      message: materialOffers.message,
+      createdAt: materialOffers.createdAt,
+      updatedAt: materialOffers.updatedAt,
+    })
+    .from(materialOffers)
+    .innerJoin(details, eq(details.id, materialOffers.detailId))
+    .leftJoin(users, eq(users.id, materialOffers.supplierId))
+    .where(eq(details.authorId, authorId))
+    .orderBy(desc(materialOffers.createdAt));
+
+  if (offers.length === 0) return [];
+  const offerIds = offers.map((o) => o.offerId);
+  const fileRows = await db
+    .select({ offerId: materialOfferFiles.offerId })
+    .from(materialOfferFiles)
+    .where(inArray(materialOfferFiles.offerId, offerIds));
+  const fileCountByOffer = new Map<string, number>();
+  for (const f of fileRows) fileCountByOffer.set(f.offerId, (fileCountByOffer.get(f.offerId) ?? 0) + 1);
+
+  return offers.map((o) => ({ ...o, fileCount: fileCountByOffer.get(o.offerId) ?? 0 }));
+}
+
 async function listWithDetailTitleAndFileCount(
   offers: { offerId: string; detailId: string; message: string; createdAt: Date; updatedAt: Date }[],
 ): Promise<MyMaterialOfferRow[]> {

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { markOneReadAction, markReadAction } from "@/app/(app)/notifications/actions";
+import { getNotificationsAction, markOneReadAction, markReadAction } from "@/app/(app)/notifications/actions";
 import { formatRelative } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -136,18 +136,37 @@ function NotificationText({ n }: { n: NotificationView }) {
   return <>Schița ta la {ref} a fost respinsă.</>;
 }
 
+// Polling simplu (nu WebSockets/SSE — scară mică, 2026-08-26, discutat explicit cu Liviu). La fiecare
+// tick, răspunsul serverului e sursa de adevăr (deja reflectă orice `markOne`/`markAll` anterior) —
+// suprascrie state-ul local, nu se combină cu el.
+const POLL_INTERVAL_MS = 20_000;
+
 export function NotificationBell({
-  notifications,
-  count,
+  notifications: initialNotifications,
+  count: initialCount,
 }: {
   notifications: NotificationView[];
   count: number;
 }) {
+  const [notifications, setNotifications] = useState(initialNotifications);
+  const [count, setCount] = useState(initialCount);
   const [open, setOpen] = useState(false);
   const [allRead, setAllRead] = useState(false);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void getNotificationsAction().then((fresh) => {
+        setNotifications(fresh.notifications);
+        setCount(fresh.count);
+        setAllRead(false);
+        setReadIds(new Set());
+      });
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, []);
 
   // Închide la click în afară + Escape.
   useEffect(() => {
@@ -174,17 +193,32 @@ export function NotificationBell({
       );
   const hasItems = notifications.length > 0;
 
+  // `notifications`/`count` sunt state LOCAL (seedat din props doar la mount, ca pollingul de mai sus
+  // să poată suprascrie) — `router.refresh()` singur nu le mai actualizează (props noi din server nu
+  // re-seedează un `useState` deja montat). Refetch explicit după fiecare mutație, nu doar optimist.
+  async function applyFresh() {
+    const fresh = await getNotificationsAction();
+    setNotifications(fresh.notifications);
+    setCount(fresh.count);
+    setAllRead(false);
+    setReadIds(new Set());
+  }
+
   async function markAll() {
     setAllRead(true); // optimist
     await markReadAction();
     router.refresh();
+    await applyFresh();
   }
 
   // Clic pe o notificare → o marchează citită (optimist) + navighează (Link-ul gestionează ruta).
   function markOne(id: string) {
     setOpen(false);
     setReadIds((prev) => new Set(prev).add(id));
-    void markOneReadAction(id).then(() => router.refresh());
+    void markOneReadAction(id).then(async () => {
+      router.refresh();
+      await applyFresh();
+    });
   }
 
   return (

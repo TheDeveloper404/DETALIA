@@ -50,6 +50,9 @@ export type ProfileMaterialOfferItem = {
   message: string;
   fileCount: number;
   time: string;
+  // Prezent DOAR pe ofertele PRIMITE (viewer non-furnizor) — cine a trimis-o. `undefined` pe ofertele
+  // TRIMISE (viewer furnizor), unde furnizorul e chiar viewer-ul, nu are sens să se repete.
+  supplierName?: string | null;
 };
 
 export type ProfileActivityItem = {
@@ -88,6 +91,9 @@ export type ProfileViewData = {
   contributions: ContributionDay[]; // heatmap ultimul an (zile aliniate pe săptămâni, nivel 0..4)
   contributionsTotal: number;
   materialOffers: ProfileMaterialOfferItem[]; // gol dacă !viewerIsOwner — strict privat, vezi profileService
+  // "sent" (Furnizor) sau "received" (orice alt rol) — determină direcția din `materialOffers` de mai
+  // sus, explicit (nu dedus din date goale — un tab gol nu poate spune singur ce fel de gol e).
+  materialOffersDirection: "sent" | "received";
   referralsCount: number; // PUBLIC (intră în badge-ul „Creștem împreună", vizibil oricui)
   referralCode: string | null; // null dacă !viewerIsOwner — linkul e privat, doar pe propriul profil
 };
@@ -344,7 +350,9 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         {tab === "detalii" && <DetailsTab items={data.details} viewerIsOwner={data.viewerIsOwner} />}
         {tab === "schite" && <SketchesTab items={data.sketches} />}
         {tab === "activitate" && <ActivityTab items={data.activity} />}
-        {tab === "oferte" && data.viewerIsOwner && <MaterialOffersTab items={data.materialOffers} />}
+        {tab === "oferte" && data.viewerIsOwner && (
+          <MaterialOffersTab items={data.materialOffers} direction={data.materialOffersDirection} />
+        )}
       </div>
 
       {/* Contribuții — bara de statistici + heatmap + badge-uri, unificate într-un singur card
@@ -696,12 +704,24 @@ function ActivityTab({ items }: { items: ProfileActivityItem[] }) {
   );
 }
 
-// Strict privat (viewerIsOwner) — istoricul propriilor oferte de materiale trimise, cu link către
-// detaliul respectiv. Descărcarea fișierelor propriu-zise se face de pe pagina detaliului (secțiunea
-// autorului), nu de aici — aici e doar un istoric „cui i-am trimis ce".
-function MaterialOffersTab({ items }: { items: ProfileMaterialOfferItem[] }) {
+// Strict privat (viewerIsOwner). Furnizor → istoricul propriilor oferte TRIMISE („cui i-am trimis
+// ce"); orice alt rol → ofertele PRIMITE pe propriile detalii („cine mi-a trimis ce", 2026-08-26).
+// Descărcarea fișierelor propriu-zise se face de pe pagina detaliului (secțiunea autorului), nu de aici.
+function MaterialOffersTab({
+  items,
+  direction,
+}: {
+  items: ProfileMaterialOfferItem[];
+  direction: "sent" | "received";
+}) {
   const [expanded, setExpanded] = useState(false);
-  if (items.length === 0) return <EmptyTab>Nicio ofertă de materiale trimisă încă.</EmptyTab>;
+  if (items.length === 0) {
+    return (
+      <EmptyTab>
+        {direction === "received" ? "Nicio ofertă de materiale primită încă." : "Nicio ofertă de materiale trimisă încă."}
+      </EmptyTab>
+    );
+  }
   const visible = expanded ? items : items.slice(0, TAB_PAGE_SIZE);
   return (
     <>
@@ -712,7 +732,11 @@ function MaterialOffersTab({ items }: { items: ProfileMaterialOfferItem[] }) {
             href={`/details/${o.detailId}`}
             className="flex flex-col gap-1.5 rounded-lg bg-card p-4 ring-1 ring-foreground/10 transition-colors hover:ring-foreground/20"
           >
-            <div className="font-mono text-[11px] text-muted-foreground">Ofertă pe · {o.detailTitle}</div>
+            <div className="font-mono text-[11px] text-muted-foreground">
+              {o.supplierName !== undefined
+                ? `De la ${o.supplierName ?? "Anonim"} · pe ${o.detailTitle}`
+                : `Ofertă pe · ${o.detailTitle}`}
+            </div>
             {o.message && <p className="line-clamp-2 text-sm text-foreground">{o.message}</p>}
             <div className="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
               <span>
