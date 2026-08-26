@@ -232,11 +232,6 @@ export async function getProfileStats(userId: string) {
 // users/roles), Drizzle calificiază corect — de-aia feed-ul era corect și profilul nu. Fix: calificăm
 // EXPLICIT outer-ul cu sql.identifier (nu string brut), indiferent dacă query-ul are join sau nu.
 const detailsId = sql`${sql.identifier("details")}.${sql.identifier("id")}`;
-// ACEEAȘI capcană pentru `author_id`, și mai perfidă: subquery-ul de mai jos e pe `sketches`, care are
-// ȘI EL o coloană `author_id` → un `${details.authorId}` necalificat s-ar rezolva la `sketches.author_id`,
-// iar condiția ar deveni `sketches.author_id <> sketches.author_id` = mereu FALSĂ (contor mereu 0).
-const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("author_id")}`;
-
 const detailValidationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId}
      and ${validations.hiddenAfterRelease} = false)`;
