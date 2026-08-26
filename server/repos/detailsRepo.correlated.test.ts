@@ -84,6 +84,159 @@ describe("listFeed — counts de interacțiune (subquery corelat pe details.id)"
   });
 });
 
+describe("listFeed — validationCount/approveCount însumează detaliul de bază + schițele din teanc (2026-08-26, decizie de produs: valoarea vine din toată dezbaterea)", () => {
+  let detailA: string;
+  let detailB: string;
+
+  beforeAll(async () => {
+    const authorA = await makeUser("author-agg-a@test.local");
+    const authorB = await makeUser("author-agg-b@test.local");
+    const v1 = await makeUser("agg-v1@test.local");
+    const v2 = await makeUser("agg-v2@test.local");
+    const v3 = await makeUser("agg-v3@test.local");
+    const v4 = await makeUser("agg-v4@test.local");
+    const v5 = await makeUser("agg-v5@test.local");
+    const v6 = await makeUser("agg-v6@test.local");
+    const v7 = await makeUser("agg-v7@test.local");
+
+    const [rowA] = await db
+      .insert(details)
+      .values({ title: "Detaliu agregare A", authorId: authorA })
+      .returning({ id: details.id });
+    detailA = rowA.id;
+    const [rowB] = await db
+      .insert(details)
+      .values({ title: "Detaliu agregare B", authorId: authorB })
+      .returning({ id: details.id });
+    detailB = rowB.id;
+
+    const [sketchPublished1] = await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: v1, status: "PUBLISHED" })
+      .returning({ id: sketches.id });
+    const [sketchPublished2] = await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: v1, status: "PUBLISHED" })
+      .returning({ id: sketches.id });
+    // NU trebuie să intre în sumă: schiță nepublicată (draft, nu e încă „în teanc").
+    const [sketchDraft] = await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: v1, status: "DRAFT" })
+      .returning({ id: sketches.id });
+    // NU trebuie să intre în sumă: adnotare (nu e un tab separat în teanc — vezi `sketchCount`).
+    const [sketchAnnotation] = await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: v1, status: "PUBLISHED", isAnnotation: true })
+      .returning({ id: sketches.id });
+    // NU trebuie să intre în sumă: schiță pe ALT detaliu (fără scurgere cross-detail).
+    const [sketchOnB] = await db
+      .insert(sketches)
+      .values({ detailId: detailB, authorId: v1, status: "PUBLISHED" })
+      .returning({ id: sketches.id });
+
+    await db.insert(validations).values([
+      // Detaliul A de bază: 1 aprobare + 1 dezaprobare.
+      { userId: v1, targetType: "DETAIL", targetId: detailA, position: "APPROVE" },
+      { userId: v2, targetType: "DETAIL", targetId: detailA, position: "DISAPPROVE" },
+      // sketchPublished1: 2 aprobări.
+      { userId: v3, targetType: "SKETCH", targetId: sketchPublished1.id, position: "APPROVE" },
+      { userId: v4, targetType: "SKETCH", targetId: sketchPublished1.id, position: "APPROVE" },
+      // sketchPublished2: 1 dezaprobare.
+      { userId: v5, targetType: "SKETCH", targetId: sketchPublished2.id, position: "DISAPPROVE" },
+      // Exclus din suma lui A: draft + adnotare pe A.
+      { userId: v6, targetType: "SKETCH", targetId: sketchDraft.id, position: "APPROVE" },
+      { userId: v6, targetType: "SKETCH", targetId: sketchAnnotation.id, position: "APPROVE" },
+      // Detaliul B — propriile 2 validări (detaliu + propria schiță), control că nu se scurg în A ȘI
+      // că B își însumează corect PROPRIA schiță (nu doar A e testat pentru agregare).
+      { userId: v7, targetType: "SKETCH", targetId: sketchOnB.id, position: "APPROVE" },
+      { userId: v7, targetType: "DETAIL", targetId: detailB, position: "APPROVE" },
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.delete(validations);
+    await db.delete(sketches);
+    await db.delete(details);
+    await db.delete(users);
+  });
+
+  it("sumează aprob+dezaprob pe detaliu + schițele PUBLISHED ne-adnotare, exclude draft/adnotare/alt detaliu", async () => {
+    const rows = await listFeed({ limit: 10 });
+    const a = rows.find((r) => r.id === detailA)!;
+    const b = rows.find((r) => r.id === detailB)!;
+
+    // A: 1+1 (detaliu) + 2 (sketch1) + 1 (sketch2) = 5. Draft/adnotare/B excluse.
+    expect(a.validationCount).toBe(5);
+    // Doar aprobările, pe același scop: 1 (detaliu) + 2 (sketch1) = 3.
+    expect(a.approveCount).toBe(3);
+
+    // B: propria validare pe detaliu + propria schiță (1+1=2) — nimic din A nu se scurge aici.
+    expect(b.validationCount).toBe(2);
+    expect(b.approveCount).toBe(2);
+  });
+});
+
+describe("listFeed — validatorAvatars exclude validările hiddenAfterRelease (SEC-001/002, găsit la review 2026-08-26)", () => {
+  let detailA: string;
+
+  beforeAll(async () => {
+    const authorA = await makeUser("author-hidden-a@test.local");
+    const visibleVoter = await makeUser("hidden-visible-voter@test.local");
+    const hiddenDetailVoter = await makeUser("hidden-detail-voter@test.local");
+    const hiddenSketchVoter = await makeUser("hidden-sketch-voter@test.local");
+
+    const [rowA] = await db
+      .insert(details)
+      .values({ title: "Detaliu cu membru ascuns", authorId: authorA })
+      .returning({ id: details.id });
+    detailA = rowA.id;
+
+    const [sketchPublished] = await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: visibleVoter, status: "PUBLISHED" })
+      .returning({ id: sketches.id });
+
+    await db.insert(validations).values([
+      // Vizibilă: rămâne în avatare ȘI în count.
+      { userId: visibleVoter, targetType: "DETAIL", targetId: detailA, position: "APPROVE" },
+      // Ascunsă direct pe DETALIU (ex. membru de proiect, după „Scoate în comunitate").
+      {
+        userId: hiddenDetailVoter,
+        targetType: "DETAIL",
+        targetId: detailA,
+        position: "APPROVE",
+        hiddenAfterRelease: true,
+      },
+      // Ascunsă pe SCHIȚĂ — exact cazul găsit la review: fără filtru, avatarul acestui user tot apărea.
+      {
+        userId: hiddenSketchVoter,
+        targetType: "SKETCH",
+        targetId: sketchPublished.id,
+        position: "APPROVE",
+        hiddenAfterRelease: true,
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.delete(validations);
+    await db.delete(sketches);
+    await db.delete(details);
+    await db.delete(users);
+  });
+
+  it("nu expune numele/imaginea unui validator ascuns (nici pe detaliu, nici pe schiță) în stiva publică", async () => {
+    const rows = await listFeed({ limit: 10 });
+    const a = rows.find((r) => r.id === detailA)!;
+
+    // Count-ul deja exclude ascunsele (1, nu 3).
+    expect(a.validationCount).toBe(1);
+    // Doar userul vizibil apare în stiva de avatare (1, nu 3) — nici cel ascuns pe DETALIU, nici cel
+    // ascuns pe SCHIȚĂ nu trebuie să iasă în lista publică.
+    expect(a.validatorAvatars).toHaveLength(1);
+  });
+});
+
 describe("listFeed — createdAt identic → details.id ca tiebreaker (ordine stabilă)", () => {
   let detailX: string;
   let detailY: string;
