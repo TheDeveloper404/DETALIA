@@ -12,11 +12,9 @@ import { PersonSilhouette } from "./avatar-initials";
 export function UserMenu({
   name,
   image,
-  isFurnizor,
 }: {
   name: string | null;
   image: string | null;
-  isFurnizor: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -86,40 +84,6 @@ export function UserMenu({
               className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
             >
               Vizualizare profil
-            </Link>
-            <Link
-              href="/saved"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
-            >
-              Detalii salvate
-            </Link>
-            {isFurnizor && (
-              <Link
-                href="/my-offers"
-                role="menuitem"
-                onClick={() => setOpen(false)}
-                className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
-              >
-                Ofertele mele
-              </Link>
-            )}
-            <Link
-              href="/sketches/drafts"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
-            >
-              Ciornele mele
-            </Link>
-            <Link
-              href="/canvases"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block px-3.5 py-2.5 text-sm text-foreground no-underline transition-colors hover:bg-muted"
-            >
-              Planșele mele
             </Link>
             <form action={signOutAction}>
               <button

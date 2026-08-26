@@ -3,7 +3,7 @@ import { and, eq, sql } from "drizzle-orm";
 
 import { db } from "../db";
 import { notifications, roles, savedDetails, supplierOffers } from "../db/schema";
-import { getOfferedDetails } from "../server/services/detailService";
+import { listOfferedDetails } from "../server/repos/detailsRepo";
 import { toggleSupplierOffer } from "../server/services/supplierOfferService";
 import { getSeed } from "./seed";
 
@@ -116,7 +116,7 @@ test("nu poți oferta pe propriul detaliu — CANNOT_OFFER_OWN", async () => {
   }
 });
 
-test("Ofertele mele — detaliul ofertat apare în getOfferedDetails, dispare la retragere", async () => {
+test("toggleSupplierOffer — detaliul ofertat apare în listOfferedDetails, dispare la retragere", async () => {
   const { detailId, testerUserId } = getSeed();
 
   async function cleanup() {
@@ -127,16 +127,16 @@ test("Ofertele mele — detaliul ofertat apare în getOfferedDetails, dispare la
 
   await setRole(testerUserId, "FURNIZOR");
   try {
-    const before = await getOfferedDetails(testerUserId);
+    const before = await listOfferedDetails(testerUserId);
     expect(before.some((d) => d.id === detailId)).toBe(false);
 
     await toggleSupplierOffer({ userId: testerUserId, detailId });
-    const after = await getOfferedDetails(testerUserId);
+    const after = await listOfferedDetails(testerUserId);
     expect(after.some((d) => d.id === detailId)).toBe(true);
 
     // retragere (al doilea toggle) → dispare din listă (nu doar din supplier_offers, ci și din rezultat)
     await toggleSupplierOffer({ userId: testerUserId, detailId });
-    const afterRetract = await getOfferedDetails(testerUserId);
+    const afterRetract = await listOfferedDetails(testerUserId);
     expect(afterRetract.some((d) => d.id === detailId)).toBe(false);
   } finally {
     await cleanup();
