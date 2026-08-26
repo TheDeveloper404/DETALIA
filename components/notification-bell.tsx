@@ -160,6 +160,9 @@ export function NotificationBell({
     const timer = setInterval(() => {
       // .catch pe deployment skew (ID de Server Action expirat pe un tab rămas deschis peste un
       // deploy nou) — eșec așteptat, se rezolvă singur la următoarea navigare/reload, nu la fiecare 20s.
+      // `console.error` (nu silențios): rămâne vizibil în devtools/log-uri pt orice eroare NEAȘTEPTATĂ
+      // (backend real stricat), dar NU e capturat de PostHog (`capture_console_log` nu e activat în
+      // instrumentation-client.ts) — deci nu reintroduce zgomotul rezolvat mai devreme azi.
       void getNotificationsAction()
         .then((fresh) => {
           setNotifications(fresh.notifications);
@@ -167,7 +170,7 @@ export function NotificationBell({
           setAllRead(false);
           setReadIds(new Set());
         })
-        .catch(() => {});
+        .catch((err) => console.error("[notification-bell] poll eșuat", err));
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, []);
