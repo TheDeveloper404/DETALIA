@@ -49,11 +49,7 @@ vi.mock("@/server/repos/usersRepo", () => ({ getUserWithRole: vi.fn(() => Promis
 import { audit } from "@/lib/audit";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
-import {
-  deleteDetailCascade,
-  listAllProjectDetails,
-  listProjectDetails,
-} from "@/server/repos/detailsRepo";
+import { deleteDetailCascade, listAllProjectDetails } from "@/server/repos/detailsRepo";
 import { getCanvasById } from "@/server/repos/plansaRepo";
 import {
   countCanvasSharesByProject,

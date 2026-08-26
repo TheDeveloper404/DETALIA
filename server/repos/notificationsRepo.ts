@@ -1,5 +1,5 @@
 // Repo notificări — singurul loc cu acces Drizzle pentru tabelul `notifications` (in-app).
-import { and, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
 
 import { db } from "@/db";
 import { notifications } from "@/db/schema";
