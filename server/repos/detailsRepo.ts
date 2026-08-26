@@ -638,13 +638,18 @@ const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${s
 // Avatarele validatorilor (max 5, cei mai recenți) pentru stiva de pe cardul de feed —
 // „cine a luat poziție" pe TOT firul (detaliu + schițe, vezi `validationScope`). Subquery corelat →
 // array JSON, ca să nu dublăm rândurile detaliului. Overflow-ul (+N) îl calculează UI-ul din validationCount.
+// `hiddenAfterRelease = false` OBLIGATORIU (găsit la review, 2026-08-26): la „Scoate în comunitate"
+// (SEC-001/002, releaseDetailToCommunity), validările altor membri decât autorul — pe detaliu SAU pe
+// oricare schiță a lui — se marchează hiddenAfterRelease=true tocmai ca să nu le fie expusă identitatea
+// public. Fără filtrul ăsta, avatarul+numele unui membru de proiect ar apărea pe cardul public din feed
+// exact în cazul pe care SEC-001/002 îl protejează explicit.
 const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
   select coalesce(json_agg(json_build_object('name', sub.name, 'image', sub.image)), '[]'::json)
   from (
     select ${users.name} as name, ${users.image} as image
     from ${validations}
     join ${users} on ${users.id} = ${validations.userId}
-    where ${validationScope}
+    where ${validationScope} and ${validations.hiddenAfterRelease} = false
     order by ${validations.createdAt} desc
     limit 5
   ) sub

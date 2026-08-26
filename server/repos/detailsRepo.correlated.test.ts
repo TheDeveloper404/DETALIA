@@ -176,6 +176,67 @@ describe("listFeed — validationCount/approveCount însumează detaliul de baz�
   });
 });
 
+describe("listFeed — validatorAvatars exclude validările hiddenAfterRelease (SEC-001/002, găsit la review 2026-08-26)", () => {
+  let detailA: string;
+
+  beforeAll(async () => {
+    const authorA = await makeUser("author-hidden-a@test.local");
+    const visibleVoter = await makeUser("hidden-visible-voter@test.local");
+    const hiddenDetailVoter = await makeUser("hidden-detail-voter@test.local");
+    const hiddenSketchVoter = await makeUser("hidden-sketch-voter@test.local");
+
+    const [rowA] = await db
+      .insert(details)
+      .values({ title: "Detaliu cu membru ascuns", authorId: authorA })
+      .returning({ id: details.id });
+    detailA = rowA.id;
+
+    const [sketchPublished] = await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: visibleVoter, status: "PUBLISHED" })
+      .returning({ id: sketches.id });
+
+    await db.insert(validations).values([
+      // Vizibilă: rămâne în avatare ȘI în count.
+      { userId: visibleVoter, targetType: "DETAIL", targetId: detailA, position: "APPROVE" },
+      // Ascunsă direct pe DETALIU (ex. membru de proiect, după „Scoate în comunitate").
+      {
+        userId: hiddenDetailVoter,
+        targetType: "DETAIL",
+        targetId: detailA,
+        position: "APPROVE",
+        hiddenAfterRelease: true,
+      },
+      // Ascunsă pe SCHIȚĂ — exact cazul găsit la review: fără filtru, avatarul acestui user tot apărea.
+      {
+        userId: hiddenSketchVoter,
+        targetType: "SKETCH",
+        targetId: sketchPublished.id,
+        position: "APPROVE",
+        hiddenAfterRelease: true,
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.delete(validations);
+    await db.delete(sketches);
+    await db.delete(details);
+    await db.delete(users);
+  });
+
+  it("nu expune numele/imaginea unui validator ascuns (nici pe detaliu, nici pe schiță) în stiva publică", async () => {
+    const rows = await listFeed({ limit: 10 });
+    const a = rows.find((r) => r.id === detailA)!;
+
+    // Count-ul deja exclude ascunsele (1, nu 3).
+    expect(a.validationCount).toBe(1);
+    // Doar userul vizibil apare în stiva de avatare (1, nu 3) — nici cel ascuns pe DETALIU, nici cel
+    // ascuns pe SCHIȚĂ nu trebuie să iasă în lista publică.
+    expect(a.validatorAvatars).toHaveLength(1);
+  });
+});
+
 describe("listFeed — createdAt identic → details.id ca tiebreaker (ordine stabilă)", () => {
   let detailX: string;
   let detailY: string;
