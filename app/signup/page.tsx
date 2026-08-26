@@ -22,7 +22,20 @@ const ERROR_MESSAGES: Record<string, string> = {
   default: "Ceva n-a mers. Încearcă din nou.",
 };
 
-export const metadata: Metadata = { title: "Înregistrare" };
+// `generateMetadata` (nu `export const metadata` static) — titlul link-preview-ului (Telegram/WhatsApp
+// etc.) trebuie să difere pe `?ref=` (link de referral, trimis de un user unui prieten) față de link-ul
+// simplu de înregistrare; un export static n-are acces la searchParams (cerut 2026-08-26).
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string }>;
+}): Promise<Metadata> {
+  const { ref } = await searchParams;
+  if (ref) {
+    return { title: { absolute: "Te invit în DETALIA" } };
+  }
+  return { title: "Înregistrare" };
+}
 
 export default async function SignupPage({
   searchParams,

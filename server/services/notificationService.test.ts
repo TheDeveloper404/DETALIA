@@ -15,8 +15,6 @@ vi.mock("@/lib/email", () => ({
   sketchDeletedEmailText: vi.fn(),
   sketchProposedEmailHtml: vi.fn(),
   sketchProposedEmailText: vi.fn(),
-  supplierOfferedEmailHtml: vi.fn(),
-  supplierOfferedEmailText: vi.fn(),
 }));
 
 import { listProjectIdForDetails } from "@/server/repos/detailsRepo";

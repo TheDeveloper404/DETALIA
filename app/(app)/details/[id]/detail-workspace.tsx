@@ -747,15 +747,18 @@ export function DetailWorkspace({
           </div>
         )}
 
-        {/* Explicația autorului schiței, în cuvinte — SEPARATĂ de desen (2026-07-16). Doar pe tab de
-            schiță, doar dacă autorul a scris ceva. */}
+        {/* Explicația CELUI CARE A PROPUS SCHIȚA, în cuvinte — SEPARATĂ de desen (2026-07-16). Doar pe
+            tab de schiță, doar dacă a scris ceva. Etichetă „Explicație", NU „Explicația autorului"
+            (2026-08-26, corectare: „autorul" aici ar însemna autorul DETALIULUI, dar textul e scris de
+            autorul SCHIȚEI — eticheta veche inducea în eroare; „Adnotarea autorului" de mai sus, pe
+            tabul de bază, e cazul unde chiar e vorba de autorul detaliului). */}
         {!isBase && activeSketch!.note && (
           <div
             key={`note-${activeSketch!.id}`}
             className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6"
           >
             <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
-              Explicația autorului
+              Explicație
             </div>
             <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
               {activeSketch!.note}
