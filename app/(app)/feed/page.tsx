@@ -97,7 +97,7 @@ export default async function FeedPage({
 
   return (
     <>
-    <ProductTour active={tour === "1"} />
+    <ProductTour active={tour === "1"} hasFeedItems={details.length > 0} />
     {/* Suprimat complet la userul chiar nou (tur activ) — apare firesc la a DOUA vizită, nu întârziat
         peste tur (2026-08-26, vezi comentariul din whats-new-modal.tsx). */}
     <WhatsNewModal items={tour === "1" ? [] : (unseenAnnouncement ?? [])} />
@@ -149,13 +149,14 @@ export default async function FeedPage({
         ) : (
           <>
             <div className="flex flex-col gap-4">
-              {details.map((d) => (
+              {details.map((d, i) => (
                 <DetailCard
                   key={d.id}
                   detail={d}
                   currentUserId={session.user.id}
                   isSaved={mySavedIds.has(d.id)}
                   searchQuery={q}
+                  tourAnchor={i === 0}
                 />
               ))}
             </div>

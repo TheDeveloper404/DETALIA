@@ -2,8 +2,9 @@
 // autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
 //
 // Aprob/Dezaprob NU se dă din feed (2026-08-16, decizie de produs) — doar count-ul, informativ; votul
-// real se dă de pe pagina detaliului, după ce ai citit explicația autorului.
-import { CircleCheck, Eye, Layers, MessageSquare } from "lucide-react";
+// real se dă de pe pagina detaliului, după ce ai citit explicația autorului. Count-ul afișat e TOTALUL
+// (aprob + dezaprob), pe detaliu + schițe (2026-08-27) — reflectă dezbaterea, nu doar pozițiile pro.
+import { Eye, Layers, MessageSquare, Scale } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -15,9 +16,10 @@ import { PersonSilhouette } from "./avatar-initials";
 import { PublishedTime } from "./published-time";
 import { RolePill } from "./role-pill";
 
-// Stivă de avatare ale validatorilor — cercuri suprapuse (cine a luat poziție pe detaliu).
-// Aducem max 5 avatare din DB; dacă sunt mai mulți validatori, ultimul cerc devine „+N".
-function ValidatorStack({
+// Stivă de avatare — cercuri suprapuse cu cine s-a implicat pe detaliu (orice interacțiune: poziție,
+// comentariu, schiță — o poză per user, dedus în `interactorAvatars`/`interactorCount` din repo).
+// Aducem max 5 avatare din DB; dacă sunt mai mulți, ultimul cerc devine „+N".
+function InteractorStack({
   avatars,
   total,
 }: {
@@ -25,7 +27,7 @@ function ValidatorStack({
   total: number;
 }) {
   // Rezervăm întotdeauna înălțimea rândului (h-6 = dimensiunea avatarului) ca să nu „crească"
-  // cardul când treci de la 0 validări la ≥1 (după Aprob/Dezaprob).
+  // cardul când treci de la 0 la ≥1 interacțiune.
   if (total <= 0 || avatars.length === 0) return <div className="mb-3 h-6" aria-hidden />;
   const overflow = total - avatars.length;
 
@@ -34,7 +36,7 @@ function ValidatorStack({
       {avatars.map((v, i) => (
         <span
           key={i}
-          title={v.name ?? "Validator"}
+          title={v.name ?? "A interacționat"}
           className="flex size-6 items-center justify-center overflow-hidden rounded-full bg-secondary font-mono text-[9px] text-muted-foreground ring-2 ring-card first:ml-0 -ml-2"
         >
           {v.image ? (
@@ -59,17 +61,23 @@ export function DetailCard({
   currentUserId,
   isSaved = false,
   searchQuery,
+  tourAnchor = false,
 }: {
   detail: FeedItem;
   currentUserId?: string | null;
   isSaved?: boolean;
   // Termenul din `?q=` — dacă e dat, titlul/descriere apar cu porțiunea potrivită evidențiată.
   searchQuery?: string | null;
+  // Doar pe primul card din feed: ținta pasului „ce poți face pe un detaliu" din turul ghidat.
+  tourAnchor?: boolean;
 }) {
   const href = `/details/${detail.id}`;
 
   return (
-    <article className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row">
+    <article
+      data-tour={tourAnchor ? "feed-first-card" : undefined}
+      className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row"
+    >
       {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. */}
       <div className="relative aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r">
         <Link href={href} className="block size-full">
@@ -145,8 +153,9 @@ export function DetailCard({
           </span>
         </div>
 
-        {/* Stivă de validatori — avatarele celor care au luat poziție, suprapuse (cine a contribuit). */}
-        <ValidatorStack avatars={detail.validatorAvatars} total={detail.validationCount} />
+        {/* Stivă de implicare — avatarele celor care au interacționat (poziție/comentariu/schiță),
+            suprapuse, o poză per user. */}
+        <InteractorStack avatars={detail.interactorAvatars} total={detail.interactorCount} />
 
         {/* Stats — lipit de marginea de jos a cardului (mt-auto absoarbe spațiul rămas). Stânga: acțiuni
             de interacțiune, în ordinea 1. validare 2. comentarii 3. schițe în teanc (2026-08-07).
@@ -155,15 +164,13 @@ export function DetailCard({
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {/* Fără vot inline (2026-08-16): aprob/dezaprob cere să deschizi detaliul — un vot dat doar
                 din titlu+thumbnail, fără să citești explicația autorului, nu spune nimic despre
-                calitate. Doar count-ul rămâne, informativ, ca pe restul statisticilor. DOAR aprobările
-                (`approveCount`), nu `validationCount` (aprob+dezaprob combinate). Iconiță check (nu
-                VoteTriangle — aia rămâne doar pt. votul real, interactiv, de pe pagina detaliului): un
-                triunghi-sus izolat lângă un număr, fără interacțiune în jur, e ambiguu — un check e
-                lipsit de ambiguitate. */}
-            <span className="inline-flex items-center gap-1" title="Aprobări">
-              <CircleCheck className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
-              <span className="sr-only">aprobări:</span>
-              {detail.approveCount}
+                calitate. Doar count-ul rămâne, informativ. `validationCount` = TOTALUL aprob+dezaprob,
+                pe detaliu + schițe (2026-08-27, Liviu+Edi). Iconiță balanță (nu check/triunghi-sus —
+                acelea sugerează vizual „doar pozitiv"; e un total al dezbaterii). */}
+            <span className="inline-flex items-center gap-1" title="Validări (aprobări + dezaprobări)">
+              <Scale className="size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              <span className="sr-only">validări:</span>
+              {detail.validationCount}
             </span>
             <span className="text-border">·</span>
             <span className="inline-flex items-center gap-1" title="Comentarii">

@@ -212,8 +212,6 @@ test("getFeed: comentariul/validarea/schița ALTCUIVA se numără corect în con
     // Dacă bug-ul de corelare revine, contoarele cad silențios la 0 — nu la o eroare.
     expect(row?.commentCount).toBe(1);
     expect(row?.validationCount).toBe(1);
-    // `approveCount` (2026-08-16): DOAR aprobările — subquery corelat separat, aceeași clasă de bug.
-    expect(row?.approveCount).toBe(1);
   } finally {
     await db.delete(comments).where(eq(comments.targetId, detailId));
     await db.delete(validations).where(eq(validations.targetId, detailId));
@@ -221,15 +219,14 @@ test("getFeed: comentariul/validarea/schița ALTCUIVA se numără corect în con
   }
 });
 
-// `approveCount` (2026-08-16, feed card fără vot inline — vezi CHANGELOG): trebuie să numere DOAR
-// aprobările, nu totalul aprob+dezaprob (`validationCount`) — altfel, lângă săgeata-sus din card, un
-// total combinat ar sugera vizual că toate pozițiile sunt aprobări.
-test("getFeed: approveCount numără DOAR aprobările, validationCount rămâne totalul combinat", async () => {
+// `validationCount` pe cardul de feed (2026-08-27, Liviu+Edi): TOTALUL aprob+dezaprob, nu doar
+// aprobările. O dezaprobare singură trebuie să dea 1 (nu 0) — dovadă că nu filtrează pe poziție.
+test("getFeed: validationCount numără și dezaprobările (total, nu doar aprobările)", async () => {
   const { testerUserId, authorUserId, categoryId } = getSeed();
 
   const created = await createDetail({
     authorId: testerUserId,
-    title: `Integration test — approveCount ${Date.now()}`,
+    title: `Integration test — validationCount ${Date.now()}`,
     categoryIds: [categoryId],
     imageUrl: "https://e2e.public.blob.vercel-storage.com/e2e-placeholder.png",
   });
@@ -242,14 +239,13 @@ test("getFeed: approveCount numără DOAR aprobările, validationCount rămâne 
       userId: authorUserId,
       targetType: "DETAIL",
       targetId: detailId,
-      justification: "Integration test — dezaprobare pentru approveCount.",
+      justification: "Integration test — dezaprobare pentru validationCount.",
     });
 
-    const feed = await getFeed({ q: "approveCount" });
+    const feed = await getFeed({ q: "validationCount" });
     const row = feed.details.find((d) => d.id === detailId);
     expect(row).toBeDefined();
     expect(row?.validationCount).toBe(1);
-    expect(row?.approveCount).toBe(0);
   } finally {
     await db.delete(comments).where(eq(comments.targetId, detailId));
     await db.delete(validations).where(eq(validations.targetId, detailId));
