@@ -27,6 +27,12 @@ jobs:
       # Reguli publice, gratuite (fără cont semgrep.dev / token) — securitate + secrete + OWASP +
       # stack-ul proiectului (TypeScript/React). `--sarif` + upload la GitHub Code Scanning ca să
       # apară exact ca findere-le CodeQL (tab Security + adnotări pe PR), nu ca un simplu log de job.
+      #
+      # `--severity ERROR --error` (2026-08-26, decizie Liviu): `semgrep scan` iese cu exit 0 by
+      # default CHIAR DACĂ găsește ceva — fără `--error`, checkul verde nu dovedește nimic. Scopat pe
+      # ERROR (nu WARNING/INFO): pachetele publice (owasp-top-ten/typescript/react) dau destul zgomot
+      # stilistic pe severități mici — roșu trebuie să însemne „ceva serios", nu „un nag". `continue-on-error`
+      # scos: acum vrem CHIAR să pice jobul pe findere reale, nu doar pe crash-ul tool-ului.
       - name: Run Semgrep
         run: |
           semgrep scan \
@@ -35,10 +41,15 @@ jobs:
             --config p/owasp-top-ten \
             --config p/typescript \
             --config p/react \
+            --severity ERROR \
+            --error \
             --sarif --output semgrep.sarif
-        continue-on-error: true
 
+      # `if: always()` OBLIGATORIU acum: fără `continue-on-error` pe pasul de scan, un `--error` real
+      # (findere ERROR) oprește jobul ÎNAINTE de acest pas — fără condiția asta, raportul SARIF nu s-ar
+      # mai urca exact atunci când ai vrea să vezi findere-le (Security tab + adnotări pe PR).
       - uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
+        if: always()
         with:
           sarif_file: semgrep.sarif
           category: semgrep

@@ -156,7 +156,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
               ? undefined
               : "Verificarea rolului nu este încă disponibilă — momentan indisponibilă."
           }
-          className={`-mt-[46px] flex size-[104px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 bg-[#d9cab6] font-mono text-[30px] text-muted-foreground ${
+          className={`-mt-[58px] flex size-[132px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 bg-[#d9cab6] font-mono text-[38px] text-muted-foreground ${
             data.verified
               ? "border-background"
               : "cursor-default border-dashed border-border/80"
@@ -166,33 +166,33 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.image} alt="" className="size-full object-cover" />
           ) : (
-            <PersonSilhouette className="size-14" />
+            <PersonSilhouette className="size-16" />
           )}
         </span>
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-[27px] font-extrabold tracking-tight">{data.name}</h1>
+              <h1 className="text-[32px] font-extrabold tracking-tight">{data.name}</h1>
               {data.verified && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f0e0b4] bg-[#fbf2da] px-2.5 py-1 font-mono text-[11.5px] text-[#9a7b1f]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f0e0b4] bg-[#fbf2da] px-3 py-1 font-mono text-[12.5px] text-[#9a7b1f]">
                   <Star className="text-[#d99a2b]" /> Verificat
                 </span>
               )}
-              <span className="rounded-full bg-primary px-2.5 py-1 font-mono text-[12.5px] text-primary-foreground">
+              <span className="rounded-full bg-primary px-3 py-1 font-mono text-[13.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
               {hasContactInfo && (
                 <button
                   type="button"
                   onClick={() => setContactOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[13px] font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[14px] font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
                 >
                   <Contact /> Date de contact
                 </button>
               )}
             </div>
-            <div className="mt-1.5 font-mono text-[12.5px] text-muted-foreground">
+            <div className="mt-1.5 font-mono text-[13.5px] text-muted-foreground">
               Membru din {data.memberSince}
             </div>
           </div>
@@ -277,13 +277,13 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         )}
 
         {data.bio && (
-          <p className="mt-[18px] max-w-[64ch] leading-relaxed text-muted-foreground">{data.bio}</p>
+          <p className="mt-[18px] max-w-[64ch] text-[17px] leading-relaxed text-muted-foreground">{data.bio}</p>
         )}
 
         {data.about && (
           <div className="mt-[18px]">
             <SectionLabel>Despre</SectionLabel>
-            <p className="mt-2 max-w-[64ch] text-sm leading-relaxed text-muted-foreground">{data.about}</p>
+            <p className="mt-2 max-w-[64ch] text-[15px] leading-relaxed text-muted-foreground">{data.about}</p>
           </div>
         )}
       </div>

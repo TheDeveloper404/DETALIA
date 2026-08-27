@@ -7,8 +7,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 // Pașii turului, separați ca date pure (testabile fără a monta driver.js) — vezi product-tour.test.ts.
-// Fiecare `data-tour` trebuie să existe EXACT o dată în DOM-ul paginii /feed (header + sidebar + FAB);
-// dacă markup-ul țintă e redenumit/șters, testul de mai jos o prinde înainte de deploy, nu la runtime.
+// Fiecare `data-tour` trebuie să existe cel mult o dată în DOM-ul paginii /feed (header + sidebar + FAB
+// + primul card din feed); dacă markup-ul țintă e redenumit/șters, testul de mai jos o prinde înainte
+// de deploy, nu la runtime. `my-content` (sidebar `hidden lg:flex`) și `feed-first-card` (feed gol) pot
+// lipsi legitim — de aceea `getTourSteps` îi filtrează în loc să conteze pe skip-ul silențios.
 export const TOUR_STEPS: NonNullable<Config["steps"]> = [
   {
     element: '[data-tour="categories"]',
@@ -27,6 +29,26 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
       description:
         "Aici îți construiești reputația: detaliile publicate, schițele și activitatea ta sunt vizibile comunității.",
       side: "right",
+      align: "start",
+    },
+  },
+  {
+    element: '[data-tour="my-content"]',
+    popover: {
+      title: "Conținutul tău",
+      description:
+        "Proiectele, planșele, detaliile salvate și ciornele tale — toate la un loc, aici în sidebar.",
+      side: "right",
+      align: "start",
+    },
+  },
+  {
+    element: '[data-tour="feed-first-card"]',
+    popover: {
+      title: "Un detaliu în feed",
+      description:
+        "Pe fiecare detaliu poți trimite o schiță proprie peste imagine, îți poți da avizul pe rol sau, dacă furnizezi materiale, poți anunța că poți oferta.",
+      side: "top",
       align: "start",
     },
   },
@@ -51,14 +73,38 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
   },
 ];
 
+// Doi pași țintesc elemente care NU sunt mereu în DOM la /feed:
+//  - `my-content` e în sidebar (`feed-sidebar.tsx`), ascuns sub breakpoint-ul `lg` (`hidden lg:flex`);
+//  - `feed-first-card` există doar când feed-ul are cel puțin un detaliu.
+// Filtrate EXPLICIT (nu lăsate pe skip-ul silențios al driver.js) ca numărătoarea de progres
+// („X din N") să rămână corectă pentru pașii chiar afișați — aceeași lecție ca la vechiul pas
+// „Proiecte" (Greptile, 2026-08-26).
+export function getTourSteps(opts: {
+  isDesktop: boolean;
+  hasFeedItems: boolean;
+}): NonNullable<Config["steps"]> {
+  return TOUR_STEPS.filter((step) => {
+    if (!opts.isDesktop && step.element === '[data-tour="my-content"]') return false;
+    if (!opts.hasFeedItems && step.element === '[data-tour="feed-first-card"]') return false;
+    return true;
+  });
+}
+
 // Tur ghidat, o singură dată, la aterizarea din onboarding (`/feed?tour=1` — vezi `onboarding/actions.ts`).
 // NU la fiecare login (spre deosebire de `?welcome=1`, care e pe orice magic link) — semnalul de „user
 // chiar nou" e finalizarea onboarding-ului, nu simpla autentificare.
 // Țintele (`data-tour="..."`) trăiesc în componentele reale ale feed-ului/header-ului — dacă una dispare
 // din UI, pasul respectiv e sărit automat (driver.js ignoră silențios un element inexistent).
-export function ProductTour({ active }: { active: boolean }) {
+export function ProductTour({
+  active,
+  hasFeedItems = true,
+}: {
+  active: boolean;
+  hasFeedItems?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
+  const [feedItemsAtMount] = useState(hasFeedItems);
   // Snapshot la PRIMUL render, ignoră schimbările ulterioare ale prop-ului `active` — BUG găsit
   // 2026-08-17: `router.replace()` de mai jos strips `?tour=1` → Next.js re-randează Server Component-ul
   // părinte (FeedPage) cu `searchParams.tour` absent → noul `active=false` ajunge ca prop aici. Cu
@@ -72,6 +118,11 @@ export function ProductTour({ active }: { active: boolean }) {
 
     // Curăță ?tour=1 din URL imediat (fără reload) — refresh/înapoi nu mai repornesc turul.
     router.replace(pathname, { scroll: false });
+
+    const steps = getTourSteps({
+      isDesktop: window.matchMedia("(min-width: 1024px)").matches,
+      hasFeedItems: feedItemsAtMount,
+    });
 
     const tour = driver({
       showProgress: true,
@@ -93,7 +144,7 @@ export function ProductTour({ active }: { active: boolean }) {
       nextBtnText: "Următorul",
       prevBtnText: "Înapoi",
       doneBtnText: "Am înțeles",
-      steps: TOUR_STEPS,
+      steps,
     });
 
     tour.drive();
