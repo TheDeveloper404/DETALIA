@@ -644,24 +644,25 @@ const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${s
 //    pe cardul public.
 //  - Autorul detaliului e EXCLUS (`ir.uid <> details.author_id`): avatarul lui e deja afișat, deasupra
 //    stivei — n-are sens de două ori.
-//  - Subquery corelat pe `details.id`/`details.author_id` CALIFICATE explicit (`detailsId`/
-//    `detailsAuthorId`, `sql.identifier`) — capcana Drizzle de corelare falsă, recidivată de 3x în
-//    acest fișier. Verificat cu date reale în `detailsRepo.correlated.test.ts` (PGlite), nu presupus.
-const interactorRows = sql`(
-  select ${validations.userId} as uid, ${validations.createdAt} as at
+//  - Corelarea spre exterior (`details.id`/`details.author_id`) e CALIFICATĂ explicit (`detailsId`/
+//    `detailsAuthorId`, `sql.identifier`) — capcana Drizzle recidivată de 3x. Verificat cu date reale
+//    în `detailsRepo.correlated.test.ts` (PGlite).
+//  - Cele 3 `SELECT`-uri sunt fragmente `sql` SEPARATE (nu un singur template cu 3 `FROM`) — fiecare
+//    își referă doar propriul tabel, ca garda mecanică `check:subqueries` să le vadă corect. Un singur
+//    template cu `union all` ar avea `FROM ${validations}` primul și scriptul ar marca fals ref-urile
+//    `comments.*`/`sketches.*` ca necalificate.
+const interactorFromValidations = sql`select ${validations.userId} as uid, ${validations.createdAt} as at
   from ${validations}
-  where ${validationScope} and ${validations.hiddenAfterRelease} = false
-  union all
-  select ${comments.authorId} as uid, ${comments.createdAt} as at
+  where ${validationScope} and ${validations.hiddenAfterRelease} = false`;
+const interactorFromComments = sql`select ${comments.authorId} as uid, ${comments.createdAt} as at
   from ${comments}
   where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
-    and ${comments.hiddenAfterRelease} = false
-  union all
-  select ${sketches.authorId} as uid, ${sketches.createdAt} as at
+    and ${comments.hiddenAfterRelease} = false`;
+const interactorFromSketches = sql`select ${sketches.authorId} as uid, ${sketches.createdAt} as at
   from ${sketches}
   where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
-    and ${sketches.isAnnotation} = false and ${sketches.hiddenAfterRelease} = false
-)`;
+    and ${sketches.isAnnotation} = false and ${sketches.hiddenAfterRelease} = false`;
+const interactorRows = sql`(${interactorFromValidations} union all ${interactorFromComments} union all ${interactorFromSketches})`;
 
 // Max 5 avatare, cei mai recent activi. `order by` ȘI în interior (limit) ȘI în `json_agg` — ordinea
 // unui subselect nu se garantează prin agregare. `uid` ca tiebreaker la timestamp identic (stabil
