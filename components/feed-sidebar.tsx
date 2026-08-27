@@ -99,7 +99,11 @@ export function FeedSidebar({
 
       {/* „Conținutul meu" — mutat aici din meniul de avatar (2026-08-26): erau ascunse sub un icon de
           cont, nedescoperibile ca navigare de conținut. */}
-      <nav aria-label="Conținutul meu" className="rounded-lg bg-card p-1 ring-1 ring-foreground/10">
+      <nav
+        aria-label="Conținutul meu"
+        data-tour="my-content"
+        className="rounded-lg bg-card p-1 ring-1 ring-foreground/10"
+      >
         <Link
           href="/projects"
           className="flex items-center gap-2 rounded-md px-3 py-2.5 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
