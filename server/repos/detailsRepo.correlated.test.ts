@@ -84,7 +84,7 @@ describe("listFeed — counts de interacțiune (subquery corelat pe details.id)"
   });
 });
 
-describe("listFeed — validationCount/approveCount însumează detaliul de bază + schițele din teanc (2026-08-26, decizie de produs: valoarea vine din toată dezbaterea)", () => {
+describe("listFeed — validationCount însumează detaliul de bază + schițele din teanc (2026-08-26, decizie de produs: valoarea vine din toată dezbaterea)", () => {
   let detailA: string;
   let detailB: string;
 
@@ -167,39 +167,52 @@ describe("listFeed — validationCount/approveCount însumează detaliul de baz�
 
     // A: 1+1 (detaliu) + 2 (sketch1) + 1 (sketch2) = 5. Draft/adnotare/B excluse.
     expect(a.validationCount).toBe(5);
-    // Doar aprobările, pe același scop: 1 (detaliu) + 2 (sketch1) = 3.
-    expect(a.approveCount).toBe(3);
 
     // B: propria validare pe detaliu + propria schiță (1+1=2) — nimic din A nu se scurge aici.
     expect(b.validationCount).toBe(2);
-    expect(b.approveCount).toBe(2);
   });
 });
 
-describe("listFeed — validatorAvatars exclude validările hiddenAfterRelease (SEC-001/002, găsit la review 2026-08-26)", () => {
+describe("listFeed — interactorAvatars/interactorCount: orice interacțiune, o poză per user, exclude autor + ascunse (2026-08-27, Liviu+Edi)", () => {
   let detailA: string;
 
   beforeAll(async () => {
-    const authorA = await makeUser("author-hidden-a@test.local");
-    const visibleVoter = await makeUser("hidden-visible-voter@test.local");
-    const hiddenDetailVoter = await makeUser("hidden-detail-voter@test.local");
-    const hiddenSketchVoter = await makeUser("hidden-sketch-voter@test.local");
+    const authorA = await makeUser("interactor-author@test.local");
+    // Interacționează prin DOUĂ căi (validare pe detaliu + comentariu) — trebuie să apară O SINGURĂ dată.
+    const dupUser = await makeUser("interactor-dup@test.local");
+    // Doar comentariu, nimic altceva.
+    const commentOnly = await makeUser("interactor-comment-only@test.local");
+    // Doar autor de schiță publicată, nicio validare/comentariu.
+    const sketchAuthorOnly = await makeUser("interactor-sketch-only@test.local");
+    // Doar validare pe o SCHIȚĂ a detaliului (nu pe detaliul de bază).
+    const sketchVoter = await makeUser("interactor-sketch-voter@test.local");
+    // Ascuns pe detaliu + ascuns pe schiță — SEC-001/002, nu trebuie să apară.
+    const hiddenDetailVoter = await makeUser("interactor-hidden-detail@test.local");
+    const hiddenSketchCommenter = await makeUser("interactor-hidden-sketch@test.local");
 
     const [rowA] = await db
       .insert(details)
-      .values({ title: "Detaliu cu membru ascuns", authorId: authorA })
+      .values({ title: "Detaliu interacțiuni", authorId: authorA })
       .returning({ id: details.id });
     detailA = rowA.id;
 
-    const [sketchPublished] = await db
+    const [sk1] = await db
       .insert(sketches)
-      .values({ detailId: detailA, authorId: visibleVoter, status: "PUBLISHED" })
+      .values({ detailId: detailA, authorId: sketchAuthorOnly, status: "PUBLISHED" })
       .returning({ id: sketches.id });
+    // Schiță ascunsă (hiddenAfterRelease) — autorul ei NU trebuie să apară.
+    await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: hiddenSketchCommenter, status: "PUBLISHED", hiddenAfterRelease: true });
+    // Schiță DRAFT — autorul ei NU intră (nu e „în teanc").
+    await db
+      .insert(sketches)
+      .values({ detailId: detailA, authorId: commentOnly, status: "DRAFT" });
 
     await db.insert(validations).values([
-      // Vizibilă: rămâne în avatare ȘI în count.
-      { userId: visibleVoter, targetType: "DETAIL", targetId: detailA, position: "APPROVE" },
-      // Ascunsă direct pe DETALIU (ex. membru de proiect, după „Scoate în comunitate").
+      { userId: dupUser, targetType: "DETAIL", targetId: detailA, position: "APPROVE" },
+      { userId: sketchVoter, targetType: "SKETCH", targetId: sk1.id, position: "DISAPPROVE" },
+      { userId: authorA, targetType: "DETAIL", targetId: detailA, position: "APPROVE" }, // autorul votează propriul detaliu — exclus
       {
         userId: hiddenDetailVoter,
         targetType: "DETAIL",
@@ -207,33 +220,37 @@ describe("listFeed — validatorAvatars exclude validările hiddenAfterRelease (
         position: "APPROVE",
         hiddenAfterRelease: true,
       },
-      // Ascunsă pe SCHIȚĂ — exact cazul găsit la review: fără filtru, avatarul acestui user tot apărea.
+    ]);
+    await db.insert(comments).values([
+      { targetType: "DETAIL", targetId: detailA, authorId: dupUser, body: "a doua cale de interacțiune a lui dupUser" },
+      { targetType: "DETAIL", targetId: detailA, authorId: commentOnly, body: "doar comentariu" },
+      { targetType: "DETAIL", targetId: detailA, authorId: authorA, body: "autorul comentează propriul detaliu — exclus" },
       {
-        userId: hiddenSketchVoter,
-        targetType: "SKETCH",
-        targetId: sketchPublished.id,
-        position: "APPROVE",
+        targetType: "DETAIL",
+        targetId: detailA,
+        authorId: hiddenSketchCommenter,
+        body: "comentariu ascuns",
         hiddenAfterRelease: true,
       },
     ]);
   });
 
   afterAll(async () => {
+    await db.delete(comments);
     await db.delete(validations);
     await db.delete(sketches);
     await db.delete(details);
     await db.delete(users);
   });
 
-  it("nu expune numele/imaginea unui validator ascuns (nici pe detaliu, nici pe schiță) în stiva publică", async () => {
+  it("numără userii distincți care au interacționat (dedupe, fără autor, fără ascunse)", async () => {
     const rows = await listFeed({ limit: 10 });
     const a = rows.find((r) => r.id === detailA)!;
 
-    // Count-ul deja exclude ascunsele (1, nu 3).
-    expect(a.validationCount).toBe(1);
-    // Doar userul vizibil apare în stiva de avatare (1, nu 3) — nici cel ascuns pe DETALIU, nici cel
-    // ascuns pe SCHIȚĂ nu trebuie să iasă în lista publică.
-    expect(a.validatorAvatars).toHaveLength(1);
+    // dupUser + commentOnly + sketchAuthorOnly + sketchVoter = 4. Autorul, ascunsele (validare + comentariu
+    // + schiță) și DRAFT-ul sunt excluse. dupUser apare O DATĂ deși are 2 interacțiuni.
+    expect(a.interactorCount).toBe(4);
+    expect(a.interactorAvatars).toHaveLength(4);
   });
 });
 

@@ -117,6 +117,11 @@ instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al pagini
   noi) — adaugă un pas nou punând `data-tour` pe elementul existent + o intrare în `TOUR_STEPS`
   (feed) / `DETAIL_TOUR_STEPS` (`lib/detail-tour-steps.ts`), verificate de `product-tour.test.ts` /
   `lib/detail-tour-steps.test.ts` (selectori reali, fără duplicate).
+- **Feed — pași care pot lipsi legitim din DOM** (2026-08-27): `my-content` e în sidebar
+  (`hidden lg:flex`, absent pe mobil), `feed-first-card` există doar când feed-ul are ≥1 detaliu.
+  `getTourSteps({ isDesktop, hasFeedItems })` îi filtrează EXPLICIT înainte de `driver()` — nu te baza
+  pe skip-ul silențios, strică numărătoarea „X din N". Orice pas nou pe o țintă condiționată trece
+  prin același filtru.
 - **BUG găsit 2026-08-17, aplicabil la ambele:** dacă efectul care pornește turul depinde direct de
   prop-ul de activare (`active`/`seen`), un re-render care schimbă acel prop (ex. `router.replace`
   care re-randează Server Component-ul părinte) rulează cleanup-ul efectului (`tour.destroy()`) —

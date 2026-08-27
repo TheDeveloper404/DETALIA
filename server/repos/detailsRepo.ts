@@ -622,12 +622,9 @@ const validationScope = sql`((${validations.targetType} = 'DETAIL' and ${validat
      or (${validations.targetType} = 'SKETCH' and ${validations.targetId} in ${detailSketchIds}))`;
 const validationCount = sql<number>`(select count(*)::int from ${validations}
    where ${validationScope} and ${validations.hiddenAfterRelease} = false)`;
-// DOAR aprobările (2026-08-16, raportat): cardul de feed nu mai votează inline, dar tot arată
-// un count lângă o săgeată-sus — `validationCount` (aprob+dezaprob combinate) ar fi înșelător acolo,
-// ar sugera vizual că TOATE sunt aprobări. `validationCount` rămâne neschis pentru consumatorii care
-// chiar vor totalul (scorul de interacțiune, rail-ul „cele mai dezbătute").
-const approveCount = sql<number>`(select count(*)::int from ${validations}
-   where ${validationScope} and ${validations.position} = 'APPROVE' and ${validations.hiddenAfterRelease} = false)`;
+// Notă: cardul de feed arată `validationCount` (aprob + dezaprob combinate) — decizie de produs
+// 2026-08-27 (Liviu+Edi): contorul reflectă TOATĂ dezbaterea, nu doar pozițiile favorabile. Vechiul
+// `approveCount` (doar aprobările) a fost scos — nimeni nu-l mai consuma.
 const commentCount = sql<number>`(select count(*)::int from ${comments}
    where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
      and ${comments.hiddenAfterRelease} = false)`;
@@ -635,24 +632,63 @@ const commentCount = sql<number>`(select count(*)::int from ${comments}
 // Scor de interacțiune = suma celor trei (caracter de comunitate, pentru sortare).
 const interactionScore = sql<number>`(${validationCount} + ${commentCount} + ${sketchCount})`;
 
-// Avatarele validatorilor (max 5, cei mai recenți) pentru stiva de pe cardul de feed —
-// „cine a luat poziție" pe TOT firul (detaliu + schițe, vezi `validationScope`). Subquery corelat →
-// array JSON, ca să nu dublăm rândurile detaliului. Overflow-ul (+N) îl calculează UI-ul din validationCount.
-// `hiddenAfterRelease = false` OBLIGATORIU (găsit la review, 2026-08-26): la „Scoate în comunitate"
-// (SEC-001/002, releaseDetailToCommunity), validările altor membri decât autorul — pe detaliu SAU pe
-// oricare schiță a lui — se marchează hiddenAfterRelease=true tocmai ca să nu le fie expusă identitatea
-// public. Fără filtrul ăsta, avatarul+numele unui membru de proiect ar apărea pe cardul public din feed
-// exact în cazul pe care SEC-001/002 îl protejează explicit.
-const validatorAvatars = sql<{ name: string | null; image: string | null }[]>`(
-  select coalesce(json_agg(json_build_object('name', sub.name, 'image', sub.image)), '[]'::json)
+// „Cine s-a implicat" pe TOT firul detaliului — orice interacțiune: poziție (aprob/dezaprob),
+// comentariu, sau schiță publicată, pe detaliu SAU pe schițele lui din teanc. Decizie de produs
+// 2026-08-27 (Liviu+Edi): stiva de sub avatarul autorului nu mai e „doar validatori" — o poză per
+// user, indiferent de câte ori (10 comentarii = un singur avatar).
+//
+// Sursa unică `interactorRows`: uid + timestamp per interacțiune, reutilizată de avatare ȘI de count.
+//  - `hiddenAfterRelease = false` pe TOATE cele 3 surse (SEC-001/002): la „Scoate în comunitate",
+//    pozițiile/comentariile/schițele altor membri decât autorul se marchează ascunse tocmai ca să nu
+//    le fie expusă identitatea public. Fără filtru, avatarul unui membru scos din proiect ar apărea
+//    pe cardul public.
+//  - Autorul detaliului e EXCLUS (`ir.uid <> details.author_id`): avatarul lui e deja afișat, deasupra
+//    stivei — n-are sens de două ori.
+//  - Corelarea spre exterior (`details.id`/`details.author_id`) e CALIFICATĂ explicit (`detailsId`/
+//    `detailsAuthorId`, `sql.identifier`) — capcana Drizzle recidivată de 3x. Verificat cu date reale
+//    în `detailsRepo.correlated.test.ts` (PGlite).
+//  - Cele 3 `SELECT`-uri sunt fragmente `sql` SEPARATE (nu un singur template cu 3 `FROM`) — fiecare
+//    își referă doar propriul tabel, ca garda mecanică `check:subqueries` să le vadă corect. Un singur
+//    template cu `union all` ar avea `FROM ${validations}` primul și scriptul ar marca fals ref-urile
+//    `comments.*`/`sketches.*` ca necalificate.
+const interactorFromValidations = sql`select ${validations.userId} as uid, ${validations.createdAt} as at
+  from ${validations}
+  where ${validationScope} and ${validations.hiddenAfterRelease} = false`;
+const interactorFromComments = sql`select ${comments.authorId} as uid, ${comments.createdAt} as at
+  from ${comments}
+  where ${comments.targetType} = 'DETAIL' and ${comments.targetId} = ${detailsId}
+    and ${comments.hiddenAfterRelease} = false`;
+const interactorFromSketches = sql`select ${sketches.authorId} as uid, ${sketches.createdAt} as at
+  from ${sketches}
+  where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
+    and ${sketches.isAnnotation} = false and ${sketches.hiddenAfterRelease} = false`;
+const interactorRows = sql`(${interactorFromValidations} union all ${interactorFromComments} union all ${interactorFromSketches})`;
+
+// Max 5 avatare, cei mai recent activi. `order by` ȘI în interior (limit) ȘI în `json_agg` — ordinea
+// unui subselect nu se garantează prin agregare. `uid` ca tiebreaker la timestamp identic (stabil
+// între cereri).
+const interactorAvatars = sql<{ name: string | null; image: string | null }[]>`(
+  select coalesce(
+    json_agg(json_build_object('name', sub.name, 'image', sub.image) order by sub.last_at desc, sub.uid),
+    '[]'::json
+  )
   from (
-    select ${users.name} as name, ${users.image} as image
-    from ${validations}
-    join ${users} on ${users.id} = ${validations.userId}
-    where ${validationScope} and ${validations.hiddenAfterRelease} = false
-    order by ${validations.createdAt} desc
+    select ${users.id} as uid, ${users.name} as name, ${users.image} as image, max(ir.at) as last_at
+    from ${interactorRows} ir
+    join ${users} on ${users.id} = ir.uid
+    where ir.uid <> ${detailsAuthorId}
+    group by ${users.id}, ${users.name}, ${users.image}
+    order by last_at desc, uid
     limit 5
   ) sub
+)`;
+
+// Numărul TOTAL de useri distincți care au interacționat (pentru „+N" din stivă). Aceleași excluderi
+// ca `interactorAvatars` (ascunse + autor).
+const interactorCount = sql<number>`(
+  select count(distinct ir.uid)::int
+  from ${interactorRows} ir
+  where ir.uid <> ${detailsAuthorId}
 )`;
 
 // Câte detalii sunt vizibile ACUM pe feed-ul public, indiferent de categorie/căutare — ACEEAȘI condiție
@@ -728,10 +764,10 @@ export async function listFeed(input: {
     .select({
       ...detailWithAuthorColumns,
       validationCount,
-      approveCount,
       commentCount,
       sketchCount,
-      validatorAvatars,
+      interactorAvatars,
+      interactorCount,
       interactionCount: interactionScore,
     })
     .from(details)
@@ -784,10 +820,10 @@ export async function listFeedWithTotal(input: {
     .select({
       ...detailWithAuthorColumns,
       validationCount,
-      approveCount,
       commentCount,
       sketchCount,
-      validatorAvatars,
+      interactorAvatars,
+      interactorCount,
       interactionCount: interactionScore,
     })
     .from(details)
@@ -957,10 +993,10 @@ export async function listSavedDetails(userId: string) {
     .select({
       ...detailWithAuthorColumns,
       validationCount,
-      approveCount,
       commentCount,
       sketchCount,
-      validatorAvatars,
+      interactorAvatars,
+      interactorCount,
       interactionCount: interactionScore,
     })
     .from(savedDetails)
@@ -1003,10 +1039,10 @@ export async function listOfferedDetails(userId: string) {
     .select({
       ...detailWithAuthorColumns,
       validationCount,
-      approveCount,
       commentCount,
       sketchCount,
-      validatorAvatars,
+      interactorAvatars,
+      interactorCount,
       interactionCount: interactionScore,
     })
     .from(supplierOffers)
