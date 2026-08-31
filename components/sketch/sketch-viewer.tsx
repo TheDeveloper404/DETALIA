@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import { renderStrokes } from "@/lib/sketch-render";
-import type { Stroke } from "@/server/domain/sketch";
+import { PASTEBOARD_MARGIN, type Stroke } from "@/server/domain/sketch";
+
+const M = PASTEBOARD_MARGIN;
 
 // Overlay read-only: DOAR stroke-urile schiței, suprapuse peste imaginea-mamă deja randată de părinte
 // (<Image fill object-contain> permanent montată în cutia 4/3). Canvas-ul se poziționează exact pe
@@ -55,29 +57,44 @@ export function SketchViewer({
     return () => observer?.disconnect();
   }, [imageUrl]);
 
+  // Banda de pasteboard: strokerurile pot ieși din dreptunghiul imaginii [0,1]. Extindem canvas-ul
+  // (și îl decalăm) DOAR când vreun stroke chiar folosește marginea — altfel geometria rămâne exact
+  // ca înainte, fără shift de layout pentru schițele obișnuite.
+  const usesPasteboard = strokes.some((s) =>
+    s.points.some(([x, y]) => x < 0 || x > 1 || y < 0 || y > 1),
+  );
+  const margin = usesPasteboard ? M : 0;
+  const surfaceW = Math.round(rect.w * (1 + 2 * margin));
+  const surfaceH = Math.round(rect.h * (1 + 2 * margin));
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Foaia semitransparentă a schiței peste detaliul-mamă (care rămâne opac, randat de părinte) — IDENTIC
-    // cu editorul (sketch-canvas.tsx): schița stă pe o coală translucidă peste detaliu, nu invers.
+    // Foaia semitransparentă a schiței — DOAR peste dreptunghiul detaliului-mamă (care rămâne opac,
+    // randat de părinte), nu peste bandă. IDENTIC cu editorul (sketch-canvas.tsx).
     if (veil) {
       ctx.fillStyle = "rgba(250,247,241,0.55)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(margin * rect.w, margin * rect.h, rect.w, rect.h);
     }
-    renderStrokes(ctx, strokes, canvas.width, canvas.height);
-  }, [rect, strokes, veil]);
+    renderStrokes(ctx, strokes, canvas.width, canvas.height, { margin });
+  }, [rect, strokes, veil, margin]);
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
       <canvas
         ref={canvasRef}
-        width={rect.w}
-        height={rect.h}
+        width={surfaceW}
+        height={surfaceH}
         className="absolute"
-        style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
+        style={{
+          left: rect.x - margin * rect.w,
+          top: rect.y - margin * rect.h,
+          width: surfaceW,
+          height: surfaceH,
+        }}
       />
     </div>
   );

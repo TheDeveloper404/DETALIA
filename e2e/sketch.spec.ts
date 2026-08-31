@@ -99,3 +99,52 @@ test.describe.serial("Schiță — publish & delete", () => {
     await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toHaveCount(0);
   });
 });
+
+// Pasteboard (2026-08-31): userul poate desena în banda din jurul imaginii-mamă, nu doar pe ea.
+// Regula de domeniu exercitată (server/domain/sketch.ts, `isCanvasCoord`):
+//   „Coordonată validă pe foaie: număr finit în banda [COORD_MIN, COORD_MAX]"
+//   unde COORD_MIN = -PASTEBOARD_MARGIN (−0.4) și COORD_MAX = 1 + PASTEBOARD_MARGIN (1.4).
+// Înainte de această schimbare, un stroke cu vreun punct în afara [0,1] era respins de `validateStrokes`
+// cu INVALID_STROKE, iar „Publică" ar fi eșuat. Testul trage un stroke care ÎNCEPE în bandă (lângă
+// marginea din stânga a canvas-ului, unde imaginea nici nu ajunge) și verifică publicarea reușită.
+let pasteboardSketchId: string | null = null;
+
+test.describe.serial("Schiță — desen în pasteboard (în afara imaginii)", () => {
+  test.afterAll(async () => {
+    if (!pasteboardSketchId) return;
+    const [row] = await db
+      .select({ thumbnailUrl: sketches.thumbnailUrl })
+      .from(sketches)
+      .where(eq(sketches.id, pasteboardSketchId));
+    await db.delete(sketches).where(eq(sketches.id, pasteboardSketchId));
+    if (row?.thumbnailUrl) await deleteBlobs([row.thumbnailUrl]);
+    pasteboardSketchId = null;
+  });
+
+  test("stroke început în bandă → Publică reușește → tab nou pe detaliu", async ({ page }) => {
+    await page.goto(detailUrl());
+    await page.getByRole("button", { name: "Schițează" }).click();
+    await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
+    pasteboardSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
+
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas fără bounding box");
+    // Fracția 0.03 din lățimea canvas-ului = coord foii ≈ 0.03 * (1 + 2*0.4) − 0.4 ≈ −0.35:
+    // adânc în banda din stânga, în afara dreptunghiului imaginii ([0,1]).
+    const startX = box.x + box.width * 0.03;
+    const startY = box.y + box.height * 0.5;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.35, startY, { steps: 8 });
+    await page.mouse.up();
+
+    const publishBtn = page.getByRole("button", { name: /Publică schița/ });
+    await expect(publishBtn).toBeEnabled();
+    await publishBtn.click();
+
+    await expect(page).toHaveURL(new RegExp(`${detailUrl()}$`));
+    await expect(page.getByTestId(`sketch-tab-${pasteboardSketchId}`)).toBeVisible();
+  });
+});
