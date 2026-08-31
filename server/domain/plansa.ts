@@ -120,9 +120,7 @@ export function validateCanvasDocument(input: unknown): Validated<CanvasDocument
   let strokes: Stroke[] = [];
   if (!Array.isArray(doc.strokes)) return { ok: false, error: "INVALID_STROKES" };
   if (doc.strokes.length > 0) {
-    // `0` = fără bandă de pasteboard: pe planșă coordonatele stau strict în [0,1] (zona de lucru fixă,
-    // `renderStrokes` fără `margin`). Vezi comentariul din `validateStrokes`.
-    const result = validateStrokes(doc.strokes, 0);
+    const result = validateStrokes(doc.strokes);
     if (!result.ok) return { ok: false, error: "INVALID_STROKES" };
     strokes = result.value;
   }

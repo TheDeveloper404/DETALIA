@@ -10,12 +10,8 @@ import {
   MAX_STROKES_BYTES,
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
-  clampCanvasCoord,
   colorAtRampPosition,
   composeStackStrokes,
-  COORD_MAX,
-  COORD_MIN,
-  PASTEBOARD_MARGIN,
   STROKE_COLORS,
   colorRampGradient,
   COLOR_RAMP_STOPS,
@@ -121,35 +117,11 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
     expect(validateStrokes([freeStroke({ size: MAX_STROKE_SIZE + 1 })]).ok).toBe(false);
   });
 
-  it("respinge puncte în afara benzii foii ([COORD_MIN, COORD_MAX] = imagine + pasteboard)", () => {
+  it("respinge puncte NEnormalizate (coordonate trebuie 0..1 față de imaginea-mamă)", () => {
     expect(validateStrokes([freeStroke({ points: [[1.5, 0.2]] })]).ok).toBe(false);
-    expect(validateStrokes([freeStroke({ points: [[COORD_MAX + 0.01, 0.2]] })]).ok).toBe(false);
-    expect(validateStrokes([freeStroke({ points: [[COORD_MIN - 0.01, 0.2]] })]).ok).toBe(false);
-    expect(validateStrokes([freeStroke({ points: [[0.2, NaN]] })]).ok).toBe(false);
+    expect(validateStrokes([freeStroke({ points: [[-0.1, 0.2]] })]).ok).toBe(false);
     expect(validateStrokes([freeStroke({ points: [[0.2]] })]).ok).toBe(false);
     expect(validateStrokes([freeStroke({ points: [["a", "b"]] })]).ok).toBe(false);
-  });
-
-  it("acceptă puncte în pasteboard-ul din jurul imaginii (coordonate negative / peste 1)", () => {
-    expect(PASTEBOARD_MARGIN).toBeGreaterThan(0);
-    // săgeată trasă din zona din stânga-sus (în afara imaginii) spre un punct din detaliu
-    const r = validateStrokes([
-      freeStroke({ kind: "arrow", points: [[COORD_MIN, COORD_MIN], [0.1, 0.1]] }),
-    ]);
-    expect(r.ok).toBe(true);
-    // colțurile exacte ale benzii sunt incluse
-    expect(validateStrokes([freeStroke({ points: [[COORD_MIN, COORD_MAX]] })]).ok).toBe(true);
-    // text scris sub foaie (în banda de sub imagine)
-    const t = validateStrokes([
-      { color: "#211d18", size: 8, kind: "text", text: "notă", points: [[0.5, COORD_MAX]] },
-    ]);
-    expect(t.ok).toBe(true);
-  });
-
-  it("cu coordMargin = 0 (mod Planșă) respinge orice punct în afara [0,1]", () => {
-    expect(validateStrokes([freeStroke({ points: [[1.1, 0.5]] })], 0).ok).toBe(false);
-    expect(validateStrokes([freeStroke({ points: [[-0.05, 0.5]] })], 0).ok).toBe(false);
-    expect(validateStrokes([freeStroke({ points: [[0, 0], [1, 1]] })], 0).ok).toBe(true);
   });
 
   it("respinge prea multe puncte într-un stroke", () => {
@@ -233,17 +205,9 @@ describe("duplicateTextStroke", () => {
     expect(strokes[0].points[0]).toEqual([0.4, 0.5]);
   });
 
-  it("un text la marginea imaginii se deplasează în pasteboard la duplicare", () => {
+  it("ancora rămâne în [0,1] pentru un text lipit de marginea dreapta-jos", () => {
     const result = duplicateTextStroke([{ ...textStroke, points: [[1, 1]] as Point[] }], 0);
-    expect(result!.strokes[1].points[0]).toEqual([1 + TEXT_DUPLICATE_OFFSET, 1 + TEXT_DUPLICATE_OFFSET]);
-  });
-
-  it("ancora rămâne în banda foii pentru un text lipit de colțul pasteboard-ului", () => {
-    const result = duplicateTextStroke(
-      [{ ...textStroke, points: [[COORD_MAX, COORD_MAX]] as Point[] }],
-      0,
-    );
-    expect(result!.strokes[1].points[0]).toEqual([COORD_MAX, COORD_MAX]);
+    expect(result!.strokes[1].points[0]).toEqual([1, 1]);
   });
 
   it("întoarce null pentru un stroke care nu e text", () => {
@@ -254,12 +218,6 @@ describe("duplicateTextStroke", () => {
     expect(duplicateTextStroke([textStroke], 1)).toBeNull();
     expect(duplicateTextStroke([textStroke], -1)).toBeNull();
     expect(duplicateTextStroke([], 0)).toBeNull();
-  });
-
-  it("clampCanvasCoord mărginește la banda foii", () => {
-    expect(clampCanvasCoord(0.5)).toBe(0.5);
-    expect(clampCanvasCoord(-1)).toBe(COORD_MIN);
-    expect(clampCanvasCoord(9)).toBe(COORD_MAX);
   });
 
   it("refuză duplicarea la plafonul MAX_STROKES (nu depășește silențios limita serverului)", () => {
