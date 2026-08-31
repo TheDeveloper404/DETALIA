@@ -9,7 +9,12 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { CanvasCropPicker, type CropCanvasOption } from "@/components/canvas-crop-picker";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
-import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
+import { strokesUsePasteboard } from "@/lib/sketch-render";
+import { MAX_SKETCH_NOTE_LENGTH, PASTEBOARD_MARGIN, type Stroke } from "@/server/domain/sketch";
+
+// Previzualizarea adnotării: când desenul folosește zona din jur, imaginea se afișează la ~1/(1+2M)
+// (SketchViewer crește overlay-ul cu M la loc) ca marginea scrisă să fie vizibilă lângă poză.
+const PASTEBOARD_FIT_SCALE = 1 / (1 + 2 * PASTEBOARD_MARGIN);
 import {
   HEIC_ERROR_MESSAGE,
   HeicUnsupportedError,
@@ -1020,7 +1025,12 @@ export function DetailForm({
                     <img
                       src={preview.url}
                       alt="Previzualizare detaliu"
-                      className="max-h-80 w-auto max-w-full object-contain"
+                      className="max-h-80 w-auto max-w-full object-contain transition-transform duration-200"
+                      style={
+                        annotationStrokes && strokesUsePasteboard(annotationStrokes)
+                          ? { transform: `scale(${PASTEBOARD_FIT_SCALE})` }
+                          : undefined
+                      }
                     />
                     {annotationStrokes && annotationStrokes.length > 0 && (
                       <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
