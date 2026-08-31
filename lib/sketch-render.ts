@@ -17,6 +17,25 @@ export function resolveExportWidth(naturalWidth: number | null, fallback: number
   return naturalWidth == null ? fallback : Math.min(naturalWidth, cap);
 }
 
+// True dacă vreun punct iese CLAR din dreptunghiul imaginii [0,1] → schița folosește zona din jur.
+// Toleranță de 2%: un stroke tras fix pe muchia imaginii poate produce coordonate sub-pixel negative
+// (ex. -0.004) — alea NU trebuie să comute tot cadrul în „band mode" (micșorare + animație de layout).
+const PASTEBOARD_DETECT_TOLERANCE = 0.02;
+export function strokesUsePasteboard(strokes: Stroke[]): boolean {
+  const t = PASTEBOARD_DETECT_TOLERANCE;
+  return strokes.some((s) =>
+    s.points.some(([x, y]) => x < -t || x > 1 + t || y < -t || y > 1 + t),
+  );
+}
+
+// Mapează o coordonată normalizată din banda [-margin, 1+margin] în pixeli pe o axă de `extent` px
+// (suprafața completă imagine + pasteboard). margin = 0 → `n * extent` (comportamentul dinainte).
+// Pură + exportată ca s-o pot testa fără un context 2D.
+export function mapCanvasCoord(n: number, extent: number, margin = 0): number {
+  const m = margin > 0 ? margin : 0;
+  return ((n + m) / (1 + 2 * m)) * extent;
+}
+
 const STROKE_OPTIONS = {
   thinning: 0.5,
   smoothing: 0.5,
@@ -50,16 +69,28 @@ function svgPathFromOutline(points: number[][]): string {
 }
 
 // Desenează o listă de stroke-uri pe un context 2D de dimensiune (width × height) în px.
+//
+// `opts.margin` (fracție ≥ 0, implicit 0) = banda de „pasteboard" din jurul imaginii-mamă, în care
+// stroke-urile pot avea coordonate în afara [0,1] (vezi PASTEBOARD_MARGIN din server/domain/sketch).
+// Când e > 0, (width × height) descriu SUPRAFAȚA COMPLETĂ (imagine + bandă pe ambele laturi), iar
+// dreptunghiul imaginii [0,1]×[0,1] cade în interiorul retras cu `margin` din dimensiunea imaginii.
+// margin = 0 → comportament identic cu înainte (apelanții care nu dau opts nu se schimbă).
 export function renderStrokes(
   ctx: CanvasRenderingContext2D,
   strokes: Stroke[],
   width: number,
   height: number,
+  opts?: { margin?: number },
 ) {
-  const scale = width / REFERENCE_WIDTH;
+  const margin = opts?.margin && opts.margin > 0 ? opts.margin : 0;
+  // Grosimea urmărește lățimea IMAGINII (width / (1+2m)), nu suprafața totală → constantă vizual față de margin = 0.
+  const scale = width / ((1 + 2 * margin) * REFERENCE_WIDTH);
   for (const s of strokes) {
     const size = s.size * scale;
-    const points = s.points.map(([x, y]) => [x * width, y * height]);
+    const points = s.points.map(([x, y]) => [
+      mapCanvasCoord(x, width, margin),
+      mapCanvasCoord(y, height, margin),
+    ]);
 
     if (s.kind === "text") {
       // Etichetă curată: text în culoarea aleasă cu un halou alb subțire pentru lizibilitate peste desen
