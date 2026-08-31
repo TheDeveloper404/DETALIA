@@ -2,10 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { mapCanvasCoord, renderStrokes, strokesUsePasteboard } from "@/lib/sketch-render";
-import { PASTEBOARD_MARGIN, type Stroke } from "@/server/domain/sketch";
-
-const M = PASTEBOARD_MARGIN;
+import { renderStrokes } from "@/lib/sketch-render";
+import type { Stroke } from "@/server/domain/sketch";
 
 // Overlay read-only: DOAR stroke-urile schiței, suprapuse peste imaginea-mamă deja randată de părinte
 // (<Image fill object-contain> permanent montată în cutia 4/3). Canvas-ul se poziționează exact pe
@@ -57,44 +55,29 @@ export function SketchViewer({
     return () => observer?.disconnect();
   }, [imageUrl]);
 
-  // Stroke-urile pot ieși din dreptunghiul imaginii [0,1]. Când o schiță folosește zona din jur,
-  // canvas-ul CREȘTE în jurul imaginii (imaginea rămâne la mărime normală, în centru) — nu se
-  // micșorează nimic. Partea din desen care iese din card poate fi decupată de `overflow-hidden`;
-  // marginea e mică (~15%), deci în practică textul/săgețile de lângă imagine se văd.
-  const margin = strokesUsePasteboard(strokes) ? M : 0;
-  const canvasW = Math.round(rect.w * (1 + 2 * margin));
-  const canvasH = Math.round(rect.h * (1 + 2 * margin));
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Foaia semitransparentă a schiței — DOAR peste dreptunghiul detaliului-mamă (centrul canvas-ului
-    // când e activă zona din jur), nu peste ea. IDENTIC cu editorul (sketch-canvas.tsx).
+    // Foaia semitransparentă a schiței peste detaliul-mamă (care rămâne opac, randat de părinte) — IDENTIC
+    // cu editorul (sketch-canvas.tsx): schița stă pe o coală translucidă peste detaliu, nu invers.
     if (veil) {
-      const x0 = mapCanvasCoord(0, canvas.width, margin);
-      const y0 = mapCanvasCoord(0, canvas.height, margin);
       ctx.fillStyle = "rgba(250,247,241,0.55)";
-      ctx.fillRect(x0, y0, canvas.width - 2 * x0, canvas.height - 2 * y0);
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    renderStrokes(ctx, strokes, canvas.width, canvas.height, { margin });
-  }, [rect, strokes, veil, margin]);
+    renderStrokes(ctx, strokes, canvas.width, canvas.height);
+  }, [rect, strokes, veil]);
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
       <canvas
         ref={canvasRef}
-        width={canvasW}
-        height={canvasH}
+        width={rect.w}
+        height={rect.h}
         className="absolute"
-        style={{
-          left: rect.x - margin * rect.w,
-          top: rect.y - margin * rect.h,
-          width: canvasW,
-          height: canvasH,
-        }}
+        style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       />
     </div>
   );
