@@ -33,17 +33,23 @@ export function findViolations(source) {
   const violations = [];
 
   for (const { body, lineNumber } of findSqlTemplates(source)) {
-    const isCorrelatedSubquery = /\bselect\b/i.test(body) && /\bfrom\s+\$\{(\w+)\}/i.test(body);
+    // Tabele „proprii" ale template-ului = toate cele din `FROM ${x}` ȘI `JOIN ${x}`, pe toate brațele
+    // unui `union all`. Nu doar primul `FROM`: fiecare braț își referă legitim propriul tabel, iar un
+    // tabel adus prin `join` are coloane la fel de legitime (altfel `comments.*`/`sketches.*` din
+    // brațele 2-3, sau `users.*` de după un `join ${users}`, ar fi marcate fals — vezi `interactorRows`
+    // / `interactorAvatars` din detailsRepo.ts).
+    const ownTables = new Set(
+      [...body.matchAll(/\b(?:from|join)\s+\$\{(\w+)\}/gi)].map((m) => m[1]),
+    );
+    const isCorrelatedSubquery = /\bselect\b/i.test(body) && /\bfrom\s+\$\{\w+\}/i.test(body);
     if (!isCorrelatedSubquery) continue;
 
-    const fromMatch = body.match(/\bfrom\s+\$\{(\w+)\}/i);
-    const ownTable = fromMatch[1];
-
+    const ownTable = [...ownTables].join(", ");
     const columnRefRe = /\$\{(\w+)\.(\w+)\}/g;
     let ref;
     while ((ref = columnRefRe.exec(body))) {
       const [, table, column] = ref;
-      if (table !== ownTable) {
+      if (!ownTables.has(table)) {
         violations.push({
           lineNumber,
           ownTable,
