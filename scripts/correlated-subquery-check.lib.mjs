@@ -33,29 +33,31 @@ export function findViolations(source) {
   const violations = [];
 
   for (const { body, lineNumber } of findSqlTemplates(source)) {
-    // Tabele „proprii" ale template-ului = toate cele din `FROM ${x}` ȘI `JOIN ${x}`, pe toate brațele
-    // unui `union all`. Nu doar primul `FROM`: fiecare braț își referă legitim propriul tabel, iar un
-    // tabel adus prin `join` are coloane la fel de legitime (altfel `comments.*`/`sketches.*` din
-    // brațele 2-3, sau `users.*` de după un `join ${users}`, ar fi marcate fals — vezi `interactorRows`
-    // / `interactorAvatars` din detailsRepo.ts).
-    const ownTables = new Set(
-      [...body.matchAll(/\b(?:from|join)\s+\$\{(\w+)\}/gi)].map((m) => m[1]),
-    );
-    const isCorrelatedSubquery = /\bselect\b/i.test(body) && /\bfrom\s+\$\{\w+\}/i.test(body);
-    if (!isCorrelatedSubquery) continue;
+    if (!/\bselect\b/i.test(body) || !/\bfrom\s+\$\{\w+\}/i.test(body)) continue;
 
-    const ownTable = [...ownTables].join(", ");
-    const columnRefRe = /\$\{(\w+)\.(\w+)\}/g;
-    let ref;
-    while ((ref = columnRefRe.exec(body))) {
-      const [, table, column] = ref;
-      if (!ownTables.has(table)) {
+    // Verificarea e PE BRAȚ, nu pe tot template-ul: un `union all` are câte un scope propriu per braț.
+    // Tabelele „proprii" ale unui braț = cele din `FROM ${x}` ȘI `JOIN ${x}` DIN ACEL braț (un tabel
+    // adus prin join are coloane la fel de legitime). Fără split pe brațe, un ref la un tabel care
+    // există doar în alt braț ar trece fals (finding Greptile #270).
+    const branches = body.split(/\bunion(?:\s+all)?\b/i);
+    for (const branch of branches) {
+      const ownTables = new Set(
+        [...branch.matchAll(/\b(?:from|join)\s+\$\{(\w+)\}/gi)].map((m) => m[1]),
+      );
+      if (ownTables.size === 0) continue; // braț fără FROM ${x} propriu → nu e subquery corelat
+      const ownTable = [...ownTables].join(", ");
+
+      const columnRefRe = /\$\{(\w+)\.(\w+)\}/g;
+      let ref;
+      while ((ref = columnRefRe.exec(branch))) {
+        const [, table, column] = ref;
+        if (ownTables.has(table)) continue;
         violations.push({
           lineNumber,
           ownTable,
           table,
           column,
-          snippet: body.trim().slice(0, 140).replace(/\s+/g, " "),
+          snippet: branch.trim().slice(0, 140).replace(/\s+/g, " "),
         });
       }
     }

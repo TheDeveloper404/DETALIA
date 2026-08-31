@@ -60,6 +60,19 @@ describe("findViolations — gardă subquery corelat necalificat", () => {
     expect(violations[0]).toMatchObject({ table: "details", column: "id" });
   });
 
+  it("union all: un braț referă un tabel introdus DOAR de alt braț → flagat (scope pe braț, nu pe template)", () => {
+    const source = `
+      const rows = sql\`(
+        select \${validations.userId} from \${validations} where \${validations.targetId} = \${comments.id}
+        union all
+        select \${comments.authorId} from \${comments} where \${comments.targetId} = \${detailsId}
+      )\`;
+    `;
+    const violations = findViolations(source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ table: "comments", column: "id", ownTable: "validations" });
+  });
+
   it("prinde mai multe subquery-uri corelate independent, în același fișier", () => {
     const source = `
       const a = sql\`(select count(*)::int from \${validations} where \${validations.targetId} = \${details.id})\`;
