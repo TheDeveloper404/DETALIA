@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveExportWidth } from "./sketch-render";
+import { mapCanvasCoord, resolveExportWidth } from "./sketch-render";
 
 // BUG găsit 2026-08-18: exportul thumbnail-ului de schiță (trimis ca `imageUrl` la „Trimite în Planșă")
 // se făcea mereu la REFERENCE_WIDTH (1000px), indiferent de rezoluția reală a imaginii-mamă (până la
@@ -25,5 +25,26 @@ describe("resolveExportWidth", () => {
 
   it("naturalWidth mic (imagine mică) → nu se mărește artificial peste rezoluția reală", () => {
     expect(resolveExportWidth(400, 1000, 4096)).toBe(400);
+  });
+});
+
+// Pasteboard (2026-08-31): stroke-urile pot avea coordonate în afara [0,1] (banda din jurul imaginii).
+describe("mapCanvasCoord", () => {
+  it("margin = 0 → identic cu n * extent (apelanții vechi neschimbați)", () => {
+    expect(mapCanvasCoord(0, 1000)).toBe(0);
+    expect(mapCanvasCoord(0.5, 1000)).toBe(500);
+    expect(mapCanvasCoord(1, 1000)).toBe(1000);
+  });
+
+  it("cu margin, colțurile imaginii cad în interiorul retras, banda umple restul", () => {
+    // margin 0.4 → suprafață = imagine * 1.8; imaginea ocupă 0.4/1.8 .. 1.4/1.8 din suprafață
+    expect(mapCanvasCoord(-0.4, 1800, 0.4)).toBeCloseTo(0);
+    expect(mapCanvasCoord(0, 1800, 0.4)).toBeCloseTo(400);
+    expect(mapCanvasCoord(1, 1800, 0.4)).toBeCloseTo(1400);
+    expect(mapCanvasCoord(1.4, 1800, 0.4)).toBeCloseTo(1800);
+  });
+
+  it("centrul imaginii rămâne centrul suprafeței", () => {
+    expect(mapCanvasCoord(0.5, 1800, 0.4)).toBeCloseTo(900);
   });
 });
