@@ -17,6 +17,12 @@ export function resolveExportWidth(naturalWidth: number | null, fallback: number
   return naturalWidth == null ? fallback : Math.min(naturalWidth, cap);
 }
 
+// True dacă vreun punct iese din dreptunghiul imaginii [0,1] → schița folosește banda de pasteboard.
+// Folosit ca să extindem/scalăm suprafața DOAR când e nevoie (altfel geometria rămâne neschimbată).
+export function strokesUsePasteboard(strokes: Stroke[]): boolean {
+  return strokes.some((s) => s.points.some(([x, y]) => x < 0 || x > 1 || y < 0 || y > 1));
+}
+
 // Mapează o coordonată normalizată din banda [-margin, 1+margin] în pixeli pe o axă de `extent` px
 // (suprafața completă imagine + pasteboard). margin = 0 → `n * extent` (comportamentul dinainte).
 // Pură + exportată ca s-o pot testa fără un context 2D.

@@ -425,7 +425,7 @@ export const SketchCanvas = forwardRef<
     }
     ctx.stroke();
     const img = imgRef.current;
-    // Dreptunghiul imaginii-mamă în interiorul suprafeței (restul = banda de pasteboard).
+    // Imaginea-mamă la mărime normală, în centru; restul canvas-ului = loc liber de scris în jur.
     const imgW = canvas.width / (1 + 2 * M);
     const imgH = canvas.height / (1 + 2 * M);
     const ox = M * imgW;
@@ -436,15 +436,10 @@ export const SketchCanvas = forwardRef<
       // FOAIE semitransparentă peste el (mai jos) — ca în realitate: schița stă pe o coală translucidă
       // așezată peste detaliul opac, nu invers.
       ctx.drawImage(img, ox, oy, imgW, imgH);
-      // Foaia semitransparentă a schiței — doar peste dreptunghiul detaliului, nu peste bandă.
+      // Foaia semitransparentă a schiței — doar peste dreptunghiul detaliului, nu peste locul din jur.
       ctx.fillStyle = "rgba(250,247,241,0.55)";
       ctx.fillRect(ox, oy, imgW, imgH);
     }
-    // Chenar subțire care marchează unde se termină foaia și începe pasteboard-ul (tratament minim —
-    // aspectul benzii se rafinează separat).
-    ctx.strokeStyle = "rgba(33,29,24,0.18)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(ox + 0.5, oy + 0.5, imgW - 1, imgH - 1);
 
     // Fundalul stack-ului (needitabil) sub desenul propriu — altfel autorul desenează orb, fără să
     // vadă pe ce se construiește.

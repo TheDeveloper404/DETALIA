@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { mapCanvasCoord, resolveExportWidth } from "./sketch-render";
+import { mapCanvasCoord, resolveExportWidth, strokesUsePasteboard } from "./sketch-render";
+import type { Stroke } from "@/server/domain/sketch";
 
 // BUG găsit 2026-08-18: exportul thumbnail-ului de schiță (trimis ca `imageUrl` la „Trimite în Planșă")
 // se făcea mereu la REFERENCE_WIDTH (1000px), indiferent de rezoluția reală a imaginii-mamă (până la
@@ -46,5 +47,22 @@ describe("mapCanvasCoord", () => {
 
   it("centrul imaginii rămâne centrul suprafeței", () => {
     expect(mapCanvasCoord(0.5, 1800, 0.4)).toBeCloseTo(900);
+  });
+});
+
+describe("strokesUsePasteboard", () => {
+  const s = (points: number[][]): Stroke => ({ color: "#211d18", size: 8, points: points as Stroke["points"] });
+
+  it("false când toate punctele sunt în [0,1]", () => {
+    expect(strokesUsePasteboard([s([[0, 0], [1, 1]]), s([[0.5, 0.5]])])).toBe(false);
+  });
+
+  it("true dacă un punct iese sub 0 sau peste 1 (pe oricare axă)", () => {
+    expect(strokesUsePasteboard([s([[0.5, 0.5]]), s([[-0.2, 0.3]])])).toBe(true);
+    expect(strokesUsePasteboard([s([[0.3, 1.2]])])).toBe(true);
+  });
+
+  it("false pe listă goală", () => {
+    expect(strokesUsePasteboard([])).toBe(false);
   });
 });
