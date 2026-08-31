@@ -252,7 +252,16 @@ export function colorRampGradient(direction = "to bottom"): string {
   return `linear-gradient(${direction}, ${stops})`;
 }
 
-// Un punct = [x, y] normalizat 0..1 față de imaginea-mamă (rezoluție-agnostic).
+// ── Spațiul de coordonate al foii (2026-08-31) ─────────────────────────────────────────────────
+// Un punct = [x, y] normalizat față de imaginea-mamă (rezoluție-agnostic). Dreptunghiul imaginii e
+// [0,0]–[1,1]; în jurul lui există o BANDĂ de lucru („pasteboard") de `PASTEBOARD_MARGIN` pe fiecare
+// latură, în care userul poate trage săgeți / scrie text ca să nu înghesuie desenul pe foaie.
+// Intervalul valid devine deci [-PASTEBOARD_MARGIN, 1 + PASTEBOARD_MARGIN] pe ambele axe.
+// Schițele de dinainte au toate punctele în [0,1] → rămân valide fără migrare.
+// Împărtășit cu editorul de Planșă (`server/domain/plansa.ts` refoloseste `validateStrokes`).
+export const PASTEBOARD_MARGIN = 0.15;
+export const COORD_MIN = -PASTEBOARD_MARGIN;
+export const COORD_MAX = 1 + PASTEBOARD_MARGIN;
 export type Point = [number, number];
 // Unealta cu care a fost desenat stroke-ul. Toate formele cu 2 capete (line/rect/ellipse/arrow) folosesc
 // primul + ultimul punct. „free" = traseu freehand (perfect-freehand); „text" = casetă la `points[0]`
@@ -286,12 +295,22 @@ export type StrokesValidationResult =
   | { ok: true; value: Stroke[] }
   | { ok: false; error: "TOO_MANY_STROKES" | "INVALID_STROKE" | "EMPTY" | "TOO_LARGE" };
 
-function isNormalized(n: unknown): n is number {
-  return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
+// Coordonată validă pe foaie: număr finit în intervalul [lo, hi].
+function isCanvasCoord(n: unknown, lo: number, hi: number): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
 }
 
 // Validează + normalizează structural lista de stroke-uri (server = sursa de adevăr).
-export function validateStrokes(input: unknown): StrokesValidationResult {
+// `coordMargin` = cât pot ieși coordonatele din dreptunghiul imaginii [0,1] (banda de „pasteboard").
+// Implicit `PASTEBOARD_MARGIN` (editorul de schiță). Editorul de Planșă cere `0` — acolo nu există
+// zonă de lucru în jur, iar `renderStrokes` e apelat fără `margin`, deci coordonate în afara [0,1]
+// s-ar randa tăiate.
+export function validateStrokes(
+  input: unknown,
+  coordMargin: number = PASTEBOARD_MARGIN,
+): StrokesValidationResult {
+  const lo = -coordMargin;
+  const hi = 1 + coordMargin;
   if (!Array.isArray(input)) return { ok: false, error: "INVALID_STROKE" };
   if (input.length === 0) return { ok: false, error: "EMPTY" };
   if (input.length > MAX_STROKES) return { ok: false, error: "TOO_MANY_STROKES" };
@@ -341,7 +360,7 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 
     const points: Point[] = [];
     for (const p of s.points) {
-      if (!Array.isArray(p) || p.length !== 2 || !isNormalized(p[0]) || !isNormalized(p[1])) {
+      if (!Array.isArray(p) || p.length !== 2 || !isCanvasCoord(p[0], lo, hi) || !isCanvasCoord(p[1], lo, hi)) {
         return { ok: false, error: "INVALID_STROKE" };
       }
       points.push([p[0], p[1]]);
@@ -373,6 +392,12 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 // (o singură sursă de adevăr, nu doar în componentă).
 export const TEXT_DUPLICATE_OFFSET = 0.02;
 
+// Clamp în banda foii (imagine + pasteboard). Folosit la duplicare ca ancora copiei să nu iasă din
+// intervalul valid când originalul e lipit de colțul din dreapta-jos al benzii.
+export function clampCanvasCoord(n: number): number {
+  return Math.min(COORD_MAX, Math.max(COORD_MIN, n));
+}
+
 export function duplicateTextStroke(
   strokes: Stroke[],
   index: number,
@@ -386,7 +411,9 @@ export function duplicateTextStroke(
   const [x, y] = source.points[0] ?? [0, 0];
   const copy: Stroke = {
     ...source,
-    points: [[Math.min(1, x + TEXT_DUPLICATE_OFFSET), Math.min(1, y + TEXT_DUPLICATE_OFFSET)]],
+    points: [
+      [clampCanvasCoord(x + TEXT_DUPLICATE_OFFSET), clampCanvasCoord(y + TEXT_DUPLICATE_OFFSET)],
+    ],
   };
 
   return { strokes: [...strokes, copy], newIndex: strokes.length };

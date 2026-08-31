@@ -1022,6 +1022,10 @@ export function DetailForm({
                       alt="Previzualizare detaliu"
                       className="max-h-80 w-auto max-w-full object-contain"
                     />
+                    {/* SketchViewer își crește singur canvas-ul cu ~15% în jur când adnotarea folosește
+                        zona din afara imaginii → stroke-urile rămân aliniate cu poza la mărime normală.
+                        NU scalăm `<img>` aici: un `transform` vizual nu schimbă cutia măsurată de
+                        SketchViewer și ar dezalinia desenul. */}
                     {annotationStrokes && annotationStrokes.length > 0 && (
                       <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
                     )}

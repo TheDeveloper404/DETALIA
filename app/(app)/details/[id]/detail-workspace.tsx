@@ -16,8 +16,10 @@ import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DEFAULT_LOCATION } from "@/server/domain/detail";
 import { REMOVED_PROJECT_AUTHOR_LABEL } from "@/server/domain/project";
+import { strokesUsePasteboard } from "@/lib/sketch-render";
 import {
   composeStackStrokes,
+  PASTEBOARD_MARGIN,
   REMOVED_AUTHOR_LABEL,
   resolveSketchDeletionMode,
   resolveStackLayers,
@@ -27,6 +29,11 @@ import type { ValidationPosition } from "@/server/domain/validation";
 import type { TargetComment } from "@/server/repos/commentsRepo";
 import type { SupplierOfferRow } from "@/server/repos/supplierOffersRepo";
 import type { TargetPosition } from "@/server/repos/validationsRepo";
+
+// Când schița afișată are desen în zona din jur, imaginea + overlay-ul se retrag cu atât pe fiecare
+// latură (procent din ramă) ca toată suprafața (imagine + margine) să încapă în ramă fără să fie
+// tăiată de cardul cu overflow-hidden. = M / (1 + 2M): SketchViewer crește apoi canvas-ul cu M la loc.
+const PASTEBOARD_INSET_PCT = (PASTEBOARD_MARGIN / (1 + 2 * PASTEBOARD_MARGIN)) * 100;
 
 
 import { CommentsSection, type MentionSketch } from "./comments-section";
@@ -279,6 +286,12 @@ export function DetailWorkspace({
           ])
         : [],
     [activeSketch, hiddenLayerIds, stackLayers],
+  );
+
+  // Schița vizibilă acum în ramă (schița activă, sau adnotarea deschisă pe tabul de bază) folosește
+  // zona din jurul imaginii? → retrage imaginea + overlay-ul ca marginea să încapă în ramă.
+  const viewerBandActive = strokesUsePasteboard(
+    !isBase ? composedStrokes : (openAnnotation?.strokes ?? []),
   );
 
   function toggleLayer(id: string) {
@@ -650,38 +663,49 @@ export function DetailWorkspace({
               </div>
             )}
             <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
-              {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
-                  altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16 — detaliul
-                  de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
-                  SketchViewer peste el, ca în realitate). Doar overlay-ul de schiță face fade-in la
-                  comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
-              <Image
-                src={imageUrl}
-                alt={header.title}
-                fill
-                sizes="(max-width: 1024px) 100vw, 768px"
-                className="object-contain"
-                priority
-              />
-              {!isBase && (
-                <div key={`sketch-${activeSketch?.id ?? "base"}`} className="absolute inset-0 animate-in fade-in duration-200">
-                  <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
-                </div>
-              )}
-              {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, CU văl semitransparent (2026-08-11: o
-                  adnotare e o schiță ca oricare alta — fundalul translucid o face lizibilă peste
-                  imaginea de bază, la fel ca la orice altă schiță). Pornește DESCHISĂ implicit
-                  (2026-08-11, decizie de produs: „e startul dezbaterii" — vezi `openAnnotationId`
-                  mai sus); cititorul o poate închide din butonul din colț. `key` pe id → fade-in
-                  la comutarea între ele. */}
-              {isBase && openAnnotation && (
-                <div
-                  key={`annotation-${openAnnotation.id}`}
-                  className="absolute inset-0 animate-in fade-in duration-200"
-                >
-                  <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} />
-                </div>
-              )}
+              {/* Strat intern care se retrage când schița afișată folosește zona din jurul imaginii
+                  (SketchViewer crește apoi canvas-ul la loc, în ramă) — altfel desenul din margine ar
+                  fi tăiat de cardul cu overflow-hidden. Fără margine → inset 0, identic cu înainte. */}
+              <div
+                className="absolute"
+                style={{
+                  inset: viewerBandActive ? `${PASTEBOARD_INSET_PCT}%` : 0,
+                  transition: "inset 200ms",
+                }}
+              >
+                {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
+                    altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16 — detaliul
+                    de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
+                    SketchViewer peste el, ca în realitate). Doar overlay-ul de schiță face fade-in la
+                    comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
+                <Image
+                  src={imageUrl}
+                  alt={header.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 768px"
+                  className="object-contain"
+                  priority
+                />
+                {!isBase && (
+                  <div key={`sketch-${activeSketch?.id ?? "base"}`} className="absolute inset-0 animate-in fade-in duration-200">
+                    <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
+                  </div>
+                )}
+                {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, CU văl semitransparent (2026-08-11: o
+                    adnotare e o schiță ca oricare alta — fundalul translucid o face lizibilă peste
+                    imaginea de bază, la fel ca la orice altă schiță). Pornește DESCHISĂ implicit
+                    (2026-08-11, decizie de produs: „e startul dezbaterii" — vezi `openAnnotationId`
+                    mai sus); cititorul o poate închide din butonul din colț. `key` pe id → fade-in
+                    la comutarea între ele. */}
+                {isBase && openAnnotation && (
+                  <div
+                    key={`annotation-${openAnnotation.id}`}
+                    className="absolute inset-0 animate-in fade-in duration-200"
+                  >
+                    <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
