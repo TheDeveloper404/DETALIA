@@ -259,7 +259,7 @@ export function colorRampGradient(direction = "to bottom"): string {
 // Intervalul valid devine deci [-PASTEBOARD_MARGIN, 1 + PASTEBOARD_MARGIN] pe ambele axe.
 // Schițele de dinainte au toate punctele în [0,1] → rămân valide fără migrare.
 // Împărtășit cu editorul de Planșă (`server/domain/plansa.ts` refoloseste `validateStrokes`).
-export const PASTEBOARD_MARGIN = 0.4;
+export const PASTEBOARD_MARGIN = 0.15;
 export const COORD_MIN = -PASTEBOARD_MARGIN;
 export const COORD_MAX = 1 + PASTEBOARD_MARGIN;
 export type Point = [number, number];

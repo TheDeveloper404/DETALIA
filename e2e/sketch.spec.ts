@@ -100,13 +100,13 @@ test.describe.serial("Schiță — publish & delete", () => {
   });
 });
 
-// Pasteboard (2026-08-31): userul poate desena în banda din jurul imaginii-mamă, nu doar pe ea.
+// Pasteboard (2026-08-31): userul poate desena în zona din jurul imaginii-mamă, nu doar pe ea.
 // Regula de domeniu exercitată (server/domain/sketch.ts, `isCanvasCoord`):
 //   „Coordonată validă pe foaie: număr finit în banda [COORD_MIN, COORD_MAX]"
-//   unde COORD_MIN = -PASTEBOARD_MARGIN (−0.4) și COORD_MAX = 1 + PASTEBOARD_MARGIN (1.4).
+//   unde COORD_MIN = -PASTEBOARD_MARGIN (−0.15) și COORD_MAX = 1 + PASTEBOARD_MARGIN (1.15).
 // Înainte de această schimbare, un stroke cu vreun punct în afara [0,1] era respins de `validateStrokes`
-// cu INVALID_STROKE, iar „Publică" ar fi eșuat. Testul trage un stroke care ÎNCEPE în bandă (lângă
-// marginea din stânga a canvas-ului, unde imaginea nici nu ajunge) și verifică publicarea reușită.
+// cu INVALID_STROKE, iar „Publică" ar fi eșuat. Testul trage un stroke care ÎNCEPE în afara imaginii
+// (lângă marginea din stânga a canvas-ului) și verifică publicarea reușită.
 let pasteboardSketchId: string | null = null;
 
 test.describe.serial("Schiță — desen în pasteboard (în afara imaginii)", () => {
@@ -131,8 +131,8 @@ test.describe.serial("Schiță — desen în pasteboard (în afara imaginii)", (
     await expect(canvas).toBeVisible();
     const box = await canvas.boundingBox();
     if (!box) throw new Error("canvas fără bounding box");
-    // Fracția 0.03 din lățimea canvas-ului = coord foii ≈ 0.03 * (1 + 2*0.4) − 0.4 ≈ −0.35:
-    // adânc în banda din stânga, în afara dreptunghiului imaginii ([0,1]).
+    // Fracția 0.03 din lățimea canvas-ului = coord foii ≈ 0.03 * (1 + 2*0.15) − 0.15 ≈ −0.11:
+    // în afara dreptunghiului imaginii ([0,1]), în zona liberă din stânga.
     const startX = box.x + box.width * 0.03;
     const startY = box.y + box.height * 0.5;
     await page.mouse.move(startX, startY);

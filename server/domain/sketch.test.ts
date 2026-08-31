@@ -132,16 +132,16 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
 
   it("acceptă puncte în pasteboard-ul din jurul imaginii (coordonate negative / peste 1)", () => {
     expect(PASTEBOARD_MARGIN).toBeGreaterThan(0);
-    // săgeată trasă în marginea din stânga-sus, în afara imaginii
+    // săgeată trasă din zona din stânga-sus (în afara imaginii) spre un punct din detaliu
     const r = validateStrokes([
-      freeStroke({ kind: "arrow", points: [[-0.3, -0.2], [0.1, 0.1]] }),
+      freeStroke({ kind: "arrow", points: [[COORD_MIN, COORD_MIN], [0.1, 0.1]] }),
     ]);
     expect(r.ok).toBe(true);
     // colțurile exacte ale benzii sunt incluse
     expect(validateStrokes([freeStroke({ points: [[COORD_MIN, COORD_MAX]] })]).ok).toBe(true);
-    // text scris sub foaie
+    // text scris sub foaie (în banda de sub imagine)
     const t = validateStrokes([
-      { color: "#211d18", size: 8, kind: "text", text: "notă", points: [[0.5, 1.3]] },
+      { color: "#211d18", size: 8, kind: "text", text: "notă", points: [[0.5, COORD_MAX]] },
     ]);
     expect(t.ok).toBe(true);
   });
