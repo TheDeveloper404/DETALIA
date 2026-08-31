@@ -295,13 +295,22 @@ export type StrokesValidationResult =
   | { ok: true; value: Stroke[] }
   | { ok: false; error: "TOO_MANY_STROKES" | "INVALID_STROKE" | "EMPTY" | "TOO_LARGE" };
 
-// Coordonată validă pe foaie: număr finit în banda [COORD_MIN, COORD_MAX] (imaginea + pasteboard).
-function isCanvasCoord(n: unknown): n is number {
-  return typeof n === "number" && Number.isFinite(n) && n >= COORD_MIN && n <= COORD_MAX;
+// Coordonată validă pe foaie: număr finit în intervalul [lo, hi].
+function isCanvasCoord(n: unknown, lo: number, hi: number): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
 }
 
 // Validează + normalizează structural lista de stroke-uri (server = sursa de adevăr).
-export function validateStrokes(input: unknown): StrokesValidationResult {
+// `coordMargin` = cât pot ieși coordonatele din dreptunghiul imaginii [0,1] (banda de „pasteboard").
+// Implicit `PASTEBOARD_MARGIN` (editorul de schiță). Editorul de Planșă cere `0` — acolo nu există
+// zonă de lucru în jur, iar `renderStrokes` e apelat fără `margin`, deci coordonate în afara [0,1]
+// s-ar randa tăiate.
+export function validateStrokes(
+  input: unknown,
+  coordMargin: number = PASTEBOARD_MARGIN,
+): StrokesValidationResult {
+  const lo = -coordMargin;
+  const hi = 1 + coordMargin;
   if (!Array.isArray(input)) return { ok: false, error: "INVALID_STROKE" };
   if (input.length === 0) return { ok: false, error: "EMPTY" };
   if (input.length > MAX_STROKES) return { ok: false, error: "TOO_MANY_STROKES" };
@@ -351,7 +360,7 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 
     const points: Point[] = [];
     for (const p of s.points) {
-      if (!Array.isArray(p) || p.length !== 2 || !isCanvasCoord(p[0]) || !isCanvasCoord(p[1])) {
+      if (!Array.isArray(p) || p.length !== 2 || !isCanvasCoord(p[0], lo, hi) || !isCanvasCoord(p[1], lo, hi)) {
         return { ok: false, error: "INVALID_STROKE" };
       }
       points.push([p[0], p[1]]);

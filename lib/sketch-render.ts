@@ -17,10 +17,15 @@ export function resolveExportWidth(naturalWidth: number | null, fallback: number
   return naturalWidth == null ? fallback : Math.min(naturalWidth, cap);
 }
 
-// True dacă vreun punct iese din dreptunghiul imaginii [0,1] → schița folosește banda de pasteboard.
-// Folosit ca să extindem/scalăm suprafața DOAR când e nevoie (altfel geometria rămâne neschimbată).
+// True dacă vreun punct iese CLAR din dreptunghiul imaginii [0,1] → schița folosește zona din jur.
+// Toleranță de 2%: un stroke tras fix pe muchia imaginii poate produce coordonate sub-pixel negative
+// (ex. -0.004) — alea NU trebuie să comute tot cadrul în „band mode" (micșorare + animație de layout).
+const PASTEBOARD_DETECT_TOLERANCE = 0.02;
 export function strokesUsePasteboard(strokes: Stroke[]): boolean {
-  return strokes.some((s) => s.points.some(([x, y]) => x < 0 || x > 1 || y < 0 || y > 1));
+  const t = PASTEBOARD_DETECT_TOLERANCE;
+  return strokes.some((s) =>
+    s.points.some(([x, y]) => x < -t || x > 1 + t || y < -t || y > 1 + t),
+  );
 }
 
 // Mapează o coordonată normalizată din banda [-margin, 1+margin] în pixeli pe o axă de `extent` px

@@ -57,7 +57,11 @@ describe("strokesUsePasteboard", () => {
     expect(strokesUsePasteboard([s([[0, 0], [1, 1]]), s([[0.5, 0.5]])])).toBe(false);
   });
 
-  it("true dacă un punct iese sub 0 sau peste 1 (pe oricare axă)", () => {
+  it("false pentru depășiri sub-pixel pe muchia imaginii (toleranță 2%)", () => {
+    expect(strokesUsePasteboard([s([[-0.01, 0.5]]), s([[1.015, 0.2]])])).toBe(false);
+  });
+
+  it("true dacă un punct iese CLAR sub 0 sau peste 1 (pe oricare axă)", () => {
     expect(strokesUsePasteboard([s([[0.5, 0.5]]), s([[-0.2, 0.3]])])).toBe(true);
     expect(strokesUsePasteboard([s([[0.3, 1.2]])])).toBe(true);
   });

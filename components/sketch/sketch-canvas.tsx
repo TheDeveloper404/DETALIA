@@ -35,6 +35,7 @@ import {
   renderStrokes,
   REFERENCE_WIDTH,
   resolveExportWidth,
+  strokesUsePasteboard,
   TEXT_FONT_FAMILY,
   TEXT_FONT_SCALE,
 } from "@/lib/sketch-render";
@@ -311,12 +312,9 @@ export const SketchCanvas = forwardRef<
         );
         // Foaie goală: dims din aspectRatio + fundal alb solid. Cu imagine-mamă: raportul ei + fill slab 0.3.
         const h = img ? Math.round(w * (img.naturalHeight / img.naturalWidth)) : Math.round(w * aspectRatio);
-        // Banda de pasteboard intră în export DOAR dacă vreun stroke iese din dreptunghiul imaginii
-        // [0,1] — altfel schițele care nu folosesc marginea rămân identice la byte cu înainte.
-        const usesPasteboard = present.some((s) =>
-          s.points.some(([x, y]) => x < 0 || x > 1 || y < 0 || y > 1),
-        );
-        const margin = usesPasteboard ? M : 0;
+        // Zona din jur intră în export DOAR dacă un stroke iese CLAR din dreptunghiul imaginii [0,1]
+        // (aceeași detecție, cu toleranță, ca peste tot) — altfel schițele obișnuite rămân identice la byte.
+        const margin = strokesUsePasteboard(present) ? M : 0;
         const surfaceW = Math.round(w * (1 + 2 * margin));
         const surfaceH = Math.round(h * (1 + 2 * margin));
         const ox = margin * w;
@@ -326,10 +324,16 @@ export const SketchCanvas = forwardRef<
         off.height = surfaceH;
         const ctx = off.getContext("2d");
         if (!ctx) return null;
-        ctx.fillStyle = "#ffffff";
+        // Zona din jur = culoare de hârtie (ca în editor), NU alb opac — altfel PNG-ul are un chenar
+        // alb în jurul desenului pe fundaluri colorate (/s/[id], crop-picker). margin = 0 → alb, ca înainte.
+        ctx.fillStyle = margin > 0 ? "#faf7f1" : "#ffffff";
         ctx.fillRect(0, 0, surfaceW, surfaceH);
         if (img) {
           // Aceeași convenție ca în editor: detaliul rămâne opac, foaia semitransparentă vine peste el.
+          if (margin > 0) {
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(ox, oy, w, h);
+          }
           ctx.drawImage(img, ox, oy, w, h);
           ctx.fillStyle = "rgba(250,247,241,0.55)";
           ctx.fillRect(ox, oy, w, h);

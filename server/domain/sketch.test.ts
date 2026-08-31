@@ -146,6 +146,12 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
     expect(t.ok).toBe(true);
   });
 
+  it("cu coordMargin = 0 (mod Planșă) respinge orice punct în afara [0,1]", () => {
+    expect(validateStrokes([freeStroke({ points: [[1.1, 0.5]] })], 0).ok).toBe(false);
+    expect(validateStrokes([freeStroke({ points: [[-0.05, 0.5]] })], 0).ok).toBe(false);
+    expect(validateStrokes([freeStroke({ points: [[0, 0], [1, 1]] })], 0).ok).toBe(true);
+  });
+
   it("respinge prea multe puncte într-un stroke", () => {
     const pts = Array.from({ length: MAX_POINTS_PER_STROKE + 1 }, () => [0.5, 0.5]);
     expect(validateStrokes([freeStroke({ points: pts })]).ok).toBe(false);
