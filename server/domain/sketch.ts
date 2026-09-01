@@ -280,14 +280,63 @@ export const MAX_STROKE_SIZE = 100;
 // MAX_STATE_BYTES din server/domain/plansa.ts (același raționament).
 export const MAX_STROKES_BYTES = 3_000_000; // 3 MB
 
+// ── Pasteboard: spațiu de desen în jurul imaginii-mamă (2026-09-01) ────────────────────────────
+// Până acum coordonatele erau strict [0,1] = imaginea-mamă; orice ieșea din margine era respins la
+// validare și tăiat la randare. ACUM un stroke poate intra într-o bandă în jurul imaginii — până la
+// PASTEBOARD_MARGIN (= o imagine-lățime) pe fiecare latură — ca să pui săgeți/etichete lângă desen,
+// nu doar peste el. Imaginea rămâne mereu exact [0,1]×[0,1]; ce se schimbă e doar intervalul permis.
+// NU e o ramă de dimensiune fixă: `computeExtent` întoarce bounding box-ul REAL al conținutului, deci
+// o schiță fără nimic desenat în afară randează identic cu înainte (extent == UNIT_EXTENT).
+export const PASTEBOARD_MARGIN = 1;
+export const DRAWABLE_MIN = -PASTEBOARD_MARGIN; // -1
+export const DRAWABLE_MAX = 1 + PASTEBOARD_MARGIN; // 2
+
+export type SketchExtent = { minX: number; minY: number; maxX: number; maxY: number };
+
+// „Doar imaginea, nimic în afară" — reperul față de care editorul/viewer-ul aleg calea veche (fără
+// zoom/pan nou) și față de care se verifică compatibilitatea înapoi.
+export const UNIT_EXTENT: SketchExtent = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+
+// Cel mai mic dreptunghi care conține ȘI imaginea-mamă ([0,1]×[0,1], mereu inclusă — un extent nu
+// scade niciodată sub imagine), ȘI toate punctele stroke-urilor. Limitat la [DRAWABLE_MIN,
+// DRAWABLE_MAX] ca un payload rău-intenționat să nu forțeze un extent uriaș. Ăsta e transformul unic
+// folosit peste tot (editor, viewer, thumbnail): punct→px se face relativ la extent, nu la imagine.
+export function computeExtent(strokes: Stroke[]): SketchExtent {
+  let minX = 0;
+  let minY = 0;
+  let maxX = 1;
+  let maxY = 1;
+  for (const s of strokes) {
+    for (const [x, y] of s.points) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+  return {
+    minX: Math.max(DRAWABLE_MIN, minX),
+    minY: Math.max(DRAWABLE_MIN, minY),
+    maxX: Math.min(DRAWABLE_MAX, maxX),
+    maxY: Math.min(DRAWABLE_MAX, maxY),
+  };
+}
+
+// Extent-ul e „doar imaginea"? — calea rapidă: nimic nou (zoom/pan, imagine micșorată) când e true.
+export function isUnitExtent(e: SketchExtent): boolean {
+  return e.minX === 0 && e.minY === 0 && e.maxX === 1 && e.maxY === 1;
+}
+
 const HEX_COLOR_RE = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 export type StrokesValidationResult =
   | { ok: true; value: Stroke[] }
   | { ok: false; error: "TOO_MANY_STROKES" | "INVALID_STROKE" | "EMPTY" | "TOO_LARGE" };
 
-function isNormalized(n: unknown): n is number {
-  return typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 1;
+// Un punct desenabil: număr finit în intervalul pasteboard [DRAWABLE_MIN, DRAWABLE_MAX]. Până la
+// 2026-09-01 intervalul era [0,1] (strict pe imaginea-mamă); acum include banda din jur.
+function isDrawableCoord(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n >= DRAWABLE_MIN && n <= DRAWABLE_MAX;
 }
 
 // Validează + normalizează structural lista de stroke-uri (server = sursa de adevăr).
@@ -341,7 +390,7 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 
     const points: Point[] = [];
     for (const p of s.points) {
-      if (!Array.isArray(p) || p.length !== 2 || !isNormalized(p[0]) || !isNormalized(p[1])) {
+      if (!Array.isArray(p) || p.length !== 2 || !isDrawableCoord(p[0]) || !isDrawableCoord(p[1])) {
         return { ok: false, error: "INVALID_STROKE" };
       }
       points.push([p[0], p[1]]);
@@ -365,8 +414,8 @@ export function validateStrokes(input: unknown): StrokesValidationResult {
 }
 
 // Duplică blocul de text de la indexul dat: copie identică, deplasată puțin diagonal, ca să nu se
-// suprapună perfect peste original. Ancora rămâne în [0,1] (coordonate normalizate) chiar dacă
-// originalul e lipit de marginea din dreapta-jos.
+// suprapună perfect peste original. Ancora rămâne în intervalul desenabil (clamp la DRAWABLE_MAX)
+// chiar dacă originalul e lipit de marginea din dreapta-jos a pasteboard-ului.
 //
 // Întoarce `null` dacă duplicarea nu e posibilă: index invalid, stroke care nu e text, sau plafonul
 // MAX_STROKES atins — UI-ul dezactivează butonul în acest ultim caz, dar plafonul se verifică ȘI aici
@@ -386,7 +435,9 @@ export function duplicateTextStroke(
   const [x, y] = source.points[0] ?? [0, 0];
   const copy: Stroke = {
     ...source,
-    points: [[Math.min(1, x + TEXT_DUPLICATE_OFFSET), Math.min(1, y + TEXT_DUPLICATE_OFFSET)]],
+    points: [
+      [Math.min(DRAWABLE_MAX, x + TEXT_DUPLICATE_OFFSET), Math.min(DRAWABLE_MAX, y + TEXT_DUPLICATE_OFFSET)],
+    ],
   };
 
   return { strokes: [...strokes, copy], newIndex: strokes.length };

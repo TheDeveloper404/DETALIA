@@ -9,7 +9,12 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { CanvasCropPicker, type CropCanvasOption } from "@/components/canvas-crop-picker";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
-import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
+import {
+  computeExtent,
+  isUnitExtent,
+  MAX_SKETCH_NOTE_LENGTH,
+  type Stroke,
+} from "@/server/domain/sketch";
 import {
   HEIC_ERROR_MESSAGE,
   HeicUnsupportedError,
@@ -384,6 +389,11 @@ export function DetailForm({
     initial?.annotation?.strokes ?? null,
   );
   const [annotationCount, setAnnotationCount] = useState(initial?.annotation?.strokes.length ?? 0);
+  // Adnotarea are desen ÎN AFARA imaginii (pasteboard, 2026-09-01)? → previzualizarea nu mai poate fi
+  // „imagine la mărime + overlay"; lasă `SketchViewer` să randeze tot, într-o cutie cu raportul
+  // extent-ului (altfel desenul din jur se taie — problema din încercarea din 2026-08-31).
+  const annotationIsPasteboard =
+    !!annotationStrokes && annotationStrokes.length > 0 && !isUnitExtent(computeExtent(annotationStrokes));
   // Explicația în CUVINTE a adnotării, separată de desen (același model ca `note` la schițe, 2026-07-16).
   // Până la 2026-08-02 se putea scrie doar din editorul de schiță, deși coloana exista și se afișa —
   // autorul care adnota la publicare nu avea unde s-o scrie. `annotating` o ține în editor, lângă desen.
@@ -1015,17 +1025,25 @@ export function DetailForm({
                       schiță ca oricare alta — aceeași regulă ca pe pagina finală.
                       Wrapper-ul `relative inline-block` se mulează exact pe imaginea randată, deci
                       dreptunghiul măsurat de SketchViewer coincide cu imaginea. */}
-                  <span className="relative inline-block max-w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
-                    <img
-                      src={preview.url}
-                      alt="Previzualizare detaliu"
-                      className="max-h-80 w-auto max-w-full object-contain"
-                    />
-                    {annotationStrokes && annotationStrokes.length > 0 && (
-                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
-                    )}
-                  </span>
+                  {annotationIsPasteboard ? (
+                    // Desen în afara imaginii → SketchViewer randează imaginea + desenul din jur,
+                    // într-o cutie de înălțime fixă (raportul extent-ului îl calculează el).
+                    <div className="relative h-80 w-full max-w-xl">
+                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes!} />
+                    </div>
+                  ) : (
+                    <span className="relative inline-block max-w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
+                      <img
+                        src={preview.url}
+                        alt="Previzualizare detaliu"
+                        className="max-h-80 w-auto max-w-full object-contain"
+                      />
+                      {annotationStrokes && annotationStrokes.length > 0 && (
+                        <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
+                      )}
+                    </span>
+                  )}
                 </div>
               )}
               {!annotating && (

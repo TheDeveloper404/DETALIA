@@ -25,6 +25,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useReducer,
   useRef,
   useState,
@@ -34,6 +35,7 @@ import {
   renderStrokes,
   REFERENCE_WIDTH,
   resolveExportWidth,
+  sketchTransform,
   TEXT_FONT_FAMILY,
   TEXT_FONT_SCALE,
 } from "@/lib/sketch-render";
@@ -43,15 +45,27 @@ import { cn } from "@/lib/utils";
 import {
   colorAtRampPosition,
   colorRampGradient,
+  computeExtent,
+  DRAWABLE_MAX,
+  DRAWABLE_MIN,
   duplicateTextStroke,
+  isUnitExtent,
   MAX_STROKE_SIZE,
   MAX_STROKES,
   MAX_TEXT_LENGTH,
+  type SketchExtent,
   STROKE_COLORS,
   STROKE_WIDTHS,
   type Point,
   type Stroke,
+  UNIT_EXTENT,
 } from "@/server/domain/sketch";
+
+// Cât „aer" lăsăm în jurul conținutului în EDITOR odată ce s-a desenat ceva în afara imaginii — ca să
+// ai loc să tragi următoarea săgeată/etichetă fără să aștepți o redimensionare. NU e o bandă pictată
+// (zona din jurul foii rămâne transparentă → fundalul editorului), doar headroom în fit. Zero când nu
+// s-a desenat nimic în afară: schițele normale arată exact ca înainte.
+const EDITOR_PASTEBOARD_PAD = 0.3;
 
 // Uneltele de desen din rail. „pan" mută foaia (util la zoom) · „pen" freehand · forme cu 2 capete
 // (line/rect/ellipse/arrow) · „text" casetă · „eraser".
@@ -145,30 +159,45 @@ function strokeHit(s: Stroke, px: number, py: number, th: number): boolean {
 
 // Caseta unui stroke de text în PX pe canvas (ancoră + lățime/înălțime măsurate cu fontul real).
 // Folosită pt hit-test (selecție/drag) și pt conturul de selecție. Rotația se aplică în jurul ancorei.
+// `canvasW/H` = mărimea canvas-ului (acoperă `extent`); ancora și fontul se mapează prin `extent`
+// (font legat de lățimea imaginii, nu a canvas-ului — vezi `sketchTransform`).
 function measureTextBox(
   ctx: CanvasRenderingContext2D,
   s: Stroke,
-  width: number,
-  height: number,
+  canvasW: number,
+  canvasH: number,
+  extent: SketchExtent = UNIT_EXTENT,
 ): { x: number; y: number; w: number; h: number } {
-  const scale = width / REFERENCE_WIDTH;
-  const fontPx = s.size * scale * TEXT_FONT_SCALE;
+  const t = sketchTransform(canvasW, canvasH, extent);
+  const fontPx = s.size * t.scale * TEXT_FONT_SCALE;
   ctx.font = `600 ${fontPx}px ${TEXT_FONT_FAMILY}`;
   const lines = (s.text ?? "").split("\n");
   const lineHeight = fontPx * 1.3;
   let w = 0;
   for (const l of lines) w = Math.max(w, ctx.measureText(l).width);
   return {
-    x: (s.points[0]?.[0] ?? 0) * width,
-    y: (s.points[0]?.[1] ?? 0) * height,
+    x: t.toX(s.points[0]?.[0] ?? 0),
+    y: t.toY(s.points[0]?.[1] ?? 0),
     w,
     h: lines.length * lineHeight,
   };
 }
 
-// Hit-test pe un text rotit: aducem punctul în spațiul ancorei + inverse-rotim, apoi verificăm caseta.
-function textHit(ctx: CanvasRenderingContext2D, s: Stroke, px: number, py: number, w: number, h: number): boolean {
-  const box = measureTextBox(ctx, s, w, h);
+// Hit-test pe un text rotit: click în coordonate NORMALIZATE → px prin `extent`, adus în spațiul
+// ancorei + inverse-rotit, apoi verificat față de casetă.
+function textHit(
+  ctx: CanvasRenderingContext2D,
+  s: Stroke,
+  pxNorm: number,
+  pyNorm: number,
+  canvasW: number,
+  canvasH: number,
+  extent: SketchExtent = UNIT_EXTENT,
+): boolean {
+  const box = measureTextBox(ctx, s, canvasW, canvasH, extent);
+  const t = sketchTransform(canvasW, canvasH, extent);
+  const px = t.toX(pxNorm);
+  const py = t.toY(pyNorm);
   const a = s.angle ?? 0;
   const dx = px - box.x;
   const dy = py - box.y;
@@ -284,6 +313,31 @@ export const SketchCanvas = forwardRef<
 
   const present = history.present;
 
+  // ── Extent (pasteboard, 2026-09-01) ────────────────────────────────────────
+  // Dreptunghiul în coordonate normalizate pe care îl acoperă canvas-ul. Fără nimic desenat în afara
+  // imaginii → UNIT_EXTENT ([0,1]²) → editorul se comportă EXACT ca înainte (fără redimensionări,
+  // fără margine). Cu desen în afară → bounding box-ul conținutului + un pic de aer (headroom),
+  // limitat la banda [-1, 2]. Se recalculează DOAR la schimbarea lui `present` (commit / undo /
+  // redo) — NICIODATĂ în timpul unei trageri, ca să nu redimensionăm canvas-ul mid-gest (sursa
+  // „scalării duble" din încercarea de acum câteva zile).
+  const extent = useMemo<SketchExtent>(() => {
+    const content = computeExtent(present);
+    if (isUnitExtent(content)) return UNIT_EXTENT;
+    return {
+      minX: Math.max(DRAWABLE_MIN, content.minX - EDITOR_PASTEBOARD_PAD),
+      minY: Math.max(DRAWABLE_MIN, content.minY - EDITOR_PASTEBOARD_PAD),
+      maxX: Math.min(DRAWABLE_MAX, content.maxX + EDITOR_PASTEBOARD_PAD),
+      maxY: Math.min(DRAWABLE_MAX, content.maxY + EDITOR_PASTEBOARD_PAD),
+    };
+  }, [present]);
+  const spanX = extent.maxX - extent.minX;
+  const spanY = extent.maxY - extent.minY;
+  const hasPasteboard = !isUnitExtent(extent);
+  // normalizat → px pe canvas (aceeași convenție ca `sketchTransform` din randare). Folosit pt
+  // poziționarea overlay-urilor DOM (input flotant de text, bara textului selectat).
+  const toPx = useCallback((x: number) => ((x - extent.minX) / spanX) * dims.w, [extent.minX, spanX, dims.w]);
+  const toPy = useCallback((y: number) => ((y - extent.minY) / spanY) * dims.h, [extent.minY, spanY, dims.h]);
+
   // Expune strokes + export thumbnail pentru butoanele din bara de context.
   useImperativeHandle(
     ref,
@@ -291,28 +345,47 @@ export const SketchCanvas = forwardRef<
       getStrokes: () => present,
       exportThumbnail: async () => {
         const img = imgRef.current;
-        // Vezi `resolveExportWidth` (sketch-render.ts) pt istoricul bug-ului (export mereu la 1000px).
-        const w = resolveExportWidth(
+        // Lățimea IMAGINII în export. Vezi `resolveExportWidth` (sketch-render.ts) pt istoricul
+        // bug-ului (export mereu la 1000px).
+        const imgW = resolveExportWidth(
           img ? img.naturalWidth : null,
           REFERENCE_WIDTH,
           MAX_CLIENT_EXPORT_DIMENSION,
         );
-        // Foaie goală: dims din aspectRatio + fundal alb solid. Cu imagine-mamă: raportul ei + fill slab 0.3.
-        const h = img ? Math.round(w * (img.naturalHeight / img.naturalWidth)) : Math.round(w * aspectRatio);
+        const imgRatio = img ? img.naturalHeight / img.naturalWidth : aspectRatio;
+        // Canvas-ul de export acoperă EXTENT-ul (imagine + desen din afară). span 1×1 fără pasteboard.
+        const sx = extent.maxX - extent.minX;
+        const sy = extent.maxY - extent.minY;
+        let w = Math.round(imgW * sx);
+        let h = Math.round(imgW * imgRatio * sy);
+        // Re-plafonează latura lungă (cu pasteboard, w/h pot depăși limita serverului).
+        const longSide = Math.max(w, h);
+        if (longSide > MAX_CLIENT_EXPORT_DIMENSION) {
+          const k = MAX_CLIENT_EXPORT_DIMENSION / longSide;
+          w = Math.round(w * k);
+          h = Math.round(h * k);
+        }
         const off = document.createElement("canvas");
         off.width = w;
         off.height = h;
         const ctx = off.getContext("2d");
         if (!ctx) return null;
+        // Sub-dreptunghiul imaginii în px (= tot canvas-ul fără pasteboard). Zona din jur rămâne
+        // TRANSPARENTĂ (PNG cu alfa) — fără bandă albă în thumbnail-ul din feed.
+        const t = sketchTransform(w, h, extent);
+        const rx = t.toX(0);
+        const ry = t.toY(0);
+        const rw = t.toX(1) - rx;
+        const rh = t.toY(1) - ry;
         ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, w, h);
+        ctx.fillRect(rx, ry, rw, rh);
         if (img) {
           // Aceeași convenție ca în editor: detaliul rămâne opac, foaia semitransparentă vine peste el.
-          ctx.drawImage(img, 0, 0, w, h);
+          ctx.drawImage(img, rx, ry, rw, rh);
           ctx.fillStyle = "rgba(250,247,241,0.55)";
-          ctx.fillRect(0, 0, w, h);
+          ctx.fillRect(rx, ry, rw, rh);
         }
-        renderStrokes(ctx, present, w, h);
+        renderStrokes(ctx, present, w, h, extent);
         return new Promise((resolve) => {
           try {
             off.toBlob((b) => resolve(b), "image/png");
@@ -322,24 +395,37 @@ export const SketchCanvas = forwardRef<
         });
       },
     }),
-    [present, aspectRatio],
+    [present, aspectRatio, extent],
   );
 
   useEffect(() => {
     onStrokesCount?.(present.length);
   }, [present.length, onStrokesCount]);
 
-  // Dimensionare fit-to-area (păstrează raportul). Cu imagine-mamă: raportul ei; foaie goală: aspectRatio.
+  // Raportul înălțime/lățime al IMAGINII (h/w) — din imagine la onload, altfel aspectRatio (foaie goală).
+  const baseRatioRef = useRef(aspectRatio);
+  // `extent` curent, în ref — `fit` (closure creat o dată) trebuie să-l vadă mereu la zi. Sincronizat
+  // într-un efect (nu în render — regula `react-hooks/refs`).
+  const extentRef = useRef(extent);
+  useEffect(() => {
+    extentRef.current = extent;
+  });
+  // `fit` expus prin ref ca un efect separat să-l re-declanșeze la schimbarea extent-ului, fără să
+  // reîncărcăm imaginea.
+  const fitRef = useRef<(() => void) | null>(null);
+
+  // Dimensionare fit-to-area. `dims` = mărimea pe ecran a CANVAS-ULUI, care acoperă `extent`; raportul
+  // lui = raportul imaginii × (spanY/spanX) al extent-ului (fără pasteboard: span 1×1 → raportul imaginii).
   useEffect(() => {
     let observer: ResizeObserver | null = null;
-    // Raportul înălțime/lățime folosit la fit — setat din imagine (la onload) sau din aspectRatio (foaie goală).
-    let ratio = aspectRatio;
     const fit = () => {
       const c = containerRef.current;
       if (!c) return;
       const availW = c.clientWidth - FIT_PADDING * 2;
       const availH = c.clientHeight - FIT_PADDING * 2;
       if (availW <= 0 || availH <= 0) return;
+      const e = extentRef.current;
+      const ratio = baseRatioRef.current * ((e.maxY - e.minY) / (e.maxX - e.minX));
       let w = availW;
       let h = w * ratio;
       if (h > availH) {
@@ -348,13 +434,14 @@ export const SketchCanvas = forwardRef<
       }
       setDims({ w: Math.round(w), h: Math.round(h) });
     };
+    fitRef.current = fit;
 
     if (imageUrl) {
       const img = new Image();
       img.crossOrigin = "anonymous"; // pt export fără taint
       img.onload = () => {
         imgRef.current = img;
-        ratio = img.naturalHeight / img.naturalWidth;
+        baseRatioRef.current = img.naturalHeight / img.naturalWidth;
         fit();
         observer = new ResizeObserver(fit);
         if (containerRef.current) observer.observe(containerRef.current);
@@ -363,7 +450,7 @@ export const SketchCanvas = forwardRef<
       // rămâne 0x0 permanent și editorul devine inutilizabil. Degradăm la foaie goală (aspectRatio).
       img.onerror = () => {
         imgRef.current = null;
-        ratio = aspectRatio;
+        baseRatioRef.current = aspectRatio;
         fit();
         observer = new ResizeObserver(fit);
         if (containerRef.current) observer.observe(containerRef.current);
@@ -371,6 +458,7 @@ export const SketchCanvas = forwardRef<
       img.src = imageUrl;
     } else {
       imgRef.current = null;
+      baseRatioRef.current = aspectRatio;
       fit();
       observer = new ResizeObserver(fit);
       if (containerRef.current) observer.observe(containerRef.current);
@@ -378,28 +466,48 @@ export const SketchCanvas = forwardRef<
     return () => observer?.disconnect();
   }, [imageUrl, aspectRatio]);
 
-  // Redesenează: imaginea-mamă estompată (fill slab 0.3) + stroke-urile + stroke-ul în lucru.
+  // Re-fit când extent-ul se schimbă (s-a desenat în/din afara imaginii) — fără reîncărcarea imaginii.
+  useEffect(() => {
+    fitRef.current?.();
+  }, [spanX, spanY]);
+
+  // Redesenează: hârtia + grila + imaginea-mamă estompată — TOATE doar pe sub-zona imaginii ([0,1]²),
+  // care e tot canvas-ul când nu s-a desenat nimic în afară (extent unit → identic cu înainte). Zona
+  // din jurul foii (pasteboard) rămâne TRANSPARENTĂ → se vede fundalul editorului, fără bandă pictată.
   const redraw = useCallback((strokes: Stroke[], temp?: Stroke, selIndex?: number | null) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+    const t = sketchTransform(canvas.width, canvas.height, extent);
+    // Sub-dreptunghiul imaginii în px. Cu extent unit: (0, 0, width, height).
+    const rx = t.toX(0);
+    const ry = t.toY(0);
+    const rw = t.toX(1) - rx;
+    const rh = t.toY(1) - ry;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Fundal-hârtie pe TOT canvas-ul (foaie + margine de text) — foaie goală fără imagine-mamă la fel.
+    ctx.save();
+    // Tot ce ține de „foaie" e decupat la sub-zona imaginii — nimic nu se scurge în pasteboard.
+    ctx.beginPath();
+    ctx.rect(rx, ry, rw, rh);
+    ctx.clip();
+
+    // Fundal-hârtie pe foaie.
     ctx.fillStyle = "#faf7f1";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Grila pe FOAIE (nu pe fundalul zonei) — desenată pe canvas, deci NU intră în thumbnail-ul exportat.
+    ctx.fillRect(rx, ry, rw, rh);
+    // Grila pe FOAIE — desenată pe canvas, deci NU intră în thumbnail-ul exportat.
     const step = 26;
     ctx.strokeStyle = "rgba(120,105,80,0.10)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let gx = step; gx < canvas.width; gx += step) {
-      ctx.moveTo(gx + 0.5, 0);
-      ctx.lineTo(gx + 0.5, canvas.height);
+    for (let gx = rx + step; gx < rx + rw; gx += step) {
+      ctx.moveTo(gx + 0.5, ry);
+      ctx.lineTo(gx + 0.5, ry + rh);
     }
-    for (let gy = step; gy < canvas.height; gy += step) {
-      ctx.moveTo(0, gy + 0.5);
-      ctx.lineTo(canvas.width, gy + 0.5);
+    for (let gy = ry + step; gy < ry + rh; gy += step) {
+      ctx.moveTo(rx, gy + 0.5);
+      ctx.lineTo(rx + rw, gy + 0.5);
     }
     ctx.stroke();
     const img = imgRef.current;
@@ -408,24 +516,33 @@ export const SketchCanvas = forwardRef<
       // „iasă" schița în evidență, fiindcă grila din spate răzbătea prin el (nenatural). În loc, punem o
       // FOAIE semitransparentă peste el (mai jos) — ca în realitate: schița stă pe o coală translucidă
       // așezată peste detaliul opac, nu invers.
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, rx, ry, rw, rh);
       // Foaia semitransparentă a schiței — doar estompează detaliul de dedesubt ca schița nouă să iasă
       // în evidență.
       ctx.fillStyle = "rgba(250,247,241,0.55)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(rx, ry, rw, rh);
+    }
+    ctx.restore();
+
+    // Contur subțire al foii când există pasteboard (înlocuiește ring-ul CSS de pe canvas, scos în
+    // acest caz) — ca să se vadă unde se termină imaginea și începe zona de adnotare.
+    if (hasPasteboard) {
+      ctx.strokeStyle = "rgba(33,29,24,0.14)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
     }
 
-    // Fundalul stack-ului (needitabil) sub desenul propriu — altfel autorul desenează orb, fără să
-    // vadă pe ce se construiește.
-    if (backgroundStrokes?.length) renderStrokes(ctx, backgroundStrokes, canvas.width, canvas.height);
-    renderStrokes(ctx, strokes, canvas.width, canvas.height);
-    if (temp) renderStrokes(ctx, [temp], canvas.width, canvas.height);
+    // Stroke-urile (desen propriu + fundal de stack + preview live) — mapate prin extent, deci pot
+    // ieși în pasteboard. Fundalul stack-ului sub desenul propriu (altfel autorul desenează orb).
+    if (backgroundStrokes?.length) renderStrokes(ctx, backgroundStrokes, canvas.width, canvas.height, extent);
+    renderStrokes(ctx, strokes, canvas.width, canvas.height, extent);
+    if (temp) renderStrokes(ctx, [temp], canvas.width, canvas.height, extent);
 
     // Contur de selecție pentru textul ales (casetă punctată, rotită ca textul).
     if (selIndex != null) {
       const s = strokes[selIndex];
       if (s && s.kind === "text") {
-        const box = measureTextBox(ctx, s, canvas.width, canvas.height);
+        const box = measureTextBox(ctx, s, canvas.width, canvas.height, extent);
         const pad = 5;
         ctx.save();
         ctx.translate(box.x, box.y);
@@ -438,7 +555,7 @@ export const SketchCanvas = forwardRef<
         ctx.setLineDash([]);
       }
     }
-  }, [backgroundStrokes]);
+  }, [backgroundStrokes, extent, hasPasteboard]);
 
   // Zoom cu rotița mouse-ului, direct (fără Ctrl/Cmd) — editorul e full-screen (fixed inset-0), nu există
   // pagină dedesubt de scrollat, deci nu se pierde nimic (2026-07-06). Listener non-passive
@@ -467,11 +584,17 @@ export const SketchCanvas = forwardRef<
   }, []);
 
   // ── Desen ──────────────────────────────────────────────────────────────────
+  // px pointer → coordonată normalizată prin `extent` (fără pasteboard: fracția din canvas = [0,1]).
+  // Clamp la banda HARD [-1, 2] (nu la extent-ul curent): altfel n-ai putea porni PRIMUL stroke în
+  // afara imaginii, fiindcă extent-ul crește abia DUPĂ ce există un punct în afară. Partea trasă
+  // dincolo de marginea vizibilă apare la eliberare (o singură redimensionare, la commit).
   function normPoint(e: React.PointerEvent): number[] {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
-    const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
+    const fx = (e.clientX - rect.left) / rect.width;
+    const fy = (e.clientY - rect.top) / rect.height;
+    const x = Math.min(DRAWABLE_MAX, Math.max(DRAWABLE_MIN, extent.minX + fx * spanX));
+    const y = Math.min(DRAWABLE_MAX, Math.max(DRAWABLE_MIN, extent.minY + fy * spanY));
     return [x, y];
   }
 
@@ -611,7 +734,7 @@ export const SketchCanvas = forwardRef<
       if (ctx) {
         for (let i = present.length - 1; i >= 0; i--) {
           const s = present[i];
-          if (s.kind === "text" && textHit(ctx, s, p[0] * dims.w, p[1] * dims.h, dims.w, dims.h)) {
+          if (s.kind === "text" && textHit(ctx, s, p[0], p[1], dims.w, dims.h, extent)) {
             setSelected(i);
             dragRef.current = {
               index: i,
@@ -670,8 +793,8 @@ export const SketchCanvas = forwardRef<
     if (dragRef.current) {
       const d = dragRef.current;
       const p = normPoint(e);
-      const nx = Math.min(1, Math.max(0, d.origX + (p[0] - d.startX)));
-      const ny = Math.min(1, Math.max(0, d.origY + (p[1] - d.startY)));
+      const nx = Math.min(DRAWABLE_MAX, Math.max(DRAWABLE_MIN, d.origX + (p[0] - d.startX)));
+      const ny = Math.min(DRAWABLE_MAX, Math.max(DRAWABLE_MIN, d.origY + (p[1] - d.startY)));
       if (Math.abs(p[0] - d.startX) > 0.002 || Math.abs(p[1] - d.startY) > 0.002) d.moved = true;
       const next = present.map((s, i) =>
         i === d.index ? { ...s, points: [[nx, ny]] as Point[] } : s,
@@ -741,7 +864,9 @@ export const SketchCanvas = forwardRef<
   }
 
   const drawActive = tool !== "eraser" && tool !== "pan";
-  const textFontPx = textSize * (dims.w / REFERENCE_WIDTH) * TEXT_FONT_SCALE;
+  // Fontul input-ului flotant = fontul textului fixat (renderStrokes): legat de lățimea IMAGINII
+  // (dims.w/spanX), nu a canvas-ului. spanX==1 (fără pasteboard) → exact ca înainte.
+  const textFontPx = textSize * ((dims.w / spanX) / REFERENCE_WIDTH) * TEXT_FONT_SCALE;
   const railBtn =
     "flex items-center justify-center rounded-[10px] border-[1.5px] bg-card transition-colors hover:border-primary disabled:cursor-default disabled:hover:border-border";
 
@@ -955,7 +1080,13 @@ export const SketchCanvas = forwardRef<
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerLeave={onPointerUp}
-            className="block touch-none rounded-lg bg-[#faf7f1] shadow-sm ring-1 ring-foreground/10"
+            // Cu pasteboard, canvas-ul acoperă și zona din jurul foii → hârtia/ring-ul/umbra NU se
+            // mai pun pe TOT elementul (ar fi o bandă): foaia + conturul ei se desenează pe sub-zona
+            // imaginii în `redraw`, restul rămâne transparent. Fără pasteboard: exact ca înainte.
+            className={cn(
+              "block touch-none",
+              hasPasteboard ? "" : "rounded-lg bg-[#faf7f1] shadow-sm ring-1 ring-foreground/10",
+            )}
             style={{
               width: dims.w,
               height: dims.h,
@@ -1001,8 +1132,8 @@ export const SketchCanvas = forwardRef<
               placeholder="scrie…"
               className="absolute z-[6] resize-none overflow-hidden whitespace-pre rounded-[2px] p-0 outline-none placeholder:text-foreground/25"
               style={{
-                left: textDraft.x * dims.w,
-                top: textDraft.y * dims.h,
+                left: toPx(textDraft.x),
+                top: toPy(textDraft.y),
                 color,
                 caretColor: color,
                 // Fundal-hârtie subtil DOAR cât tastezi (lizibilitate) — fără bordură; la fixare devine text cu halou.
@@ -1012,7 +1143,7 @@ export const SketchCanvas = forwardRef<
                 fontSize: textFontPx,
                 lineHeight: 1.3,
                 minWidth: 40,
-                maxWidth: dims.w - textDraft.x * dims.w,
+                maxWidth: dims.w - toPx(textDraft.x),
               }}
             />
           )}
@@ -1022,8 +1153,8 @@ export const SketchCanvas = forwardRef<
             <div
               className="absolute z-[7] flex -translate-y-full items-center gap-0.5 rounded-lg border border-[#e6dccd] bg-white/95 p-1 shadow-md"
               style={{
-                left: (present[selected].points[0]?.[0] ?? 0) * dims.w,
-                top: (present[selected].points[0]?.[1] ?? 0) * dims.h - 8,
+                left: toPx(present[selected].points[0]?.[0] ?? 0),
+                top: toPy(present[selected].points[0]?.[1] ?? 0) - 8,
               }}
               // Nu lăsa click-urile pe bară să ajungă la canvas (ar deselecta / crea text).
               onPointerDown={(e) => e.stopPropagation()}

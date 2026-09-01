@@ -18,6 +18,8 @@ import { DEFAULT_LOCATION } from "@/server/domain/detail";
 import { REMOVED_PROJECT_AUTHOR_LABEL } from "@/server/domain/project";
 import {
   composeStackStrokes,
+  computeExtent,
+  isUnitExtent,
   REMOVED_AUTHOR_LABEL,
   resolveSketchDeletionMode,
   resolveStackLayers,
@@ -280,6 +282,21 @@ export function DetailWorkspace({
         : [],
     [activeSketch, hiddenLayerIds, stackLayers],
   );
+
+  // Pasteboard (2026-09-01): dacă schița/adnotarea afișată are desen în afara imaginii, `SketchViewer`
+  // preia randarea imaginii (o micșorează ca să încapă desenul din jur) → părintele NU mai randează
+  // `<Image>`-ul lui pentru acel tab (altfel s-ar suprapune două imagini la scări diferite).
+  const activeIsPasteboard = useMemo(
+    () => !isBase && !isUnitExtent(computeExtent(composedStrokes)),
+    [isBase, composedStrokes],
+  );
+  const openAnnotationIsPasteboard = useMemo(
+    () => (openAnnotation ? !isUnitExtent(computeExtent(openAnnotation.strokes)) : false),
+    [openAnnotation],
+  );
+  // `<Image>`-ul de bază rămâne montat permanent (anti-tremur 2026-07-16) EXCEPTÂND cazul pasteboard
+  // pe tabul curent, când viewer-ul randează el imaginea la scara extent-ului.
+  const showBaseImage = !(activeIsPasteboard || (isBase && openAnnotationIsPasteboard));
 
   function toggleLayer(id: string) {
     setHiddenLayerIds((prev) => {
@@ -654,15 +671,19 @@ export function DetailWorkspace({
                   altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16 — detaliul
                   de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
                   SketchViewer peste el, ca în realitate). Doar overlay-ul de schiță face fade-in la
-                  comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
-              <Image
-                src={imageUrl}
-                alt={header.title}
-                fill
-                sizes="(max-width: 1024px) 100vw, 768px"
-                className="object-contain"
-                priority
-              />
+                  comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului).
+                  EXCEPȚIE (pasteboard, 2026-09-01): dacă schița/adnotarea afișată are desen în afara
+                  imaginii, SketchViewer randează el imaginea la scara extent-ului → o ascundem aici. */}
+              {showBaseImage && (
+                <Image
+                  src={imageUrl}
+                  alt={header.title}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 768px"
+                  className="object-contain"
+                  priority
+                />
+              )}
               {!isBase && (
                 <div key={`sketch-${activeSketch?.id ?? "base"}`} className="absolute inset-0 animate-in fade-in duration-200">
                   <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />

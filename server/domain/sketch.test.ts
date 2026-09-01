@@ -11,6 +11,11 @@ import {
   MAX_STROKE_SIZE,
   MAX_TEXT_LENGTH,
   colorAtRampPosition,
+  computeExtent,
+  isUnitExtent,
+  UNIT_EXTENT,
+  DRAWABLE_MIN,
+  DRAWABLE_MAX,
   composeStackStrokes,
   STROKE_COLORS,
   colorRampGradient,
@@ -117,9 +122,13 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
     expect(validateStrokes([freeStroke({ size: MAX_STROKE_SIZE + 1 })]).ok).toBe(false);
   });
 
-  it("respinge puncte NEnormalizate (coordonate trebuie 0..1 față de imaginea-mamă)", () => {
-    expect(validateStrokes([freeStroke({ points: [[1.5, 0.2]] })]).ok).toBe(false);
-    expect(validateStrokes([freeStroke({ points: [[-0.1, 0.2]] })]).ok).toBe(false);
+  it("puncte în banda pasteboard [-1, 2] sunt acceptate; în afara ei, respinse", () => {
+    // Pasteboard 2026-09-01: intervalul permis s-a lărgit de la [0,1] la [-1,2] (o imagine-lățime
+    // de fiecare latură). Ce intră în bandă e valid; ce trece de plafon e respins.
+    expect(validateStrokes([freeStroke({ points: [[-0.4, 1.6]] })]).ok).toBe(true);
+    expect(validateStrokes([freeStroke({ points: [[-1, 2]] })]).ok).toBe(true); // exact pe margine
+    expect(validateStrokes([freeStroke({ points: [[2.01, 0.2]] })]).ok).toBe(false);
+    expect(validateStrokes([freeStroke({ points: [[-1.01, 0.2]] })]).ok).toBe(false);
     expect(validateStrokes([freeStroke({ points: [[0.2]] })]).ok).toBe(false);
     expect(validateStrokes([freeStroke({ points: [["a", "b"]] })]).ok).toBe(false);
   });
@@ -147,6 +156,45 @@ describe("validateStrokes — server e sursa de adevăr pentru payload-ul vector
     const r = validateStrokes([{ color: "#b0463c", size: 16, points: [[0, 0], [1, 1]] }]);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value[0].kind).toBe("free");
+  });
+});
+
+// Pasteboard (2026-09-01): extent-ul unei schițe = cel mai mic dreptunghi care conține imaginea-mamă
+// ([0,1]×[0,1], mereu) + toate punctele. E transformul unic pt editor/viewer/thumbnail.
+describe("computeExtent — bounding box imagine + desen în afară", () => {
+  const s = (points: Point[]): Stroke => ({ color: "#211d18", size: 8, points, kind: "free" });
+
+  it("fără stroke-uri → doar imaginea (UNIT_EXTENT)", () => {
+    expect(computeExtent([])).toEqual(UNIT_EXTENT);
+    expect(isUnitExtent(computeExtent([]))).toBe(true);
+  });
+
+  it("stroke-uri strict peste imagine → tot UNIT_EXTENT (compatibil înapoi, schițele vechi neatinse)", () => {
+    const e = computeExtent([s([[0, 0], [1, 1]]), s([[0.3, 0.9]])]);
+    expect(e).toEqual(UNIT_EXTENT);
+    expect(isUnitExtent(e)).toBe(true);
+  });
+
+  it("desen care iese în stânga-sus → extent-ul crește exact cât conținutul", () => {
+    const e = computeExtent([s([[-0.3, -0.2], [0.5, 0.5]])]);
+    expect(e).toEqual({ minX: -0.3, minY: -0.2, maxX: 1, maxY: 1 });
+    expect(isUnitExtent(e)).toBe(false);
+  });
+
+  it("imaginea rămâne mereu inclusă chiar dacă tot desenul e într-un colț exterior", () => {
+    const e = computeExtent([s([[-0.8, -0.8], [-0.5, -0.5]])]);
+    // maxX/maxY rămân 1 (imaginea), nu -0.5.
+    expect(e).toEqual({ minX: -0.8, minY: -0.8, maxX: 1, maxY: 1 });
+  });
+
+  it("clamp la banda [DRAWABLE_MIN, DRAWABLE_MAX] — un payload nu poate forța un extent uriaș", () => {
+    const e = computeExtent([s([[-5, -5], [10, 10]])]);
+    expect(e).toEqual({ minX: DRAWABLE_MIN, minY: DRAWABLE_MIN, maxX: DRAWABLE_MAX, maxY: DRAWABLE_MAX });
+  });
+
+  it("ancora unui text din bandă intră în extent", () => {
+    const e = computeExtent([{ color: "#211d18", size: 12, kind: "text", text: "notă", points: [[1.4, -0.2]] }]);
+    expect(e).toEqual({ minX: 0, minY: -0.2, maxX: 1.4, maxY: 1 });
   });
 });
 
@@ -205,9 +253,15 @@ describe("duplicateTextStroke", () => {
     expect(strokes[0].points[0]).toEqual([0.4, 0.5]);
   });
 
-  it("ancora rămâne în [0,1] pentru un text lipit de marginea dreapta-jos", () => {
+  it("un text în colțul imaginii se poate deplasa în banda pasteboard", () => {
+    // Pre-pasteboard clamp-ul era la 1 (marginea imaginii); acum copia poate aluneca în bandă.
     const result = duplicateTextStroke([{ ...textStroke, points: [[1, 1]] as Point[] }], 0);
-    expect(result!.strokes[1].points[0]).toEqual([1, 1]);
+    expect(result!.strokes[1].points[0]).toEqual([1 + TEXT_DUPLICATE_OFFSET, 1 + TEXT_DUPLICATE_OFFSET]);
+  });
+
+  it("ancora rămâne clampată la marginea pasteboard-ului (DRAWABLE_MAX = 2)", () => {
+    const result = duplicateTextStroke([{ ...textStroke, points: [[2, 2]] as Point[] }], 0);
+    expect(result!.strokes[1].points[0]).toEqual([2, 2]);
   });
 
   it("întoarce null pentru un stroke care nu e text", () => {

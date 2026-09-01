@@ -13,15 +13,17 @@ import { deleteBlobs } from "../lib/storage";
 // Ținta = detaliul seedat în auth.setup.ts; userul de sesiune (e2e-tester) NU e autorul detaliului
 // (e2e-author) → poate schița + valida, fără să lovească CANNOT_VALIDATE_OWN.
 
-let cachedDetailUrl: string | null = null;
-function detailUrl(): string {
-  if (!cachedDetailUrl) {
-    const seed = JSON.parse(
+let cachedSeed: { detailId: string; detailTitle: string } | null = null;
+function seedData(): { detailId: string; detailTitle: string } {
+  if (!cachedSeed) {
+    cachedSeed = JSON.parse(
       readFileSync(path.resolve(__dirname, ".auth", "seed.json"), "utf8"),
     ) as { detailId: string; detailTitle: string };
-    cachedDetailUrl = `/details/${seed.detailId}`;
   }
-  return cachedDetailUrl;
+  return cachedSeed;
+}
+function detailUrl(): string {
+  return `/details/${seedData().detailId}`;
 }
 
 // NU un blanket delete pe (tester, detaliu) — `sketch-draft.spec.ts` rulează în paralel (worker diferit)
@@ -97,5 +99,62 @@ test.describe.serial("Schiță — publish & delete", () => {
 
     // După ștergere: tab-ul dispare din strip, revenim efectiv pe „Detaliul de bază".
     await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toHaveCount(0);
+  });
+});
+
+// ── Pasteboard (2026-09-01): desen ÎN AFARA imaginii ─────────────────────────────────────────────
+// O schiță poate avea trasee dincolo de marginea imaginii-mamă (bandă [-1, 2] pe fiecare axă). Pe
+// pagina publicată, când există așa ceva, imaginea se micșorează ca să încapă tot desenul și viewer-ul
+// devine zoom-abil (`PasteboardSketchViewer`, `data-testid="pasteboard-viewer"`); `<Image>`-ul de bază
+// randat de părinte dispare pentru acel tab (altfel s-ar suprapune două imagini la scări diferite).
+let pbSketchId: string | null = null;
+
+test.describe.serial("Schiță — pasteboard (desen în afara imaginii)", () => {
+  test.afterAll(async () => {
+    if (!pbSketchId) return;
+    const [row] = await db
+      .select({ thumbnailUrl: sketches.thumbnailUrl })
+      .from(sketches)
+      .where(eq(sketches.id, pbSketchId));
+    await db.delete(sketches).where(eq(sketches.id, pbSketchId));
+    if (row?.thumbnailUrl) await deleteBlobs([row.thumbnailUrl]);
+    pbSketchId = null;
+  });
+
+  test("desen dincolo de marginea foii → Publică → viewer pasteboard pe detaliu", async ({ page }) => {
+    await page.goto(detailUrl());
+    await page.getByRole("button", { name: "Schițează" }).click();
+    await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
+    pbSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
+
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas fără bounding box");
+    // Pornim din interiorul foii și tragem BINE în afara ei, spre dreapta-jos. `normPoint` mapează
+    // fracția din canvas prin extent și clamp-uiește la banda [-1, 2] → traseul are puncte cu x > 1.
+    const startX = box.x + box.width * 0.6;
+    const startY = box.y + box.height * 0.6;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width + 80, startY, { steps: 8 });
+    await page.mouse.move(box.x + box.width + 140, box.y + box.height + 90, { steps: 8 });
+    await page.mouse.up();
+
+    const publishBtn = page.getByRole("button", { name: /Publică schița/ });
+    await expect(publishBtn).toBeEnabled();
+    await publishBtn.click();
+
+    await expect(page).toHaveURL(new RegExp(`${detailUrl()}$`));
+    await page.getByTestId(`sketch-tab-${pbSketchId}`).click();
+
+    // Viewer-ul pasteboard e montat, iar `<Image>`-ul de bază (alt = titlul detaliului) NU mai e
+    // randat pe acest tab (showBaseImage=false).
+    await expect(page.getByTestId("pasteboard-viewer")).toBeVisible();
+    await expect(page.getByRole("img", { name: seedData().detailTitle })).toHaveCount(0);
+
+    // Zoom pe card: dublu-click resetează (nu crapă, viewer-ul rămâne).
+    await page.getByTestId("pasteboard-viewer").locator("canvas").dblclick();
+    await expect(page.getByTestId("pasteboard-viewer")).toBeVisible();
   });
 });

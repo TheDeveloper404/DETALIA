@@ -2,7 +2,7 @@
 // Coordonatele sunt normalizate 0..1 față de imaginea-mamă; grosimea e px la lățimea de referință.
 import { getStroke } from "perfect-freehand";
 
-import type { Stroke } from "@/server/domain/sketch";
+import { UNIT_EXTENT, type SketchExtent, type Stroke } from "@/server/domain/sketch";
 
 // Lățimea de referință față de care e exprimată grosimea unui stroke (rezoluție-agnostic).
 export const REFERENCE_WIDTH = 1000;
@@ -49,17 +49,37 @@ function svgPathFromOutline(points: number[][]): string {
   return result;
 }
 
+// Transformul normalizat→px pentru un canvas care acoperă `extent` (2026-09-01, pasteboard).
+// UNIT_EXTENT = [0,1]×[0,1] → `toX(x) = x·width`, `scale = width/REFERENCE_WIDTH` (exact
+// comportamentul de dinainte, byte-identic). Cu extent mai lat, punctele se mapează relativ la el,
+// dar `scale` (grosime stroke / font text / vârf săgeată) rămâne legat de lățimea IMAGINII
+// (`width/spanX`), nu a canvas-ului — un stroke peste imagine arată la fel indiferent cât s-a
+// desenat în jur. Pur (fără canvas) — testat direct.
+export function sketchTransform(width: number, height: number, extent: SketchExtent = UNIT_EXTENT) {
+  const spanX = extent.maxX - extent.minX;
+  const spanY = extent.maxY - extent.minY;
+  const imageWidthPx = width / spanX;
+  return {
+    toX: (x: number) => ((x - extent.minX) / spanX) * width,
+    toY: (y: number) => ((y - extent.minY) / spanY) * height,
+    scale: imageWidthPx / REFERENCE_WIDTH,
+  };
+}
+
 // Desenează o listă de stroke-uri pe un context 2D de dimensiune (width × height) în px.
+// `extent`: vezi `sketchTransform`. Implicit UNIT_EXTENT → apelanții care nu-l trimit nu se schimbă.
 export function renderStrokes(
   ctx: CanvasRenderingContext2D,
   strokes: Stroke[],
   width: number,
   height: number,
+  extent: SketchExtent = UNIT_EXTENT,
 ) {
-  const scale = width / REFERENCE_WIDTH;
+  const t = sketchTransform(width, height, extent);
+  const scale = t.scale;
   for (const s of strokes) {
     const size = s.size * scale;
-    const points = s.points.map(([x, y]) => [x * width, y * height]);
+    const points = s.points.map(([x, y]) => [t.toX(x), t.toY(y)]);
 
     if (s.kind === "text") {
       // Etichetă curată: text în culoarea aleasă cu un halou alb subțire pentru lizibilitate peste desen
