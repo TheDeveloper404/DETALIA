@@ -14,11 +14,15 @@ export function MobileCategoryFilter({
   activeId,
   basePath,
   total,
+  q = null,
+  unanswered = false,
 }: {
   categories: SidebarCategory[];
   activeId: string | null;
   basePath: string;
   total: number;
+  q?: string | null;
+  unanswered?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const activeName = activeId ? categories.find((c) => c.id === activeId)?.name : null;
@@ -54,7 +58,14 @@ export function MobileCategoryFilter({
               <X className="size-5" strokeWidth={2} />
             </button>
           </div>
-          <CategoryFilterList categories={categories} activeId={activeId} basePath={basePath} total={total} />
+          <CategoryFilterList
+            categories={categories}
+            activeId={activeId}
+            basePath={basePath}
+            total={total}
+            q={q}
+            unanswered={unanswered}
+          />
         </DialogOverlay>
       )}
     </>

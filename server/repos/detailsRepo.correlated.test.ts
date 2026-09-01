@@ -300,6 +300,7 @@ describe("listFeed — filtru unanswered (0 schițe ȘI 0 validări; comentariil
   let dDoarComentariu: string; // 0 schițe, 0 validări, 1 comentariu → TOT „fără răspuns"
   let dCuSchita: string; // 1 schiță → NU
   let dCuValidare: string; // 1 validare → NU
+  let dSchitaAscunsa: string; // 1 schiță hiddenAfterRelease → NU se numără → TOT „fără răspuns"
 
   beforeAll(async () => {
     const a = await makeUser("ua-unans@test.local");
@@ -312,11 +313,16 @@ describe("listFeed — filtru unanswered (0 schițe ȘI 0 validări; comentariil
     dDoarComentariu = await mk("Doar comentariu");
     dCuSchita = await mk("Cu schiță");
     dCuValidare = await mk("Cu validare");
+    dSchitaAscunsa = await mk("Schiță ascunsă");
 
     await db.insert(comments).values([
       { targetType: "DETAIL", targetId: dDoarComentariu, authorId: other, body: "un comentariu" },
     ]);
-    await db.insert(sketches).values([{ detailId: dCuSchita, authorId: other, status: "PUBLISHED" }]);
+    await db.insert(sketches).values([
+      { detailId: dCuSchita, authorId: other, status: "PUBLISHED" },
+      // hiddenAfterRelease → invizibilă comunității → NU se numără în sketchCount (Greptile PR #272).
+      { detailId: dSchitaAscunsa, authorId: other, status: "PUBLISHED", hiddenAfterRelease: true },
+    ]);
     await db.insert(validations).values([
       { userId: other, targetType: "DETAIL", targetId: dCuValidare, position: "APPROVE" },
     ]);
@@ -330,16 +336,25 @@ describe("listFeed — filtru unanswered (0 schițe ȘI 0 validări; comentariil
     await db.delete(users);
   });
 
-  it("întoarce DOAR detaliile cu 0 schițe ȘI 0 validări (comentariul nu le exclude)", async () => {
+  it("întoarce DOAR detaliile cu 0 schițe VIZIBILE ȘI 0 validări (comentariul + schița ascunsă nu le exclud)", async () => {
     const ids = (await listFeed({ limit: 50, unanswered: true })).map((r) => r.id);
     expect(ids).toContain(dNimic);
     expect(ids).toContain(dDoarComentariu);
+    expect(ids).toContain(dSchitaAscunsa); // schița e hiddenAfterRelease → nu se numără
     expect(ids).not.toContain(dCuSchita);
     expect(ids).not.toContain(dCuValidare);
   });
 
-  it("fără filtru le întoarce pe toate 4 (filtrul nu se aplică implicit)", async () => {
+  it("schița hiddenAfterRelease nu intră în sketchCount", async () => {
+    const rows = await listFeed({ limit: 50 });
+    expect(rows.find((r) => r.id === dSchitaAscunsa)!.sketchCount).toBe(0);
+    expect(rows.find((r) => r.id === dCuSchita)!.sketchCount).toBe(1);
+  });
+
+  it("fără filtru le întoarce pe toate 5 (filtrul nu se aplică implicit)", async () => {
     const ids = (await listFeed({ limit: 50 })).map((r) => r.id);
-    for (const id of [dNimic, dDoarComentariu, dCuSchita, dCuValidare]) expect(ids).toContain(id);
+    for (const id of [dNimic, dDoarComentariu, dCuSchita, dCuValidare, dSchitaAscunsa]) {
+      expect(ids).toContain(id);
+    }
   });
 });
