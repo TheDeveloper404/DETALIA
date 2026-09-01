@@ -53,7 +53,7 @@ export function FeedSearch({ initialQuery }: { initialQuery: string }) {
   }, [value]);
 
   return (
-    <div className="relative w-full max-w-[280px]" role="search">
+    <div className="relative w-full max-w-[460px]" role="search">
       <Search
         className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         strokeWidth={2}
@@ -64,7 +64,7 @@ export function FeedSearch({ initialQuery }: { initialQuery: string }) {
         onChange={(e) => setValue(e.target.value)}
         placeholder="Caută detalii…"
         aria-label="Caută detalii"
-        className="h-9 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
+        className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors focus:border-primary"
       />
     </div>
   );
