@@ -15,7 +15,7 @@ export function FeedEmpty({
   const title = search
     ? "Niciun Rezultat"
     : unanswered
-      ? "Totul are deja un răspuns"
+      ? "Nimic nu mai așteaptă ajutor"
       : filtered
         ? "Nicio categorie nu are detalii încă"
         : "Niciun detaliu aici încă";
