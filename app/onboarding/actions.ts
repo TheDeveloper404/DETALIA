@@ -121,7 +121,10 @@ export async function onboardingAction(
       cookieStore.delete(REFERRAL_COOKIE_NAME);
     }
   } catch (err) {
-    console.error("[onboardingAction] applyReferral eșuată (non-fatal)", { userId, err });
+    console.error("[onboardingAction] applyReferral eșuată (non-fatal)", {
+      userId,
+      err: err instanceof Error ? err.message : String(err),
+    });
   }
 
   captureServerEvent(userId, "onboarding_completed", {

@@ -602,7 +602,7 @@ export async function deleteDetail(input: {
   } catch (err) {
     console.error("[detailService] deleteMaterialOffersForDetail eșuat la anonimizare (non-fatal)", {
       detailId: input.detailId,
-      err,
+      err: err instanceof Error ? err.message : String(err),
     });
   }
 

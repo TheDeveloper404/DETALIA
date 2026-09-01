@@ -110,7 +110,7 @@ export async function sendOrUpdateMaterialOffer(input: {
     console.error("[materialOfferService] notificare eșuată (non-fatal)", {
       userId: input.userId,
       detailId: input.detailId,
-      err,
+      err: err instanceof Error ? err.message : String(err),
     });
   }
 
