@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { categories, detailCategories, details, roles, users } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 import { CURRENT_ANNOUNCEMENT_VERSION } from "../server/domain/announcements";
 import { pickLeafCategories } from "./category-helpers";
 
@@ -29,7 +30,6 @@ const TEST_NAME = "E2E Tester";
 const AUTHOR_EMAIL = "e2e-author@detalia.test";
 const AUTHOR_NAME = "E2E Author";
 const DETAIL_TITLE = "E2E — detaliu de test (validare)";
-const SESSION_DAYS = 30;
 
 setup("seed user + rol + sesiune + detaliu și salvează storageState", async () => {
   const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
@@ -125,7 +125,9 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
   // 4) Cookie de sesiune JWT — construit exact ca token-ul produs de callback-ul `jwt()` din lib/auth.ts
   // la login real (token.id + token.status), apoi criptat cu `encode()` (același AUTH_SECRET + salt =
   // numele cookie-ului, pe care Auth.js îl folosește la `decode()` server-side).
-  const maxAgeSeconds = SESSION_DAYS * 86_400;
+  // Aceeași fereastră ca prod (`lib/auth.ts`) — sursă unică `SESSION_MAX_AGE_SECONDS`. Un token de test
+  // mai lung decât prod ar putea masca un bug real de expirare.
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
   const expires = new Date(Date.now() + maxAgeSeconds * 1000);
 
   // 5) Detaliu țintă pentru testele de validare (reutilizat între rulări), autorat de `author`, NU de `user`.

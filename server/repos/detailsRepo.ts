@@ -715,8 +715,8 @@ export async function countPublishedDetails(): Promise<number> {
 }
 
 // Filtrele VARIABILE ale feed-ului (categorie/căutare) — extrase doar pe partea care chiar se
-// schimbă, ca să nu diverge `listFeed` de `countFeedMatches` (numărătoarea paginării TREBUIE să
-// numere exact ce randează pagina). Garda de vizibilitate (status+projectId, invariantul STABIL,
+// schimbă, ca rândurile și totalul din `listFeedWithTotal` să nu diverge (numărătoarea paginării
+// TREBUIE să numere exact ce randează pagina). Garda de vizibilitate (status+projectId, invariantul STABIL,
 // „un detaliu de proiect nu apare NICIODATĂ în feed-ul public") rămâne scrisă LITERAL în corpul
 // fiecărei funcții de mai jos, nu aici — scripts/check-visibility-guard.mjs scanează textul
 // corpului fiecărei funcții care atinge `details`, nu urmărește apeluri către helpere.
@@ -803,24 +803,8 @@ export async function listFeed(input: {
     .offset(input.offset ?? 0);
 }
 
-// Total de rezultate pentru filtrele curente ale feed-ului — baza numărului de pagini din UI. SEPARAT
-// de `countPublishedDetails` (aia e „toate", fără filtre, pentru sidebar).
-export async function countFeedMatches(input: { categoryId?: string | null; q?: string | null; unanswered?: boolean }): Promise<number> {
-  // Aceeași gardă ca listFeed mai sus (vezi comentariul de-acolo) — literală aici și ea, intenționat.
-  const where = and(
-    eq(details.status, DETAIL_STATUS.PUBLISHED),
-    isNull(details.projectId),
-    ...feedFilterConditions(input),
-  );
-  const [row] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(details)
-    .where(where);
-  return row?.count ?? 0;
-}
-
 // Rândurile paginate + totalul, într-un SINGUR `db.batch` (atomic — o rundă HTTP, vezi comentariul de
-// la `insertDetailWithRelations`). Findere Greptile pe PR #255 (2026-08-25): `listFeed`/`countFeedMatches`
+// la `insertDetailWithRelations`). Findere Greptile pe PR #255 (2026-08-25): rândurile și totalul
 // rulate ca query-uri INDEPENDENTE puteau vedea stări de bază diferite dacă un detaliu era publicat/șters
 // exact între cele două — rândurile și totalul puteau disagreea (inclusiv pe pagina goală: un total nou
 // ar fi declarat pagina validă, dar rândurile rămâneau vechi, goale). Batch elimină fereastra de
