@@ -631,11 +631,13 @@ export async function getDeletionPreview(input: {
 export async function getFeed(options?: {
   categoryId?: string | null;
   q?: string | null;
+  unanswered?: boolean;
   page?: number;
   limit?: number;
 }) {
   const categoryId = options?.categoryId ?? null;
   const q = options?.q?.trim() || null;
+  const unanswered = options?.unanswered === true;
   // Input netrust (nu doar din URL — `getFeed` e un service public, apelabil direct): aceeași regulă
   // strictă ca `resolveFeedPage` (server/domain/detail.ts), NU doar „pozitiv" — un 2.5 necalificat ar
   // da un OFFSET SQL nefracționar, iar un întreg peste MAX_SAFE_INTEGER ar da Infinity la feedOffset.
@@ -647,6 +649,7 @@ export async function getFeed(options?: {
   const { rows: details, total } = await listFeedWithTotal({
     categoryId,
     q,
+    unanswered,
     limit,
     offset: feedOffset(page, limit),
   });
