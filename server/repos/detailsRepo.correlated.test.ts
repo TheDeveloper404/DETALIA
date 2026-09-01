@@ -294,3 +294,52 @@ describe("listFeed — createdAt identic → details.id ca tiebreaker (ordine st
     expect(first[Math.min(posX, posY)]).toBe(expectedFirst);
   });
 });
+
+describe("listFeed — filtru unanswered (0 schițe ȘI 0 validări; comentariile nu contează)", () => {
+  let dNimic: string; // 0 schițe, 0 validări, 0 comentarii
+  let dDoarComentariu: string; // 0 schițe, 0 validări, 1 comentariu → TOT „fără răspuns"
+  let dCuSchita: string; // 1 schiță → NU
+  let dCuValidare: string; // 1 validare → NU
+
+  beforeAll(async () => {
+    const a = await makeUser("ua-unans@test.local");
+    const other = await makeUser("uo-unans@test.local");
+    const mk = async (title: string) => {
+      const [r] = await db.insert(details).values({ title, authorId: a }).returning({ id: details.id });
+      return r.id;
+    };
+    dNimic = await mk("Neatins");
+    dDoarComentariu = await mk("Doar comentariu");
+    dCuSchita = await mk("Cu schiță");
+    dCuValidare = await mk("Cu validare");
+
+    await db.insert(comments).values([
+      { targetType: "DETAIL", targetId: dDoarComentariu, authorId: other, body: "un comentariu" },
+    ]);
+    await db.insert(sketches).values([{ detailId: dCuSchita, authorId: other, status: "PUBLISHED" }]);
+    await db.insert(validations).values([
+      { userId: other, targetType: "DETAIL", targetId: dCuValidare, position: "APPROVE" },
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.delete(sketches);
+    await db.delete(comments);
+    await db.delete(validations);
+    await db.delete(details);
+    await db.delete(users);
+  });
+
+  it("întoarce DOAR detaliile cu 0 schițe ȘI 0 validări (comentariul nu le exclude)", async () => {
+    const ids = (await listFeed({ limit: 50, unanswered: true })).map((r) => r.id);
+    expect(ids).toContain(dNimic);
+    expect(ids).toContain(dDoarComentariu);
+    expect(ids).not.toContain(dCuSchita);
+    expect(ids).not.toContain(dCuValidare);
+  });
+
+  it("fără filtru le întoarce pe toate 4 (filtrul nu se aplică implicit)", async () => {
+    const ids = (await listFeed({ limit: 50 })).map((r) => r.id);
+    for (const id of [dNimic, dDoarComentariu, dCuSchita, dCuValidare]) expect(ids).toContain(id);
+  });
+});

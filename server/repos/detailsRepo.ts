@@ -722,9 +722,18 @@ function foldDiacriticsSql(column: PgColumn) {
   return sql`translate(${column}, ${FOLD_DIACRITICS_FROM}, ${FOLD_DIACRITICS_TO})`;
 }
 
-function feedFilterConditions(input: { categoryId?: string | null; q?: string | null }) {
+function feedFilterConditions(input: {
+  categoryId?: string | null;
+  q?: string | null;
+  unanswered?: boolean;
+}) {
   const conds = [];
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
+  // „Fără răspuns" (2026-09-01): detaliu la care NIMENI nu s-a implicat cu o soluție SAU o poziție —
+  // 0 schițe în teanc ȘI 0 validări (aprob/dezaprob). Comentariile NU contează (decizie de produs
+  // Liviu). Reutilizează sub-interogările corelate deja definite (`sketchCount`/`validationCount`),
+  // calificate pe `${detailsId}` = `sql.identifier("details")` → corelarea din WHERE e corectă.
+  if (input.unanswered) conds.push(sql`${sketchCount} = 0 and ${validationCount} = 0`);
   // Căutare pe titlu SAU descriere (ILIKE, case-insensitive + insensibilă la diacritice — ILIKE
   // singur compară caractere literal, `ț`/`ș`/`ă`/etc. nu se potrivesc cu echivalentul lor fără
   // diacritice). Doar titlul era prea îngust: un termen tehnic din descriere (nu reluat în titlu)
@@ -750,6 +759,7 @@ function feedFilterConditions(input: { categoryId?: string | null; q?: string | 
 export async function listFeed(input: {
   categoryId?: string | null;
   q?: string | null;
+  unanswered?: boolean;
   limit: number;
   offset?: number;
 }) {
@@ -786,7 +796,7 @@ export async function listFeed(input: {
 
 // Total de rezultate pentru filtrele curente ale feed-ului — baza numărului de pagini din UI. SEPARAT
 // de `countPublishedDetails` (aia e „toate", fără filtre, pentru sidebar).
-export async function countFeedMatches(input: { categoryId?: string | null; q?: string | null }): Promise<number> {
+export async function countFeedMatches(input: { categoryId?: string | null; q?: string | null; unanswered?: boolean }): Promise<number> {
   // Aceeași gardă ca listFeed mai sus (vezi comentariul de-acolo) — literală aici și ea, intenționat.
   const where = and(
     eq(details.status, DETAIL_STATUS.PUBLISHED),
@@ -809,6 +819,7 @@ export async function countFeedMatches(input: { categoryId?: string | null; q?: 
 export async function listFeedWithTotal(input: {
   categoryId?: string | null;
   q?: string | null;
+  unanswered?: boolean;
   limit: number;
   offset?: number;
 }): Promise<{ rows: Awaited<ReturnType<typeof listFeed>>; total: number }> {

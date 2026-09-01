@@ -11,11 +11,13 @@ export function FeedPagination({
   totalPages,
   categoryId,
   q,
+  unanswered = false,
 }: {
   page: number;
   totalPages: number;
   categoryId: string | null;
   q: string | null;
+  unanswered?: boolean;
 }) {
   if (totalPages <= 1) return null;
 
@@ -23,6 +25,7 @@ export function FeedPagination({
     const params = new URLSearchParams();
     if (categoryId) params.set("cat", categoryId);
     if (q) params.set("q", q);
+    if (unanswered) params.set("unanswered", "1");
     if (target > 1) params.set("page", String(target));
     const qs = params.toString();
     return qs ? `/feed?${qs}` : "/feed";

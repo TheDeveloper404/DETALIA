@@ -41,7 +41,7 @@ describe("getFeed — paginare (50/pagină)", () => {
 
     const res = await getFeed();
 
-    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryId: null, q: null, limit: 50, offset: 0 });
+    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryId: null, q: null, unanswered: false, limit: 50, offset: 0 });
     expect(res).toEqual({ details: [], total: 0, page: 1, totalPages: 1 });
   });
 
@@ -50,7 +50,7 @@ describe("getFeed — paginare (50/pagină)", () => {
 
     const res = await getFeed({ categoryId: "cat-1", q: " termen ", page: 3 });
 
-    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryId: "cat-1", q: "termen", limit: 50, offset: 100 });
+    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryId: "cat-1", q: "termen", unanswered: false, limit: 50, offset: 100 });
     expect(res.totalPages).toBe(3); // 120 / 50 → 3 pagini
   });
 
