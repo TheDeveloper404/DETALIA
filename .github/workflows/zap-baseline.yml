@@ -25,7 +25,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: ZAP Baseline Scan
-        uses: zaproxy/action-baseline@7c4deb10e6261301961c86d65d54a516394f9aed # v0.14.0
+        uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
         env:
           # Preview-urile Vercel sunt în spatele Deployment Protection (SSO) — fără header-ul de bypass,
           # orice request neautentificat primește 302 spre vercel.com/sso-api, iar ZAP ajunge să scaneze
