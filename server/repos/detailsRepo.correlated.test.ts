@@ -294,3 +294,96 @@ describe("listFeed — createdAt identic → details.id ca tiebreaker (ordine st
     expect(first[Math.min(posX, posY)]).toBe(expectedFirst);
   });
 });
+
+describe("listFeed — filtru unanswered (0 schițe ȘI 0 validări; comentariile nu contează)", () => {
+  let dNimic: string; // 0 schițe, 0 validări, 0 comentarii
+  let dDoarComentariu: string; // 0 schițe, 0 validări, 1 comentariu → TOT „fără răspuns"
+  let dCuSchita: string; // 1 schiță → NU
+  let dCuValidare: string; // 1 validare → NU
+  let dSchitaAscunsa: string; // 1 schiță hiddenAfterRelease → NU se numără → TOT „fără răspuns"
+  let dSchitaAscunsaVotataDeAutor: string; // schiță hiddenAfterRelease + validarea (ne-ascunsă) a autorului pe ea → TOT „fără răspuns"
+
+  beforeAll(async () => {
+    const a = await makeUser("ua-unans@test.local");
+    const other = await makeUser("uo-unans@test.local");
+    const mk = async (title: string) => {
+      const [r] = await db.insert(details).values({ title, authorId: a }).returning({ id: details.id });
+      return r.id;
+    };
+    dNimic = await mk("Neatins");
+    dDoarComentariu = await mk("Doar comentariu");
+    dCuSchita = await mk("Cu schiță");
+    dCuValidare = await mk("Cu validare");
+    dSchitaAscunsa = await mk("Schiță ascunsă");
+    dSchitaAscunsaVotataDeAutor = await mk("Schiță ascunsă votată de autor");
+
+    await db.insert(comments).values([
+      { targetType: "DETAIL", targetId: dDoarComentariu, authorId: other, body: "un comentariu" },
+    ]);
+    const [skAscunsaVotata] = await db
+      .insert(sketches)
+      .values({
+        detailId: dSchitaAscunsaVotataDeAutor,
+        authorId: other,
+        status: "PUBLISHED",
+        hiddenAfterRelease: true,
+      })
+      .returning({ id: sketches.id });
+    await db.insert(sketches).values([
+      { detailId: dCuSchita, authorId: other, status: "PUBLISHED" },
+      // hiddenAfterRelease → invizibilă comunității → NU se numără în sketchCount (Greptile PR #272).
+      { detailId: dSchitaAscunsa, authorId: other, status: "PUBLISHED", hiddenAfterRelease: true },
+    ]);
+    await db.insert(validations).values([
+      { userId: other, targetType: "DETAIL", targetId: dCuValidare, position: "APPROVE" },
+      // Poziția PROPRIE a autorului pe schița ascunsă — la „Scoate în comunitate" NU se marchează
+      // ascunsă (doar cele de non-autor), deci `validations.hiddenAfterRelease = false`. Fără filtrul
+      // `hiddenAfterRelease` pe `detailSketchIds`, aceasta ar face `validationCount = 1` și ar scoate
+      // detaliul din filtrul „fără răspuns" deși comunitatea n-a văzut nimic (Greptile PR #272, issue 1).
+      { userId: a, targetType: "SKETCH", targetId: skAscunsaVotata.id, position: "APPROVE" },
+    ]);
+  });
+
+  afterAll(async () => {
+    await db.delete(sketches);
+    await db.delete(comments);
+    await db.delete(validations);
+    await db.delete(details);
+    await db.delete(users);
+  });
+
+  it("întoarce DOAR detaliile cu 0 schițe VIZIBILE ȘI 0 validări (comentariul + schița ascunsă nu le exclud)", async () => {
+    const ids = (await listFeed({ limit: 50, unanswered: true })).map((r) => r.id);
+    expect(ids).toContain(dNimic);
+    expect(ids).toContain(dDoarComentariu);
+    expect(ids).toContain(dSchitaAscunsa); // schița e hiddenAfterRelease → nu se numără
+    expect(ids).toContain(dSchitaAscunsaVotataDeAutor); // validarea autorului pe schița ascunsă nu se numără
+    expect(ids).not.toContain(dCuSchita);
+    expect(ids).not.toContain(dCuValidare);
+  });
+
+  it("schița hiddenAfterRelease nu intră în sketchCount", async () => {
+    const rows = await listFeed({ limit: 50 });
+    expect(rows.find((r) => r.id === dSchitaAscunsa)!.sketchCount).toBe(0);
+    expect(rows.find((r) => r.id === dCuSchita)!.sketchCount).toBe(1);
+  });
+
+  it("validarea (ne-ascunsă) a autorului pe o schiță ascunsă nu intră în validationCount", async () => {
+    const rows = await listFeed({ limit: 50 });
+    expect(rows.find((r) => r.id === dSchitaAscunsaVotataDeAutor)!.validationCount).toBe(0);
+  });
+
+  it("fără filtru le întoarce pe toate 6 (filtrul nu se aplică implicit)", async () => {
+    const ids = (await listFeed({ limit: 50 })).map((r) => r.id);
+    for (const id of [
+      dNimic,
+      dDoarComentariu,
+      dCuSchita,
+      dCuValidare,
+      dSchitaAscunsa,
+      dSchitaAscunsaVotataDeAutor,
+    ]) {
+      expect(ids).toContain(id);
+    }
+  });
+});

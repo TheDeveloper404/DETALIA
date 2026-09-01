@@ -51,13 +51,13 @@ function CategoryLink({
 function CategoryGroup({
   name,
   leaves,
-  basePath,
   activeId,
+  catHref,
 }: {
   name: string;
   leaves: SidebarCategory[];
-  basePath: string;
   activeId: string | null;
+  catHref: (id?: string) => string;
 }) {
   const containsActive = leaves.some((c) => c.id === activeId);
   const [expanded, setExpanded] = useState(containsActive);
@@ -81,7 +81,7 @@ function CategoryGroup({
           {leaves.map((c) => (
             <CategoryLink
               key={c.id}
-              href={`${basePath}?cat=${c.id}`}
+              href={catHref(c.id)}
               label={c.name}
               count={c.count}
               active={activeId === c.id}
@@ -98,18 +98,33 @@ export function CategoryFilterList({
   activeId,
   basePath,
   total,
+  q = null,
+  unanswered = false,
 }: {
   categories: SidebarCategory[];
   activeId: string | null;
   basePath: string;
   total: number;
+  // Filtrele active din feed (căutare + „fără răspuns") — păstrate la click pe categorie, altfel
+  // selectarea unei categorii resetează silențios restul (Greptile PR #272).
+  q?: string | null;
+  unanswered?: boolean;
 }) {
   const sections = categories.filter((c) => c.parentId === null);
   const childrenOf = (parentId: string) => categories.filter((c) => c.parentId === parentId);
 
+  const catHref = (id?: string) => {
+    const p = new URLSearchParams();
+    if (id) p.set("cat", id);
+    if (q) p.set("q", q);
+    if (unanswered) p.set("unanswered", "1");
+    const s = p.toString();
+    return s ? `${basePath}?${s}` : basePath;
+  };
+
   return (
     <>
-      <CategoryLink href={basePath} label="Toate detaliile" count={total} active={!activeId} />
+      <CategoryLink href={catHref()} label="Toate detaliile" count={total} active={!activeId} />
       {sections.map((section) => (
         <div key={section.id} className="mt-2 first:mt-0">
           <div className="px-3 pb-1 pt-2 font-mono text-[10.5px] uppercase tracking-[0.06em] text-muted-foreground/70">
@@ -122,13 +137,13 @@ export function CategoryFilterList({
                   key={leaf.id}
                   name={leaf.name}
                   leaves={childrenOf(leaf.id)}
-                  basePath={basePath}
                   activeId={activeId}
+                  catHref={catHref}
                 />
               ) : (
                 <CategoryLink
                   key={leaf.id}
-                  href={`${basePath}?cat=${leaf.id}`}
+                  href={catHref(leaf.id)}
                   label={leaf.name}
                   count={leaf.count}
                   active={activeId === leaf.id}
