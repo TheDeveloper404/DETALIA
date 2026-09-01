@@ -2,10 +2,17 @@
 // Coordonatele sunt normalizate 0..1 față de imaginea-mamă; grosimea e px la lățimea de referință.
 import { getStroke } from "perfect-freehand";
 
-import { UNIT_EXTENT, type SketchExtent, type Stroke } from "@/server/domain/sketch";
+import {
+  REFERENCE_WIDTH,
+  TEXT_FONT_SCALE,
+  UNIT_EXTENT,
+  type SketchExtent,
+  type Stroke,
+} from "@/server/domain/sketch";
 
-// Lățimea de referință față de care e exprimată grosimea unui stroke (rezoluție-agnostic).
-export const REFERENCE_WIDTH = 1000;
+// Reexport din domeniu (constante pure, folosite și de `computeExtent`) — apelanții care le luau
+// de-aici (sketch-canvas, plansa-canvas) nu se schimbă.
+export { REFERENCE_WIDTH, TEXT_FONT_SCALE };
 
 // Lățimea la care se exportă o schiță (thumbnail „Trimite în Planșă"): urmează imaginea-mamă, plafonată
 // la limita serverului — NU `REFERENCE_WIDTH`, care e doar reperul de normalizare a stroke-urilor
@@ -24,9 +31,8 @@ const STROKE_OPTIONS = {
   simulatePressure: true,
 };
 
-// Pentru casetele de text, `size` (8/16/28) e prea mic ca font lizibil → îl scalăm. Factor partajat
-// cu input-ul flotant din editor ca textul fixat să apară la aceeași mărime cu cel tastat.
-export const TEXT_FONT_SCALE = 2.4;
+// `TEXT_FONT_SCALE` (factor de mărire a fontului de text față de `size`) trăiește acum în domeniu —
+// vezi reexportul de mai sus.
 export const TEXT_FONT_FAMILY = "ui-sans-serif, system-ui, sans-serif";
 
 // Convertește outline-ul perfect-freehand într-un SVG path (pt Path2D). Vezi docs perfect-freehand.

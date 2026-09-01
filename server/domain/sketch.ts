@@ -297,37 +297,100 @@ export type SketchExtent = { minX: number; minY: number; maxX: number; maxY: num
 // zoom/pan nou) și față de care se verifică compatibilitatea înapoi.
 export const UNIT_EXTENT: SketchExtent = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 
-// Aer în jurul bounding box-ului de PUNCTE DE CONTROL, doar pe laturile care au ieșit din imagine:
-// randarea desenează dincolo de puncte (vârf de săgeată, grosime + capete rotunde, contur freehand,
-// glyph-uri de text de la ancoră în jos/dreapta). Fără el, un desen lipit exact de marginea extent-ului
-// s-ar tăia în viewer/thumbnail (care potrivesc extent-ul la marginile fix ale canvas-ului).
-export const INK_MARGIN = 0.02;
+// Constante de randare care sunt și geometrie de domeniu (folosite de `computeExtent` mai jos ca să
+// știe cât tuș iese dincolo de punctele de control). `lib/sketch-render.ts` le reexportă de-aici —
+// e client-only (Path2D/perfect-freehand) și nu poate fi importat în domeniu.
+export const REFERENCE_WIDTH = 1000; // lățimea față de care e exprimată `size`
+export const TEXT_FONT_SCALE = 2.4; // fontul de text = size × acest factor
+
+// Amprenta de TUȘ a unui stroke dincolo de punctele lui de control, în unități normalizate — randarea
+// desenează mai mult decât bbox-ul punctelor: jumătate de grosime + capete rotunde peste tot, vârf
+// de săgeată la `arrow`, iar textul se întinde din ancoră spre dreapta-jos cu tot blocul de glyph-uri.
+// `computeExtent` extinde extent-ul cu asta, altfel viewer-ul/thumbnail-ul (care potrivesc extent-ul
+// exact pe marginile canvas-ului) taie vizibil vârfuri de săgeată și text.
+function strokeInkBounds(s: Stroke): { minX: number; minY: number; maxX: number; maxY: number } {
+  const kind = s.kind ?? "free";
+
+  if (kind === "text") {
+    const [ax, ay] = s.points[0] ?? [0, 0];
+    const fontNorm = (s.size * TEXT_FONT_SCALE) / REFERENCE_WIDTH;
+    const lines = (s.text ?? "").split("\n");
+    const cols = Math.max(1, ...lines.map((l) => l.length));
+    const halo = fontNorm * 0.2; // conturul alb de lizibilitate din jurul textului
+    return {
+      minX: ax - halo,
+      minY: ay - halo,
+      // ~0.62·font per caracter (aproximare, ca în `strokeHit`); baseline "top", align "left".
+      maxX: ax + cols * fontNorm * 0.62 + halo,
+      maxY: ay + lines.length * fontNorm * 1.3 + halo,
+    };
+  }
+
+  // free / line / rect / ellipse / arrow: bbox puncte ± amprenta de tuș.
+  // jumătate de grosime peste tot; vârf de săgeată = `max(size·3, 9)` (vezi `renderStrokes`).
+  const half = s.size * 0.5;
+  const pad = (kind === "arrow" ? Math.max(s.size * 3, 9) : half) / REFERENCE_WIDTH;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of s.points) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { minX: minX - pad, minY: minY - pad, maxX: maxX + pad, maxY: maxY + pad };
+}
 
 // Cel mai mic dreptunghi care conține ȘI imaginea-mamă ([0,1]×[0,1], mereu inclusă — un extent nu
-// scade niciodată sub imagine), ȘI toate punctele stroke-urilor (+ INK_MARGIN pe laturile ieșite din
-// imagine). Limitat la [DRAWABLE_MIN, DRAWABLE_MAX] ca un payload rău-intenționat să nu forțeze un
-// extent uriaș. Ăsta e transformul unic folosit peste tot (editor, viewer, thumbnail).
+// scade niciodată sub imagine), ȘI amprenta de TUȘ a fiecărui stroke (`strokeInkBounds`). Limitat la
+// [DRAWABLE_MIN, DRAWABLE_MAX] ca un payload rău-intenționat să nu forțeze un extent uriaș. Ăsta e
+// transformul unic folosit de viewer și thumbnail (editorul are extent fix [-1,2]²).
 //
 // IMPORTANT: laturile care NU au ieșit din imagine rămân exact 0/1 — un desen strict peste imagine dă
 // UNIT_EXTENT (compatibil înapoi, `isUnitExtent` rămâne adevărat).
 export function computeExtent(strokes: Stroke[]): SketchExtent {
+  // 1. bbox-ul PUNCTELOR DE CONTROL — decide DACĂ o latură a ieșit din imagine.
+  let cMinX = 0;
+  let cMinY = 0;
+  let cMaxX = 1;
+  let cMaxY = 1;
+  for (const s of strokes) {
+    for (const [x, y] of s.points) {
+      if (x < cMinX) cMinX = x;
+      if (y < cMinY) cMinY = y;
+      if (x > cMaxX) cMaxX = x;
+      if (y > cMaxY) cMaxY = y;
+    }
+  }
+  const outLeft = cMinX < 0;
+  const outTop = cMinY < 0;
+  const outRight = cMaxX > 1;
+  const outBot = cMaxY > 1;
+
+  // 2. O latură care NU a ieșit rămâne exact 0/1 — tușul de la marginea imaginii se decupează la fel
+  //    ca înainte (schițele fără pasteboard rămân UNIT_EXTENT, `isUnitExtent` adevărat). O latură
+  //    ieșită se extinde cu AMPRENTA DE TUȘ reală a stroke-urilor (nu doar punctele de control), ca
+  //    viewer-ul/thumbnail-ul să nu taie vârfuri de săgeată sau blocuri de text.
   let minX = 0;
   let minY = 0;
   let maxX = 1;
   let maxY = 1;
-  for (const s of strokes) {
-    for (const [x, y] of s.points) {
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
+  if (outLeft || outTop || outRight || outBot) {
+    for (const s of strokes) {
+      const b = strokeInkBounds(s);
+      if (outLeft && b.minX < minX) minX = b.minX;
+      if (outTop && b.minY < minY) minY = b.minY;
+      if (outRight && b.maxX > maxX) maxX = b.maxX;
+      if (outBot && b.maxY > maxY) maxY = b.maxY;
     }
   }
   return {
-    minX: minX < 0 ? Math.max(DRAWABLE_MIN, minX - INK_MARGIN) : 0,
-    minY: minY < 0 ? Math.max(DRAWABLE_MIN, minY - INK_MARGIN) : 0,
-    maxX: maxX > 1 ? Math.min(DRAWABLE_MAX, maxX + INK_MARGIN) : 1,
-    maxY: maxY > 1 ? Math.min(DRAWABLE_MAX, maxY + INK_MARGIN) : 1,
+    minX: Math.max(DRAWABLE_MIN, minX),
+    minY: Math.max(DRAWABLE_MIN, minY),
+    maxX: Math.min(DRAWABLE_MAX, maxX),
+    maxY: Math.min(DRAWABLE_MAX, maxY),
   };
 }
 

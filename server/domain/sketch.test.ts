@@ -13,7 +13,6 @@ import {
   colorAtRampPosition,
   computeExtent,
   isUnitExtent,
-  INK_MARGIN,
   UNIT_EXTENT,
   DRAWABLE_MIN,
   DRAWABLE_MAX,
@@ -176,32 +175,57 @@ describe("computeExtent — bounding box imagine + desen în afară", () => {
     expect(isUnitExtent(e)).toBe(true);
   });
 
-  it("desen care iese în stânga-sus → extent = bbox + INK_MARGIN pe laturile ieșite, restul 0/1", () => {
+  it("desen care iese în stânga-sus → extent = bbox − amprenta de tuș (jum. grosime), restul 0/1", () => {
+    const ink = (8 * 0.5) / 1000; // pad free pt size 8
     const e = computeExtent([s([[-0.3, -0.2], [0.5, 0.5]])]);
-    expect(e).toEqual({ minX: -0.3 - INK_MARGIN, minY: -0.2 - INK_MARGIN, maxX: 1, maxY: 1 });
+    expect(e.minX).toBeCloseTo(-0.3 - ink, 6);
+    expect(e.minY).toBeCloseTo(-0.2 - ink, 6);
+    expect(e.maxX).toBe(1);
+    expect(e.maxY).toBe(1);
     expect(isUnitExtent(e)).toBe(false);
   });
 
   it("imaginea rămâne mereu inclusă chiar dacă tot desenul e într-un colț exterior", () => {
     const e = computeExtent([s([[-0.8, -0.8], [-0.5, -0.5]])]);
-    // maxX/maxY rămân 1 (imaginea), nu -0.5; minX/minY primesc INK_MARGIN (au ieșit din imagine).
-    expect(e).toEqual({ minX: -0.8 - INK_MARGIN, minY: -0.8 - INK_MARGIN, maxX: 1, maxY: 1 });
+    expect(e.minX).toBeCloseTo(-0.8 - 0.004, 6);
+    expect(e.minY).toBeCloseTo(-0.8 - 0.004, 6);
+    expect(e.maxX).toBe(1); // nu -0.5
+    expect(e.maxY).toBe(1);
   });
 
-  it("clamp la banda [DRAWABLE_MIN, DRAWABLE_MAX] — INK_MARGIN nu poate depăși plafonul", () => {
+  it("clamp la banda [DRAWABLE_MIN, DRAWABLE_MAX] — amprenta de tuș nu poate depăși plafonul", () => {
     const e = computeExtent([s([[-5, -5], [10, 10]])]);
     expect(e).toEqual({ minX: DRAWABLE_MIN, minY: DRAWABLE_MIN, maxX: DRAWABLE_MAX, maxY: DRAWABLE_MAX });
   });
 
-  it("INK_MARGIN doar pe laturile care au ieșit din imagine (un desen strict peste rămâne unit)", () => {
-    // Iese DOAR pe dreapta → doar maxX primește margine; celelalte 3 rămân 0/0/1.
+  it("amprenta se aplică doar pe laturile care au ieșit din imagine (un desen strict peste rămâne unit)", () => {
     const e = computeExtent([s([[0.2, 0.2], [1.5, 0.8]])]);
-    expect(e).toEqual({ minX: 0, minY: 0, maxX: 1.5 + INK_MARGIN, maxY: 1 });
+    expect(e.minX).toBe(0);
+    expect(e.minY).toBe(0);
+    expect(e.maxY).toBe(1);
+    expect(e.maxX).toBeCloseTo(1.5 + 0.004, 6);
   });
 
-  it("ancora unui text din bandă intră în extent (cu INK_MARGIN)", () => {
-    const e = computeExtent([{ color: "#211d18", size: 12, kind: "text", text: "notă", points: [[1.4, -0.2]] }]);
-    expect(e).toEqual({ minX: 0, minY: -0.2 - INK_MARGIN, maxX: 1.4 + INK_MARGIN, maxY: 1 });
+  it("un vârf de săgeată din bandă lasă loc mult mai mult decât o linie subțire", () => {
+    const arrow = (p: Point[], size: number): Stroke => ({ color: "#211d18", size, points: p, kind: "arrow" });
+    const line = (p: Point[], size: number): Stroke => ({ color: "#211d18", size, points: p, kind: "line" });
+    const eArrow = computeExtent([arrow([[0.5, 0.5], [1.6, 0.5]], 20)]);
+    const eLine = computeExtent([line([[0.5, 0.5], [1.6, 0.5]], 20)]);
+    // arrow: pad = max(20·3, 9)/1000 = 0.06 ; line: pad = 10/1000 = 0.01
+    expect(eArrow.maxX).toBeCloseTo(1.6 + 0.06, 6);
+    expect(eLine.maxX).toBeCloseTo(1.6 + 0.01, 6);
+    expect(eArrow.maxX).toBeGreaterThan(eLine.maxX);
+  });
+
+  it("un bloc de text din bandă rezervă spațiu pentru glyph-uri, nu doar pentru ancoră", () => {
+    const e = computeExtent([
+      { color: "#211d18", size: 20, kind: "text", text: "explicație lungă aici", points: [[1.4, 0.5]] },
+    ]);
+    // font ≈ 20·2.4/1000 = 0.048 ; ~21 caractere · 0.62 · font ≈ 0.625 → maxX ≈ 1.4 + 0.63
+    expect(e.maxX).toBeGreaterThan(1.9);
+    expect(e.maxX).toBeLessThanOrEqual(DRAWABLE_MAX);
+    // spre stânga, doar haloul mic → minX rămâne 0 (ancora e la 1.4, în bandă)
+    expect(e.minX).toBe(0);
   });
 });
 
