@@ -13,6 +13,7 @@ import {
   colorAtRampPosition,
   computeExtent,
   isUnitExtent,
+  INK_MARGIN,
   UNIT_EXTENT,
   DRAWABLE_MIN,
   DRAWABLE_MAX,
@@ -175,26 +176,32 @@ describe("computeExtent — bounding box imagine + desen în afară", () => {
     expect(isUnitExtent(e)).toBe(true);
   });
 
-  it("desen care iese în stânga-sus → extent-ul crește exact cât conținutul", () => {
+  it("desen care iese în stânga-sus → extent = bbox + INK_MARGIN pe laturile ieșite, restul 0/1", () => {
     const e = computeExtent([s([[-0.3, -0.2], [0.5, 0.5]])]);
-    expect(e).toEqual({ minX: -0.3, minY: -0.2, maxX: 1, maxY: 1 });
+    expect(e).toEqual({ minX: -0.3 - INK_MARGIN, minY: -0.2 - INK_MARGIN, maxX: 1, maxY: 1 });
     expect(isUnitExtent(e)).toBe(false);
   });
 
   it("imaginea rămâne mereu inclusă chiar dacă tot desenul e într-un colț exterior", () => {
     const e = computeExtent([s([[-0.8, -0.8], [-0.5, -0.5]])]);
-    // maxX/maxY rămân 1 (imaginea), nu -0.5.
-    expect(e).toEqual({ minX: -0.8, minY: -0.8, maxX: 1, maxY: 1 });
+    // maxX/maxY rămân 1 (imaginea), nu -0.5; minX/minY primesc INK_MARGIN (au ieșit din imagine).
+    expect(e).toEqual({ minX: -0.8 - INK_MARGIN, minY: -0.8 - INK_MARGIN, maxX: 1, maxY: 1 });
   });
 
-  it("clamp la banda [DRAWABLE_MIN, DRAWABLE_MAX] — un payload nu poate forța un extent uriaș", () => {
+  it("clamp la banda [DRAWABLE_MIN, DRAWABLE_MAX] — INK_MARGIN nu poate depăși plafonul", () => {
     const e = computeExtent([s([[-5, -5], [10, 10]])]);
     expect(e).toEqual({ minX: DRAWABLE_MIN, minY: DRAWABLE_MIN, maxX: DRAWABLE_MAX, maxY: DRAWABLE_MAX });
   });
 
-  it("ancora unui text din bandă intră în extent", () => {
+  it("INK_MARGIN doar pe laturile care au ieșit din imagine (un desen strict peste rămâne unit)", () => {
+    // Iese DOAR pe dreapta → doar maxX primește margine; celelalte 3 rămân 0/0/1.
+    const e = computeExtent([s([[0.2, 0.2], [1.5, 0.8]])]);
+    expect(e).toEqual({ minX: 0, minY: 0, maxX: 1.5 + INK_MARGIN, maxY: 1 });
+  });
+
+  it("ancora unui text din bandă intră în extent (cu INK_MARGIN)", () => {
     const e = computeExtent([{ color: "#211d18", size: 12, kind: "text", text: "notă", points: [[1.4, -0.2]] }]);
-    expect(e).toEqual({ minX: 0, minY: -0.2, maxX: 1.4, maxY: 1 });
+    expect(e).toEqual({ minX: 0, minY: -0.2 - INK_MARGIN, maxX: 1.4 + INK_MARGIN, maxY: 1 });
   });
 });
 

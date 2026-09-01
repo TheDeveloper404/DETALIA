@@ -321,7 +321,10 @@ export const SketchCanvas = forwardRef<
   // redo) — NICIODATĂ în timpul unei trageri, ca să nu redimensionăm canvas-ul mid-gest (sursa
   // „scalării duble" din încercarea de acum câteva zile).
   const extent = useMemo<SketchExtent>(() => {
-    const content = computeExtent(present);
+    // ȘI `backgroundStrokes` (foile de stack aprinse) — dacă schița de bază peste care construiești are
+    // ea însăși desen în afara imaginii, extent-ul trebuie să-l cuprindă, altfel fundalul se taie în
+    // canvas-ul de lucru.
+    const content = computeExtent([...present, ...(backgroundStrokes ?? [])]);
     if (isUnitExtent(content)) return UNIT_EXTENT;
     return {
       minX: Math.max(DRAWABLE_MIN, content.minX - EDITOR_PASTEBOARD_PAD),
@@ -329,7 +332,7 @@ export const SketchCanvas = forwardRef<
       maxX: Math.min(DRAWABLE_MAX, content.maxX + EDITOR_PASTEBOARD_PAD),
       maxY: Math.min(DRAWABLE_MAX, content.maxY + EDITOR_PASTEBOARD_PAD),
     };
-  }, [present]);
+  }, [present, backgroundStrokes]);
   const spanX = extent.maxX - extent.minX;
   const spanY = extent.maxY - extent.minY;
   const hasPasteboard = !isUnitExtent(extent);

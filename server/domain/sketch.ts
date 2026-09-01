@@ -297,10 +297,19 @@ export type SketchExtent = { minX: number; minY: number; maxX: number; maxY: num
 // zoom/pan nou) și față de care se verifică compatibilitatea înapoi.
 export const UNIT_EXTENT: SketchExtent = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
 
+// Aer în jurul bounding box-ului de PUNCTE DE CONTROL, doar pe laturile care au ieșit din imagine:
+// randarea desenează dincolo de puncte (vârf de săgeată, grosime + capete rotunde, contur freehand,
+// glyph-uri de text de la ancoră în jos/dreapta). Fără el, un desen lipit exact de marginea extent-ului
+// s-ar tăia în viewer/thumbnail (care potrivesc extent-ul la marginile fix ale canvas-ului).
+export const INK_MARGIN = 0.02;
+
 // Cel mai mic dreptunghi care conține ȘI imaginea-mamă ([0,1]×[0,1], mereu inclusă — un extent nu
-// scade niciodată sub imagine), ȘI toate punctele stroke-urilor. Limitat la [DRAWABLE_MIN,
-// DRAWABLE_MAX] ca un payload rău-intenționat să nu forțeze un extent uriaș. Ăsta e transformul unic
-// folosit peste tot (editor, viewer, thumbnail): punct→px se face relativ la extent, nu la imagine.
+// scade niciodată sub imagine), ȘI toate punctele stroke-urilor (+ INK_MARGIN pe laturile ieșite din
+// imagine). Limitat la [DRAWABLE_MIN, DRAWABLE_MAX] ca un payload rău-intenționat să nu forțeze un
+// extent uriaș. Ăsta e transformul unic folosit peste tot (editor, viewer, thumbnail).
+//
+// IMPORTANT: laturile care NU au ieșit din imagine rămân exact 0/1 — un desen strict peste imagine dă
+// UNIT_EXTENT (compatibil înapoi, `isUnitExtent` rămâne adevărat).
 export function computeExtent(strokes: Stroke[]): SketchExtent {
   let minX = 0;
   let minY = 0;
@@ -315,10 +324,10 @@ export function computeExtent(strokes: Stroke[]): SketchExtent {
     }
   }
   return {
-    minX: Math.max(DRAWABLE_MIN, minX),
-    minY: Math.max(DRAWABLE_MIN, minY),
-    maxX: Math.min(DRAWABLE_MAX, maxX),
-    maxY: Math.min(DRAWABLE_MAX, maxY),
+    minX: minX < 0 ? Math.max(DRAWABLE_MIN, minX - INK_MARGIN) : 0,
+    minY: minY < 0 ? Math.max(DRAWABLE_MIN, minY - INK_MARGIN) : 0,
+    maxX: maxX > 1 ? Math.min(DRAWABLE_MAX, maxX + INK_MARGIN) : 1,
+    maxY: maxY > 1 ? Math.min(DRAWABLE_MAX, maxY + INK_MARGIN) : 1,
   };
 }
 

@@ -394,6 +394,10 @@ export function DetailForm({
   // extent-ului (altfel desenul din jur se taie — problema din încercarea din 2026-08-31).
   const annotationIsPasteboard =
     !!annotationStrokes && annotationStrokes.length > 0 && !isUnitExtent(computeExtent(annotationStrokes));
+  // `preview.url` e mereu un `blob:` (URL.createObjectURL pe fișierul ales local). Gardă de schemă
+  // explicită înainte de a-l folosi ca `src` — orice alt scheme ar fi bug/tamper, nu conținut de
+  // randat (taie și fals-pozitivul CodeQL `js/xss-through-dom` pe `<img src>`).
+  const previewSrc = preview && preview.url.startsWith("blob:") ? preview.url : "";
   // Explicația în CUVINTE a adnotării, separată de desen (același model ca `note` la schițe, 2026-07-16).
   // Până la 2026-08-02 se putea scrie doar din editorul de schiță, deși coloana exista și se afișa —
   // autorul care adnota la publicare nu avea unde s-o scrie. `annotating` o ține în editor, lângă desen.
@@ -952,7 +956,7 @@ export function DetailForm({
                   <div className="flex h-[60vh] max-h-[640px] min-h-[420px] overflow-hidden rounded-t-[13px] bg-[#efece6]">
                     <SketchCanvas
                       ref={annotationCanvasRef}
-                      imageUrl={preview.url}
+                      imageUrl={previewSrc}
                       initialStrokes={annotationStrokes ?? []}
                       onStrokesCount={setAnnotationCount}
                     />
@@ -1029,18 +1033,18 @@ export function DetailForm({
                     // Desen în afara imaginii → SketchViewer randează imaginea + desenul din jur,
                     // într-o cutie de înălțime fixă (raportul extent-ului îl calculează el).
                     <div className="relative h-80 w-full max-w-xl">
-                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes!} />
+                      <SketchViewer imageUrl={previewSrc} strokes={annotationStrokes!} />
                     </div>
                   ) : (
                     <span className="relative inline-block max-w-full">
                       {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
                       <img
-                        src={preview.url}
+                        src={previewSrc}
                         alt="Previzualizare detaliu"
                         className="max-h-80 w-auto max-w-full object-contain"
                       />
                       {annotationStrokes && annotationStrokes.length > 0 && (
-                        <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
+                        <SketchViewer imageUrl={previewSrc} strokes={annotationStrokes} />
                       )}
                     </span>
                   )}
