@@ -186,12 +186,38 @@ function PasteboardSketchViewer({
     return () => observer?.disconnect();
   }, [imageUrl, spanX, spanY]);
 
+  // Zoom/pan = un VIEWPORT în extent, NU un `transform: scale` pe canvas (ăla blura rasterul). La
+  // orice zoom, canvas-ul se re-randează la rezoluție nativă mapând o sub-zonă din extent → crisp.
+  const viewExtent = useMemo<SketchExtent>(() => {
+    if (zoom <= 1) return extent;
+    const vsx = spanX / zoom;
+    const vsy = spanY / zoom;
+    const midX = (extent.minX + extent.maxX) / 2;
+    const midY = (extent.minY + extent.maxY) / 2;
+    // pan px → unități normalizate ale vederii curente; drag dreapta = vezi conținut din stânga.
+    const cw = rect.w || 1;
+    const ch = rect.h || 1;
+    let cx = midX - (pan.x / cw) * vsx;
+    let cy = midY - (pan.y / ch) * vsy;
+    // vederea rămâne în interiorul extent-ului
+    cx = Math.min(extent.maxX - vsx / 2, Math.max(extent.minX + vsx / 2, cx));
+    cy = Math.min(extent.maxY - vsy / 2, Math.max(extent.minY + vsy / 2, cy));
+    return { minX: cx - vsx / 2, minY: cy - vsy / 2, maxX: cx + vsx / 2, maxY: cy + vsy / 2 };
+  }, [extent, spanX, spanY, zoom, pan.x, pan.y, rect.w, rect.h]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || rect.w === 0) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const t = sketchTransform(canvas.width, canvas.height, extent);
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    // Bitmap la rezoluție reală (× dpr) — sursa reală de „crisp" la zoom și pe ecrane retina.
+    const bw = Math.round(rect.w * dpr);
+    const bh = Math.round(rect.h * dpr);
+    if (canvas.width !== bw) canvas.width = bw;
+    if (canvas.height !== bh) canvas.height = bh;
+
+    const t = sketchTransform(canvas.width, canvas.height, viewExtent);
     const rx = t.toX(0);
     const ry = t.toY(0);
     const rw = t.toX(1) - rx;
@@ -214,10 +240,10 @@ function PasteboardSketchViewer({
     ctx.restore();
     // Contur subțire al foii — marchează unde se termină imaginea și începe zona de adnotare.
     ctx.strokeStyle = "rgba(33,29,24,0.14)";
-    ctx.lineWidth = 1;
+    ctx.lineWidth = dpr;
     ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, rh - 1);
-    renderStrokes(ctx, strokes, canvas.width, canvas.height, extent);
-  }, [rect, strokes, veil, extent]);
+    renderStrokes(ctx, strokes, canvas.width, canvas.height, viewExtent);
+  }, [rect, strokes, veil, viewExtent]);
 
   // Zoom = butoane +/− + pinch (mobil). FĂRĂ scroll-wheel (scrolla pagina). Dublu-click = reset.
   const reset = useCallback(() => {
@@ -273,8 +299,6 @@ function PasteboardSketchViewer({
     >
       <canvas
         ref={canvasRef}
-        width={rect.w}
-        height={rect.h}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -287,26 +311,27 @@ function PasteboardSketchViewer({
           top: rect.y,
           width: rect.w,
           height: rect.h,
-          transform: `translate(${pan.x}px, ${pan.y}px)${zoom !== 1 ? ` scale(${zoom})` : ""}`,
-          transformOrigin: "center center",
           cursor: zoom > 1 ? "grab" : "default",
         }}
       />
-      {/* Controale zoom — colț dreapta-jos, ca în editor. */}
-      <div className="absolute bottom-2 right-2 z-10 flex items-center gap-0.5 rounded-lg border border-[#e6dccd] bg-white/90 p-1 shadow-sm">
+      {/* Controale zoom — colț dreapta-sus, discrete; se accentuează când e zoom activ / la hover. */}
+      <div
+        className="absolute right-2 top-2 z-10 flex items-center gap-0.5 rounded-md border border-[#e6dccd] bg-white/85 p-0.5 shadow-sm backdrop-blur-sm transition-opacity hover:opacity-100"
+        style={{ opacity: zoom > 1 ? 1 : 0.55 }}
+      >
         <button
           type="button"
           aria-label="Micșorează"
           onClick={() => stepZoom(1 / 1.3)}
-          className="flex size-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-secondary"
+          className="flex size-6 items-center justify-center rounded text-foreground/70 transition-colors hover:bg-secondary"
         >
-          <Minus className="size-4" strokeWidth={2} />
+          <Minus className="size-3.5" strokeWidth={2} />
         </button>
         <button
           type="button"
           onClick={reset}
           title="Resetează zoom"
-          className="min-w-[40px] rounded-md px-1 py-0.5 font-mono text-[11px] text-foreground/70 transition-colors hover:bg-secondary"
+          className="min-w-[34px] rounded px-1 py-0.5 font-mono text-[10px] text-foreground/70 transition-colors hover:bg-secondary"
         >
           {Math.round(zoom * 100)}%
         </button>
@@ -314,9 +339,9 @@ function PasteboardSketchViewer({
           type="button"
           aria-label="Mărește"
           onClick={() => stepZoom(1.3)}
-          className="flex size-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-secondary"
+          className="flex size-6 items-center justify-center rounded text-foreground/70 transition-colors hover:bg-secondary"
         >
-          <Plus className="size-4" strokeWidth={2} />
+          <Plus className="size-3.5" strokeWidth={2} />
         </button>
       </div>
     </div>

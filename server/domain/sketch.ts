@@ -317,13 +317,34 @@ function strokeInkBounds(s: Stroke): { minX: number; minY: number; maxX: number;
     const lines = (s.text ?? "").split("\n");
     const cols = Math.max(1, ...lines.map((l) => l.length));
     const halo = fontNorm * 0.2; // conturul alb de lizibilitate din jurul textului
-    return {
-      minX: ax - halo,
-      minY: ay - halo,
-      // ~0.62·font per caracter (aproximare, ca în `strokeHit`); baseline "top", align "left".
-      maxX: ax + cols * fontNorm * 0.62 + halo,
-      maxY: ay + lines.length * fontNorm * 1.3 + halo,
-    };
+    // Caseta NErotită, relativă la ancoră: baseline "top", align "left" → spre dreapta-jos.
+    // ~0.62·font per caracter (aproximare, ca în `strokeHit`).
+    const bw = cols * fontNorm * 0.62 + halo;
+    const bh = lines.length * fontNorm * 1.3 + halo;
+    // `angle` (radiani, rotație în jurul ancorei) — rotim cele 4 colțuri și luăm bbox-ul lor, altfel
+    // un text rotit ar ieși din dreptunghiul ne-rotit și s-ar tăia în viewer/thumbnail.
+    const a = s.angle ?? 0;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const corners: Array<[number, number]> = [
+      [-halo, -halo],
+      [bw, -halo],
+      [bw, bh],
+      [-halo, bh],
+    ];
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const [cx, cy] of corners) {
+      const x = ax + cx * cos - cy * sin;
+      const y = ay + cx * sin + cy * cos;
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    return { minX, minY, maxX, maxY };
   }
 
   // free / line / rect / ellipse / arrow: bbox puncte ± amprenta de tuș.
@@ -350,42 +371,33 @@ function strokeInkBounds(s: Stroke): { minX: number; minY: number; maxX: number;
 //
 // IMPORTANT: laturile care NU au ieșit din imagine rămân exact 0/1 — un desen strict peste imagine dă
 // UNIT_EXTENT (compatibil înapoi, `isUnitExtent` rămâne adevărat).
-export function computeExtent(strokes: Stroke[]): SketchExtent {
-  // 1. bbox-ul PUNCTELOR DE CONTROL — decide DACĂ o latură a ieșit din imagine.
-  let cMinX = 0;
-  let cMinY = 0;
-  let cMaxX = 1;
-  let cMaxY = 1;
-  for (const s of strokes) {
-    for (const [x, y] of s.points) {
-      if (x < cMinX) cMinX = x;
-      if (y < cMinY) cMinY = y;
-      if (x > cMaxX) cMaxX = x;
-      if (y > cMaxY) cMaxY = y;
-    }
-  }
-  const outLeft = cMinX < 0;
-  const outTop = cMinY < 0;
-  const outRight = cMaxX > 1;
-  const outBot = cMaxY > 1;
+// Sub această scurgere de tuș (unități normalizate) o latură se consideră „încă pe imagine" și se
+// readuce la 0/1 — un desen normal care atinge marginea imaginii (linie subțire, contur) rămâne
+// UNIT_EXTENT, deci viewer-ul folosește calea rapidă de overlay. Peste prag = pasteboard real.
+const EXTENT_SNAP_EPS = 0.03;
 
-  // 2. O latură care NU a ieșit rămâne exact 0/1 — tușul de la marginea imaginii se decupează la fel
-  //    ca înainte (schițele fără pasteboard rămân UNIT_EXTENT, `isUnitExtent` adevărat). O latură
-  //    ieșită se extinde cu AMPRENTA DE TUȘ reală a stroke-urilor (nu doar punctele de control), ca
-  //    viewer-ul/thumbnail-ul să nu taie vârfuri de săgeată sau blocuri de text.
+export function computeExtent(strokes: Stroke[]): SketchExtent {
+  // Uniunea dintre imaginea-mamă [0,1]² și AMPRENTA DE TUȘ reală a fiecărui stroke (`strokeInkBounds`
+  // — nu doar punctele de control: randarea desenează vârfuri de săgeată, capete rotunde, blocuri de
+  // text rotite). Deciderea „ce latură e deschisă" se face DUPĂ tuș, nu după puncte — altfel un text
+  // ancorat în imagine dar cu glyph-uri care mătură în pasteboard s-ar tăia.
   let minX = 0;
   let minY = 0;
   let maxX = 1;
   let maxY = 1;
-  if (outLeft || outTop || outRight || outBot) {
-    for (const s of strokes) {
-      const b = strokeInkBounds(s);
-      if (outLeft && b.minX < minX) minX = b.minX;
-      if (outTop && b.minY < minY) minY = b.minY;
-      if (outRight && b.maxX > maxX) maxX = b.maxX;
-      if (outBot && b.maxY > maxY) maxY = b.maxY;
-    }
+  for (const s of strokes) {
+    const b = strokeInkBounds(s);
+    if (b.minX < minX) minX = b.minX;
+    if (b.minY < minY) minY = b.minY;
+    if (b.maxX > maxX) maxX = b.maxX;
+    if (b.maxY > maxY) maxY = b.maxY;
   }
+  // Scurgere neglijabilă la marginea imaginii → readu latura la 0/1 (compatibil înapoi: schițele
+  // fără pasteboard real rămân exact UNIT_EXTENT, `isUnitExtent` adevărat).
+  if (minX > -EXTENT_SNAP_EPS) minX = 0;
+  if (minY > -EXTENT_SNAP_EPS) minY = 0;
+  if (maxX < 1 + EXTENT_SNAP_EPS) maxX = 1;
+  if (maxY < 1 + EXTENT_SNAP_EPS) maxY = 1;
   return {
     minX: Math.max(DRAWABLE_MIN, minX),
     minY: Math.max(DRAWABLE_MIN, minY),

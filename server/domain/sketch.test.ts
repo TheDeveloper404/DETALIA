@@ -227,6 +227,17 @@ describe("computeExtent — bounding box imagine + desen în afară", () => {
     // spre stânga, doar haloul mic → minX rămâne 0 (ancora e la 1.4, în bandă)
     expect(e.minX).toBe(0);
   });
+
+  it("text rotit — extent-ul urmează caseta rotită, nu dreptunghiul ne-rotit (Greptile P1)", () => {
+    const base = { color: "#211d18", size: 20, text: "explicație lungă rotită", points: [[1.3, 0.5]] as Point[] };
+    const flat = computeExtent([{ ...base, kind: "text" as const }]);
+    const rot = computeExtent([{ ...base, kind: "text" as const, angle: Math.PI / 2 }]);
+    // ne-rotit: se întinde spre DREAPTA (maxX mare, maxY ~ancoră)
+    expect(flat.maxX).toBeGreaterThan(1.7);
+    // rotit 90°: se întinde în JOS (maxY depășește imaginea) și maxX abia trece de ancoră
+    expect(rot.maxY).toBeGreaterThan(1);
+    expect(rot.maxX).toBeLessThan(flat.maxX);
+  });
 });
 
 describe("validateSketchNote — nota autorului, separată de desen (2026-07-16)", () => {
