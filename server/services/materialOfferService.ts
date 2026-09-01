@@ -13,7 +13,6 @@ import {
   deleteMaterialOffer,
   getMaterialOfferId,
   getMaterialOfferWithFiles,
-  listMaterialOffersBySupplier,
   listMaterialOffersForDetail,
   replaceMaterialOfferFiles,
   upsertMaterialOffer,
@@ -21,6 +20,7 @@ import {
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { deleteSupplierOffer } from "@/server/repos/supplierOffersRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { deleteBlobs } from "@/lib/storage";
 import { notifyMaterialOfferEdited, notifyMaterialOfferSent } from "@/server/services/notificationService";
 
@@ -76,6 +76,14 @@ export async function sendOrUpdateMaterialOffer(input: {
 
   const validated = validateMaterialOfferInput({ message: input.message, files: input.files });
   if (!validated.ok) return { ok: false, error: validated.error };
+
+  // SEC-N02 (recidivă SEC-N01, 2026-09-01): validarea de domeniu verifică DOAR forma URL-ului, nu CINE
+  // l-a urcat. Fără gardul de proprietate, un furnizor putea atașa URL-ul Blob al altui user pe ofertă,
+  // apoi să-l șteargă din storage prin editare (orphanedUrls) sau retragere — `deleteBlobs` filtrează pe
+  // store, nu pe owner. Același pattern ca `detailService.hasForeignBlobResource` / `onboardingService`.
+  if (validated.files.some((f) => !isUsersBlobUrl(f.url, input.userId))) {
+    return { ok: false, error: "INVALID_FILE" };
+  }
 
   const existingOfferId = await getMaterialOfferId(input.detailId, input.userId);
   const isNew = existingOfferId === null;
@@ -142,9 +150,4 @@ export async function getMaterialOffersForOwner(userId: string, detailId: string
   const detail = await getDetailById(detailId);
   if (!detail || detail.ownerId !== userId) return [];
   return listMaterialOffersForDetail(detailId);
-}
-
-// Istoricul ofertelor trimise de furnizorul curent — pt secțiunea nouă din profilul lui (privată).
-export async function getMyMaterialOffersHistory(userId: string) {
-  return listMaterialOffersBySupplier(userId);
 }

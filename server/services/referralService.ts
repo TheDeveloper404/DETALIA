@@ -3,12 +3,10 @@
 
 import { generateReferralCode, isValidReferralCodeFormat } from "@/server/domain/referral";
 import {
-  countReferrals,
   getNotificationActor,
   getReferralCode,
   getUserIdByReferralCode,
   listAllReferrals,
-  listReferrals,
   setReferralCodeIfAbsent,
   setReferredByIfAbsent,
 } from "@/server/repos/usersRepo";
@@ -71,15 +69,6 @@ export async function applyReferral(input: {
     }
   }
   return { ok: true, applied };
-}
-
-export async function getMyReferralStats(userId: string) {
-  const [code, count, referrals] = await Promise.all([
-    getOrCreateReferralCode(userId),
-    countReferrals(userId),
-    listReferrals(userId),
-  ]);
-  return { code, count, referrals };
 }
 
 export async function getAllReferralsForAdmin() {
