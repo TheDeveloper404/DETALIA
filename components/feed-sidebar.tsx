@@ -36,6 +36,8 @@ export function FeedSidebar({
   basePath = "/feed",
   total,
   savedCount,
+  q = null,
+  unanswered = false,
 }: {
   profile: SidebarProfile;
   categories: SidebarCategory[];
@@ -43,6 +45,8 @@ export function FeedSidebar({
   basePath?: string;
   total: number;
   savedCount: number;
+  q?: string | null;
+  unanswered?: boolean;
 }) {
   return (
     // mt-2: aliniază cu containerul „Detalii în dezbatere" din main (are mt-2 propriu) și cu rail-ul
@@ -154,6 +158,8 @@ export function FeedSidebar({
             activeId={activeId}
             basePath={basePath}
             total={total}
+            q={q}
+            unanswered={unanswered}
           />
         </div>
       </nav>

@@ -608,9 +608,14 @@ const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("autho
 // „N schițe" = ce apare ca tab în teanc. Adnotarea (isAnnotation=true, 2026-08-11 — vezi
 // server/domain/sketch.ts) e exclusă; un desen ULTERIOR al autorului pe propriul detaliu, prin
 // „Schițează peste" normal, INTRĂ aici (nu mai e derivat din identitatea autorului).
+// `hiddenAfterRelease = false` (2026-09-01, Greptile PR #272): la „Scoate în comunitate", schițele
+// de non-autor de dinainte se ascund în ACELAȘI batch — nu mai sunt vizibile, deci nu trebuie
+// numărate (identic cu `validationCount`/`commentCount` de mai jos). Fără asta, un detaliu de proiect
+// scos cu o singură schiță ascunsă apărea cu badge „1 schiță" fals ȘI era exclus din filtrul „fără
+// răspuns" deși comunitatea n-a văzut nimic.
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
-     and ${sketches.isAnnotation} = false)`;
+     and ${sketches.isAnnotation} = false and ${sketches.hiddenAfterRelease} = false)`;
 // Schițele din teanc ale acestui detaliu (ACELAȘI filtru ca `sketchCount` — publicate, ne-adnotare) —
 // reutilizat ca sub-interogare de scop pentru validările pe SKETCH, ca să însumăm corect aprob/dezaprob
 // pe TOT firul (detaliu + schițe), nu doar pe foaia de bază (decizie de produs 2026-08-26: valoarea

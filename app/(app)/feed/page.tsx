@@ -138,6 +138,8 @@ export default async function FeedPage({
         activeId={activeId}
         total={totalPublished}
         savedCount={savedCount}
+        q={q}
+        unanswered={unanswered}
       />
 
       <main className="min-w-0">
@@ -170,7 +172,7 @@ export default async function FeedPage({
             >
               Fără răspuns
             </Link>
-            <MobileCategoryFilter categories={categories} activeId={activeId} basePath="/feed" total={totalPublished} />
+            <MobileCategoryFilter categories={categories} activeId={activeId} basePath="/feed" total={totalPublished} q={q} unanswered={unanswered} />
             {/* Căutare — mutată aici din header-ul global (2026-07-06), lângă titlu. As-you-type cu debounce,
                 fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
             <FeedSearch initialQuery={q ?? ""} />
