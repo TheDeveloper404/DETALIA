@@ -164,7 +164,7 @@ export default async function FeedPage({
             <Link
               href={buildToggleHref(!unanswered)}
               aria-pressed={unanswered}
-              className={`flex h-11 flex-none items-center gap-1.5 rounded-lg px-3.5 text-[13.5px] font-medium no-underline ring-1 transition-colors ${
+              className={`flex h-11 flex-none items-center gap-1.5 rounded-full px-5 text-[13.5px] font-medium no-underline ring-1 transition-colors ${
                 unanswered
                   ? "bg-primary text-primary-foreground ring-[#95492e]"
                   : "bg-card text-foreground/80 ring-foreground/10 hover:text-foreground"

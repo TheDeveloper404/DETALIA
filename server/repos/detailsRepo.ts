@@ -616,13 +616,17 @@ const detailsAuthorId = sql`${sql.identifier("details")}.${sql.identifier("autho
 const sketchCount = sql<number>`(select count(*)::int from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
      and ${sketches.isAnnotation} = false and ${sketches.hiddenAfterRelease} = false)`;
-// Schițele din teanc ale acestui detaliu (ACELAȘI filtru ca `sketchCount` — publicate, ne-adnotare) —
-// reutilizat ca sub-interogare de scop pentru validările pe SKETCH, ca să însumăm corect aprob/dezaprob
-// pe TOT firul (detaliu + schițe), nu doar pe foaia de bază (decizie de produs 2026-08-26: valoarea
-// unui detaliu vine din toată dezbaterea, nu din statusul postării inițiale).
+// Schițele din teanc ale acestui detaliu (ACELAȘI filtru ca `sketchCount` — publicate, ne-adnotare,
+// ne-ascunse) — reutilizat ca sub-interogare de scop pentru validările pe SKETCH, ca să însumăm corect
+// aprob/dezaprob pe TOT firul (detaliu + schițe), nu doar pe foaia de bază (decizie de produs
+// 2026-08-26: valoarea unui detaliu vine din toată dezbaterea, nu din statusul postării inițiale).
+// `hiddenAfterRelease = false` (2026-09-01, Greptile PR #272): schița ascunsă la „Scoate în comunitate"
+// e invizibilă comunității, deci validările pe ea nu trebuie numărate — inclusiv poziția PROPRIE a
+// autorului pe acea schiță, care NU se marchează ascunsă la release (doar cele de non-autor) și altfel
+// ar ține detaliul în afara filtrului „fără răspuns" deși comunitatea n-a văzut nimic.
 const detailSketchIds = sql`(select ${sketches.id} from ${sketches}
    where ${sketches.detailId} = ${detailsId} and ${sketches.status} = 'PUBLISHED'
-     and ${sketches.isAnnotation} = false)`;
+     and ${sketches.isAnnotation} = false and ${sketches.hiddenAfterRelease} = false)`;
 const validationScope = sql`((${validations.targetType} = 'DETAIL' and ${validations.targetId} = ${detailsId})
      or (${validations.targetType} = 'SKETCH' and ${validations.targetId} in ${detailSketchIds}))`;
 const validationCount = sql<number>`(select count(*)::int from ${validations}
