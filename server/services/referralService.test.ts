@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repos/usersRepo", () => ({
-  countReferrals: vi.fn(),
   getNotificationActor: vi.fn(),
   getReferralCode: vi.fn(),
   getUserIdByReferralCode: vi.fn(),
   listAllReferrals: vi.fn(),
-  listReferrals: vi.fn(),
   setReferralCodeIfAbsent: vi.fn(),
   setReferredByIfAbsent: vi.fn(),
 }));

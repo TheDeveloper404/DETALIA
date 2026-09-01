@@ -6,7 +6,6 @@ vi.mock("@/server/repos/materialOffersRepo", () => ({
   deleteMaterialOffer: vi.fn(),
   getMaterialOfferId: vi.fn(),
   getMaterialOfferWithFiles: vi.fn(),
-  listMaterialOffersBySupplier: vi.fn(),
   listMaterialOffersForDetail: vi.fn(),
   replaceMaterialOfferFiles: vi.fn(),
   upsertMaterialOffer: vi.fn(),
@@ -36,7 +35,7 @@ import { sendOrUpdateMaterialOffer, withdrawSupplierParticipation } from "./mate
 
 const DETAIL_ID = "22222222-2222-4222-8222-222222222222";
 const validFile = {
-  url: "https://abc.public.blob.vercel-storage.com/u/x/materials/f.pdf",
+  url: "https://abc.public.blob.vercel-storage.com/u/u-1/materials/f.pdf",
   fileName: "lista.pdf",
   fileSize: 100,
 };
@@ -131,6 +130,30 @@ describe("validare de business (delegată la domain) — propagă eroarea, făr�
       ok: false,
       error: "MESSAGE_REQUIRED",
     });
+  });
+});
+
+describe("SEC-N02 — fișier Blob al altui user pe ofertă → INVALID_FILE, fără scriere, fără deleteBlobs", () => {
+  // Gardul e pe stratul de service (`isUsersBlobUrl`), nu în domain — vezi comentariul SEC-N02 din
+  // materialOfferService.ts. Domain validează doar forma; ownership-ul se verifică aici.
+  const foreignFile = {
+    url: "https://abc.public.blob.vercel-storage.com/u/victima-9/materials/secret.pdf",
+    fileName: "secret.pdf",
+    fileSize: 100,
+  };
+
+  it("URL Blob din namespace-ul altui user → INVALID_FILE, nimic scris/șters", async () => {
+    const res = await sendOrUpdateMaterialOffer({ ...input, files: [foreignFile] });
+    expect(res).toEqual({ ok: false, error: "INVALID_FILE" });
+    expect(upsertMaterialOffer).not.toHaveBeenCalled();
+    expect(replaceMaterialOfferFiles).not.toHaveBeenCalled();
+    expect(deleteBlobs).not.toHaveBeenCalled();
+  });
+
+  it("listă mixtă (un fișier propriu + unul străin) → respinsă în întregime", async () => {
+    const res = await sendOrUpdateMaterialOffer({ ...input, files: [validFile, foreignFile] });
+    expect(res).toEqual({ ok: false, error: "INVALID_FILE" });
+    expect(upsertMaterialOffer).not.toHaveBeenCalled();
   });
 });
 

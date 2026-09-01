@@ -30,6 +30,7 @@ vi.mock("@/server/repos/detailsRepo", () => ({
 }));
 vi.mock("@/server/repos/usersRepo", () => ({ listTopAuthors: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
+vi.mock("@/server/repos/materialOffersRepo", () => ({ deleteMaterialOffersForDetail: vi.fn() }));
 vi.mock("@/server/repos/categoriesRepo", () => ({ countExistingCategoryIds: vi.fn() }));
 vi.mock("@/server/services/roleService", () => ({ userHasRole: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
@@ -37,6 +38,7 @@ const { canAccessProjectDetail } = vi.hoisted(() => ({ canAccessProjectDetail: v
 vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail }));
 
 import { deleteBlobs } from "@/lib/storage";
+import { deleteMaterialOffersForDetail } from "@/server/repos/materialOffersRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 
 import { deleteDetail, getDeletionPreview } from "./detailService";
@@ -58,6 +60,7 @@ beforeEach(() => {
   repo.getDetailById.mockResolvedValue(detailRow as never);
   repo.deleteDetailCascade.mockResolvedValue([] as never);
   repo.anonymizeDetailAuthor.mockResolvedValue(true as never);
+  vi.mocked(deleteMaterialOffersForDetail).mockResolvedValue([] as never);
   vi.mocked(getRoleByUserId).mockResolvedValue({
     roleMain: "ARHITECT",
     subRole: "Structurist",
@@ -96,6 +99,9 @@ describe("deleteDetail — detaliu FĂRĂ interacțiuni", () => {
     expect(repo.deleteDetailCascade).toHaveBeenCalledWith(DETAIL);
     expect(deleteBlobs).toHaveBeenCalled();
     expect(repo.anonymizeDetailAuthor).not.toHaveBeenCalled();
+    // La HARD_DELETE detaliul dispare → FK cascade șterge rândurile ofertelor, iar
+    // `deleteDetailCascade` colectează deja URL-urile fișierelor lor. Nu se apelează separat.
+    expect(deleteMaterialOffersForDetail).not.toHaveBeenCalled();
   });
 });
 
@@ -108,12 +114,11 @@ describe("deleteDetail — detaliu CU interacțiuni", () => {
     } as never);
   });
 
-  it("NU se șterge nimic — se retrage doar identitatea autorului, cu rolul înghețat", async () => {
+  it("NU se șterge conținutul — se retrage doar identitatea autorului, cu rolul înghețat", async () => {
     const res = await deleteDetail({ detailId: DETAIL, userId: AUTHOR });
 
     expect(res).toEqual({ ok: true, mode: "ANONYMIZE", alreadyDone: false });
     expect(repo.deleteDetailCascade).not.toHaveBeenCalled();
-    expect(deleteBlobs).not.toHaveBeenCalled();
     expect(repo.anonymizeDetailAuthor).toHaveBeenCalledWith(DETAIL, AUTHOR, {
       roleMain: "ARHITECT",
       subRole: "Structurist",
@@ -127,6 +132,32 @@ describe("deleteDetail — detaliu CU interacțiuni", () => {
     const res = await deleteDetail({ detailId: DETAIL, userId: AUTHOR });
 
     expect(res).toEqual({ ok: true, mode: "ANONYMIZE", alreadyDone: true });
+  });
+
+  // Ofertele de materiale NU rămân la anonimizare (decizie 2026-08-25) — FK cascade nu le atinge
+  // (detaliul rămâne). `deleteMaterialOffersForDetail` le șterge explicit ȘI întoarce URL-urile
+  // fișierelor pentru `deleteBlobs`. Golul găsit la checkpoint-ul lunar de teste (2026-09-01):
+  // testul nu mock-uia `materialOffersRepo`, deci apelul cădea tăcut în catch-ul non-fatal.
+  it("ANONYMIZE — ofertele de materiale de pe detaliu sunt șterse, fișierele lor curățate din Blob", async () => {
+    vi.mocked(deleteMaterialOffersForDetail).mockResolvedValue([
+      "https://blob/offer-a.pdf",
+      "https://blob/offer-b.xlsx",
+    ] as never);
+
+    const res = await deleteDetail({ detailId: DETAIL, userId: AUTHOR });
+
+    expect(res).toEqual({ ok: true, mode: "ANONYMIZE", alreadyDone: false });
+    expect(deleteMaterialOffersForDetail).toHaveBeenCalledWith(DETAIL);
+    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/offer-a.pdf", "https://blob/offer-b.xlsx"]);
+  });
+
+  it("ANONYMIZE — eșecul curățării ofertelor de materiale e non-fatal (retragerea autorului nu e blocată)", async () => {
+    vi.mocked(deleteMaterialOffersForDetail).mockRejectedValue(new Error("db down") as never);
+
+    const res = await deleteDetail({ detailId: DETAIL, userId: AUTHOR });
+
+    expect(res).toEqual({ ok: true, mode: "ANONYMIZE", alreadyDone: false });
+    expect(repo.anonymizeDetailAuthor).toHaveBeenCalled();
   });
 });
 

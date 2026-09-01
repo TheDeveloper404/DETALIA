@@ -23,7 +23,17 @@ async function setRole(userId: string, roleMain: "FURNIZOR" | "PROIECTANT") {
   await db.update(roles).set({ roleMain }).where(eq(roles.userId, userId));
 }
 
-const VALID_FILE = { url: "https://e2e.public.blob.vercel-storage.com/u/e2e/materials/lista.pdf", fileName: "lista.pdf", fileSize: 1024 };
+// SEC-N02 (2026-09-01): `sendOrUpdateMaterialOffer` verifică ACUM `isUsersBlobUrl` — URL-ul trebuie
+// să fie în store-ul nostru real ȘI în namespace-ul `/u/<userId>/` al furnizorului. Derivăm store-ul
+// din token exact ca `lib/blob-url.ts`, ca fixture-urile să treacă și cu Blob configurat, și fără.
+const STORE_ID = process.env.BLOB_READ_WRITE_TOKEN?.match(/^vercel_blob_rw_([A-Za-z0-9]+)_/)?.[1]?.toLowerCase();
+const BLOB_HOST = STORE_ID
+  ? `${STORE_ID}.public.blob.vercel-storage.com`
+  : "e2e.public.blob.vercel-storage.com";
+
+function fileFor(userId: string, name = "lista.pdf") {
+  return { url: `https://${BLOB_HOST}/u/${userId}/materials/${name}`, fileName: name, fileSize: 1024 };
+}
 
 test.describe.serial("material offer", () => {
   test("trimitere → rând + fișier + notificare MATERIAL_OFFER_SENT; editare → notificare EDITED, nu Sent din nou", async () => {
@@ -46,7 +56,7 @@ test.describe.serial("material offer", () => {
         userId: testerUserId,
         detailId,
         message: "Am atașat lista cu materiale",
-        files: [VALID_FILE],
+        files: [fileFor(testerUserId)],
       });
       expect(r1).toEqual({ ok: true, isNew: true });
 
@@ -71,7 +81,7 @@ test.describe.serial("material offer", () => {
         userId: testerUserId,
         detailId,
         message: "Mesaj actualizat, am adăugat un fișier",
-        files: [VALID_FILE, { ...VALID_FILE, url: VALID_FILE.url + "2", fileName: "preturi.xlsx" }],
+        files: [fileFor(testerUserId), fileFor(testerUserId, "preturi.xlsx")],
       });
       expect(r2).toEqual({ ok: true, isNew: false });
 
@@ -104,7 +114,7 @@ test.describe.serial("material offer", () => {
 
   test("gating pe rol — non-FURNIZOR → NOT_FURNIZOR, fără scriere", async () => {
     const { detailId, testerUserId } = getSeed();
-    const r = await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [VALID_FILE] });
+    const r = await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [fileFor(testerUserId)] });
     expect(r).toEqual({ ok: false, error: "NOT_FURNIZOR" });
   });
 
@@ -112,7 +122,7 @@ test.describe.serial("material offer", () => {
     const { detailId, authorUserId } = getSeed();
     await setRole(authorUserId, "FURNIZOR");
     try {
-      const r = await sendOrUpdateMaterialOffer({ userId: authorUserId, detailId, message: "Bună", files: [VALID_FILE] });
+      const r = await sendOrUpdateMaterialOffer({ userId: authorUserId, detailId, message: "Bună", files: [fileFor(authorUserId)] });
       expect(r).toEqual({ ok: false, error: "CANNOT_OFFER_OWN" });
     } finally {
       await setRole(authorUserId, "PROIECTANT");
@@ -132,7 +142,7 @@ test.describe.serial("material offer", () => {
     await cleanup();
     await setRole(testerUserId, "FURNIZOR");
     try {
-      await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [VALID_FILE] });
+      await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [fileFor(testerUserId)] });
 
       const forOwner = await getMaterialOffersForOwner(authorUserId, detailId);
       expect(forOwner.some((o) => o.supplierId === testerUserId)).toBe(true);
@@ -156,7 +166,7 @@ test.describe.serial("material offer", () => {
     try {
       // „Mâna ridicată" (supplier_offers) — precondiție reală: modalul se deschide DUPĂ ridicare.
       await insertSupplierOfferIfAbsent(testerUserId, detailId);
-      await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [VALID_FILE] });
+      await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [fileFor(testerUserId)] });
       const [offerRow] = await db
         .select()
         .from(materialOffers)
@@ -183,6 +193,33 @@ test.describe.serial("material offer", () => {
     } finally {
       await db.delete(materialOffers).where(and(eq(materialOffers.detailId, detailId), eq(materialOffers.supplierId, testerUserId)));
       await db.delete(supplierOffers).where(and(eq(supplierOffers.userId, testerUserId), eq(supplierOffers.detailId, detailId)));
+      await setRole(testerUserId, "PROIECTANT");
+    }
+  });
+
+  // SEC-N02 (recidivă SEC-N01, 2026-09-01): un FURNIZOR atașează pe ofertă URL-ul Blob al ALTUI user
+  // (namespace `/u/<authorUserId>/`, nu al lui). Fără gardul `isUsersBlobUrl` din service, oferta ar
+  // fi salvată, iar la editare/retragere `deleteBlobs` ar șterge fișierul victimei din storage.
+  test("SEC-N02 — fișier Blob din namespace-ul altui user → INVALID_FILE, fără rând scris", async () => {
+    const { detailId, testerUserId, authorUserId } = getSeed();
+
+    async function cleanup() {
+      await db.delete(materialOffers).where(and(eq(materialOffers.detailId, detailId), eq(materialOffers.supplierId, testerUserId)));
+    }
+    await cleanup();
+    await setRole(testerUserId, "FURNIZOR");
+    try {
+      const foreign = fileFor(authorUserId, "victima.pdf"); // /u/<authorUserId>/... — nu al lui testerUserId
+      const r = await sendOrUpdateMaterialOffer({ userId: testerUserId, detailId, message: "Bună", files: [foreign] });
+      expect(r).toEqual({ ok: false, error: "INVALID_FILE" });
+
+      const rows = await db
+        .select()
+        .from(materialOffers)
+        .where(and(eq(materialOffers.detailId, detailId), eq(materialOffers.supplierId, testerUserId)));
+      expect(rows).toHaveLength(0);
+    } finally {
+      await cleanup();
       await setRole(testerUserId, "PROIECTANT");
     }
   });

@@ -371,18 +371,6 @@ export async function countReferrals(userId: string): Promise<number> {
   return row?.count ?? 0;
 }
 
-export type ReferralRow = { referredUserId: string; referredName: string | null; joinedAt: Date };
-
-// Ultimii referiți ai unui user (profil propriu — „ai adus N oameni") — nu doar contorul, și cine sunt.
-export async function listReferrals(userId: string): Promise<ReferralRow[]> {
-  const rows = await db
-    .select({ referredUserId: users.id, referredName: users.name, joinedAt: users.createdAt })
-    .from(users)
-    .where(eq(users.referredByUserId, userId))
-    .orderBy(desc(users.createdAt));
-  return rows;
-}
-
 export type AdminReferralRow = {
   referrerUserId: string;
   referrerName: string | null;
