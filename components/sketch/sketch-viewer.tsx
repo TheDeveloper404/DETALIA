@@ -1,5 +1,6 @@
 "use client";
 
+import { Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { renderStrokes, sketchTransform } from "@/lib/sketch-render";
@@ -139,6 +140,9 @@ function PasteboardSketchViewer({
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  // Pinch-to-zoom (mobil): pointerele touch active + ancora pinch-ului.
+  const ptrsRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
 
   const spanX = extent.maxX - extent.minX;
   const spanY = extent.maxY - extent.minY;
@@ -215,26 +219,49 @@ function PasteboardSketchViewer({
     renderStrokes(ctx, strokes, canvas.width, canvas.height, extent);
   }, [rect, strokes, veil, extent]);
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+  // Zoom = butoane +/− + pinch (mobil). FĂRĂ scroll-wheel (scrolla pagina). Dublu-click = reset.
+  const reset = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+  const stepZoom = useCallback((factor: number) => {
     setZoom((z) => {
-      const next = vClampZoom(z * (e.deltaY < 0 ? 1.1 : 0.9));
+      const next = vClampZoom(z * factor);
       if (next === 1) setPan({ x: 0, y: 0 });
       return next;
     });
   }, []);
 
   const onPointerDown = (e: React.PointerEvent) => {
+    ptrsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (ptrsRef.current.size === 2) {
+      const [a, b] = [...ptrsRef.current.values()];
+      pinchRef.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+      dragRef.current = null;
+      return;
+    }
     if (zoom === 1) return;
     dragRef.current = { x: e.clientX, y: e.clientY, ox: pan.x, oy: pan.y };
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent) => {
+    if (ptrsRef.current.has(e.pointerId)) {
+      ptrsRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    const pinch = pinchRef.current;
+    if (pinch && ptrsRef.current.size >= 2) {
+      const [a, b] = [...ptrsRef.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.dist > 0) setZoom(vClampZoom(pinch.zoom * (dist / pinch.dist)));
+      return;
+    }
     const d = dragRef.current;
     if (!d) return;
     setPan({ x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) });
   };
-  const onPointerUp = () => {
+  const onPointerUp = (e: React.PointerEvent) => {
+    ptrsRef.current.delete(e.pointerId);
+    if (ptrsRef.current.size < 2) pinchRef.current = null;
     dragRef.current = null;
   };
 
@@ -248,15 +275,12 @@ function PasteboardSketchViewer({
         ref={canvasRef}
         width={rect.w}
         height={rect.h}
-        onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
-        onDoubleClick={() => {
-          setZoom(1);
-          setPan({ x: 0, y: 0 });
-        }}
+        onPointerCancel={onPointerUp}
+        onDoubleClick={reset}
         className="absolute touch-none select-none"
         style={{
           left: rect.x,
@@ -265,9 +289,36 @@ function PasteboardSketchViewer({
           height: rect.h,
           transform: `translate(${pan.x}px, ${pan.y}px)${zoom !== 1 ? ` scale(${zoom})` : ""}`,
           transformOrigin: "center center",
-          cursor: zoom > 1 ? "grab" : "zoom-in",
+          cursor: zoom > 1 ? "grab" : "default",
         }}
       />
+      {/* Controale zoom — colț dreapta-jos, ca în editor. */}
+      <div className="absolute bottom-2 right-2 z-10 flex items-center gap-0.5 rounded-lg border border-[#e6dccd] bg-white/90 p-1 shadow-sm">
+        <button
+          type="button"
+          aria-label="Micșorează"
+          onClick={() => stepZoom(1 / 1.3)}
+          className="flex size-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-secondary"
+        >
+          <Minus className="size-4" strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          onClick={reset}
+          title="Resetează zoom"
+          className="min-w-[40px] rounded-md px-1 py-0.5 font-mono text-[11px] text-foreground/70 transition-colors hover:bg-secondary"
+        >
+          {Math.round(zoom * 100)}%
+        </button>
+        <button
+          type="button"
+          aria-label="Mărește"
+          onClick={() => stepZoom(1.3)}
+          className="flex size-7 items-center justify-center rounded-md text-foreground/70 transition-colors hover:bg-secondary"
+        >
+          <Plus className="size-4" strokeWidth={2} />
+        </button>
+      </div>
     </div>
   );
 }

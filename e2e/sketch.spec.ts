@@ -127,18 +127,22 @@ test.describe.serial("Schiță — pasteboard (desen în afara imaginii)", () =>
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
     pbSketchId = page.url().match(/\/sketches\/([0-9a-f-]+)\/edit/)?.[1] ?? null;
 
-    const canvas = page.locator("canvas");
+    // Editorul acoperă mereu banda [-1,2]², dar la zoom 100% se vede doar foaia (treimea din
+    // mijloc). Ca să desenăm în pasteboard, dăm întâi zoom-out (userul face la fel — nimic automat).
+    const zoomOut = page.getByRole("button", { name: "Micșorează" });
+    for (let i = 0; i < 5; i++) await zoomOut.click();
+
+    const canvas = page.locator("canvas").first();
     await expect(canvas).toBeVisible();
     const box = await canvas.boundingBox();
     if (!box) throw new Error("canvas fără bounding box");
-    // Pornim din interiorul foii și tragem BINE în afara ei, spre dreapta-jos. `normPoint` mapează
-    // fracția din canvas prin extent și clamp-uiește la banda [-1, 2] → traseul are puncte cu x > 1.
-    const startX = box.x + box.width * 0.6;
-    const startY = box.y + box.height * 0.6;
-    await page.mouse.move(startX, startY);
+    // La zoom-out, canvas-ul (3× foaia) e vizibil aproape întreg: mijlocul = foaia, marginile =
+    // pasteboard. Tragem din centru (foaie) spre colțul dreapta-jos al canvas-ului (pasteboard) →
+    // traseul are puncte cu x/y > 1.
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width + 80, startY, { steps: 8 });
-    await page.mouse.move(box.x + box.width + 140, box.y + box.height + 90, { steps: 8 });
+    await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.75, { steps: 6 });
+    await page.mouse.move(box.x + box.width * 0.92, box.y + box.height * 0.9, { steps: 6 });
     await page.mouse.up();
 
     const publishBtn = page.getByRole("button", { name: /Publică schița/ });

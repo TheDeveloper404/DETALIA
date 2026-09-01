@@ -395,9 +395,10 @@ export function DetailForm({
   const annotationIsPasteboard =
     !!annotationStrokes && annotationStrokes.length > 0 && !isUnitExtent(computeExtent(annotationStrokes));
   // `preview.url` e mereu un `blob:` (URL.createObjectURL pe fișierul ales local). Gardă de schemă
-  // explicită înainte de a-l folosi ca `src` — orice alt scheme ar fi bug/tamper, nu conținut de
-  // randat (taie și fals-pozitivul CodeQL `js/xss-through-dom` pe `<img src>`).
-  const previewSrc = preview && preview.url.startsWith("blob:") ? preview.url : "";
+  // explicită pe o variabilă locală înainte de a-l folosi ca `src` — orice alt scheme ar fi
+  // bug/tamper, nu conținut de randat (și taie fals-pozitivul CodeQL `js/xss-through-dom`).
+  const rawPreviewUrl = preview?.url ?? "";
+  const previewSrc = rawPreviewUrl.startsWith("blob:") ? rawPreviewUrl : "";
   // Explicația în CUVINTE a adnotării, separată de desen (același model ca `note` la schițe, 2026-07-16).
   // Până la 2026-08-02 se putea scrie doar din editorul de schiță, deși coloana exista și se afișa —
   // autorul care adnota la publicare nu avea unde s-o scrie. `annotating` o ține în editor, lângă desen.
