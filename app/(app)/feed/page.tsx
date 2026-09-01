@@ -82,7 +82,7 @@ export default async function FeedPage({
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
   const { details, totalPages } = await getFeed({ categoryId: activeId, q, unanswered, page });
 
-  // Href-ul care comută filtrul „Fără răspuns", păstrând categoria + căutarea (dar resetând pagina).
+  // Href-ul care comută filtrul „Așteaptă ajutor", păstrând categoria + căutarea (dar resetând pagina).
   const buildToggleHref = (next: boolean) => {
     const params = new URLSearchParams();
     if (activeId) params.set("cat", activeId);
@@ -152,15 +152,25 @@ export default async function FeedPage({
             {maintenanceText}
           </div>
         )}
-        {/* Titlu + căutare, într-un container propriu (nu mai încercăm să-l aliniem pixel-perfect cu
-            cardul de profil din sidebar — 2026-07-06) — coboară puțin feed-ul sub header. */}
-        <div className="mb-5 mt-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
-          <h1 className="min-w-0 flex-1 truncate text-xl font-bold tracking-tight">
-            {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}
-          </h1>
+        {/* Bară de control feed — căutare (lată, ocupă spațiul liber) + filtre în dreapta. Titlul e
+            `sr-only` când nu se caută (spune ce se vede oricum); vizibil doar ca „Rezultate pentru …". */}
+        <div className="mb-5 mt-2 flex flex-wrap items-center gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
+          {q ? (
+            <h1 className="min-w-0 max-w-full flex-none truncate text-xl font-bold tracking-tight">
+              Rezultate pentru „{q}”
+            </h1>
+          ) : (
+            <h1 className="sr-only">Detalii în dezbatere</h1>
+          )}
+          {/* Căutare — mutată aici din header-ul global (2026-07-06). As-you-type cu debounce,
+              fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
+          <div className="min-w-0 flex-1 basis-64">
+            <FeedSearch initialQuery={q ?? ""} />
+          </div>
           <div className="flex flex-none items-center gap-2">
-            {/* „Fără răspuns" — detalii la care nimeni n-a schițat ȘI nimeni n-a luat poziție (0
-                schițe + 0 validări). Link server, păstrează cat/q, resetează pagina. */}
+            {/* „Așteaptă ajutor" — detalii la care nimeni n-a schițat ȘI nimeni n-a luat poziție
+                (0 schițe + 0 validări; comentariile nu contează). Link server, păstrează cat/q,
+                resetează pagina. */}
             <Link
               href={buildToggleHref(!unanswered)}
               aria-pressed={unanswered}
@@ -170,12 +180,9 @@ export default async function FeedPage({
                   : "bg-card text-foreground/80 ring-foreground/10 hover:text-foreground"
               }`}
             >
-              Fără răspuns
+              Așteaptă ajutor
             </Link>
             <MobileCategoryFilter categories={categories} activeId={activeId} basePath="/feed" total={totalPublished} q={q} unanswered={unanswered} />
-            {/* Căutare — mutată aici din header-ul global (2026-07-06), lângă titlu. As-you-type cu debounce,
-                fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
-            <FeedSearch initialQuery={q ?? ""} />
           </div>
         </div>
 
