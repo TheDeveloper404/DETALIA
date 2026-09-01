@@ -24,6 +24,11 @@ updates:
         patterns:
           - "next-auth"
           - "@auth/*"
+    ignore:
+      # TS 7 (portul nativ) nu e suportat încă de typescript-eslint — un bump major pică CI-ul
+      # (`typescript-eslint does not support TS 7.0`). Se scoate ignore-ul când ecosistemul prinde TS 7.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -31,3 +36,10 @@ updates:
     target-branch: "dev"
     cooldown:
       default-days: 30
+    groups:
+      codeql-action:
+        # init/analyze/upload-sarif sunt pinned la ACELAȘI SHA în workflow-uri; bump-ul lor separat
+        # lasă temporar versiuni nepotrivite în același job → CodeQL „Not all workflow steps ... use
+        # the same version" (roșu). Grupate = un singur PR atomic (găsit 2026-09-01, PR #277).
+        patterns:
+          - "github/codeql-action*"
