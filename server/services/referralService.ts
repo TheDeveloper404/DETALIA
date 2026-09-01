@@ -64,7 +64,7 @@ export async function applyReferral(input: {
     } catch (err) {
       console.error("[referralService] notifyReferralJoined eșuată (non-fatal)", {
         newUserId: input.newUserId,
-        err,
+        err: err instanceof Error ? err.message : String(err),
       });
     }
   }

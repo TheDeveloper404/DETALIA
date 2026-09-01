@@ -55,6 +55,32 @@ describe("findViolations — gardă write-path Blob fără verificare de ownersh
     expect(findViolations(source)).toHaveLength(0);
   });
 
+  it("SEC-N02: prinde replaceMaterialOfferFiles fără gardă (recidiva din feature-ul de oferte)", () => {
+    const source = `
+      export async function sendOrUpdateMaterialOffer(input: { userId: string; files: unknown[] }) {
+        const offerId = await upsertMaterialOffer({ supplierId: input.userId });
+        const orphaned = await replaceMaterialOfferFiles(offerId, input.files);
+        await deleteBlobs(orphaned);
+        return { ok: true };
+      }
+    `;
+    const violations = findViolations(source);
+    expect(violations).toHaveLength(1);
+    expect(violations[0]).toMatchObject({ functionName: "sendOrUpdateMaterialOffer", sink: "replaceMaterialOfferFiles" });
+  });
+
+  it("SEC-N02: NU flagează când isUsersBlobUrl e prezent înainte de replaceMaterialOfferFiles (fix-ul aplicat)", () => {
+    const source = `
+      export async function sendOrUpdateMaterialOffer(input: { userId: string; files: { url: string }[] }) {
+        if (input.files.some((f) => !isUsersBlobUrl(f.url, input.userId))) return { ok: false };
+        const offerId = await upsertMaterialOffer({ supplierId: input.userId });
+        await replaceMaterialOfferFiles(offerId, input.files);
+        return { ok: true };
+      }
+    `;
+    expect(findViolations(source)).toHaveLength(0);
+  });
+
   it("ignoră funcții care nu ating niciun sink cunoscut", () => {
     const source = `
       export async function getDetail(id: string) {
