@@ -20,6 +20,7 @@ import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
 import { magicLinkEmailHtml, magicLinkEmailText, sendEmail } from "@/lib/email";
 import { resolveMagicLinkBaseUrl } from "@/lib/magic-link-url";
+import { SESSION_MAX_AGE_SECONDS } from "@/lib/session-config";
 
 // TTL magic link (minute) → secunde. Default prudent: 15 min dacă env lipsește.
 const magicLinkTtlMinutes = Number(process.env.MAGIC_LINK_TTL_MINUTES ?? "15");
@@ -47,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   // argumente — n-au niciun `res` la care să atașeze un `Set-Cookie` nou, deci nu rotesc nimic. Aplicația
   // n-are `SessionProvider`
   // client-side. Acceptat conștient: 7 zile fixe e generos, echivalent cu re-login săptămânal.
-  session: { strategy: "jwt", maxAge: 60 * 60 * 24 * 7 },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
   trustHost: true,
   // Pagini custom: folosim ecrane proprii în limbajul vizual DETALIA în loc de cele default Auth.js.
   pages: {

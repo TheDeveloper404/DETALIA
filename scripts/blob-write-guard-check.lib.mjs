@@ -17,6 +17,9 @@ const SINK_NAMES = [
   "insertDetailWithRelations",
   "updateDetailRow",
   "replaceDetailResources",
+  "replaceMaterialOfferFiles", // SEC-N02 (2026-09-01): persistă lista de fișiere a ofertei (URL-uri de
+  // la client) — exact aceeași categorie ca replaceDetailResources; lipsea, iar garda mecanică nu a
+  // prins recidiva SEC-N01 în „Oferă materiale".
   "insertComment",
   "updateUserImage",
   "updateUserCoverImage",
