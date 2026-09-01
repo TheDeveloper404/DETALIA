@@ -4,20 +4,26 @@ import Link from "next/link";
 export function FeedEmpty({
   filtered,
   search,
+  unanswered,
   addHref = "/details/new",
 }: {
   filtered: boolean;
   search?: boolean;
+  unanswered?: boolean;
   addHref?: string;
 }) {
   const title = search
     ? "Niciun Rezultat"
-    : filtered
-      ? "Nicio categorie nu are detalii încă"
-      : "Niciun detaliu aici încă";
+    : unanswered
+      ? "Totul are deja un răspuns"
+      : filtered
+        ? "Nicio categorie nu are detalii încă"
+        : "Niciun detaliu aici încă";
   const body = search
     ? "Nu am găsit niciun detaliu care să se potrivească acestei căutări."
-    : "Fii primul care pune un detaliu de execuție la dezbatere. Publici desenul, breasla îl cântărește pe roluri.";
+    : unanswered
+      ? "Fiecare detaliu publicat are deja o schiță sau o poziție. Nimic în așteptare acum."
+      : "Fii primul care pune un detaliu de execuție la dezbatere. Publici desenul, breasla îl cântărește pe roluri.";
   // „primul detaliu" e corect DOAR când platforma chiar nu are niciun detaliu — la căutare/filtru fără
   // rezultate există deja detalii în altă parte, „primul" ar fi fals.
   const cta = search || filtered ? "Adaugă detaliu" : "Adaugă primul detaliu";

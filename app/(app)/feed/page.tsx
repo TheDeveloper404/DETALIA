@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DetailCard } from "@/components/detail-card";
@@ -37,15 +38,23 @@ export const metadata: Metadata = { title: "Feed" };
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cat?: string; q?: string; welcome?: string; tour?: string; page?: string }>;
+  searchParams: Promise<{
+    cat?: string;
+    q?: string;
+    unanswered?: string;
+    welcome?: string;
+    tour?: string;
+    page?: string;
+  }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
   }
 
-  const { cat, q: rawQ, welcome, tour, page: rawPage } = await searchParams;
+  const { cat, q: rawQ, unanswered: rawUnanswered, welcome, tour, page: rawPage } = await searchParams;
   const q = rawQ?.trim() || null;
+  const unanswered = rawUnanswered === "1";
   const page = resolveFeedPage(rawPage);
 
   const [categories, totalPublished, role, authors, media, platform, debated, unseenAnnouncement, savedCount] =
@@ -71,7 +80,17 @@ export default async function FeedPage({
     : null;
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
-  const { details, totalPages } = await getFeed({ categoryId: activeId, q, page });
+  const { details, totalPages } = await getFeed({ categoryId: activeId, q, unanswered, page });
+
+  // Href-ul care comută filtrul „Fără răspuns", păstrând categoria + căutarea (dar resetând pagina).
+  const buildToggleHref = (next: boolean) => {
+    const params = new URLSearchParams();
+    if (activeId) params.set("cat", activeId);
+    if (q) params.set("q", q);
+    if (next) params.set("unanswered", "1");
+    const qs = params.toString();
+    return qs ? `/feed?${qs}` : "/feed";
+  };
 
   // `?page=` peste ultima pagină reală (filtru schimbat între timp, link vechi/manipulat) → redirect la
   // ultima pagină validă, NU „Niciun rezultat" fals pentru un filtru care chiar are rezultate.
@@ -79,6 +98,7 @@ export default async function FeedPage({
     const params = new URLSearchParams();
     if (activeId) params.set("cat", activeId);
     if (q) params.set("q", q);
+    if (unanswered) params.set("unanswered", "1");
     if (totalPages > 1) params.set("page", String(totalPages));
     const qs = params.toString();
     redirect(qs ? `/feed?${qs}` : "/feed");
@@ -137,6 +157,19 @@ export default async function FeedPage({
             {q ? <>Rezultate pentru „{q}”</> : "Detalii în dezbatere"}
           </h1>
           <div className="flex flex-none items-center gap-2">
+            {/* „Fără răspuns" — detalii la care nimeni n-a schițat ȘI nimeni n-a luat poziție (0
+                schițe + 0 validări). Link server, păstrează cat/q, resetează pagina. */}
+            <Link
+              href={buildToggleHref(!unanswered)}
+              aria-pressed={unanswered}
+              className={`flex h-11 flex-none items-center gap-1.5 rounded-lg px-3.5 text-[13.5px] font-medium no-underline ring-1 transition-colors ${
+                unanswered
+                  ? "bg-primary text-primary-foreground ring-[#95492e]"
+                  : "bg-card text-foreground/80 ring-foreground/10 hover:text-foreground"
+              }`}
+            >
+              Fără răspuns
+            </Link>
             <MobileCategoryFilter categories={categories} activeId={activeId} basePath="/feed" total={totalPublished} />
             {/* Căutare — mutată aici din header-ul global (2026-07-06), lângă titlu. As-you-type cu debounce,
                 fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
@@ -145,7 +178,7 @@ export default async function FeedPage({
         </div>
 
         {details.length === 0 ? (
-          <FeedEmpty filtered={!!activeId || !!q} search={!!q} />
+          <FeedEmpty filtered={!!activeId || !!q || unanswered} search={!!q} unanswered={unanswered} />
         ) : (
           <>
             <div className="flex flex-col gap-4">
@@ -160,7 +193,7 @@ export default async function FeedPage({
                 />
               ))}
             </div>
-            <FeedPagination page={page} totalPages={totalPages} categoryId={activeId} q={q} />
+            <FeedPagination page={page} totalPages={totalPages} categoryId={activeId} q={q} unanswered={unanswered} />
           </>
         )}
       </main>
