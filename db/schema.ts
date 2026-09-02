@@ -8,6 +8,7 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  bigint,
   boolean,
   date,
   index,
@@ -699,8 +700,15 @@ export const adminLoginTokens = pgTable(
   (t) => [index("admin_login_tokens_email_idx").on(t.email)],
 );
 
-// Sesiuni de admin (token opac random în cookie HttpOnly). Lookup în DB → revocabil. Expiră.
+// Sesiuni de admin COMPLETE (token opac random în cookie HttpOnly). Lookup în DB → revocabil. Expiră.
 // Cheia identității = emailul (din allowlist) — nu există tabel de conturi de admin.
+//
+// INVARIANT (SEC-P02): un rând AICI înseamnă „ambii factori trecuți" — magic link ȘI TOTP. Factorul
+// intermediar stă în `admin_pending_sessions`, tabel SEPARAT, intenționat — NU un flag `pending` pe
+// rândul ăsta. Motiv: fiecare cale existentă care citește `admin_sessions` (poarta din `proxy.ts`,
+// `getAdminSession`) ar fi trebuit altfel modificată să filtreze flag-ul, iar un singur loc uitat =
+// acces complet cu un singur factor. Cu tabele separate, codul care nu știe de pending nu găsește
+// pur și simplu nimic — fail-safe prin construcție, nu prin vigilență.
 export const adminSessions = pgTable(
   "admin_sessions",
   {
@@ -711,6 +719,48 @@ export const adminSessions = pgTable(
   },
   (t) => [index("admin_sessions_email_idx").on(t.email)],
 );
+
+// Sesiune INTERMEDIARĂ (SEC-P02): magic link consumat, dar al doilea factor încă neverificat.
+// ZERO privilegii — singura rută care o acceptă e /admin-page/totp (poarta din `proxy.ts` + re-verificare
+// în pagină și în server actions). TTL scurt, ștearsă la promovare în `admin_sessions` sau la eșec.
+export const adminPendingSessions = pgTable(
+  "admin_pending_sessions",
+  {
+    token: text().primaryKey(), // hash SHA-256 al tokenului din cookie (la fel ca admin_sessions)
+    email: text().notNull(),
+    expires: timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    // Încercări greșite de cod pe ACEASTĂ sesiune. Rate-limitul din Redis apără emailul/IP-ul global;
+    // contorul ăsta omoară sesiunea intermediară în sine după N greșeli, ca atacatorul să fie nevoit
+    // să treacă din nou prin magic link (adică prin inbox) — nu doar să aștepte resetarea cotei.
+    attempts: integer().notNull().default(0),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("admin_pending_sessions_email_idx").on(t.email)],
+);
+
+// Al doilea factor pentru admin — TOTP (RFC 6238), cheiat pe email ca restul zonei de admin.
+// Secretul e stocat CRIPTAT (AES-256-GCM, cheie `ADMIN_TOTP_ENCRYPTION_KEY` SEPARATĂ de `AUTH_SECRET`):
+// un dump al bazei nu produce direct secrete cu care se pot genera coduri valide.
+export const adminTotp = pgTable("admin_totp", {
+  email: text().primaryKey(),
+  // Format `iv:authTag:ciphertext` (hex) — vezi `lib/admin-totp-crypto.ts`.
+  secretEncrypted: text().notNull(),
+  // false = înrolare începută dar neconfirmată: secretul există, dar NU e încă al doilea factor.
+  // Devine true doar după ce adminul demonstrează un cod valid din authenticator.
+  enabled: boolean().notNull().default(false),
+  // Coduri de rezervă one-time, stocate ca hash SHA-256 (valori random cu entropie mare, nu parole
+  // alese de om → SHA-256 e suficient, ca la tokenurile de magic link). Consum = update atomic.
+  backupCodesHash: text().array().notNull().default(sql`ARRAY[]::text[]`),
+  // ANTI-REPLAY (RFC 6238 §5.2): ultimul pas-de-timp acceptat. Un cod interceptat (shoulder surfing,
+  // proxy) nu mai poate fi folosit a doua oară în fereastra lui de 30s — acceptăm STRICT contoare mai
+  // mari. NULL = niciun cod acceptat încă.
+  lastCounter: bigint({ mode: "number" }),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp({ withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
 
 // Setări de platformă — tabel SINGLE-ROW (config global, administrat din /admin-page).
 // DOUĂ controale INDEPENDENTE de mentenanță (citit pe căi fierbinți → un singur rând, query ieftin):

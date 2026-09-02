@@ -16,7 +16,7 @@ import { createCachedSettingsReader } from "@/lib/cached-settings-reader";
 import { buildCspHeader } from "@/lib/csp";
 import { REFERRAL_COOKIE_MAX_AGE_SECONDS, REFERRAL_COOKIE_NAME } from "@/lib/referral-cookie";
 import { isValidReferralCodeFormat } from "@/server/domain/referral";
-import { getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
+import { getValidAdminPendingSession, getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
 import { getUserGateInfo } from "@/server/repos/usersRepo";
 import { isPublicPath } from "@/lib/public-paths";
@@ -108,7 +108,20 @@ export default async function proxy(req: NextRequest) {
       pathname === "/admin-page/login" ||
       pathname === "/admin-page/verify" || // pagina click-through anti-prefetch (GET inofensiv)
       pathname === "/admin-page/verify/confirm"; // consumul real al tokenului (declanșat din JS de pagina de mai sus)
-    if (!adminPublic) {
+    // SEC-P02: pasul al doilea de autentificare. Cere o sesiune INTERMEDIARĂ (magic link consumat),
+    // nu una completă — altfel n-ar fi accesibilă niciodată, fiind exact pagina care o produce.
+    // Ruta e listată explicit, nu inclusă în `adminPublic`: rămâne o poartă, doar cu altă cheie.
+    if (pathname === "/admin-page/totp") {
+      const pendingToken = req.cookies.get("detalia-admin-pending")?.value;
+      const fullToken = req.cookies.get("detalia-admin-session")?.value;
+      const pending = pendingToken ? await getValidAdminPendingSession(hashToken(pendingToken)) : null;
+      // Cine are deja sesiune completă e lăsat să treacă — pagina îl trimite singură în panou.
+      const full = fullToken ? await getValidAdminSessionEmail(hashToken(fullToken)) : null;
+      const email = pending?.email ?? full;
+      if (!email || !isAdminEmail(email)) {
+        return Response.redirect(new URL("/admin-page/login?error=expired", origin));
+      }
+    } else if (!adminPublic) {
       const adminToken = req.cookies.get("detalia-admin-session")?.value;
       // Cookie-ul poartă tokenul BRUT, coloana stochează hash-ul (SEC-01) → căutarea trebuie hash-uită.
       // Fără `hashToken` aici, poarta nu recunoștea nicio sesiune validă și redirecta la login, iar
