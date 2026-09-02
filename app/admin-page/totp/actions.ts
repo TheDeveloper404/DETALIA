@@ -14,13 +14,7 @@ import {
   verifyAdminSecondFactor,
 } from "@/server/services/adminTotpService";
 
-export type TotpState = {
-  error: string | null;
-  /** Codurile de rezervă, întoarse O SINGURĂ dată, imediat după înrolare. */
-  backupCodes: string[] | null;
-};
-
-export const INITIAL_TOTP_STATE: TotpState = { error: null, backupCodes: null };
+import type { TotpState } from "./state";
 
 // Mesaj UNIC pentru orice cod respins — greșit, expirat, reluat sau cod de rezervă deja consumat.
 // Un mesaj diferențiat ar spune atacatorului dacă a nimerit formatul sau fereastra de timp.
