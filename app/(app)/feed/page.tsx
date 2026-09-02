@@ -153,15 +153,10 @@ export default async function FeedPage({
           </div>
         )}
         {/* Bară de control feed — căutare (lată, ocupă spațiul liber) + filtre în dreapta. Titlul e
-            `sr-only` când nu se caută (spune ce se vede oricum); vizibil doar ca „Rezultate pentru …". */}
+            mereu `sr-only`: rămâne în DOM pt accesibilitate/outline, dar nu mai e text vizibil care
+            să împingă bara de căutare pe un rând nou pe măsură ce crește query-ul (2026-09-02). */}
         <div className="mb-5 mt-2 flex flex-wrap items-center gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
-          {q ? (
-            <h1 className="min-w-0 max-w-full flex-none truncate text-xl font-bold tracking-tight">
-              Rezultate pentru „{q}”
-            </h1>
-          ) : (
-            <h1 className="sr-only">Detalii în dezbatere</h1>
-          )}
+          <h1 className="sr-only">{q ? `Rezultate pentru „${q}”` : "Detalii în dezbatere"}</h1>
           {/* Căutare — mutată aici din header-ul global (2026-07-06). As-you-type cu debounce,
               fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
           <div className="min-w-0 flex-1 basis-64">

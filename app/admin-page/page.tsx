@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/admin-auth";
 import { listUsersForAdmin } from "@/server/repos/usersRepo";
 import { getPlatformState } from "@/server/services/settingsService";
+import { getAdminTotpStatus } from "@/server/services/adminTotpService";
 import { getAllReferralsForAdmin } from "@/server/services/referralService";
 
-import { adminLogoutAction } from "./actions";
+import { adminLogoutAction, resetOwnAdminTotpAction } from "./actions";
 import { AdminReferralsTable } from "./admin-referrals-table";
 import { MaintenanceForm } from "./maintenance-form";
 import { UsersTable } from "./users-table";
@@ -23,10 +24,11 @@ export default async function AdminPage() {
     redirect("/admin-page/login");
   }
 
-  const [users, platform, referrals] = await Promise.all([
+  const [users, platform, referrals, totp] = await Promise.all([
     listUsersForAdmin(),
     getPlatformState(),
     getAllReferralsForAdmin(),
+    getAdminTotpStatus(admin.email),
   ]);
 
   return (
@@ -57,6 +59,25 @@ export default async function AdminPage() {
         <MaintenanceForm
           defaults={{ announcement: platform.announcement, lockdown: platform.lockdown }}
         />
+      </section>
+
+      {/* ─── Al doilea factor (SEC-P02) ─── */}
+      <section className="mt-8">
+        <h2 className="text-base font-semibold">Al doilea factor</h2>
+        <p className="mt-0.5 mb-3 text-[13px] text-muted-foreground">
+          {totp.backupCodesRemaining > 0
+            ? `Coduri de rezervă rămase: ${totp.backupCodesRemaining} din 10.`
+            : "Nu mai ai coduri de rezervă. Resetează al doilea factor ca să primești un set nou."}{" "}
+          Resetarea te deconectează și cere reînrolarea la următorul login.
+        </p>
+        <form action={resetOwnAdminTotpAction}>
+          <button
+            type="submit"
+            className="rounded-lg border border-destructive/40 px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/10"
+          >
+            Resetează al doilea factor
+          </button>
+        </form>
       </section>
 
       {/* ─── Useri ─── */}

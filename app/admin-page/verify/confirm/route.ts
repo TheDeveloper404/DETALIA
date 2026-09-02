@@ -10,6 +10,8 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
   const ok = token ? await verifyAdminLoginToken(token) : false;
 
-  const dest = ok ? "/admin-page" : "/admin-page/login?error=link";
+  // SEC-P02: magic link-ul e doar PRIMUL factor — `verifyAdminLoginToken` creează o sesiune
+  // INTERMEDIARĂ, fără privilegii. Destinația e pasul al doilea, nu panoul.
+  const dest = ok ? "/admin-page/totp" : "/admin-page/login?error=link";
   return NextResponse.redirect(new URL(dest, req.nextUrl.origin));
 }

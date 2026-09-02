@@ -7,6 +7,7 @@ import { destroyAdminSession, getAdminSession } from "@/lib/admin-auth";
 import { audit } from "@/lib/audit";
 import { checkLimit, hashAuditId, limiters } from "@/lib/rate-limit";
 import { setUserStatus } from "@/server/services/accountService";
+import { resetAdminTotp } from "@/server/services/adminTotpService";
 import { setPlatform } from "@/server/services/settingsService";
 
 export type MaintenanceFormState = { ok: boolean; error: string | null };
@@ -67,6 +68,19 @@ export async function setPlatformAction(
 
 // Logout admin — distruge sesiunea și revine la login.
 export async function adminLogoutAction(): Promise<void> {
+  await destroyAdminSession();
+  redirect("/admin-page/login");
+}
+
+// SEC-P02: resetează al doilea factor al ADMINULUI CURENT (schimbare de telefon, rotire preventivă).
+// Cheiat pe emailul din sesiune, niciodată pe un email primit din formular — altfel un admin ar putea
+// dezactiva al doilea factor al altui admin. Sesiunea curentă se închide odată cu resetul: următorul
+// login trece obligatoriu prin înrolare, deci nu rămâne o sesiune completă în urma unui factor șters.
+export async function resetOwnAdminTotpAction(): Promise<void> {
+  const admin = await getAdminSession();
+  if (!admin) redirect("/admin-page/login");
+
+  await resetAdminTotp(admin.email);
   await destroyAdminSession();
   redirect("/admin-page/login");
 }
