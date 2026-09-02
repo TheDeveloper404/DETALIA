@@ -29,6 +29,13 @@ export type AuditEvent =
   | "maintenance_toggled" // admin a schimbat modul de mentenanță (acțiune administrativă cu impact global)
   | "admin_login_success" // autentificare reușită în panoul de admin
   | "admin_login_failed" // încercare eșuată de login admin (user inexistent / parolă greșită) — semnal brute-force
+  // SEC-P02 — al doilea factor de admin (TOTP).
+  | "admin_totp_enabled" // înrolare confirmată: TOTP a devenit al doilea factor pentru un email de admin
+  | "admin_totp_failed" // cod greșit / expirat / reluat — semnal brute-force pe al doilea factor
+  | "admin_totp_backup_used" // s-a consumat un cod de rezervă (dispozitiv pierdut sau folosire anormală)
+  | "admin_totp_reset" // al doilea factor șters dintr-o sesiune completă — următorul login cere înrolare
+  | "admin_totp_locked" // sesiune intermediară închisă după prea multe coduri greșite
+  | "admin_totp_unavailable" // cheia de criptare lipsește sau secretul e nedecriptabil — admin blocat afară
   | "admin_user_suspended" // admin a suspendat un cont (moderare reversibilă)
   | "admin_user_reactivated" // admin a reactivat un cont suspendat anterior
   | "notifications_retention_cleanup" // cron de retenție a șters notificări citite vechi (15 zile)
