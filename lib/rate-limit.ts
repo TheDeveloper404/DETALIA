@@ -84,6 +84,12 @@ export const limiters = {
   // Admin-login (anti-brute-force) — pe username ȘI pe IP. Strict (poartă privilegiată).
   adminLoginPerUser: make(10, "15 m", "admin:login:user"),
   adminLoginPerIp: make(30, "15 m", "admin:login:ip"),
+  // SEC-P02: verificarea celui de-al doilea factor. Mai strict decât login-ul: spațiul e de doar 10^6
+  // coduri, iar fereastra de toleranță (±1 pas) face valide 3 coduri simultan — fără cotă, un atacator
+  // care are deja magic link-ul ar putea încerca sistematic. Cotă separată de `admin:login:*`, altfel
+  // încercările de cod ar consuma cota de trimitere de linkuri (și invers).
+  adminTotpPerUser: make(10, "15 m", "admin:totp:user"),
+  adminTotpPerIp: make(30, "15 m", "admin:totp:ip"),
   // SEC-003 (audit 2026-08-11): preview-ul anonim de invitație de proiect (/projects/join/[token]) face
   // un SELECT în DB per request, fără sesiune — pe IP, ca să nu limiteze mai mulți invitați legitimi
   // de pe aceeași rețea folosind ACELAȘI token.

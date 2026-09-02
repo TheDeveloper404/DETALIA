@@ -33,6 +33,12 @@
 - **`AUTH_SECRET` — rotire trimestrială.** Rotirea invalidează instant TOATE sesiunile active (JWT semnate cu
   secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din greșeală. Schimbi valoarea în
   Vercel (env, ambele scope-uri Preview + Production) → redeploy.
+- **`ADMIN_TOTP_ENCRYPTION_KEY` — NU se rotește ca `AUTH_SECRET`** *(SEC-P02, 2026-09-02)*: e cheia cu
+  care sunt criptate secretele TOTP din `admin_totp`. O rotire fără re-criptarea rândurilor le face
+  NEDECRIPTABILE → toți adminii rămân blocați afară (fail-closed, intenționat). Dacă chiar trebuie
+  schimbată: mai întâi resetează al doilea factor din panou (buton „Resetează al doilea factor"),
+  apoi schimbă cheia, apoi reînrolează. Exact ăsta e motivul pentru care e o cheie SEPARATĂ de
+  `AUTH_SECRET` — ca rotirea trimestrială de mai sus să nu atingă TOTP-ul.
 - **`next-auth` (Auth.js v5) — verificare periodică de versiune** *(actualizat 2026-08-10, audit securitate
   13 categorii)*: proiectul rulează pe `5.0.0-beta.32` + `@auth/core` `0.41.3` (release de securitate iulie
   2026, include GHSA-8fpg-xm3f-6cx3 — fail-open pe middleware v5) — librăria e încă oficial BETA. La
