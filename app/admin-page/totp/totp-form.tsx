@@ -3,11 +3,11 @@
 import { useActionState } from "react";
 
 import {
-  INITIAL_TOTP_STATE,
   confirmEnrollmentAction,
   finishAdminTotpEnrollmentAction,
   verifySecondFactorAction,
 } from "./actions";
+import { INITIAL_TOTP_STATE } from "./state";
 
 // Un singur formular pentru ambele ecrane — diferă doar acțiunea de server și ce se acceptă în câmp.
 // `mode` e o primitivă, nu o funcție: props dinspre Server Component nu pot fi funcții (vezi capcana
