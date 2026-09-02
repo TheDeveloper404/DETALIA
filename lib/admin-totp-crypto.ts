@@ -39,7 +39,10 @@ export function adminTotpKey(): Buffer | null {
 // confidențialitatea și permite forjarea authTag-ului.
 export function encryptTotpSecret(plaintext: string, key: Buffer): string {
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv(ALGORITHM, key, iv);
+  // `authTagLength` explicit (nu doar implicit 16 la GCM): enforce-uit de Node la nivel de API, nu doar
+  // verificat manual după `decrypt` — un tag trunchiat ar fi respins direct de `setAuthTag`, nu ar mai
+  // depinde de verificarea de lungime de mai jos.
+  const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_BYTES });
   const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
   return [iv.toString("hex"), cipher.getAuthTag().toString("hex"), ciphertext.toString("hex")].join(":");
 }
@@ -59,7 +62,7 @@ export function decryptTotpSecret(payload: string, key: Buffer): string | null {
   if (iv.length !== IV_BYTES || authTag.length !== AUTH_TAG_BYTES) return null;
 
   try {
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
+    const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_BYTES });
     decipher.setAuthTag(authTag);
     return Buffer.concat([decipher.update(Buffer.from(dataHex, "hex")), decipher.final()]).toString("utf8");
   } catch {
