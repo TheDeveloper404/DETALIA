@@ -3,14 +3,15 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { users } from "../db/schema";
-import { createSignedToken } from "../lib/signed-token";
+import { createSignedToken, verifySignedToken } from "../lib/signed-token";
+import { setWeeklyDigestEnabled } from "../server/repos/usersRepo";
 import { DIGEST_UNSUBSCRIBE_PURPOSE } from "../server/services/digestService";
 import { getSeed } from "./seed";
 
-// Digest săptămânal — dezabonarea prin linkul semnat din email (`/api/digest/unsubscribe`), la nivel
-// de INTEGRARE (rută + token HMAC + DB). Unit-urile acoperă `signed-token` și logica de asamblare;
-// aici verificăm glue-ul real: token valid → flag pe false; token stricat → 400; GET NU mutează
-// (prefetch-ul clienților de email nu trebuie să dezaboneze).
+// Digest săptămânal — dezabonarea prin linkul semnat din email, la nivel de INTEGRARE (token HMAC +
+// DB reală), în stilul proiectului `security`: apeluri directe service/repo, fără HTTP. Ruta
+// `/api/digest/unsubscribe` e doar glue (parse form → verify → repo → randare pagină); logica reală e
+// aici. Unit-urile din `lib/signed-token.test.ts` acoperă TTL/format-ul tokenului.
 async function digestFlag(userId: string): Promise<boolean | undefined> {
   const [row] = await db
     .select({ v: users.weeklyDigestEnabled })
@@ -20,29 +21,30 @@ async function digestFlag(userId: string): Promise<boolean | undefined> {
   return row?.v;
 }
 
-test("unsubscribe: POST cu token valid pune weekly_digest_enabled pe false", async ({ request }) => {
+test("token de unsubscribe valid → verifică userId și pune weekly_digest_enabled pe false", async () => {
   const { testerUserId } = getSeed();
   const token = createSignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, testerUserId);
   try {
-    const res = await request.post("/api/digest/unsubscribe", { form: { token } });
-    expect(res.status()).toBe(200);
+    const userId = verifySignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, token);
+    expect(userId).toBe(testerUserId);
+
+    await setWeeklyDigestEnabled(userId!, false);
     expect(await digestFlag(testerUserId)).toBe(false);
   } finally {
     await db.update(users).set({ weeklyDigestEnabled: true }).where(eq(users.id, testerUserId));
   }
 });
 
-test("unsubscribe: POST cu token stricat → 400, flagul rămâne neschimbat", async ({ request }) => {
+test("token stricat → verifySignedToken întoarce null, flagul nu se atinge", async () => {
   const { testerUserId } = getSeed();
-  const res = await request.post("/api/digest/unsubscribe", { form: { token: "invalid" } });
-  expect(res.status()).toBe(400);
-  expect(await digestFlag(testerUserId)).toBe(true);
+  expect(await digestFlag(testerUserId)).toBe(true); // baseline
+  expect(verifySignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, "invalid")).toBeNull();
+  expect(verifySignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, "aa.bb.cc")).toBeNull();
+  expect(await digestFlag(testerUserId)).toBe(true); // neschimbat
 });
 
-test("unsubscribe: GET cu token valid NU dezabonează (safe la prefetch)", async ({ request }) => {
+test("token semnat cu alt scop → null (nu se poate refolosi linkul pe alt endpoint)", async () => {
   const { testerUserId } = getSeed();
-  const token = createSignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, testerUserId);
-  const res = await request.get(`/api/digest/unsubscribe?token=${encodeURIComponent(token)}`);
-  expect(res.status()).toBe(200);
-  expect(await digestFlag(testerUserId)).toBe(true);
+  const wrongScope = createSignedToken("alt-scop", testerUserId);
+  expect(verifySignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, wrongScope)).toBeNull();
 });
