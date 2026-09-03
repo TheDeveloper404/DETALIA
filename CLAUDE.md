@@ -65,6 +65,12 @@
   pragul de „zeci" s-a atins deja pe schițe. Tot neglijabil ca performanță la 66 rânduri, dar premisa
   „nimeni nu se apropie" nu mai e adevărată. **Reminder**: dacă acel user (sau altul) trece clar de 100+,
   adaugă `LIMIT` + fetch separat la expand (paginare reală) — nu de făcut preventiv acum.
+- **Cotă Resend vs. digest săptămânal** *(2026-09-03)*: planul free Resend = 100 emailuri/zi, 3000/lună.
+  Digestul (`/api/cron/weekly-digest`, luni) trimite câte un email per user cu activitate + concurează
+  cu magic-link-urile de login în aceeași zi. La ~26 useri activi e lejer sub prag; pe la **~70+ useri
+  activi** verifică headroom-ul real (audit PostHog / dashboard Resend) și fie treci pe plan plătit, fie
+  adaugă throttling. Emailurile de notificare in-app rămân separat OPRITE
+  (`NOTIFICATION_EMAILS_ENABLED`, decizie 2026-07-03).
 - (Candidat, neconfirmat ca obligație recurentă: test periodic de restore pe backup-ul DB — există doar
   backup automat, nu verificare că restore-ul chiar funcționează.)
 - **După ORICE SQL manual rulat pe Neon (skill `neon-sql`) → rulează și `npm run db:generate` local**,
