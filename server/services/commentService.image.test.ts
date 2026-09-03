@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/repos/commentsRepo", () => ({
   deleteFreeCommentByAuthor: vi.fn(),
   getCommentTarget: vi.fn(),
-  getRootCommentForTarget: vi.fn(),
+  getThreadCommentForTarget: vi.fn(),
   insertComment: vi.fn(),
   listCommentsForTarget: vi.fn(),
   toggleCommentLike: vi.fn(),

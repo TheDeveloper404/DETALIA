@@ -396,6 +396,7 @@ export async function updateProfileDetails(
     phone: string;
     phoneVisible: boolean;
     emailVisible: boolean;
+    weeklyDigestEnabled: boolean;
   },
 ): Promise<UpdateDetailsResult> {
   const name = input.name.trim();
@@ -418,6 +419,7 @@ export async function updateProfileDetails(
     phone: phoneRes.value,
     phoneVisible: input.phoneVisible,
     emailVisible: input.emailVisible,
+    weeklyDigestEnabled: input.weeklyDigestEnabled,
   });
   return { ok: true };
 }

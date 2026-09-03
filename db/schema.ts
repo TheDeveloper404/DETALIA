@@ -126,6 +126,11 @@ export const users = pgTable("users", {
   // moment cu server action, deci acces la cookie-ul de intenție pus la vizita pe /signup?ref=...).
   // `onDelete: "set null"` — dacă referrer-ul e vreodată șters, userul adus NU dispare/se strică.
   referredByUserId: uuid().references((): AnyPgColumn => users.id, { onDelete: "set null" }),
+  // Digest săptămânal pe email (2026-09-03) — opt-OUT: toți userii primesc, până apasă linkul de
+  // dezabonare din footer-ul emailului (`/api/digest/unsubscribe?token=…`, token semnat HMAC, fără
+  // login). Cronul (`/api/cron/weekly-digest`) sare userii cu flagul pe false. Separat de
+  // `NOTIFICATION_EMAILS_ENABLED` (flag global de mediu pt emailurile de notificare in-app).
+  weeklyDigestEnabled: boolean().notNull().default(true),
 });
 
 export const accounts = pgTable(
@@ -535,10 +540,15 @@ export const comments = pgTable(
     // UI-ul să poată eticheta „pe schița N" și să sară la tab. null = comentariu obișnuit / dezaprobare
     // pe detaliul de bază. Schița ștearsă → set null (nu pierdem comentariul, doar eticheta).
     sketchContextId: uuid().references(() => sketches.id, { onDelete: "set null" }),
-    // Reply (2026-07-06) — UN SINGUR nivel: un reply nu poate avea el însuși reply-uri
-    // (enforce în commentService, nu doar aici). null = comentariu rădăcină. Cascade: comentariul-părinte
-    // șters → reply-urile lui dispar odată cu el (nu rămân orfane).
+    // Reply (2026-07-06) — fir APLATIZAT pe un singur nivel: `parentCommentId` e MEREU rădăcina firului,
+    // nu comentariul concret la care s-a apăsat „Răspunde" (enforce în commentService). null = comentariu
+    // rădăcină. Cascade: rădăcina ștearsă → tot firul dispare (nu rămân orfane).
     parentCommentId: uuid().references((): AnyPgColumn => comments.id, { onDelete: "cascade" }),
+    // Reply stil LinkedIn (2026-09-03): comentariul CONCRET căruia i s-a răspuns (poate fi un alt reply
+    // din același fir). Doar pentru eticheta „↳ către <Nume>" din UI — firul rămâne aplatizat prin
+    // `parentCommentId`. null = răspuns direct la rădăcină (fără etichetă). `set null` la ștergerea
+    // țintei: firul nu se rupe, doar eticheta dispare.
+    replyToCommentId: uuid().references((): AnyPgColumn => comments.id, { onDelete: "set null" }),
     // SEC-001 (audit securitate 2026-08-11): la „Scoate în comunitate", comentariile ALTOR membri decât
     // autorul detaliului nu trebuie să devină publice — oglindește exact `sketches.hiddenAfterRelease`
     // (vezi acolo). Setat o SINGURĂ dată, în același batch atomic cu nularea `projectId`.
@@ -551,6 +561,7 @@ export const comments = pgTable(
     index("comments_origin_validation_id_idx").on(t.originValidationId),
     index("comments_parent_comment_id_idx").on(t.parentCommentId),
     index("comments_sketch_context_id_idx").on(t.sketchContextId),
+    index("comments_reply_to_comment_id_idx").on(t.replyToCommentId),
   ],
 );
 

@@ -51,6 +51,7 @@ export function EditDetailsForm({
   initialPhoneVisible,
   email,
   initialEmailVisible,
+  initialWeeklyDigestEnabled,
 }: {
   initialName: string | null;
   initialHeadline: string | null;
@@ -62,6 +63,7 @@ export function EditDetailsForm({
   initialPhoneVisible: boolean;
   email: string | null; // afișare informativă (nu se editează aici) — doar vizibilitatea se bifează
   initialEmailVisible: boolean;
+  initialWeeklyDigestEnabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     updateProfileDetailsAction,
@@ -192,6 +194,19 @@ export function EditDetailsForm({
             </div>
           )}
         </div>
+      </div>
+
+      <div className="border-t border-border pt-4">
+        <h3 className="mb-1 text-sm font-semibold">Email-uri</h3>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            name="weeklyDigestEnabled"
+            defaultChecked={initialWeeklyDigestEnabled}
+            className="size-3.5"
+          />
+          Trimite-mi digestul săptămânal (rezumat luni dimineața cu activitatea de pe detaliile tale)
+        </label>
       </div>
 
       <Button type="submit" disabled={pending} className="h-10 self-start">

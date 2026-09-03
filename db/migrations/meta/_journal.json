@@ -162,6 +162,20 @@
       "when": 1788327953863,
       "tag": "0022_lean_nekra",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788409555734,
+      "tag": "0023_easy_boomerang",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1788411571642,
+      "tag": "0024_chief_terrax",
+      "breakpoints": true
     }
   ]
 }

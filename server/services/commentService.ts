@@ -12,7 +12,7 @@ import { type TargetType, validateCommentBody } from "@/server/domain/validation
 import {
   deleteFreeCommentByAuthor,
   getCommentTarget,
-  getRootCommentForTarget,
+  getThreadCommentForTarget,
   insertComment,
   listCommentsForTarget,
   toggleCommentLike as toggleCommentLikeRepo,
@@ -61,14 +61,18 @@ export async function addComment(input: {
     return { ok: false, error: "TARGET_NOT_FOUND" };
   }
 
-  // Reply — UN SINGUR nivel: părintele trebuie să existe, să fie pe ACEEAȘI țintă, ȘI să fie el însuși
-  // rădăcină (nu poți da reply la un reply). isUuid întâi (SEC-11, id malformat → fără query).
+  // Reply stil LinkedIn — fir APLATIZAT: `parentCommentId` devine mereu RĂDĂCINA firului, indiferent
+  // dacă s-a apăsat „Răspunde" pe rădăcină sau pe un alt reply. `replyToCommentId` = comentariul concret
+  // (doar pt eticheta „↳ către <Nume>"); null dacă răspunsul e direct la rădăcină. Ținta trebuie să
+  // existe și să fie ACEEAȘI. isUuid întâi (SEC-11, id malformat → fără query).
   let parentCommentId: string | null = null;
+  let replyToCommentId: string | null = null;
   if (input.parentCommentId) {
     if (!isUuid(input.parentCommentId)) return { ok: false, error: "INVALID_PARENT" };
-    const root = await getRootCommentForTarget(input.parentCommentId, input.targetType, input.targetId);
-    if (!root) return { ok: false, error: "INVALID_PARENT" };
-    parentCommentId = root.id;
+    const thread = await getThreadCommentForTarget(input.parentCommentId, input.targetType, input.targetId);
+    if (!thread) return { ok: false, error: "INVALID_PARENT" };
+    parentCommentId = thread.rootId;
+    replyToCommentId = thread.id === thread.rootId ? null : thread.id;
   }
 
   // Mențiuni @schiță doar pe comentariile de DETALIU (targetId = detailId); tokenii străini se degradează.
@@ -96,6 +100,7 @@ export async function addComment(input: {
     imageUrl,
     originValidationId: null, // comentariu liber (nu provine dintr-o dezaprobare)
     parentCommentId,
+    replyToCommentId,
   });
   return { ok: true };
 }
