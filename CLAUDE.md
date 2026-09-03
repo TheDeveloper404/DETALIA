@@ -146,9 +146,20 @@ verificată, impact, fix). Handoff-ul se rescrie/comprimă în timp; jurnalul de
   Liviu rulează E2E — hook `block-tests` blochează doar e2e) · build/type-check după schimbări de
   tipuri/schemă · git exclusiv de Liviu din VS Code (mesaj de commit sugerat de mine; niciodată pe `main`).
 - **Documentație** în `docs/`. **Changelog detaliat cu dată** în `docs/CHANGELOG.md` (cel mai recent sus).
-- **Handoff** „unde am rămas" în `.remember/remember.md` după fiecare oprire. **Handoff-ul = briefing, nu arhivă:**
-  ce e închis/implementat se trece ca **o linie cu referință la CHANGELOG** (ce + dată → vezi changelog), NU cu
-  detaliu complet. Handoff-ul ține doar **context viu + următorii pași**; detaliul istoric trăiește în `CHANGELOG.md`.
+- **Handoff** „unde am rămas" în `.remember/remember.md`. **ÎN „## Acum" NU INTRĂ NIMIC DESPRE O
+  IMPLEMENTARE** — nici recap (ce face / cum / teste / fișiere), nici „necomis", nici „de rulat SQL/E2E",
+  nici pointer „vezi CHANGELOG X". ZERO. „Acum" ține DOAR context viu care NU e despre ce s-a construit
+  acum: bug-uri de mediu cunoscute, acțiuni manuale ale lui Liviu fără legătură cu task-ul, lucruri de
+  urmărit independente. Dacă un rând menționează un fișier de migrație / un `.spec.ts` / un feature
+  livrat / starea de commit → e greșit acolo, se șterge. Tot ce e „ce s-a făcut / ce a rămas de rulat pe
+  el" trăiește STRICT în `CHANGELOG.md`. **Recidivă cronică — verifică asta EXPLICIT înainte de a salva handoff-ul.**
+- **`docs/BACKLOG.md`:** un item LIVRAT se **ȘTERGE definitiv** din backlog, fără pointer „LIVRAT → vezi
+  CHANGELOG". Istoricul e doar în `CHANGELOG.md`.
+- **E2E rulează pe PREVIEW VERCEL** (`E2E_BASE_URL` din `.env.e2e`), NICIODATĂ localhost. Un spec nou în
+  proiectul Playwright **`security`** NU face `request.get/post` HTTP către o rută — preview-ul e în
+  spatele Deployment Protection și POST-ul e redirectat (urmat ca GET → `200` fals). Se testează logica
+  prin service/repo direct pe `db` (ca `notifications.spec.ts`, `comments-reply.spec.ts`). Glue-ul HTTP
+  al unei rute se lasă neacoperit de e2e sau se testează într-un proiect de browser (`authed`/`public`).
 - **Docs librării:** folosește **context7 MCP** înainte de a scrie cod cu Next.js / Auth.js / Drizzle /
   perfect-freehand (API-uri se schimbă des). Se aplică și la DEBUGGING: orice ipoteză despre cum se comportă
   intern un API de librărie (ex. ce atribute păstrează `cookies().delete()`) se verifică cu context7 ÎNAINTE
