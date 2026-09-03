@@ -198,6 +198,86 @@ export function referralJoinedEmailText(who: string, profileUrl: string): string
   return `Cineva s-a alăturat prin linkul tău\n\n${who} și-a făcut cont în DETALIA prin linkul tău de referral.\n\nVezi profilul tău:\n${profileUrl}`;
 }
 
+// ── Digest săptămânal (2026-09-03) ──────────────────────────────────────────────────────────────
+export type WeeklyDigestData = {
+  recipientName: string | null;
+  // Activitate de la alții pe detaliile destinatarului, în ultimele 7 zile.
+  mine: { comments: number; sketches: number; validations: number };
+  // Detalii publice noi ale săptămânii (egal pentru toți).
+  community: { title: string; url: string }[];
+  unsubscribeUrl: string;
+  profileUrl: string;
+};
+
+// Pluralul românesc pe intervalele uzuale: 1 → singular; 2..19 → plural simplu; ≥20 → plural cu „de".
+function roCount(n: number, one: string, few: string, many: string): string {
+  if (n === 1) return one;
+  if (n < 20) return few.replace("%d", String(n));
+  return many.replace("%d", String(n));
+}
+
+function digestMineLines(mine: WeeklyDigestData["mine"]): string[] {
+  const out: string[] = [];
+  if (mine.comments > 0)
+    out.push(roCount(mine.comments, "un comentariu nou", "%d comentarii noi", "%d de comentarii noi"));
+  if (mine.sketches > 0)
+    out.push(roCount(mine.sketches, "o schiță nouă", "%d schițe noi", "%d de schițe noi"));
+  if (mine.validations > 0)
+    out.push(roCount(mine.validations, "o poziție nouă", "%d poziții noi", "%d de poziții noi"));
+  return out;
+}
+
+export function weeklyDigestEmailHtml(data: WeeklyDigestData): string {
+  const hello = data.recipientName ? `Salut, ${esc(data.recipientName)}!` : "Salut!";
+  const mine = digestMineLines(data.mine);
+  const mineHtml =
+    mine.length > 0
+      ? `<p style="margin:0 0 10px;font-size:15px;line-height:1.55;color:${BRAND.text};font-weight:700;">La tine pe detalii</p>
+         <p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
+           Ai ${mine.join(", ")} pe detaliile tale săptămâna asta.
+         </p>
+         ${emailButton(data.profileUrl, "Vezi activitatea")}`
+      : "";
+  const communityHtml =
+    data.community.length > 0
+      ? `<p style="margin:${mine.length > 0 ? "26px" : "0"} 0 10px;font-size:15px;line-height:1.55;color:${BRAND.text};font-weight:700;">Nou pe DETALIA</p>
+         <ul style="margin:0 0 6px;padding-left:18px;font-size:15px;line-height:1.7;color:${BRAND.muted};">
+           ${data.community
+             .map(
+               (d) =>
+                 `<li><a href="${esc(d.url)}" style="color:${BRAND.accent};text-decoration:none;">${esc(d.title)}</a></li>`,
+             )
+             .join("")}
+         </ul>`
+      : "";
+  return emailLayout(`
+    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Săptămâna ta pe DETALIA</h1>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">${hello}</p>
+    ${mineHtml}
+    ${communityHtml}
+    <p style="margin:26px 0 0;font-size:12px;line-height:1.5;color:${BRAND.muted};border-top:1px solid ${BRAND.border};padding-top:14px;">
+      Primești acest rezumat săptămânal pentru că ai cont pe DETALIA.
+      <a href="${esc(data.unsubscribeUrl)}" style="color:${BRAND.muted};text-decoration:underline;">Dezabonează-te</a>.
+    </p>
+  `);
+}
+
+export function weeklyDigestEmailText(data: WeeklyDigestData): string {
+  const parts: string[] = ["Săptămâna ta pe DETALIA", ""];
+  const mine = digestMineLines(data.mine);
+  if (mine.length > 0) {
+    parts.push(`La tine pe detalii: ai ${mine.join(", ")} pe detaliile tale săptămâna asta.`);
+    parts.push(`Vezi activitatea: ${data.profileUrl}`, "");
+  }
+  if (data.community.length > 0) {
+    parts.push("Nou pe DETALIA:");
+    for (const d of data.community) parts.push(`- ${d.title}: ${d.url}`);
+    parts.push("");
+  }
+  parts.push(`Dezabonare: ${data.unsubscribeUrl}`);
+  return parts.join("\n");
+}
+
 export async function sendEmail(input: {
   to: string;
   subject: string;
@@ -235,4 +315,59 @@ export async function sendEmail(input: {
     console.error("Resend: eroare de rețea la trimitere:", err instanceof Error ? err.message : String(err));
     return false;
   }
+}
+
+// Trimitere în lot (Resend `/emails/batch`, max 100/apel) — folosit de digestul săptămânal ca să nu
+// facă zeci de request-uri individuale. Best-effort ca `sendEmail`: nu aruncă, logează eșecurile fără
+// PII, întoarce câte mesaje au fost ACCEPTATE. Dacă un lot e respins întreg (o adresă malformată, 429
+// pe cotă, Resend indisponibil), NU se pierde tot lotul: se retrimite mesaj-cu-mesaj prin `sendEmail`,
+// ca un singur mesaj problematic să nu blocheze restul destinatarilor săptămânii.
+export async function sendEmailBatch(
+  messages: { to: string; subject: string; html: string; text?: string }[],
+): Promise<number> {
+  const key = process.env.AUTH_RESEND_KEY;
+  const from = process.env.EMAIL_FROM;
+  if (!key || !from) {
+    console.warn("Resend: chei de mediu absente — lotul NU se trimite.");
+    return 0;
+  }
+
+  async function sendChunkIndividually(chunk: typeof messages): Promise<number> {
+    const results = await Promise.all(chunk.map((m) => sendEmail(m)));
+    return results.filter(Boolean).length;
+  }
+
+  let accepted = 0;
+  for (let i = 0; i < messages.length; i += 100) {
+    const chunk = messages.slice(i, i + 100);
+    try {
+      const res = await fetch("https://api.resend.com/emails/batch", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify(
+          chunk.map((m) => ({
+            from,
+            to: m.to,
+            subject: m.subject,
+            html: m.html,
+            ...(m.text ? { text: m.text } : {}),
+          })),
+        ),
+      });
+      if (res.ok) {
+        accepted += chunk.length;
+      } else {
+        console.error("Resend batch: lot respins, status", res.status, "— reîncerc individual");
+        accepted += await sendChunkIndividually(chunk);
+      }
+    } catch (err) {
+      console.error(
+        "Resend batch: eroare de rețea:",
+        err instanceof Error ? err.message : String(err),
+        "— reîncerc individual",
+      );
+      accepted += await sendChunkIndividually(chunk);
+    }
+  }
+  return accepted;
 }

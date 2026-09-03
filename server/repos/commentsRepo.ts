@@ -1,5 +1,6 @@
 // Repo comentarii — singurul loc cu acces Drizzle pentru tabelul `comments` (polimorfic Detail/Sketch).
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { commentLikes, comments, roles, users } from "@/db/schema";
@@ -45,6 +46,7 @@ export async function insertComment(input: {
   imageUrl?: string | null;
   originValidationId?: string | null;
   parentCommentId?: string | null;
+  replyToCommentId?: string | null;
   sketchContextId?: string | null;
 }) {
   const [row] = await db
@@ -58,32 +60,35 @@ export async function insertComment(input: {
       originValidationId: input.originValidationId ?? null,
       wasDisapproval: input.originValidationId != null,
       parentCommentId: input.parentCommentId ?? null,
+      replyToCommentId: input.replyToCommentId ?? null,
       sketchContextId: input.sketchContextId ?? null,
     })
     .returning();
   return row;
 }
 
-// Comentariul-părinte la care se dă reply — validează că e RĂDĂCINĂ (parentCommentId null, „un singur
-// nivel") ȘI că aparține aceleiași ținte (nu poți da reply peste un comentariu de pe altă pagină).
-export async function getRootCommentForTarget(
+// Comentariul pe care s-a apăsat „Răspunde" — poate fi rădăcină SAU un alt reply din același fir
+// (aplatizare stil LinkedIn). Întoarce id-ul lui + autorul + rădăcina firului (`rootId` = el însuși
+// dacă e rădăcină, altfel `parentCommentId`). Validează apartenența la ACEEAȘI țintă (nu se poate da
+// reply peste un comentariu de pe altă pagină). `null` = id inexistent / altă țintă → INVALID_PARENT.
+export async function getThreadCommentForTarget(
   id: string,
   targetType: TargetType,
   targetId: string,
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; authorId: string; rootId: string } | null> {
   const [row] = await db
-    .select({ id: comments.id })
+    .select({ id: comments.id, authorId: comments.authorId, parentCommentId: comments.parentCommentId })
     .from(comments)
     .where(
       and(
         eq(comments.id, id),
         eq(comments.targetType, targetType),
         eq(comments.targetId, targetId),
-        isNull(comments.parentCommentId),
       ),
     )
     .limit(1);
-  return row ?? null;
+  if (!row) return null;
+  return { id: row.id, authorId: row.authorId, rootId: row.parentCommentId ?? row.id };
 }
 
 // Comentariile unei ținte, cu autor (nume + rol curent). Cronologic (cele vechi sus).
@@ -94,6 +99,11 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
         where ${commentLikes.commentId} = ${comments.id} and ${commentLikes.userId} = ${currentUserId} limit 1)`
     : sql<null>`null`;
 
+  // Self-join pt eticheta „↳ către <Nume>": comentariul-țintă concret + autorul lui. Alias, nu subquery
+  // corelat (vezi capcana din CLAUDE.md).
+  const replyTo = alias(comments, "reply_to");
+  const replyToUser = alias(users, "reply_to_user");
+
   return db
     .select({
       id: comments.id,
@@ -103,6 +113,8 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       originValidationId: comments.originValidationId,
       wasDisapproval: comments.wasDisapproval,
       parentCommentId: comments.parentCommentId,
+      replyToCommentId: comments.replyToCommentId,
+      replyToAuthorName: replyToUser.name,
       sketchContextId: comments.sketchContextId,
       authorId: comments.authorId,
       authorName: users.name,
@@ -118,6 +130,8 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
     .from(comments)
     .leftJoin(users, eq(users.id, comments.authorId))
     .leftJoin(roles, eq(roles.userId, comments.authorId))
+    .leftJoin(replyTo, eq(replyTo.id, comments.replyToCommentId))
+    .leftJoin(replyToUser, eq(replyToUser.id, replyTo.authorId))
     .where(
       and(
         eq(comments.targetType, targetType),
