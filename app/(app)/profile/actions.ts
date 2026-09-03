@@ -125,6 +125,7 @@ export async function updateProfileDetailsAction(
     phone: String(formData.get("phone") ?? ""),
     phoneVisible: formData.get("phoneVisible") === "on",
     emailVisible: formData.get("emailVisible") === "on",
+    weeklyDigestEnabled: formData.get("weeklyDigestEnabled") === "on",
   });
   if (!res.ok)
     return { error: DETAILS_ERRORS[res.reason] ?? "Profilul n-a putut fi salvat.", ok: false };

@@ -107,9 +107,10 @@ export function CommentsSection({
     return labels;
   }, [mentionSketches]);
 
-  // Reply pe UN SINGUR nivel: rădăcinile în ordine cronologică, cu reply-urile lor grupate dedesubt
-  // (tot cronologic). Un reply nu poate avea reply — dacă apare cu parentCommentId inexistent printre
-  // rădăcini (caz imposibil azi, dar defensiv), cade la rădăcină ca să nu dispară din UI.
+  // Fir APLATIZAT pe un singur nivel: `parentCommentId` e mereu rădăcina firului (chiar și pt un
+  // răspuns dat altui reply — vezi commentService), deci gruparea pe `parentCommentId` e suficientă.
+  // Rădăcini cronologic, cu reply-urile grupate dedesubt (tot cronologic). Defensiv: un rând cu
+  // `parentCommentId` inexistent printre rădăcini cade la rădăcină, ca să nu dispară din UI.
   const { roots, repliesByParent } = useMemo(() => {
     const rootIds = new Set(comments.filter((c) => !c.parentCommentId).map((c) => c.id));
     const roots: TargetComment[] = [];
@@ -196,7 +197,16 @@ export function CommentsSection({
                         validSketchIds={validSketchIds}
                         sketchLabel={r.sketchContextId ? sketchLabelById.get(r.sketchContextId) : undefined}
                         onSelectSketch={onSelectSketch}
-                        isReply
+                        targetType={targetType}
+                        targetId={targetId}
+                        currentUserName={currentUserName}
+                        currentUserImage={currentUserImage}
+                        canReply={!!currentUserId}
+                        replyToName={
+                          r.replyToCommentId && r.replyToAuthorName && r.replyToAuthorName !== c.authorName
+                            ? r.replyToAuthorName
+                            : undefined
+                        }
                       />
                     </li>
                   ))}
@@ -514,7 +524,7 @@ function CommentItem({
   currentUserName,
   currentUserImage,
   canReply = false,
-  isReply = false,
+  replyToName,
 }: {
   comment: TargetComment;
   detailId: string;
@@ -524,13 +534,14 @@ function CommentItem({
   // tabul unei schițe (comment.sketchContextId). undefined = comentariu obișnuit / dezaprobare pe DETAIL.
   sketchLabel?: string;
   onSelectSketch?: (sketchId: string) => void;
-  // Reply — UN SINGUR nivel: doar comentariile RĂDĂCINĂ primesc buton „Răspunde" (isReply=false).
+  // Reply stil LinkedIn: „Răspunde" pe ORICE comentariu (rădăcină și reply); firul rămâne aplatizat.
   targetType?: TargetType;
   targetId?: string;
   currentUserName?: string | null;
   currentUserImage?: string | null;
   canReply?: boolean;
-  isReply?: boolean;
+  // Numele celui căruia i s-a răspuns, când e alt reply din fir (nu rădăcina) — eticheta „↳ către <Nume>".
+  replyToName?: string | null;
 }) {
   const [replying, setReplying] = useState(false);
   const isDisapproval = Boolean(c.originValidationId);
@@ -654,7 +665,7 @@ function CommentItem({
 
           {/* Acțiuni proprii: editare oricând; ștergere doar pe comentariu liber (nu justificare de dezaprobare). */}
           {isOwner && !editing && (
-            <span className={cn("flex items-center gap-1", !canReply || isReply ? "ml-auto" : undefined)}>
+            <span className="ml-auto flex items-center gap-1">
               <button
                 type="button"
                 onClick={startEdit}
@@ -674,20 +685,11 @@ function CommentItem({
               )}
             </span>
           )}
-          {/* „Răspunde" — DOAR pe rădăcină (reply-urile nu mai au propriul buton — un singur nivel). */}
-          {!isReply && canReply && !editing && (
-            <button
-              type="button"
-              onClick={() => setReplying((v) => !v)}
-              className={cn(
-                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-                !isOwner && "ml-auto",
-              )}
-            >
-              <Reply className="size-3" strokeWidth={2} /> Răspunde
-            </button>
-          )}
         </div>
+
+        {replyToName && (
+          <p className="mb-1 font-mono text-[11px] text-muted-foreground">↳ către {replyToName}</p>
+        )}
 
         {editing ? (
           <div>
@@ -803,6 +805,16 @@ function CommentItem({
                 vezi cine
               </button>
             )}
+            {/* „Răspunde" pe ORICE comentariu (rădăcină și reply) — sub comentariu, lângă voturi. */}
+            {canReply && (
+              <button
+                type="button"
+                onClick={() => setReplying((v) => !v)}
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <Reply className="size-3" strokeWidth={2} /> Răspunde
+              </button>
+            )}
           </div>
         )}
 
@@ -820,6 +832,7 @@ function CommentItem({
             targetId={targetId}
             detailId={detailId}
             parentCommentId={c.id}
+            replyToName={c.authorName}
             currentUserName={currentUserName}
             currentUserImage={currentUserImage}
             onDone={() => setReplying(false)}
@@ -845,6 +858,7 @@ function ReplyComposer({
   targetId,
   detailId,
   parentCommentId,
+  replyToName,
   currentUserName,
   currentUserImage,
   onDone,
@@ -853,6 +867,7 @@ function ReplyComposer({
   targetId: string;
   detailId: string;
   parentCommentId: string;
+  replyToName?: string | null;
   currentUserName?: string | null;
   currentUserImage?: string | null;
   onDone: () => void;
@@ -884,6 +899,9 @@ function ReplyComposer({
     <form ref={formRef} action={formAction} className="mt-3 flex gap-2.5">
       <AvatarInitials name={currentUserName ?? null} imageUrl={currentUserImage} size={30} />
       <div className="relative flex-1">
+        {replyToName && (
+          <p className="mb-1.5 font-mono text-[11px] text-muted-foreground">Răspunzi lui {replyToName}</p>
+        )}
         <input type="hidden" name="targetType" value={targetType} />
         <input type="hidden" name="targetId" value={targetId} />
         <input type="hidden" name="detailId" value={detailId} />

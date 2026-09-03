@@ -116,6 +116,7 @@ export async function getUserProfile(userId: string) {
       phone: users.phone,
       phoneVisible: users.phoneVisible,
       emailVisible: users.emailVisible,
+      weeklyDigestEnabled: users.weeklyDigestEnabled,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -137,6 +138,7 @@ export async function updateUserDetails(
     phone: string | null;
     phoneVisible: boolean;
     emailVisible: boolean;
+    weeklyDigestEnabled: boolean;
   },
 ) {
   await db.update(users).set(fields).where(eq(users.id, userId));
@@ -292,6 +294,11 @@ export async function getUserContact(userId: string) {
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;
+}
+
+// Digest săptămânal — dezabonare din linkul semnat din email (fără sesiune). Idempotent.
+export async function setWeeklyDigestEnabled(userId: string, enabled: boolean): Promise<void> {
+  await db.update(users).set({ weeklyDigestEnabled: enabled }).where(eq(users.id, userId));
 }
 
 // Actorul unei notificări = nume + rol + verificare (pt afișarea rolului/steluței lângă nume). Fără PII.

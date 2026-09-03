@@ -56,6 +56,7 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED | M
 | `seen_detail_tour` | boolean | default `false` — turul ghidat de pe pagina de detaliu, arătat vreodată? |
 | `referral_code` | text | nullable, **UNIQUE** — cod scurt de referral, generat LENEȘ la prima cerere a linkului (2026-08-25) |
 | `referred_by_user_id` | uuid FK→users.id | nullable, `ON DELETE SET NULL` — cine a adus acest user, setat O SINGURĂ DATĂ (2026-08-25) |
+| `weekly_digest_enabled` | boolean | default `true` — opt-OUT digest săptămânal pe email; linkul semnat din footer îl pune pe `false`, reactivare din `/profile/edit` (2026-09-03) |
 | `created_at` | timestamptz | (NU există `updated_at` pe `users`) |
 
 > Tabelele Auth.js (`accounts`, `sessions`, `verification_tokens`) sunt gestionate de adapterul Drizzle — vezi `db/schema.ts`, nu le mâna manual.
@@ -211,7 +212,8 @@ Pot exista mai multe partajări ale aceleiași planșe — fără unique pe `(pr
 | `image_url` | text | nullable — MAXIM o imagine ataşată; trecută prin acelaşi pipeline de re-encodare ca imaginile de detalii, sub `u/<userId>/comments/`. Ştearsă din Blob odată cu comentariul (şi la ştergerea detaliului-părinte) (2026-08-06) |
 | `origin_validation_id` | uuid FK→validations.id | nullable — setat când vine dintr-un DISAPPROVE obligatoriu; **index** |
 | `was_disapproval` | boolean | default `false`; persistă DINCOLO de retragere (`origin_validation_id` → null la retract) — UI arată „fostă dezaprobare, retrasă" |
-| `parent_comment_id` | uuid FK→comments.id | nullable — reply, UN SINGUR nivel (un reply nu poate primi reply, enforce în service); cascade; **index** |
+| `parent_comment_id` | uuid FK→comments.id | nullable — fir APLATIZAT: MEREU rădăcina firului (enforce în service), chiar și pt un răspuns dat altui reply; cascade; **index** |
+| `reply_to_comment_id` | uuid FK→comments.id | nullable — comentariul concret la care s-a răspuns (poate fi alt reply); doar pt eticheta „↳ către <Nume>" din UI; `set null`; **index** (2026-09-03) |
 | `created_at` | timestamptz | |
 > Index pe `(target_type, target_id)` pentru coloana de comentarii a unei ținte.
 

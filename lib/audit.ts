@@ -39,6 +39,7 @@ export type AuditEvent =
   | "admin_user_suspended" // admin a suspendat un cont (moderare reversibilă)
   | "admin_user_reactivated" // admin a reactivat un cont suspendat anterior
   | "notifications_retention_cleanup" // cron de retenție a șters notificări citite vechi (15 zile)
+  | "weekly_digest_sent" // cron de digest săptămânal — câte emailuri asamblate / acceptate de Resend
   // SEC-007 (audit securitate 2026-08-11): zero audit pe evenimentele de autorizare din feature-ul
   // „Proiect" — dacă incidentul SEC-004 (link de invitație vizibil oricărui membru) ar fi fost
   // exploatat, nu exista nicio urmă din care să se reconstituie cine a intrat, când, pe ce link.
