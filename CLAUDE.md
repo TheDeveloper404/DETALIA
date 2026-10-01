@@ -29,10 +29,15 @@
 
 ### Mentenanță recurentă (de reamintit lui Liviu — TOATE remindere-le periodice, nu se întâmplă automat)
 > Secțiune unică pt orice „trebuie verificat/schimbat din când în când" — nu se împrăștie în alte secțiuni.
+> **Rutinele cloud `/schedule` ale DETALIA sunt TOATE DEZACTIVATE** (verificat 2026-10-01: audit securitate
+> lunar, checkpoint teste, knip, next-auth, rotire `AUTH_SECRET`, observabilitate) — checkpoint-urile de mai
+> jos se rulează MANUAL, la cerere. Nimic nu pornește și nu notifică singur.
 
-- **`AUTH_SECRET` — rotire trimestrială.** Rotirea invalidează instant TOATE sesiunile active (JWT semnate cu
-  secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din greșeală. Schimbi valoarea în
-  Vercel (env, ambele scope-uri Preview + Production) → redeploy.
+- **`AUTH_SECRET` — rotire trimestrială** (ultima: 2026-10-01). Rotirea invalidează instant TOATE sesiunile
+  active (JWT semnate cu secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din greșeală.
+  Schimbi valoarea în Vercel (env, ambele scope-uri Preview + Production) → redeploy, apoi aceeași valoare
+  de Preview în GitHub secret `E2E_AUTH_SECRET` + `.env.e2e` local; `ZAP_SESSION_COOKIE` se regenerează
+  înainte de următorul DAST. `.env.local` (dev local) are secretul LUI, separat — nu se copiază cel de Preview.
 - **`ADMIN_TOTP_ENCRYPTION_KEY` — NU se rotește ca `AUTH_SECRET`** *(SEC-P02, 2026-09-02)*: e cheia cu
   care sunt criptate secretele TOTP din `admin_totp`. O rotire fără re-criptarea rândurilor le face
   NEDECRIPTABILE → toți adminii rămân blocați afară (fail-closed, intenționat). Dacă chiar trebuie
@@ -53,10 +58,8 @@
   2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau o librărie,
   treci prin dashboard-ul de erori (`is:unresolved`, caută după culprit/fișierele atinse) și închide manual
   ce nu se mai poate reproduce, cu un comentariu scurt de ce. Nu se auto-curăță la refactor.
-- **Reminder săptămânal observabilitate** (rutină cloud `/schedule`, luni 09:00 RO — recreată 2026-08-24
-  după ce lipsea din lista de rutine active; verifică `id`-ul curent cu `/schedule list` dacă pare iar
-  dispărută) — doar notificare push, fără verificare automată de Claude; **PostHog e sursa unică** (Sentry
-  decommission FĂCUT 2026-07-16, mai devreme decât planul ~07-22 — vezi CHANGELOG).
+- **Observabilitate săptămânală** — trecere manuală prin PostHog (rutina de reminder e dezactivată, vezi mai
+  sus); **PostHog e sursa unică** (Sentry decommission FĂCUT 2026-07-16 — vezi CHANGELOG).
 - **Liste de pe profil (Detalii/Schițe/Activitate) — fără paginare reală la scară** *(decizie de business,
   2026-07-16)*: UI-ul arată primele 4 + „Vezi încă N" (client-side, `components/profile-view.tsx`), dar
   `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`) NU au `LIMIT` — se aduc din DB
@@ -77,10 +80,11 @@
   ca istoricul din `db/migrations/` să rămână sincron cu `db/schema.ts` — vezi capcana din secțiunea de
   mai jos („`db/migrations/` poate diverge silențios..."). `db:generate` NU atinge nicio bază (doar diff schema→istoric local),
   deci e sigur de rulat oricând, spre deosebire de `db:push`/`db:migrate`.
-- **Revizuire lunară allowlist Dependabot** (mutat din backlog, 2026-08-25): o excepție tolerată azi pe
-  `brace-expansion` (dismissed 2026-07-27 ca `tolerable_risk`, dev/build-time only) — la checkpoint-ul
-  lunar verifică dacă a apărut fix compatibil (eslint 10 stabil?) → upgrade + scoate intrarea din
-  allowlist-ul Dependabot.
+- **Revizuire lunară alerte Dependabot respinse** (mutat din backlog, 2026-08-25): singura alertă respinsă
+  e `esbuild` GHSA-67mh-4wv8-2f99 (medium, prin `drizzle-kit`, doar dev, dismissed 2026-07-06 ca
+  `tolerable_risk`) — la checkpoint-ul lunar verifică dacă `drizzle-kit` a trecut pe `esbuild` ≥0.25 →
+  upgrade. Separat: `scripts/audit-check.mjs` blochează PR-urile pe ORICE high/critical nou — un CI roșu
+  la pasul „Audit dependențe" fără schimbări de cod = advisory nou apărut, nu regresie.
 - **DAST (ZAP) — lunar, sau la orice implementare mare** (regulă 2026-08-25): trecere cu cei 3 pași
   deja folosiți (2026-08-22): `zap-baseline.yml` (neautentificat) → `zap-full-auth.yml` (autentificat,
   cookie de sesiune de test) → skill `dast-preview` (ad-hoc, țintit pe findere specifice, cere URL de
