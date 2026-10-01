@@ -34,10 +34,15 @@ Codex citește doar `AGENTS.md`, nu `CLAUDE.md`. Sursa originală rămâne `CLAU
 
 ### Mentenanță recurentă (TOATE remindere-le periodice, nu se întâmplă automat)
 > Secțiune unică pt orice „trebuie verificat/schimbat din când în când" — nu se împrăștie în alte secțiuni.
+> **Rutinele cloud ale DETALIA sunt TOATE DEZACTIVATE** (verificat 2026-10-01) — checkpoint-urile de mai
+> jos se rulează MANUAL, la cerere. Nimic nu pornește și nu notifică singur.
 
-- **`AUTH_SECRET` — rotire trimestrială.** Rotirea invalidează instant TOATE sesiunile active
-  (JWT semnate cu secretul vechi devin nevalide) — de făcut într-o fereastră asumată, nu din
-  greșeală. Schimbi valoarea în Vercel (env, ambele scope-uri Preview + Production) → redeploy.
+- **`AUTH_SECRET` — rotire trimestrială** (ultima: 2026-10-01). Rotirea invalidează instant TOATE
+  sesiunile active (JWT semnate cu secretul vechi devin nevalide) — de făcut într-o fereastră
+  asumată, nu din greșeală. Schimbi valoarea în Vercel (env, ambele scope-uri Preview + Production)
+  → redeploy, apoi aceeași valoare de Preview în GitHub secret `E2E_AUTH_SECRET` + `.env.e2e` local;
+  `ZAP_SESSION_COOKIE` se regenerează înainte de următorul DAST. `.env.local` (dev local) are
+  secretul LUI, separat — nu se copiază cel de Preview.
 - **`ADMIN_TOTP_ENCRYPTION_KEY` — NU se rotește ca `AUTH_SECRET`** *(SEC-P02, 2026-09-02)*: e
   cheia cu care sunt criptate secretele TOTP din `admin_totp`. O rotire fără re-criptarea
   rândurilor le face NEDECRIPTABILE → toți adminii rămân blocați afară (fail-closed, intenționat).
@@ -56,8 +61,8 @@ Codex citește doar `AGENTS.md`, nu `CLAUDE.md`. Sursa originală rămâne `CLAU
   2026-07-13, declanșată de eveniment nu de calendar)*: după ce ștergi/înlocuiești un fișier sau
   o librărie, treci prin dashboard-ul de erori și închide manual ce nu se mai poate reproduce,
   cu un comentariu scurt de ce.
-- **Reminder săptămânal observabilitate** (rutină cloud, luni 09:00 RO) — doar notificare push;
-  **PostHog e sursa unică** (Sentry decommission FĂCUT 2026-07-16).
+- **Observabilitate săptămânală** — trecere manuală prin PostHog (rutina de reminder e
+  dezactivată, vezi mai sus); **PostHog e sursa unică** (Sentry decommission FĂCUT 2026-07-16).
 - **Liste de pe profil (Detalii/Schițe/Activitate) — fără paginare reală la scară** *(decizie de
   business, 2026-07-16)*: `listAuthorDetails`/`listAuthorSketches` (`server/repos/profileRepo.ts`)
   NU au `LIMIT`. Maxim real verificat (2026-08-18): 66 schițe. **Reminder**: la 100+ pe un user,
@@ -68,8 +73,10 @@ Codex citește doar `AGENTS.md`, nu `CLAUDE.md`. Sursa originală rămâne `CLAU
 - **După ORICE SQL manual rulat pe Neon (skill `neon-sql`) → rulează și `npm run db:generate`
   local**, ca istoricul din `db/migrations/` să rămână sincron cu `db/schema.ts` — vezi capcana
   din secțiunea de mai jos. `db:generate` NU atinge nicio bază, deci e sigur de rulat oricând.
-- **Revizuire lunară allowlist Dependabot** (mutat din backlog, 2026-08-25): excepție tolerată pe
-  `brace-expansion` — verifică lunar dacă a apărut fix compatibil.
+- **Revizuire lunară alerte Dependabot respinse** (mutat din backlog, 2026-08-25): singura respinsă
+  e `esbuild` GHSA-67mh-4wv8-2f99 (medium, prin `drizzle-kit`, doar dev) — verifică lunar dacă
+  `drizzle-kit` a trecut pe `esbuild` ≥0.25 → upgrade. `scripts/audit-check.mjs` blochează PR-urile
+  pe ORICE high/critical nou — CI roșu la „Audit dependențe" fără schimbări de cod = advisory nou.
 - **DAST (ZAP) — lunar, sau la orice implementare mare**: `zap-baseline.yml` (neautentificat) →
   `zap-full-auth.yml` (autentificat) → skill `dast-preview` (ad-hoc). Nu se pornește automat —
   userul declanșează sau cere explicit.
