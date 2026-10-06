@@ -18,9 +18,7 @@ test.describe("Landing", () => {
     await expect(
       page.getByRole("link", { name: "Creează cont gratuit", exact: true }).first(),
     ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Autentificare", exact: true }).first(),
-    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "Autentifică-te", exact: true })).toBeVisible();
     await expect(page.locator("header img")).toHaveAttribute("src", "/logo.svg");
     await expect(page.locator(".dt-intro")).toHaveCount(0);
   });
@@ -35,7 +33,14 @@ test.describe("Landing", () => {
     await page.goto("/");
     await page.getByRole("link", { name: "Vezi un exemplu", exact: true }).click();
     await expect(page).toHaveURL(/#cum-functioneaza$/);
-    await expect(page.locator("header").getByRole("link")).toHaveCount(3);
+    // logo · Ghid · Autentificare · CTA · LinkedIn · GitHub (Ghid + rețele ascunse sub 1000 px).
+    await expect(page.locator("header").getByRole("link")).toHaveCount(6);
+    await expect(
+      page.locator("header").getByRole("link", { name: "Ghid", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator("header").getByRole("link", { name: "DETALIA pe LinkedIn" }),
+    ).toHaveAttribute("href", "https://www.linkedin.com/company/144903896/");
     await expect(
       page.locator("header").getByRole("link", { name: "Proiecte & Planșe" }),
     ).toHaveCount(0);

@@ -48,18 +48,26 @@ describe("proxy — rute fără sesiune de user", () => {
     expect(res.headers.get("location")).toContain("/login");
   });
 
-  it.each(vercelCrons.map((c) => c.path))("cronul %s din vercel.json ajunge la handler fără sesiune", async (path) => {
-    const res = await proxy(new NextRequest(`${BASE}${path}`, { headers: { authorization: "Bearer x" } }));
-    expect(isRedirect(res)).toBe(false);
-    expect(res.headers.get("x-middleware-next")).toBe("1");
-  });
+  it.each(vercelCrons.map((c) => c.path))(
+    "cronul %s din vercel.json ajunge la handler fără sesiune",
+    async (path) => {
+      const res = await proxy(
+        new NextRequest(`${BASE}${path}`, { headers: { authorization: "Bearer x" } }),
+      );
+      expect(isRedirect(res)).toBe(false);
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+    },
+  );
 
-  it.each(vercelCrons.map((c) => c.path))("cronul %s nu e rescris la /maintenance în lockdown", async (path) => {
-    getSettingsRow.mockResolvedValue({ lockdownEnabled: true });
-    const res = await proxy(new NextRequest(`${BASE}${path}`));
-    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
-    expect(res.headers.get("x-middleware-next")).toBe("1");
-  });
+  it.each(vercelCrons.map((c) => c.path))(
+    "cronul %s nu e rescris la /maintenance în lockdown",
+    async (path) => {
+      getSettingsRow.mockResolvedValue({ lockdownEnabled: true });
+      const res = await proxy(new NextRequest(`${BASE}${path}`));
+      expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+    },
+  );
 
   it("linkul de dezabonare din email (GET cu token) ajunge la handler fără sesiune", async () => {
     const res = await proxy(new NextRequest(`${BASE}/api/digest/unsubscribe?token=abc`));
@@ -69,6 +77,12 @@ describe("proxy — rute fără sesiune de user", () => {
 
   it("confirmarea dezabonării (POST) ajunge la handler fără sesiune", async () => {
     const res = await proxy(new NextRequest(`${BASE}/api/digest/unsubscribe`, { method: "POST" }));
+    expect(isRedirect(res)).toBe(false);
+    expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("ghidul de utilizare e accesibil fără sesiune (linkuit din landing)", async () => {
+    const res = await proxy(new NextRequest(`${BASE}/ghid`));
     expect(isRedirect(res)).toBe(false);
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });

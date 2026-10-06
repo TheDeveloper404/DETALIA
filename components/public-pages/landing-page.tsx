@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowDown, ArrowRight, Check, MessageSquare, Pencil } from "lucide-react";
-import { BrandLogo } from "@/components/brand-logo";
 import { CookieConsent } from "@/components/cookie-consent";
 import { DetailDemo, RoleDemo, WorkspaceDemo } from "./landing-demos";
+import { PublicFooter, PublicHeader } from "./public-chrome";
 import { TechnicalSheet } from "./technical-sheet";
 import shared from "./public-pages.module.css";
 import styles from "./landing-experience.module.css";
@@ -21,15 +21,7 @@ export function LandingPage() {
       <a className={shared.skipLink} href="#continut">
         Sari la conținut
       </a>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <BrandLogo size={38} />
-          <nav className={styles.headerActions} aria-label="Navigație principală">
-            <Link href="/login">Autentificare</Link>
-            <SignupLink />
-          </nav>
-        </div>
-      </header>
+      <PublicHeader />
       <main id="continut">
         <section className={styles.heroSection} aria-labelledby="landing-title">
           <div className={styles.hero}>
@@ -173,15 +165,7 @@ export function LandingPage() {
           </div>
         </section>
       </main>
-      <footer className={styles.footer}>
-        <BrandLogo size={30} />
-        <span>Detalii de execuție. Perspective asumate.</span>
-        <nav aria-label="Informații și suport">
-          <Link href="/termeni">Termeni și condiții</Link>
-          <Link href="/confidentialitate">Confidențialitate</Link>
-          <a href="mailto:support@detalia.ro">Suport</a>
-        </nav>
-      </footer>
+      <PublicFooter />
       <CookieConsent />
     </div>
   );

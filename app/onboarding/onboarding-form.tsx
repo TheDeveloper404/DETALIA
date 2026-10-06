@@ -426,7 +426,7 @@ export function OnboardingForm() {
               style={inputStyle}
             />
             <div style={{ fontSize: 12.5, color: "var(--muted-foreground)", marginTop: 7, lineHeight: 1.4 }}>
-              O linie scurtă, ca pe LinkedIn — apare sub numele tău pe profil.
+              O linie scurtă — apare sub numele tău pe profil.
             </div>
           </div>
 

@@ -1,5 +1,5 @@
 .landing {
-  --landing-max: 1440px;
+  --landing-max: var(--container-max); /* aceeași lățime ca aplicația */
   --landing-dark: #33201a; /* Tonul teracotă închis folosit pe detalia.ro. */
   --landing-light: var(--background);
 }
@@ -11,7 +11,7 @@
   outline-offset: 5px;
 }
 .header {
-  background: var(--background);
+  background: var(--secondary);
   border-bottom: 1px solid var(--border);
 }
 .headerInner {
@@ -27,20 +27,60 @@
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 20px;
 }
-.headerActions > a:first-child {
+.headerGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.headerSocial {
+  display: flex;
+  align-items: center;
+}
+.headerDivider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+.headerLink {
   display: inline-flex;
   align-items: center;
   min-height: 48px;
-  font-size: 14px;
+  font-size: 16px;
+  font-weight: 600;
   text-decoration: none;
 }
-.headerActions > a:first-child:hover {
+.headerLink:hover {
   color: var(--primary);
 }
-.headerActions > a:last-child svg {
-  display: none;
+.headerLogin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  color: var(--foreground);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 180ms ease;
+}
+.headerLogin:hover {
+  color: var(--primary);
+}
+.socialLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 44px;
+  color: var(--muted-foreground);
+  transition: color 180ms ease;
+}
+.socialLink:hover {
+  color: var(--primary);
 }
 .heroSection {
   position: relative;
@@ -76,6 +116,7 @@
 .eyebrow {
   margin: 0;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 12px;
   line-height: 1.6;
   letter-spacing: 0.07em;
@@ -120,6 +161,7 @@
 }
 .microcopy {
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 12px;
   color: var(--muted-foreground);
   margin: 20px 0 0;
@@ -310,6 +352,7 @@
   flex-wrap: wrap;
   gap: 8px;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 10px;
   color: var(--muted-foreground);
   padding: 20px 24px;
@@ -568,6 +611,7 @@
   padding-top: 24px;
   border-top: 1px solid var(--muted-foreground);
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 12px;
 }
 .projectPreview,
@@ -584,6 +628,7 @@
   flex-wrap: wrap;
   gap: 12px;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 10px;
   padding: 20px 24px;
   background: var(--secondary);
@@ -725,6 +770,7 @@
   border-top: 1px solid var(--border);
   font-size: 11px;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   color: var(--muted-foreground);
 }
 .boardCanvas > p {
@@ -797,6 +843,7 @@
 }
 .roleContext > span:first-child {
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 10px;
   color: var(--muted-foreground);
 }
@@ -824,6 +871,7 @@
 .rolePanel blockquote span {
   display: block;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 11px;
   text-transform: uppercase;
   margin-bottom: 12px;
@@ -834,6 +882,7 @@
   border-top: 1px solid var(--border);
   font-size: 12px;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
 }
 .principles {
   display: grid;
@@ -889,34 +938,47 @@
   color: var(--border);
 }
 .footer {
+  background: var(--secondary);
+}
+.footerInner {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 24px;
   max-width: var(--landing-max);
-  padding: 32px 48px;
+  padding: 16px 48px;
   margin: auto;
 }
-.footer > span {
-  font-size: 12px;
+.footerBrand {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.footerBrand > span {
+  font-size: 15px;
+  font-weight: 500;
   color: var(--muted-foreground);
 }
-.footer nav {
+.footerInner nav {
   display: flex;
   flex-wrap: wrap;
   gap: 24px;
   margin-left: auto;
-  font-size: 12px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--muted-foreground);
 }
-.footer nav a {
+.footerInner nav a {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
 }
-.footer nav a:hover {
+.footerInner nav a:hover {
   color: var(--primary);
   text-decoration: underline;
+}
+.footerSocial {
+  gap: 8px;
 }
 @keyframes sheet-arrive {
   from {
@@ -968,7 +1030,7 @@
 }
 @media (max-width: 1200px) {
   .headerInner,
-  .footer {
+  .footerInner {
     padding-left: 32px;
     padding-right: 32px;
   }
@@ -1011,6 +1073,10 @@
   }
 }
 @media (max-width: 1000px) {
+  /* Sub 1000 px Ghid + rețelele rămân doar în footer, ca să încapă butoanele de cont. */
+  .hideOnMobile {
+    display: none !important;
+  }
   .hero {
     grid-template-columns: 1fr;
     gap: 32px;
@@ -1102,13 +1168,15 @@
     gap: 16px;
     margin-left: auto;
   }
-  .headerActions > a:first-child {
-    font-size: 13px;
+  .headerLink {
+    font-size: 15px;
   }
-  .headerActions > a:last-child {
-    padding: 12px;
+  .headerLogin,
+  .headerCta {
     font-size: 12px;
-    min-height: 44px;
+  }
+  .headerCta {
+    padding: 7px 12px;
   }
   .hero {
     padding: 48px 20px 32px;
@@ -1124,7 +1192,7 @@
   .heroActions {
     gap: 16px;
   }
-  .heroActions > a {
+  .heroActions .exampleLink {
     font-size: 14px;
   }
   .heroSheet {
@@ -1309,11 +1377,11 @@
   .finalCta .sectionInner > p:not(.eyebrow) {
     font-size: 16px;
   }
-  .footer {
-    padding: 24px 20px;
+  .footerInner {
+    padding: 16px 20px;
     gap: 16px;
   }
-  .footer nav {
+  .footerInner nav {
     width: 100%;
     margin-left: 0;
     gap: 16px;

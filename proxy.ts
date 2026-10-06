@@ -45,6 +45,7 @@ const PUBLIC_PATHS = [
   "/projects/join",
   "/termeni", // Termeni și condiții — public, linkuit din footer
   "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
+  "/ghid", // Ghid de utilizare — public, linkuit din header/footer-ul landing-ului (conținut generic, fără date)
   "/ingest", // proxy PostHog (evită ad-blockere) — trebuie accesibil pre-auth (pageview pe landing/login/signup)
   "/.well-known/security.txt", // canal RFC 9116 de raportare responsabilă — public prin natura lui
   // Dezabonare digest din clientul de email, FĂRĂ sesiune — dovada e tokenul HMAC, verificat în handler.

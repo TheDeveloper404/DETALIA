@@ -1,0 +1,210 @@
+/* Ghid public, layout de documentație: secțiuni · conținut · cuprins. Folosește tokenurile globale. */
+.docs {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr) 220px;
+  gap: 56px;
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 48px 48px 96px;
+}
+.sidebar,
+.toc {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+.navGroup + .navGroup {
+  margin-top: 24px;
+}
+.navGroupTitle {
+  margin: 0 0 8px;
+  color: var(--muted-foreground);
+  font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.sidebar ul,
+.toc ul,
+.mobileNav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sidebar a,
+.mobileNav a {
+  display: block;
+  padding: 6px 0 6px 12px;
+  border-left: 1px solid var(--border);
+  color: var(--foreground);
+  font-size: 14px;
+  text-decoration: none;
+}
+.sidebar a:hover,
+.mobileNav a:hover {
+  border-left-color: var(--primary);
+  color: var(--primary);
+}
+.toc a {
+  display: block;
+  padding: 4px 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  text-decoration: none;
+}
+.toc a:hover {
+  color: var(--primary);
+}
+.content {
+  min-width: 0;
+  max-width: 760px;
+}
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--primary);
+  font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.07em;
+}
+.content h1 {
+  margin: 0;
+  font-size: clamp(32px, 4vw, 44px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.lead {
+  margin: 16px 0 0;
+  color: var(--muted-foreground);
+  font-size: 17px;
+  line-height: 1.6;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 40px 0 16px;
+  padding: 0;
+  list-style: none;
+}
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--foreground);
+  text-decoration: none;
+  transition:
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+.card svg {
+  color: var(--primary);
+}
+.card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+.cardTitle {
+  font-size: 15px;
+  font-weight: 600;
+}
+.cardText {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.section {
+  padding-top: 40px;
+  scroll-margin-top: 16px;
+}
+.section h2 {
+  margin: 0 0 12px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.section p,
+.section li {
+  color: color-mix(in srgb, var(--foreground) 90%, transparent);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.section p {
+  margin: 0 0 12px;
+}
+.section ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  list-style: disc;
+}
+.section li + li {
+  margin-top: 6px;
+}
+.section a {
+  color: var(--primary);
+  font-weight: 600;
+}
+.mobileNav {
+  display: none;
+}
+@media (max-width: 1200px) {
+  .docs {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 40px;
+    padding: 40px 32px 80px;
+  }
+  .toc {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .docs {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 32px 20px 64px;
+  }
+  .sidebar {
+    display: none;
+  }
+  .mobileNav {
+    display: block;
+    margin-top: 24px;
+    padding: 12px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+  }
+  .mobileNav summary {
+    min-height: 32px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .mobileNav nav {
+    margin-top: 12px;
+  }
+  .cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 440px) {
+  .cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  .card:hover {
+    transform: none;
+  }
+}
