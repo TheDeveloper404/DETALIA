@@ -1,6 +1,9 @@
 import Link from "next/link";
-import { ArrowDown, ArrowRight, Check, MessageSquare, Pencil } from "lucide-react";
+import Image from "next/image";
+import { ArrowDown, ArrowRight, Check, Layers, MessageSquare, Pencil, Users } from "lucide-react";
+import { AvatarInitials } from "@/components/avatar-initials";
 import { CookieConsent } from "@/components/cookie-consent";
+import { RolePill } from "@/components/role-pill";
 import { DetailDemo, RoleDemo, WorkspaceDemo } from "./landing-demos";
 import { PublicFooter, PublicHeader } from "./public-chrome";
 import { TechnicalSheet } from "./technical-sheet";
@@ -136,17 +139,80 @@ export function LandingPage() {
               </p>
             </div>
             <RoleDemo />
-            <div className={styles.principles}>
-              <p>
-                <strong>Poziții asumate.</strong> Vezi cine vorbește și din ce rol.
+            <section className={styles.principles} aria-labelledby="principles-title">
+              <div className={styles.principlesIntro}>
+                <p className={styles.eyebrow}>Cum citești o contribuție</p>
+                <h3 id="principles-title">Vezi cine spune, de ce spune și la ce se referă.</h3>
+                <p>Trei repere fac discuția ușor de urmărit, indiferent de rolul ales mai sus.</p>
+              </div>
+              <ol className={styles.principleList}>
+                <li>
+                  <div className={styles.principleExample}>
+                    <div className={styles.principleAuthor}>
+                      <AvatarInitials name="Andrei Popa" size={38} />
+                      <div>
+                        <strong>Andrei Popa</strong>
+                        <RolePill roleMain="EXECUTANT" subRole="Executant" verified={false} />
+                      </div>
+                    </div>
+                    <p>„Ce trebuie clarificat înainte de montaj?”</p>
+                  </div>
+                  <h4>
+                    <Users size={18} aria-hidden="true" /> Poziții asumate
+                  </h4>
+                  <p>
+                    Numele și meseria însoțesc contribuția. Înțelegi din ce experiență vine
+                    întrebarea și poți judeca argumentul în context.
+                  </p>
+                </li>
+                <li>
+                  <div className={styles.principleExample}>
+                    <span className={styles.principleLabel}>Dezaprob · cu justificare</span>
+                    <blockquote>
+                      „Nu este clar cum se fixează această piesă. Aș arăta racordul într-o schiță.”
+                    </blockquote>
+                  </div>
+                  <h4>
+                    <MessageSquare size={18} aria-hidden="true" /> Dezacord explicat
+                  </h4>
+                  <p>
+                    Dezaprobarea vine cu o explicație scrisă sau cu o schiță publicată. Ceilalți văd
+                    obiecția și pot răspunde la ea.
+                  </p>
+                </li>
+                <li>
+                  <div className={styles.principleExample}>
+                    <div className={styles.contextStack}>
+                      <Image
+                        src="/landing/terrace-detail.webp"
+                        alt="Detaliul inițial al racordului terasă–atic"
+                        width={180}
+                        height={120}
+                        sizes="180px"
+                      />
+                      <Image
+                        src="/landing/terrace-sketch.webp"
+                        alt="Schiță ilustrativă peste același racord"
+                        width={180}
+                        height={120}
+                        sizes="180px"
+                      />
+                    </div>
+                    <span className={styles.principleLabel}>Detaliu inițial → schiță</span>
+                  </div>
+                  <h4>
+                    <Layers size={18} aria-hidden="true" /> Context păstrat
+                  </h4>
+                  <p>
+                    Schița se publică peste detaliul de la care a pornit. Poți reveni la desenul
+                    inițial și urmări contribuțiile în același teanc.
+                  </p>
+                </li>
+              </ol>
+              <p className={styles.principlesNote}>
+                Exemple ilustrative, cu persoane și texte fictive.
               </p>
-              <p>
-                <strong>Dezacord explicat.</strong> Dezaprobarea cere o justificare.
-              </p>
-              <p>
-                <strong>Context păstrat.</strong> Schița rămâne legată de detaliu.
-              </p>
-            </div>
+            </section>
           </div>
         </section>
         <section className={styles.finalCta} aria-labelledby="final-title">

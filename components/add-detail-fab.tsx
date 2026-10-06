@@ -4,6 +4,7 @@ import { FolderPlus, Plus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 // CTA principal al platformei — fix pe ecran (nu în flow-ul unei coloane), ca să rămână mereu
 // accesibil indiferent de scroll sau de câte categorii sunt expandate în sidebar (vezi CHANGELOG).
@@ -34,19 +35,21 @@ export function AddDetailFab() {
 
   return (
     <div ref={rootRef} className="fixed bottom-6 right-6 z-40">
-      <button
+      <Button
         type="button"
+        variant="technical"
+        size="cta"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Adaugă"
         title="Adaugă"
         data-tour="add"
-        className="inline-flex items-center gap-2 rounded-full border border-[#95492e] bg-primary px-5 py-3.5 font-semibold text-primary-foreground no-underline shadow-lg transition-colors hover:bg-[#974a2e]"
+        className="shadow-lg max-sm:w-11 max-sm:p-0"
       >
         <Plus className="size-[18px]" strokeWidth={2.4} />
         <span className="hidden sm:inline">Adaugă</span>
-      </button>
+      </Button>
 
       {open && (
         <div
