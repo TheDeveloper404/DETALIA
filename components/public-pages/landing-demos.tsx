@@ -519,7 +519,7 @@ const perspectives = [
     icon: <Package size={24} aria-hidden="true" />,
     topic: "Racordul și sistemul de materiale",
     question: "Ce sistem de fixare și ce condiții de montaj presupune desenul?",
-    body: "Poate clarifica cerințele materialului și informațiile necesare pentru alegerea unui sistem. Contextul proiectului rămâne esențial.",
+    body: "Poate clarifica cerințele materialului și informațiile necesare pentru alegerea unui sistem. Contextul proiectului rămâne esențial. Poți trimite autorului o ofertă de materiale, cu mesaj și documente.",
     example: "Ce sistem este prevăzut și ce documentație de montaj îl însoțește?",
     focus: "Compatibilitate · sistem · documentație",
   },
