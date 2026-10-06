@@ -91,6 +91,8 @@ CTA cărămiziu aliniat cu landing-ul: `Button variant="technical" size="cta"` �
 IBM Plex Mono 13 px majusculă, bordură/hover `--primary-button-border`; 38 px desktop, 44 px mobil.
 Folosit de Adaugă, Comentează, Schițează și Invită un prieten. Nu modifica varianta `default` global
 pentru o aliniere locală. Stările disabled/pending, focus și props native sunt cele ale `Button`.
+Butonul de referral afișează „Invită” sub breakpoint-ul `sm`, cu contorul păstrat; pe desktop
+afișează „Invită un prieten”. Numele accesibil rămâne complet și include contorul când există.
 Set minimal — dacă ai nevoie de `dialog`/`dropdown-menu`/`select` etc., verifică întâi dacă chiar
 lipsește (`npx shadcn add ...`) înainte de a construi manual echivalentul (parte din motivul pentru
 care modalul e reimplementat de 9 ori mai sus — nu există un `<Dialog>` shadcn instalat încă).
