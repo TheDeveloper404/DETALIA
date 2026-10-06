@@ -24,9 +24,9 @@ export function HomeIconLink() {
       aria-label="Acasă"
       title="Acasă"
       onClick={scrollFeedToTop}
-      className="inline-flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+      className="inline-flex h-11 w-11 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
     >
-      <House className="size-5" strokeWidth={2} />
+      <House className="size-6" strokeWidth={2} />
     </Link>
   );
 }

@@ -16,26 +16,34 @@ export function AuthShell({
 }: {
   mode: "login" | "signup";
   children: ReactNode;
-  presentation?: "default" | "entry";
+  presentation?: "default" | "entry" | "centered";
 }) {
   const isEntry = presentation === "entry";
+  // `centered`: pagina de după click pe magic link („Te conectăm…”) — același header/culori ca
+  // login/signup, conținutul pe mijloc, fără desenul animat.
+  const isCentered = presentation === "centered";
+  const branded = isEntry || isCentered;
   return (
     <div
-      className={`${styles.publicPage} ${styles.authPage} ${isEntry ? `${styles.authEntry} ${landing.landing}` : ""}`}
+      className={`${styles.publicPage} ${styles.authPage} ${isEntry ? styles.authEntry : ""} ${branded ? landing.landing : ""}`}
     >
       <a className={styles.skipLink} href="#formular">
         Sari la formular
       </a>
-      {/* Login/signup: același header ca landing-ul (poziționare, logo, fundal). */}
-      <header className={isEntry ? landing.header : styles.header}>
-        <div className={isEntry ? landing.headerInner : styles.headerInner}>
-          <BrandLogo size={isEntry ? 44 : 38} />
+      {/* Login/signup/confirmări: același header ca landing-ul (poziționare, logo, fundal). */}
+      <header className={branded ? landing.header : styles.header}>
+        <div className={branded ? landing.headerInner : styles.headerInner}>
+          <BrandLogo size={branded ? 44 : 38} />
           <Link href="/" className={styles.backLink}>
             <ArrowLeft size={16} aria-hidden="true" /> Înapoi la site
           </Link>
         </div>
       </header>
-      {isEntry ? (
+      {isCentered ? (
+        <main id="formular" className={experience.centeredMain}>
+          <div className={experience.centeredContent}>{children}</div>
+        </main>
+      ) : isEntry ? (
         <main className={experience.splitMain}>
           <aside className={experience.drawingColumn} aria-label="Desen tehnic ilustrativ">
             <div className={experience.drawingHeading}>
@@ -77,7 +85,7 @@ export function AuthShell({
           <div className={styles.authContent}>{children}</div>
         </main>
       )}
-      {!isEntry && (
+      {!branded && (
         <footer className={styles.authFooter}>
           <Link href="/termeni">Termeni și condiții</Link>
           <Link href="/confidentialitate">Confidențialitate</Link>

@@ -238,11 +238,11 @@ export function NotificationBell({
         className={cn(
           // Cerc ghost, identic cu „Ciornele" și avatarul (consistență header). Starea „necitite" o semnalează
           // DOAR bulina roșie, nu o bordură/fundal — altfel butonul arăta ca o cutie între două cercuri.
-          "relative inline-flex h-10 w-10 items-center justify-center rounded-full transition-colors",
-          open ? "bg-muted text-primary" : "text-muted-foreground hover:bg-muted",
+          "relative inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors",
+          open ? "bg-muted text-primary" : "text-foreground hover:bg-muted",
         )}
       >
-        <Bell className="size-5" strokeWidth={1.9} />
+        <Bell className="size-6" strokeWidth={2} />
         {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-background bg-primary px-1 font-mono text-[10px] text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
