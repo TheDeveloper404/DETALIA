@@ -153,6 +153,9 @@ duplica): logo 44 px, fundal crem `--secondary`; header: Ghid | Autentificare (t
 Creează cont (`primaryLink`) | LinkedIn · GitHub, cu separatoare; footer: slogan sub logo, texte 15 px/600.
 CTA public = stil „tehnic” (2 px, IBM Plex Mono 13 px majusculă, 38 px); mono mic ≤12 px = 600. `/ghid` = layout de documentație
 (`app/ghid/ghid.module.css`: secțiuni · conținut · cuprins).
+Sub 1000 px header-ul public = logo + meniu `<details>` (panou sub header cu toată navigația). Footer:
+logo stânga, linkuri dreapta (pe telefon coloană la dreapta), cu LinkedIn + GitHub. Butonul de trimitere
+login/signup = același stil tehnic ca CTA-ul (44 px).
 
 Landing-ul are propriul `landing-experience.module.css`: grid blueprint, secțiuni late (maximum
 1640 px, `--landing-max` = `--container-max`, aceeași lățime ca aplicația), ton teracotă închis `#33201a` din landing-ul de pe detalia.ro. Gridul din hero este

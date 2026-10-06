@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Menu, X } from "lucide-react";
 
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -26,19 +27,18 @@ function GitHubIcon({ size = 20 }: { size?: number }) {
   );
 }
 
-// Sub 1000 px Ghid + rețelele rămân doar în footer, ca să încapă butoanele de cont.
+// Peste 1000 px: Ghid | Autentificare Creează cont | LinkedIn GitHub, pe un rând. Sub 1000 px: doar logo +
+// meniu (<details>, fără JS), ca butoanele să nu se mai rupă pe un al doilea rând sub logo.
 export function PublicHeader() {
-  const compact = ` ${styles.hideOnMobile}`;
   return (
     <header className={styles.header}>
       <div className={styles.headerInner}>
         <BrandLogo size={44} />
         <nav className={styles.headerActions} aria-label="Navigație principală">
-          {/* Ghid | Autentificare Creează cont | LinkedIn GitHub */}
-          <Link href="/ghid" className={`${styles.headerLink}${compact}`}>
+          <Link href="/ghid" className={styles.headerLink}>
             Ghid
           </Link>
-          <span className={`${styles.headerDivider}${compact}`} aria-hidden="true" />
+          <span className={styles.headerDivider} aria-hidden="true" />
           <div className={styles.headerGroup}>
             <Link href="/login" className={styles.headerLogin}>
               Autentificare
@@ -47,8 +47,8 @@ export function PublicHeader() {
               Creează cont gratuit
             </Link>
           </div>
-          <span className={`${styles.headerDivider}${compact}`} aria-hidden="true" />
-          <div className={`${styles.headerSocial}${compact}`}>
+          <span className={styles.headerDivider} aria-hidden="true" />
+          <div className={styles.headerSocial}>
             <a
               href={LINKEDIN_URL}
               target="_blank"
@@ -69,6 +69,31 @@ export function PublicHeader() {
             </a>
           </div>
         </nav>
+        <details className={styles.mobileMenu}>
+          <summary aria-label="Meniu">
+            <Menu size={22} aria-hidden="true" className={styles.menuIconOpen} />
+            <X size={22} aria-hidden="true" className={styles.menuIconClose} />
+          </summary>
+          <nav className={styles.mobilePanel} aria-label="Navigație principală (mobil)">
+            <Link href="/ghid" className={styles.headerLink}>
+              Ghid
+            </Link>
+            <Link href="/login" className={styles.headerLogin}>
+              Autentificare
+            </Link>
+            <Link href="/signup" className={`${shared.primaryLink} ${styles.mobileCta}`}>
+              Creează cont gratuit
+            </Link>
+            <div className={styles.mobileSocial}>
+              <a href={LINKEDIN_URL} target="_blank" rel="noopener noreferrer">
+                <LinkedInIcon size={18} /> LinkedIn
+              </a>
+              <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+                <GitHubIcon size={18} /> GitHub
+              </a>
+            </div>
+          </nav>
+        </details>
       </div>
     </header>
   );
@@ -94,6 +119,14 @@ export function PublicFooter() {
             className={styles.footerSocial}
           >
             <LinkedInIcon size={18} /> LinkedIn
+          </a>
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={styles.footerSocial}
+          >
+            <GitHubIcon size={18} /> GitHub
           </a>
         </nav>
       </div>

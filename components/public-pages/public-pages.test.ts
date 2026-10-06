@@ -4,11 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 
 // Verificăm compoziția pagină → shell → formularul real, fără email/DB sau sesiune.
 vi.mock("@/app/auth-actions", () => ({ signInWithEmailAction: vi.fn() }));
+vi.mock("next/headers", () => ({
+  headers: vi.fn(async () => new Headers({ host: "detalia.ro" })),
+}));
 
 import Home from "@/app/page";
 import LoginPage from "@/app/login/page";
 import SignupPage, { generateMetadata } from "@/app/signup/page";
 import VerifyRequestPage from "@/app/verify-request/page";
+import VerifyPage from "@/app/verify/page";
 import GhidPage from "@/app/ghid/page";
 
 describe("Paginile publice — integrare de randare", () => {
@@ -84,15 +88,27 @@ describe("Paginile publice — integrare de randare", () => {
       title: { absolute: "Te invit în DETALIA" },
     });
   });
-  it("nu aplică prezentarea animată paginilor de confirmare care folosesc shell-ul implicit", () => {
+  it("verify-request arată ca login/signup (header landing, fără footer)", () => {
     const html = renderToStaticMarkup(createElement(VerifyRequestPage));
-    expect(html).toContain("hero-detail.png");
-    expect(html).not.toContain("column-base-detail.webp");
-    expect(html).not.toContain("window-section-detail.webp");
-    expect(html).not.toContain("terrace-detail.webp");
-    expect(html).not.toContain("authEntry");
+    expect(html).toContain("authEntry");
+    expect(html).toContain("Verifică-ți email-ul");
+    expect(html).not.toContain("<footer");
+    expect(html).not.toContain("hero-detail.png");
+  });
+
+  it("verify (după click pe link): conținut centrat, fără desenul animat și fără footer", async () => {
+    const html = renderToStaticMarkup(
+      await VerifyPage({
+        searchParams: Promise.resolve({
+          u: "https://detalia.ro/api/auth/callback/resend?token=abc",
+        }),
+      }),
+    );
+    expect(html).toContain("Te conectăm…");
+    expect(html).toContain("centeredMain");
+    expect(html).not.toContain("Desen schematic animat");
     expect(html).not.toContain("Pauză animație");
-    expect(html).toContain("<footer");
+    expect(html).not.toContain("<footer");
   });
 
   it("login/signup: fără footer, același header ca landing-ul, logo egal în header și footer", async () => {
@@ -138,6 +154,20 @@ describe("Paginile publice — integrare de randare", () => {
       expect(part).toContain('href="/login"');
       expect(part).toContain('href="/signup"');
     }
+    // Meniul mobil (<details>) conține toată navigația: Ghid, cont, LinkedIn, GitHub.
+    const mobile = header.slice(header.indexOf("<details"), header.indexOf("</details>"));
+    expect(mobile).toContain('aria-label="Meniu"');
+    for (const href of [
+      "/ghid",
+      "/login",
+      "/signup",
+      "https://www.linkedin.com/company/144903896/",
+      "https://github.com/TheDeveloper404/DETALIA",
+    ]) {
+      expect(mobile).toContain(`href="${href}"`);
+    }
+    // Footer: și GitHub, nu doar LinkedIn.
+    expect(footer).toContain('href="https://github.com/TheDeveloper404/DETALIA"');
   });
 
   it("ghid: fiecare link din navigație duce la o secțiune existentă", () => {

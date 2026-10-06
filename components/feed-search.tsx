@@ -53,7 +53,7 @@ export function FeedSearch({ initialQuery }: { initialQuery: string }) {
   }, [value]);
 
   return (
-    <div className="relative w-full max-w-[460px]" role="search">
+    <div className="relative w-full" role="search">
       <Search
         className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
         strokeWidth={2}

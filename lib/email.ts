@@ -85,8 +85,8 @@ export function plainSubject(s: string): string {
 
 function emailButton(url: string, label: string, accent: string = BRAND.accent): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0"><tr>
-      <td style="border-radius:10px;background:${accent};">
-        <a href="${esc(url)}" style="display:inline-block;padding:13px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">
+      <td style="border-radius:2px;background:${accent};">
+        <a href="${esc(url)}" style="display:inline-block;padding:12px 22px;font-family:'IBM Plex Mono',Menlo,Consolas,monospace;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#ffffff;text-decoration:none;border-radius:2px;">
           ${esc(label)}
         </a>
       </td>

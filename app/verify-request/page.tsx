@@ -7,12 +7,12 @@ import styles from "@/components/public-pages/public-pages.module.css";
 
 // Pagină custom pentru `verifyRequest` (Auth.js) — afișată după ce userul cere magic link-ul.
 // Înlocuiește pagina default (temă întunecată, engleză) cu limbajul vizual DETALIA: același shell
-// de auth (header brand + fundal blueprint + paletă caldă) și copy în română. Cablată în lib/auth.ts.
+// de auth ca login/signup (`presentation="entry"`: header, culori, desen) și copy în română. Cablată în lib/auth.ts.
 export const metadata: Metadata = { title: "Verifică emailul" };
 
 export default function VerifyRequestPage() {
   return (
-    <AuthShell mode="login">
+    <AuthShell mode="login" presentation="entry">
       <section aria-labelledby="verify-request-title">
         <span
           aria-hidden
