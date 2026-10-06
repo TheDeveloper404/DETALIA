@@ -141,5 +141,39 @@ expand client-side pe liste mărginite, nu paginare reală). `?page=` peste ulti
 ultima pagină validă (nu „Niciun rezultat" fals), vezi `feed/page.tsx`. Pentru orice listă nouă care
 poate crește nelimitat pe server (nu doar N vizibile din DB), reutilizează acest pattern.
 
+## Suprafețe publice editoriale (landing + auth)
+
+`components/public-pages/public-pages.module.css` — folosește tokenurile globale fără a le
+modifica. Archivo pentru text/titluri, IBM Plex Mono pentru rubrici. Linii fine și spațiere
+separă secțiunile; un singur CTA principal per context. Landing-ul este compus în
+`landing-page.tsx`, iar `technical-sheet.tsx` combină un desen WebP cu observații HTML semantice.
+`BrandLogo` folosește întotdeauna asset-ul oficial, niciodată un wordmark refăcut.
+
+Landing-ul are propriul `landing-experience.module.css`: grid blueprint, secțiuni late (maximum
+1440 px), ton teracotă închis `#33201a` din landing-ul de pe detalia.ro. Gridul din hero este
+mascat radial, nu pe toată suprafața. Banda de beneficii are accent teracotă, intrare succesivă
+și hover decorativ (nu controale). Header-ul și stilurile auth nu sunt modificate de aceste ajustări.
+`landing-demos.tsx` conține demonstrații locale: detaliu → schiță → argumente, Proiecte/Planșe și
+perspective pe roluri. Taburi native cu `aria-selected`, `aria-controls`, focus roving,
+săgeți/Home/End; panouri inactive `hidden`. Exemplele sunt marcate ilustrative/fictive.
+Intrare discretă o singură dată în hero și la intrarea demonstrațiilor în viewport; fără bucle,
+autoplay sau cursor simulat. `prefers-reduced-motion` dezactivează animațiile.
+
+`AuthShell` — logo + revenire la site, desen ilustrativ pe desktop, formular direct pe
+suprafață și linkuri legale/suport. Login/signup/confirmare folosesc un singur `h1`, iar
+`AuthForm` păstrează comportamentul passwordless, pending, Turnstile și câmpurile ascunse.
+Pe mobil formularul are prioritate; cadrul nu ascunde acțiunea de login.
+Varianta `presentation="entry"`, folosită doar de login/signup, are două coloane contrastante:
+stânga cărămiziu-antracit `#33201a`, dreapta crem cu formularul existent. `AnimatedAuthDrawing`
+construiește în cod un racord schematic 2D de fereastră, fără raster, animat în ciclu lent de
+14 s (contur/profil → hașuri → cote → racord, cu pauză în starea completă). CSS separat în
+`auth-experience.module.css`; singura stare client controlează pauza/reluarea prin buton nativ
+de 44 px, în afara formularului. SVG cu titlu/descriere și ID-uri unice; desenul nu este o
+soluție de execuție. Reduced motion afișează direct desenul complet și ascunde controlul redundant.
+Pe mobil desenul devine o bandă compactă; skip-link sare direct la formular. Intrarea discretă
+a elementelor formularului și hover/focus pe email rămân, dezactivate pentru reduced motion.
+Shell-ul implicit de confirmare/verificare păstrează desenul anterior, fără noua animație.
+
 ## Neacoperit încă (adaugă pe măsură ce apare)
+
 Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/notificare inline.

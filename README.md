@@ -1,131 +1,131 @@
 # DETALIA
 
-**Comunitatea profesională din construcții, organizată în jurul detaliului de execuție.**
+**The professional construction community, organized around the construction detail.**
 
-DETALIA este o platformă colaborativă în care profesioniștii din proiectare, execuție, furnizare și administrarea construcțiilor pot publica, analiza și îmbunătăți detalii tehnice. Fiecare contribuție este asociată transparent unui rol profesional, iar un detaliu poate fi aprobat, contestat cu argumente sau completat printr-o schiță desenată peste el.
+DETALIA is a collaborative platform where professionals in design, construction, supply and building management can publish, analyze and improve technical details. Every contribution is transparently tied to a professional role, and a detail can be approved, challenged with arguments, or extended with a sketch drawn on top of it.
 
-Modelul mental: **„StackOverflow pentru construcții"** — un detaliu este ca o întrebare/postare, o schiță este un răspuns, iar validarea pe roluri e votul comunității.
+Mental model: **"StackOverflow for construction"** — a detail is like a question/post, a sketch is an answer, and role-based validation is the community vote.
 
-## Ce oferă
+## Features
 
-- **Feed de detalii** filtrabil pe categorie (inclusiv pe mobil, printr-un filtru dedicat), cu căutare simplă pe titlu.
-- **Pagina de detaliu** cu imaginea tehnică, contextul autorului și dezbaterea.
-- **Validare pe roluri** — Aprob (un click) sau Dezaprob (cu justificare obligatorie).
-- **Schițare** peste un detaliu, direct în browser, cu unelte de desen vectorial.
-- **Teanc de schițe** navigabil pentru fiecare detaliu.
-- **Comentarii** legate de detaliu sau de schiță, cu reacții (emoji) și aprecieri.
-- **Planșă privată** — un canvas personal (schițe/adnotări), separat de teancul public al unui detaliu, vizibil DOAR proprietarului.
-- **Proiecte** — spații de colaborare restrânsă între Autor și Invitați, cu detalii publicate direct în proiect (private până sunt „scoase în comunitate").
-- **Oferte de la furnizori** — un furnizor verificat poate trimite o ofertă reală pe un detaliu (mesaj + fișiere PDF/Excel/CSV), vizibilă strict autorului detaliului, care e notificat.
-- **Detalii salvate** și **oferte proprii**, ca liste private, separate de feed.
-- **Notificări** in-app (canalul email există în cod, dezactivat implicit).
-- **Profil public** cu rol, subrol, poză, dată de înscriere („Membru din …"), verificare opțională a rolului și **badge-uri de reputație** (Bronz/Argint/Aur, calculate din activitate — publicări, schițe, validări date/primite), cu pop-up de celebrare la primirea unui badge nou.
-- **Referral** — fiecare user are un link propriu de invitație; la 10 useri aduși prin el primește badge-ul „Creștem împreună".
+- **Detail feed** filterable by category (including on mobile, through a dedicated filter), with simple title search.
+- **Detail page** with the technical image, the author's context and the debate.
+- **Role-based validation** — Approve (one click) or Disapprove (with a mandatory justification).
+- **Sketching** on top of a detail, directly in the browser, with vector drawing tools.
+- **Sketch stack** — a browsable stack of sketches for each detail.
+- **Comments** attached to a detail or a sketch, with (emoji) reactions and likes.
+- **Private board ("Planșă")** — a personal canvas (sketches/annotations), separate from a detail's public stack, visible ONLY to its owner.
+- **Projects** — restricted collaboration spaces between an Author and Guests, with details published directly into the project (private until they are "released to the community").
+- **Supplier offers** — a verified supplier can send a real offer on a detail (message + PDF/Excel/CSV files), visible only to the detail's author, who gets notified.
+- **Saved details** and **own offers**, as private lists, separate from the feed.
+- **In-app notifications** (the email channel exists in code, disabled by default).
+- **Public profile** with role, sub-role, photo, join date ("Member since …"), optional role verification and **reputation badges** (Bronze/Silver/Gold, computed from activity — publications, sketches, validations given/received), with a celebration pop-up when a new badge is earned.
+- **Referral** — every user has their own invitation link; after 10 users join through it, they receive the "Growing together" badge.
 
-## Cum funcționează
+## How it works
 
-### 1. Identitate profesională
-Utilizatorul intră prin **magic link** (fără parolă) și își declară rolul principal — Proiectant, Executant, Furnizor sau Beneficiar — plus o specializare. Rolul este afișat lângă validări, comentarii și schițe, ca opiniile să fie citite în context.
+### 1. Professional identity
+Users sign in with a **magic link** (no password) and declare their main role — Designer, Contractor, Supplier or Client — plus a specialization. The role is shown next to validations, comments and sketches, so opinions are read in context.
 
-### 2. Publicarea unui detaliu
-Un detaliu conține o imagine tehnică, titlu, descriere, categorie, context climatic/seismic opțional și resurse opționale (imagine, link, PDF, text). După publicare apare în feed și are propria pagină de analiză. Orice utilizator autentificat cu rol declarat poate publica.
+### 2. Publishing a detail
+A detail contains a technical image, a title, a description, a category, optional climate/seismic context and optional resources (image, link, PDF, text). Once published, it appears in the feed and gets its own analysis page. Any authenticated user with a declared role can publish.
 
-### 3. Validarea pe roluri
-Membrii comunității pot:
-- **aproba** un detaliu sau o schiță (un click);
-- **dezaproba** numai împreună cu o justificare, care devine automat un comentariu;
-- retrage sau schimba ulterior propria poziție (o singură poziție per țintă).
+### 3. Role-based validation
+Community members can:
+- **approve** a detail or a sketch (one click);
+- **disapprove** only together with a justification, which automatically becomes a comment;
+- later withdraw or change their own position (one position per target).
 
-Validările nu formează un scor anonim — rolul și argumentul persoanei rămân vizibile pentru cititor. Poți vota și pe propriul conținut.
+Validations do not form an anonymous score — the person's role and argument stay visible to the reader. You can also vote on your own content.
 
-### 4. Propunerea unei schițe
-Un utilizator poate desena peste imaginea unui detaliu și publica rezultatul:
+### 4. Proposing a sketch
+A user can draw on top of a detail's image and publish the result:
 
 ```text
 DRAFT → PUBLISHED
 ```
 
-Schița se publică direct și intră în teancul public al detaliului. Fiecare schiță are un singur autor. Moderarea este post-publicare: schița poate fi ștearsă de autorul ei sau de autorul detaliului-mamă.
+The sketch is published directly and joins the detail's public stack. Each sketch has a single author. Moderation is post-publication: a sketch can be deleted by its author or by the author of the parent detail.
 
-### 5. Dezbatere și notificări
-Comentariile pot aparține unui detaliu sau unei schițe. Autorii primesc notificări în aplicație pentru evenimentele relevante (o schiță nouă peste detaliul lor, ștergeri etc.) — canalul email există în cod dar e dezactivat implicit.
+### 5. Debate and notifications
+Comments can belong to a detail or to a sketch. Authors receive in-app notifications for relevant events (a new sketch on their detail, deletions, etc.) — the email channel exists in code but is disabled by default.
 
-### 6. Proiecte
-Un utilizator poate crea un Proiect și invita alți membri printr-un link de copiat (fără email automat). În interiorul unui proiect, membrii (Autor + Invitați — aceleași drepturi) publică detalii vizibile DOAR între ei; un detaliu poate fi ulterior „scos în comunitate" (devine public, în feed-ul general). Accesul e verificat strict pe server la fiecare citire, indiferent de calea prin care se ajunge la conținut (feed, profil, notificări).
+### 6. Projects
+A user can create a Project and invite other members through a copyable link (no automatic email). Inside a project, members (Author + Guests — same rights) publish details visible ONLY to each other; a detail can later be "released to the community" (it becomes public, in the general feed). Access is strictly checked on the server on every read, regardless of how the content is reached (feed, profile, notifications).
 
-### 7. Planșă privată
-Independent de teancul public al unui detaliu, fiecare utilizator are propriul spațiu de desen (Planșă) — un canvas privat, cu istoric de undo/redo, folosit pentru notițe/adnotări proprii. Nu e vizibil altor useri sub nicio formă.
+### 7. Private board
+Independently of a detail's public stack, every user has their own drawing space (the board, "Planșă") — a private canvas with undo/redo history, used for personal notes/annotations. It is never visible to other users.
 
-### 8. Reputație
-Fiecare utilizator acumulează badge-uri (Bronz/Argint/Aur) calculate LIVE din activitate — nu sunt stocate separat, ci derivate din statistici existente (detalii publicate, schițe, validări date/primite). La atingerea unui prag nou, userul primește un pop-up de celebrare o singură dată; badge-urile sunt vizibile pe profilul public al oricui.
+### 8. Reputation
+Every user earns badges (Bronze/Silver/Gold) computed LIVE from activity — they are not stored separately, but derived from existing statistics (published details, sketches, validations given/received). When a new threshold is reached, the user gets a one-time celebration pop-up; badges are visible on anyone's public profile.
 
-## Concepte
+## Concepts
 
-| Concept | Semnificație |
+| Concept | Meaning |
 |---|---|
-| **Detaliu** | Unitatea principală de conținut tehnic |
-| **Schiță** | O propunere desenată peste detaliul inițial (un singur autor) |
-| **Validare** | Poziția Aprob/Dezaprob a unui utilizator |
-| **Teanc** | Colecția schițelor publicate ale unui detaliu |
-| **Rol** | Contextul profesional al contributorului |
-| **Dezbatere** | Comentariile asociate unui detaliu sau unei schițe |
-| **Proiect** | Spațiu de colaborare restrânsă (Autor + Invitați) pentru detalii private, publicabile ulterior în comunitate |
-| **Planșă** | Canvas privat de desen al unui utilizator, separat de teancul public de schițe |
-| **Badge** | Nivel de reputație (Bronz/Argint/Aur) calculat din activitate, afișat pe profilul public |
+| **Detail** | The main unit of technical content |
+| **Sketch** | A proposal drawn on top of the original detail (single author) |
+| **Validation** | A user's Approve/Disapprove position |
+| **Stack** | The collection of a detail's published sketches |
+| **Role** | The contributor's professional context |
+| **Debate** | The comments attached to a detail or a sketch |
+| **Project** | A restricted collaboration space (Author + Guests) for private details, publishable later to the community |
+| **Board ("Planșă")** | A user's private drawing canvas, separate from the public sketch stack |
+| **Badge** | Reputation level (Bronze/Silver/Gold) computed from activity, shown on the public profile |
 
-## Stack tehnic
+## Tech stack
 
-| Strat | Tehnologie |
+| Layer | Technology |
 |---|---|
-| Aplicație full-stack | Next.js App Router + React |
-| Business logic | TypeScript, izolat în `server/` |
-| Bază de date | Neon Postgres + Drizzle ORM |
-| Autentificare | Auth.js — magic link passwordless (Resend) |
-| Stocare fișiere | Vercel Blob |
+| Full-stack application | Next.js App Router + React |
+| Business logic | TypeScript, isolated in `server/` |
+| Database | Neon Postgres + Drizzle ORM |
+| Authentication | Auth.js — passwordless magic link (Resend) |
+| File storage | Vercel Blob |
 | UI | Tailwind CSS + shadcn/ui |
-| Schițare | HTML Canvas + `perfect-freehand` |
+| Sketching | HTML Canvas + `perfect-freehand` |
 | Hosting | Vercel |
 
-Este o singură aplicație full-stack: Server Components și Server Actions gestionează interfața și mutațiile, iar regulile de business stau în servicii și repository-uri, separate de UI.
+It is a single full-stack application: Server Components and Server Actions handle the UI and mutations, while business rules live in services and repositories, separate from the UI.
 
-## Structura proiectului
+## Project structure
 
 ```text
 detalia/
-├── app/          # pagini, layouturi, route handlers și Server Actions
-├── components/   # componente UI și canvasul de schițare
+├── app/          # pages, layouts, route handlers and Server Actions
+├── components/   # UI components and the sketching canvas
 ├── server/
-│   ├── domain/   # reguli și tipuri de domeniu
-│   ├── services/ # business logic și autorizare
-│   └── repos/    # acces la baza de date
-├── db/           # schema Drizzle, migrații și seed
-├── lib/          # auth, email, storage și utilitare
-├── e2e/          # teste Playwright (E2E)
-├── public/       # asseturi statice
-└── docs/         # documentația produsului și a implementării
+│   ├── domain/   # domain rules and types
+│   ├── services/ # business logic and authorization
+│   └── repos/    # database access
+├── db/           # Drizzle schema, migrations and seed
+├── lib/          # auth, email, storage and utilities
+├── e2e/          # Playwright tests (E2E)
+├── public/       # static assets
+└── docs/         # product and implementation documentation
 ```
 
-## Rulare locală
+## Running locally
 
-### Cerințe
-- Node.js LTS și npm;
-- o bază de date PostgreSQL/Neon;
-- credențiale Resend pentru autentificarea prin email;
-- un store Vercel Blob pentru uploaduri.
+### Requirements
+- Node.js LTS and npm;
+- a PostgreSQL/Neon database;
+- Resend credentials for email authentication;
+- a Vercel Blob store for uploads.
 
-### Pași
+### Steps
 
 ```bash
 npm install
 ```
 
-Copiază template-ul de configurare și completează valorile:
+Copy the configuration template and fill in the values:
 
 ```powershell
 Copy-Item .env.example .env.local
 ```
 
-Variabile minime necesare:
+Minimum required variables:
 
 ```text
 DATABASE_URL
@@ -136,53 +136,52 @@ EMAIL_FROM
 BLOB_READ_WRITE_TOKEN
 ```
 
-Baza de date de dezvoltare e o ramură Neon existentă (nu se creează schema local cu `db:push`/
-`db:migrate` — vezi caveat-ul de mai jos); cere `DATABASE_URL` de la echipă. Opțional, populează date
-de test:
+The development database is an existing Neon branch (the schema is not created locally with `db:push`/
+`db:migrate` — see the caveat below); ask the team for the `DATABASE_URL`. Optionally, seed test data:
 
 ```bash
 npm run db:seed
 ```
 
-Pornește aplicația:
+Start the application:
 
 ```bash
 npm run dev
 ```
 
-Implicit disponibilă la [http://localhost:3000](http://localhost:3000).
+Available by default at [http://localhost:3000](http://localhost:3000).
 
-## Scripturi utile
+## Useful scripts
 
 ```bash
-npm run dev             # server de dezvoltare
-npm run build           # build de producție
-npm run typecheck       # verificare de tipuri (tsc --noEmit)
+npm run dev             # development server
+npm run build           # production build
+npm run typecheck       # type check (tsc --noEmit)
 npm run lint            # ESLint
-npm run format:check    # verificare formatare (Prettier)
-npm run test            # teste unitare/integrare (Vitest)
-npm run e2e             # teste E2E (Playwright) — vezi docs/PLAN-TESTE.md
-npm run check:subqueries  # gardă anti-bug pentru subquery-uri Drizzle corelate (server/repos)
+npm run format:check    # formatting check (Prettier)
+npm run test            # unit/integration tests (Vitest)
+npm run e2e             # E2E tests (Playwright) — see docs/PLAN-TESTE.md
+npm run check:subqueries  # guard against correlated Drizzle subquery bugs (server/repos)
 ```
 
-> Migrațiile de schemă (`db:generate`/`db:push`/`db:migrate`) NU se rulează din terminal pe acest
-> proiect — baza de date e Neon (dev + producție, ramuri separate), iar orice schimbare de schemă
-> trece prin SQL brut, rulat manual în Neon SQL Editor pe ambele ramuri (vezi `docs/DEPLOY.md`).
+> Schema migrations (`db:generate`/`db:push`/`db:migrate`) are NOT run from the terminal on this
+> project — the database is Neon (dev + production, separate branches), and every schema change goes
+> through raw SQL, run manually in the Neon SQL Editor on both branches (see `docs/DEPLOY.md`).
 
-## Documentație
+## Documentation
 
-| Document | Conținut |
+| Document | Contents |
 |---|---|
-| [`docs/README.md`](docs/README.md) | Index complet al documentației, cu scopul fiecărui document |
-| [`docs/ARHITECTURA.md`](docs/ARHITECTURA.md) | Arhitectura și deciziile tehnice |
-| [`docs/ADR.md`](docs/ADR.md) | Decizii de arhitectură și consecințe |
-| [`docs/SCHEMA.md`](docs/SCHEMA.md) | Modelul bazei de date |
-| [`docs/SECURITATE.md`](docs/SECURITATE.md) | Controale de securitate și audit |
-| [`docs/PLAN-TESTE.md`](docs/PLAN-TESTE.md) | Strategia și scenariile de testare |
-| [`docs/QA_TEST_CASES.md`](docs/QA_TEST_CASES.md) | Cazuri de test funcționale, pe funcție |
-| [`docs/MANUAL_UTILIZATOR.md`](docs/MANUAL_UTILIZATOR.md) | Manual pentru useri finali |
-| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Infrastructură, medii, backup/restore, reguli de release |
-| [`docs/CONFIDENTIALITATE-GDPR.md`](docs/CONFIDENTIALITATE-GDPR.md) | Confidențialitate și cerințe GDPR |
-| [`docs/INCIDENTS.md`](docs/INCIDENTS.md) | Incidente reale de producție |
-| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Ce e de făcut, pe scurt |
-| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Istoricul modificărilor |
+| [`docs/README.md`](docs/README.md) | Full documentation index, with the purpose of each document |
+| [`docs/ARHITECTURA.md`](docs/ARHITECTURA.md) | Architecture and technical decisions |
+| [`docs/ADR.md`](docs/ADR.md) | Architecture decisions and consequences |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md) | Database model |
+| [`docs/SECURITATE.md`](docs/SECURITATE.md) | Security controls and audit |
+| [`docs/PLAN-TESTE.md`](docs/PLAN-TESTE.md) | Testing strategy and scenarios |
+| [`docs/QA_TEST_CASES.md`](docs/QA_TEST_CASES.md) | Functional test cases, per feature |
+| [`docs/MANUAL_UTILIZATOR.md`](docs/MANUAL_UTILIZATOR.md) | End-user manual |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md) | Infrastructure, environments, backup/restore, release rules |
+| [`docs/CONFIDENTIALITATE-GDPR.md`](docs/CONFIDENTIALITATE-GDPR.md) | Privacy and GDPR requirements |
+| [`docs/INCIDENTS.md`](docs/INCIDENTS.md) | Real production incidents |
+| [`docs/BACKLOG.md`](docs/BACKLOG.md) | What's left to do, in short |
+| [`docs/CHANGELOG.md`](docs/CHANGELOG.md) | Change history |

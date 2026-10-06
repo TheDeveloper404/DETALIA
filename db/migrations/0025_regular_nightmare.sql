@@ -1,0 +1,1 @@
+ALTER TABLE "admin_pending_sessions" ADD COLUMN "totp_verified_at" timestamp with time zone;

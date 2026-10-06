@@ -744,6 +744,9 @@ export const adminPendingSessions = pgTable(
     // contorul ăsta omoară sesiunea intermediară în sine după N greșeli, ca atacatorul să fie nevoit
     // să treacă din nou prin magic link (adică prin inbox) — nu doar să aștepte resetarea cotei.
     attempts: integer().notNull().default(0),
+    // Dovada că PE ACEASTĂ sesiune intermediară s-a confirmat înrolarea TOTP cu un cod valid (AUD-02).
+    // Promovarea de după afișarea codurilor de rezervă o cere — fără ea, primul factor singur ajungea.
+    totpVerifiedAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("admin_pending_sessions_email_idx").on(t.email)],

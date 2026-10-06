@@ -93,8 +93,11 @@ export async function sendOrUpdateMaterialOffer(input: {
     supplierId: input.userId,
     message: validated.message,
   });
-  const orphanedUrls = await replaceMaterialOfferFiles(offerId, validated.files);
-  await deleteBlobs(orphanedUrls);
+  const oldUrls = await replaceMaterialOfferFiles(offerId, validated.files);
+  // Orfane = vechi MINUS păstrate. Fișierele păstrate la editare sunt și în lista nouă — dacă le-am
+  // șterge din Blob, rândurile din DB ar rămâne spre fișiere inexistente (AUD-01).
+  const keptUrls = new Set(validated.files.map((f) => f.url));
+  await deleteBlobs(oldUrls.filter((url) => !keptUrls.has(url)));
 
   // Notificarea e auxiliară — un eșec aici nu trebuie să facă oferta (deja salvată) să pară eșuată.
   try {

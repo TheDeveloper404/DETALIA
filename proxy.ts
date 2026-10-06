@@ -24,7 +24,7 @@ import { isPublicPath } from "@/lib/public-paths";
 // Rutele de cron invocate de Vercel (fără sesiune de user) — autorizare reală prin CRON_SECRET, în
 // handler. EXACTE (nu un prefix larg gen "/api/cron"), ca o rută cron nouă să NU devină public/scutită de
 // lockdown implicit doar pentru că împarte prefixul — adaugi aici explicit, o dată cu handler-ul nou.
-const CRON_PATHS = ["/api/cron/cleanup-notifications"];
+const CRON_PATHS = ["/api/cron/cleanup-notifications", "/api/cron/weekly-digest"];
 
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
 const PUBLIC_PATHS = [
@@ -47,6 +47,8 @@ const PUBLIC_PATHS = [
   "/confidentialitate", // Notă de confidențialitate (GDPR) — public, linkuit din footer
   "/ingest", // proxy PostHog (evită ad-blockere) — trebuie accesibil pre-auth (pageview pe landing/login/signup)
   "/.well-known/security.txt", // canal RFC 9116 de raportare responsabilă — public prin natura lui
+  // Dezabonare digest din clientul de email, FĂRĂ sesiune — dovada e tokenul HMAC, verificat în handler.
+  "/api/digest/unsubscribe",
   // Panoul de admin are AUTENTIFICARE PROPRIE (lib/admin-auth.ts), separată de Auth.js. Îl scutim de
   // poarta de user (altfel ar fi redirectat la /login-ul userilor). Gating-ul real e în paginile /admin-page.
   "/admin-page",

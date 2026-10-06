@@ -73,6 +73,12 @@ docs/TOOLING.md
 docs/BACKLOG.md
 code-review.md
 /Detalia_Canvas.md
+design-qa.md
+
+# === Instrucțiuni pentru agenți + context de domeniu (local, NU se comit — repo public) ===
+/AGENTS.md
+/CLAUDE.md
+/CONTEXT.md
 
 # === Documente care NU se comit (client + arhivă de docs) ===
 /documente_client
@@ -90,7 +96,7 @@ docs/QA_TEST_CASES.md
 
 # === CE SE COMITE (exemple, ca să fie clar pentru echipă) ===
 # docs/                       -> documentația (ARHITECTURA.md, CHANGELOG.md, etc.)
-# CLAUDE.md                   -> specificația de domeniu a proiectului
+# README.md                   -> prezentarea proiectului (în engleză)
 # .env.example                -> template de env, fără valori reale
 
 

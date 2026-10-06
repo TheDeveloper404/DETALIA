@@ -11,33 +11,160 @@ test.describe("Landing", () => {
   test("se încarcă și are CTA către signup și login", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/DETALIA/i);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Detaliile bune se construiesc împreună." }),
+    ).toBeVisible();
     // CTA-uri din header (linkuri stabile, nu stiluri).
-    await expect(page.getByRole("link", { name: "Creează cont", exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("link", { name: "Autentificare", exact: true }).first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Creează cont gratuit", exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Autentificare", exact: true }).first(),
+    ).toBeVisible();
+    await expect(page.locator("header img")).toHaveAttribute("src", "/logo.svg");
+    await expect(page.locator(".dt-intro")).toHaveCount(0);
   });
 
   test("click pe Creează cont duce la /signup", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: "Creează cont", exact: true }).first().click();
+    await page.getByRole("link", { name: "Creează cont gratuit", exact: true }).first().click();
     await expect(page).toHaveURL(/\/signup$/);
+  });
+
+  test("header simplificat și exemplu explorabil în trei etape", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: "Vezi un exemplu", exact: true }).click();
+    await expect(page).toHaveURL(/#cum-functioneaza$/);
+    await expect(page.locator("header").getByRole("link")).toHaveCount(3);
+    await expect(
+      page.locator("header").getByRole("link", { name: "Proiecte & Planșe" }),
+    ).toHaveCount(0);
+    const stages = page.getByRole("tablist", { name: "Etapele unui detaliu" });
+    await expect(stages.getByRole("tab", { name: /01 — Detaliul/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await stages.getByRole("tab", { name: /02 — Schița/ }).click();
+    await expect(
+      page.getByRole("heading", { name: "O intervenție se vede. Nu trebuie ghicită." }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Vezi originalul", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Vezi schița", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.getByRole("button", { name: "Vezi schița", exact: true }).click();
+    await page.getByRole("button", { name: "Vezi argumentele", exact: true }).click();
+    await expect(stages.getByRole("tab", { name: /03 — Argumentele/ })).toBeFocused();
+    await expect(stages.getByRole("tab", { name: /03 — Argumentele/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByText("Dezaprob schița", { exact: true })).toBeVisible();
+  });
+
+  test("spațiile și perspectivele se schimbă și prin tastatură", async ({ page }) => {
+    await page.goto("/");
+    const spaces = page.getByRole("tablist", { name: "Alege spațiul de lucru" });
+    await spaces.getByRole("tab", { name: /Planșe/ }).click();
+    await expect(
+      page.getByText("Planșă privată · doar pentru tine", { exact: true }),
+    ).toBeVisible();
+    await spaces.getByRole("tab", { name: /Planșe/ }).press("Home");
+    await expect(spaces.getByRole("tab", { name: /Proiecte/ })).toBeFocused();
+    const roles = page.getByRole("tablist", { name: "Perspective profesionale" });
+    await roles.getByRole("tab", { name: /Proiectant/ }).focus();
+    await roles.getByRole("tab", { name: /Proiectant/ }).press("End");
+    await expect(roles.getByRole("tab", { name: /Beneficiar/ })).toBeFocused();
+    await expect(
+      page.getByRole("heading", { name: "Ce implică alegerea pentru întreținere și utilizare?" }),
+    ).toBeVisible();
+  });
+
+  test("la 390px login/signup rămân accesibile, inclusiv cu reduced motion", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await expect(
+      page.locator("header").getByRole("link", { name: "Autentificare", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.locator("header").getByRole("link", { name: "Creează cont gratuit", exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.getByRole("tab", { name: /02 — Schița/ }).click();
+    await expect(page.getByRole("button", { name: "Vezi originalul", exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: /Planșe/ }).click();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
   });
 });
 
 test.describe("Autentificare (UI passwordless)", () => {
+  for (const path of ["/login", "/signup"]) {
+    test(`${path}: desenul se poate opri și relua din tastatură, fără submit`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.goto(path);
+      await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toBeVisible();
+      const pause = page.getByRole("button", { name: "Pauză animație", exact: true });
+      await pause.focus();
+      await pause.press("Enter");
+      const resume = page.getByRole("button", { name: "Reia animația", exact: true });
+      await expect(resume).toBeFocused();
+      await expect(page.locator('[data-paused="true"]')).toHaveCount(1);
+      const line = page.locator('svg[role="img"] path[pathLength="1"]').first();
+      await expect(line).toHaveCSS("animation-play-state", "paused");
+      await resume.press("Space");
+      await expect(pause).toBeFocused();
+      await expect(line).toHaveCSS("animation-play-state", "running");
+      await expect(page).toHaveURL(new RegExp(`${path}$`));
+      await expect(page.getByLabel("Email")).toBeEmpty();
+    });
+  }
+
+  test("desen static cu reduced motion și formular accesibil la 768/390px", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    for (const width of [768, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto("/signup");
+      await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Pauză animație" })).toBeHidden();
+      await expect(page.getByText("Desen fără animație", { exact: true })).toBeVisible();
+      const line = page.locator('svg[role="img"] path[pathLength="1"]').first();
+      await expect(line).toHaveCSS("animation-name", "none");
+      await expect(line).toHaveCSS("stroke-dashoffset", "0px");
+      await expect(page.getByLabel("Email")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Creează cont gratuit", exact: true }),
+      ).toBeVisible();
+      await page.getByRole("link", { name: "Sari la formular", exact: true }).focus();
+      await page.getByRole("link", { name: "Sari la formular", exact: true }).press("Enter");
+      await expect(page.locator("#formular")).toBeFocused();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+  });
+
   test("/login randează formularul de magic link", async ({ page }) => {
     await page.goto("/login");
-    // CardTitle e un <div>, nu un heading → assert pe text + pe controalele reale (role-based, unice).
-    await expect(page.getByText("Autentificare", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Bine ai revenit." })).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByRole("button", { name: "Trimite link-ul de acces" })).toBeVisible();
   });
 
   test("/signup randează formularul de creare cont", async ({ page }) => {
     await page.goto("/signup");
-    await expect(page.getByText("Creează cont", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Adu perspectiva ta în detaliu." }),
+    ).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Creează cont cu email" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Creează cont gratuit", exact: true }),
+    ).toBeVisible();
   });
 
   test("login ⇄ signup sunt legate reciproc", async ({ page }) => {
@@ -58,7 +185,9 @@ test.describe("Autentificare (UI passwordless)", () => {
 // email deja existent arăta "Există deja un cont..." — enumerare de conturi după email. Fix: în ambele
 // cazuri, niciun email trimis, dar redirect la /verify-request — identic cu răspunsul de succes real.
 test.describe("Anti-enumerare (login/signup)", () => {
-  test("/login cu email fără cont → /verify-request, nu un mesaj de eroare distinct", async ({ page }) => {
+  test("/login cu email fără cont → /verify-request, nu un mesaj de eroare distinct", async ({
+    page,
+  }) => {
     await page.goto("/login");
     await page.getByLabel("Email").fill(`e2e-no-account-${Date.now()}@detalia.test`);
     await page.getByRole("button", { name: "Trimite link-ul de acces" }).click();
@@ -72,7 +201,7 @@ test.describe("Anti-enumerare (login/signup)", () => {
   }) => {
     await page.goto("/signup");
     await page.getByLabel("Email").fill("e2e-tester@detalia.test");
-    await page.getByRole("button", { name: "Creează cont cu email" }).click();
+    await page.getByRole("button", { name: "Creează cont gratuit", exact: true }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
     await expect(page.getByText("Verifică-ți email-ul", { exact: true })).toBeVisible();

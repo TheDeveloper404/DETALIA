@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import {
   getAdminPendingSession,
+  markPendingTotpVerified,
   promoteAdminPendingSession,
   registerFailedTotpAttempt,
 } from "@/lib/admin-auth";
@@ -77,15 +78,17 @@ export async function confirmEnrollmentAction(
     return { error: "Starea înrolării s-a schimbat. Reîncarcă pagina.", backupCodes: null };
   }
 
+  await markPendingTotpVerified();
   return { error: null, backupCodes: result.backupCodes };
 }
 
-// Adminul a notat codurile de rezervă → promovăm sesiunea intermediară în una completă.
+// Adminul a notat codurile de rezervă → promovăm sesiunea intermediară în una completă. Acțiunea e un
+// endpoint POST apelabil direct: promovează DOAR o sesiune marcată de `confirmEnrollmentAction` (AUD-02).
 export async function finishAdminTotpEnrollmentAction(): Promise<void> {
   const pending = await getAdminPendingSession();
   if (!pending) redirect("/admin-page/login?error=expired");
 
-  const email = await promoteAdminPendingSession();
+  const email = await promoteAdminPendingSession({ requireTotpVerified: true });
   if (!email) redirect("/admin-page/login?error=expired");
   audit("admin_login_success", { stage: "totp_enrolled", emailHash: hashAuditId(email) }, "info");
   redirect("/admin-page");
