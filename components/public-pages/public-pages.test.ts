@@ -60,9 +60,10 @@ describe("Paginile publice — integrare de randare", () => {
       );
       expect(html).not.toContain('type="password"');
       expect((html.match(/alt="DETALIA"/g) ?? []).length).toBe(1);
-      expect(html).toContain("Desen schematic animat — racord de fereastră");
-      expect(html).toContain("Pauză animație");
-      expect(html).toContain('data-paused="false"');
+      expect(html).not.toContain("Desen schematic animat — racord de fereastră");
+      expect(html).not.toContain("Pauză animație");
+      expect(html).not.toContain("<aside");
+      expect(html).toContain("formOnlyMain");
       expect(html).toContain('id="formular" tabindex="-1"');
       expect(html).not.toContain("window-section-detail.webp");
       expect(html).not.toContain("column-base-detail.webp");

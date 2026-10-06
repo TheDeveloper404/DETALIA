@@ -8,6 +8,15 @@
   flex: 1;
   background: var(--secondary);
 }
+.formOnlyMain {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  background: var(--secondary);
+}
+.formOnlyMain > .formColumn {
+  width: 100%;
+}
 .drawingColumn {
   display: flex;
   flex-direction: column;

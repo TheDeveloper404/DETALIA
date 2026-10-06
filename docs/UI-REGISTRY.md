@@ -143,6 +143,11 @@ poate crește nelimitat pe server (nu doar N vizibile din DB), reutilizează ace
 
 ## Suprafețe publice editoriale (landing + auth)
 
+Emailuri: `lib/email.ts` folosește tabele și CSS inline, fonturi de sistem, logo oficial în PNG
+(`public/brand/logo-email.png`, export din `public/logo.svg`, URL public fix pe detalia.ro).
+Magic link: preview în inbox, titlu și mesaj scurt, un CTA principal, expirarea separat, link de fallback.
+Formatul text simplu păstrează aceleași instrucțiuni. Badge-ul/accentul emailului admin rămân distincte.
+
 `components/public-pages/public-pages.module.css` — folosește tokenurile globale fără a le
 modifica. Archivo pentru text/titluri, IBM Plex Mono pentru rubrici. Linii fine și spațiere
 separă secțiunile; un singur CTA principal per context. Landing-ul este compus în
@@ -153,8 +158,10 @@ duplica): logo 44 px, fundal crem `--secondary`; header: Ghid | Autentificare (t
 Creează cont (`primaryLink`) | LinkedIn · GitHub, cu separatoare; footer: slogan sub logo, texte 15 px/600.
 CTA public = stil „tehnic” (2 px, IBM Plex Mono 13 px majusculă, 38 px); mono mic ≤12 px = 600. `/ghid` = layout de documentație
 (`app/ghid/ghid.module.css`: secțiuni · conținut · cuprins).
-Sub 1000 px header-ul public = logo + meniu `<details>` (panou sub header cu toată navigația). Footer:
-logo stânga, linkuri dreapta (pe telefon coloană la dreapta), cu LinkedIn + GitHub. Butonul de trimitere
+Sub 1000 px header-ul public = logo + meniu `<details>` (panou compact de maximum 280 px lângă buton,
+sub header, cu toată navigația și ținte de atingere de minimum 44 px). Footer: logo stânga, linkuri
+dreapta; pe telefon, trei rânduri: logo + slogan inline, Ghid · Termeni · Confidențialitate · Suport,
+apoi LinkedIn · GitHub. Eticheta scurtă „Termeni” păstrează numele accesibil „Termeni și condiții”. Butonul de trimitere
 login/signup = același stil tehnic ca CTA-ul (44 px).
 
 Landing-ul are propriul `landing-experience.module.css`: grid blueprint, secțiuni late (maximum
@@ -171,7 +178,10 @@ autoplay sau cursor simulat. `prefers-reduced-motion` dezactivează animațiile.
 suprafață și linkuri legale/suport. Login/signup/confirmare folosesc un singur `h1`, iar
 `AuthForm` păstrează comportamentul passwordless, pending, Turnstile și câmpurile ascunse.
 Pe mobil formularul are prioritate; cadrul nu ascunde acțiunea de login.
-Varianta `presentation="entry"`, folosită doar de login/signup, are DOUĂ fundaluri: stânga
+Login/signup folosesc `presentation="entry" showDrawing={false}`: formular centrat, fără desen și fără
+footer, cu același header, stiluri de formular și fundal crem ca înainte. `formOnlyMain` păstrează
+lățimea maximă de 420 px a formularului; `#formular` rămâne focusabil prin skip-link.
+Varianta `presentation="entry"` cu desen, folosită de `/verify-request`, are DOUĂ fundaluri: stânga
 cremul deschis al paginii (`--background`), în gradient spre `--secondary` la margine (fără linie
 de despărțire), cu grila din hero-ul landing-ului (`::before`, 34 px, opacitate 0.6, mască radială);
 desen în tuș cu cote/racord teracotă; header + coloana formularului — cremul `--secondary`. Header-ul e identic cu cel al landing-ului (aceleași clase
@@ -183,7 +193,7 @@ de 44 px, în afara formularului. SVG cu titlu/descriere și ID-uri unice; desen
 soluție de execuție. Reduced motion afișează direct desenul complet și ascunde controlul redundant.
 Pe mobil desenul devine o bandă compactă; skip-link sare direct la formular. Intrarea discretă
 a elementelor formularului și hover/focus pe email rămân, dezactivate pentru reduced motion.
-Shell-ul implicit de confirmare/verificare păstrează desenul anterior, fără noua animație.
+`/verify` folosește `presentation="centered"`, fără desen; shell-ul implicit păstrează desenul static.
 
 ## Neacoperit încă (adaugă pe măsură ce apare)
 
