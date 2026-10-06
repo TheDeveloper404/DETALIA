@@ -148,9 +148,14 @@ modifica. Archivo pentru text/titluri, IBM Plex Mono pentru rubrici. Linii fine 
 separă secțiunile; un singur CTA principal per context. Landing-ul este compus în
 `landing-page.tsx`, iar `technical-sheet.tsx` combină un desen WebP cu observații HTML semantice.
 `BrandLogo` folosește întotdeauna asset-ul oficial, niciodată un wordmark refăcut.
+Header + footer public = `PublicHeader` / `PublicFooter` din `public-chrome.tsx` (landing + `/ghid`, NU le
+duplica): logo 44 px, fundal crem `--secondary`; header: Ghid | Autentificare (text mono) ·
+Creează cont (`primaryLink`) | LinkedIn · GitHub, cu separatoare; footer: slogan sub logo, texte 15 px/600.
+CTA public = stil „tehnic” (2 px, IBM Plex Mono 13 px majusculă, 38 px); mono mic ≤12 px = 600. `/ghid` = layout de documentație
+(`app/ghid/ghid.module.css`: secțiuni · conținut · cuprins).
 
 Landing-ul are propriul `landing-experience.module.css`: grid blueprint, secțiuni late (maximum
-1440 px), ton teracotă închis `#33201a` din landing-ul de pe detalia.ro. Gridul din hero este
+1640 px, `--landing-max` = `--container-max`, aceeași lățime ca aplicația), ton teracotă închis `#33201a` din landing-ul de pe detalia.ro. Gridul din hero este
 mascat radial, nu pe toată suprafața. Banda de beneficii are accent teracotă, intrare succesivă
 și hover decorativ (nu controale). Header-ul și stilurile auth nu sunt modificate de aceste ajustări.
 `landing-demos.tsx` conține demonstrații locale: detaliu → schiță → argumente, Proiecte/Planșe și
@@ -163,8 +168,11 @@ autoplay sau cursor simulat. `prefers-reduced-motion` dezactivează animațiile.
 suprafață și linkuri legale/suport. Login/signup/confirmare folosesc un singur `h1`, iar
 `AuthForm` păstrează comportamentul passwordless, pending, Turnstile și câmpurile ascunse.
 Pe mobil formularul are prioritate; cadrul nu ascunde acțiunea de login.
-Varianta `presentation="entry"`, folosită doar de login/signup, are două coloane contrastante:
-stânga cărămiziu-antracit `#33201a`, dreapta crem cu formularul existent. `AnimatedAuthDrawing`
+Varianta `presentation="entry"`, folosită doar de login/signup, are DOUĂ fundaluri: stânga
+cremul deschis al paginii (`--background`), în gradient spre `--secondary` la margine (fără linie
+de despărțire), cu grila din hero-ul landing-ului (`::before`, 34 px, opacitate 0.6, mască radială);
+desen în tuș cu cote/racord teracotă; header + coloana formularului — cremul `--secondary`. Header-ul e identic cu cel al landing-ului (aceleași clase
+din `landing-experience.module.css`) și NU are footer. `AnimatedAuthDrawing`
 construiește în cod un racord schematic 2D de fereastră, fără raster, animat în ciclu lent de
 14 s (contur/profil → hașuri → cote → racord, cu pauză în starea completă). CSS separat în
 `auth-experience.module.css`; singura stare client controlează pauza/reluarea prin buton nativ
