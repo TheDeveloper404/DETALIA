@@ -45,7 +45,7 @@ test.describe("Nume/poză din panoul de validare → link spre profil", () => {
       );
   });
 
-  test("clic pe numele din rândul de poziție → /profile/<id>-ul userului respectiv", async ({ page }) => {
+  test("clic pe propriul nume din rândul de poziție → /profile", async ({ page }) => {
     const { testerUserId } = getSeed();
 
     await page.goto(detailUrl());
@@ -60,6 +60,9 @@ test.describe("Nume/poză din panoul de validare → link spre profil", () => {
     await expect(profileLink).toBeVisible();
     await profileLink.click();
 
-    await expect(page).toHaveURL(new RegExp(`/profile/${testerUserId}$`));
+    // Propriul /profile/<userId> este redirecționat de aplicație spre /profile (cu editare).
+    // Timeout mărit: sunt două navigări la rând (/profile/<id> → redirect → /profile), iar URL-ul
+    // se schimbă abia după ce /profile e randat complet — pe un preview rece nu încap în 10s.
+    await expect(page).toHaveURL(/\/profile$/, { timeout: 20_000 });
   });
 });

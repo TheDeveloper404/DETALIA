@@ -5,6 +5,7 @@ import { AvatarInitials } from "@/components/avatar-initials";
 import { CookieConsent } from "@/components/cookie-consent";
 import { RolePill } from "@/components/role-pill";
 import { DetailDemo, RoleDemo, WorkspaceDemo } from "./landing-demos";
+import { FinalCtaScene } from "./final-cta-scene";
 import { PublicFooter, PublicHeader } from "./public-chrome";
 import { TechnicalSheet } from "./technical-sheet";
 import shared from "./public-pages.module.css";
@@ -216,7 +217,7 @@ export function LandingPage() {
           </div>
         </section>
         <section className={styles.finalCta} aria-labelledby="final-title">
-          <div className={styles.sectionInner}>
+          <FinalCtaScene>
             <p className={styles.eyebrow}>Următoarea discuție poate începe cu tine</p>
             <h2 id="final-title">
               Ce detaliu ai vrea
@@ -224,11 +225,13 @@ export function LandingPage() {
               să pui pe masă?
             </h2>
             <p>O întrebare, o schiță sau o perspectivă din șantier. Ai un loc de unde să începi.</p>
-            <SignupLink />
+            <div className={styles.finalAction}>
+              <SignupLink />
+            </div>
             <p className={styles.finalLogin}>
               Ai deja cont? <Link href="/login">Autentifică-te</Link>
             </p>
-          </div>
+          </FinalCtaScene>
         </section>
       </main>
       <PublicFooter />

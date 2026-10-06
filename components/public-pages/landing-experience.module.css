@@ -1076,6 +1076,144 @@
   background: var(--landing-dark);
   color: var(--landing-light);
   text-align: center;
+  overflow: clip;
+}
+.finalStage {
+  position: relative;
+  isolation: isolate;
+  padding-top: 128px;
+  padding-bottom: 128px;
+}
+.finalCopy {
+  position: relative;
+  z-index: 1;
+  max-width: 780px;
+  margin: auto;
+}
+.finalScene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.finalTable {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  stroke: var(--landing-light);
+  stroke-width: 1;
+  opacity: 0.14;
+}
+.finalTableOutline {
+  stroke-dasharray: 1;
+}
+.finalSheetArrival {
+  position: absolute;
+  width: 360px;
+  perspective: 1400px;
+}
+.finalSheetLeft {
+  left: calc(50% - 740px);
+  top: 22%;
+  --sheet-angle: -14deg;
+  --sheet-turn: 18deg;
+  --sheet-fan: -16px;
+}
+.finalSheetRight {
+  left: calc(50% + 380px);
+  top: 34%;
+  --sheet-angle: 13deg;
+  --sheet-turn: -18deg;
+  --sheet-fan: 16px;
+}
+.finalSheet {
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--landing-light);
+  box-shadow:
+    6px 7px 0 color-mix(in srgb, var(--landing-light) 55%, var(--landing-dark)),
+    12px 14px 0 color-mix(in srgb, var(--landing-light) 25%, var(--landing-dark)),
+    0 32px 64px color-mix(in srgb, var(--landing-dark) 70%, transparent);
+  transform: rotateX(12deg) rotateY(var(--sheet-turn)) rotate(var(--sheet-angle));
+  transition: translate 450ms ease;
+}
+.finalSheet img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+.finalSheetStamp {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr;
+  height: 24px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+}
+.finalSheetStamp span + span {
+  border-left: 1px solid var(--border);
+}
+.finalStage[data-entered="true"] .finalTableOutline {
+  animation: table-trace 900ms ease both;
+}
+.finalStage[data-entered="true"] .finalSheetArrival {
+  animation: final-sheet-arrive 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.finalStage[data-entered="true"] .finalSheetLeft {
+  animation-delay: 120ms;
+}
+.finalStage[data-entered="true"] .finalSheetRight {
+  animation-delay: 280ms;
+}
+.finalAction {
+  position: relative;
+  display: inline-flex;
+}
+.finalAction > a {
+  min-height: 52px;
+  padding: 16px 24px;
+  transition:
+    background-color 180ms ease,
+    transform 200ms ease,
+    box-shadow 200ms ease;
+}
+.finalAction > a:is(:hover, :focus-visible) {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px color-mix(in srgb, var(--landing-dark) 60%, transparent);
+}
+.finalAction > a:focus-visible svg {
+  transform: translateX(3px);
+}
+.finalAction > a:focus-visible {
+  outline-color: var(--landing-light);
+}
+.finalAction::before,
+.finalAction::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  width: 12px;
+  border-block: 1px solid var(--landing-light);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.finalAction::before {
+  left: -24px;
+  border-left: 1px solid var(--landing-light);
+}
+.finalAction::after {
+  right: -24px;
+  border-right: 1px solid var(--landing-light);
+}
+@media (hover: hover) and (pointer: fine) {
+  .finalStage:hover .finalSheet {
+    translate: var(--sheet-fan) -12px;
+  }
+}
+.finalStage:focus-within .finalSheet {
+  translate: var(--sheet-fan) -12px;
 }
 .finalCta .eyebrow {
   color: var(--border);
@@ -1087,16 +1225,18 @@
   letter-spacing: -0.04em;
   margin: 32px 0;
 }
-.finalCta .sectionInner > p:not(.eyebrow) {
+.finalCta .finalCopy > p:not(.eyebrow, .finalLogin) {
   color: var(--border);
   font-size: 17px;
   line-height: 1.7;
   max-width: 48ch;
   margin: 0 auto 32px;
 }
-.finalCta .sectionInner > .finalLogin {
+.finalCta .finalCopy > .finalLogin {
+  color: var(--border);
   font-size: 14px;
-  margin: 24px 0 0;
+  line-height: 1.7;
+  margin: 12px 0 0;
   max-width: none;
 }
 .finalLogin a {
@@ -1105,6 +1245,24 @@
 }
 .finalLogin a:hover {
   color: var(--border);
+}
+@keyframes table-trace {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes final-sheet-arrive {
+  from {
+    opacity: 0;
+    translate: 0 48px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 .footer {
   background: var(--secondary);
@@ -1208,6 +1366,25 @@
   }
 }
 @media (max-width: 1200px) {
+  .finalStage.sectionInner {
+    padding-bottom: 360px;
+  }
+  .finalSheetArrival {
+    top: auto;
+    bottom: 56px;
+    width: 260px;
+  }
+  .finalSheetLeft {
+    left: calc(50% - 248px);
+  }
+  .finalSheetRight {
+    left: calc(50% - 12px);
+  }
+  .finalTable {
+    top: auto;
+    bottom: 0;
+    height: 460px;
+  }
   .headerInner,
   .footerInner {
     padding-left: 32px;
@@ -1555,10 +1732,29 @@
     margin-top: 32px;
   }
   .finalCta h2 {
-    font-size: 44px;
+    font-size: clamp(34px, 7.5vw, 44px);
   }
-  .finalCta .sectionInner > p:not(.eyebrow) {
+  .finalCta .finalCopy > p:not(.eyebrow, .finalLogin) {
     font-size: 16px;
+  }
+  .finalStage.sectionInner {
+    padding-bottom: 272px;
+  }
+  .finalSheetArrival {
+    width: 180px;
+    bottom: 40px;
+  }
+  .finalSheetLeft {
+    left: calc(50% - 164px);
+  }
+  .finalSheetRight {
+    left: calc(50% - 16px);
+  }
+  .finalSheet {
+    padding: 12px;
+  }
+  .finalTable {
+    height: 320px;
   }
   /* Trei rânduri: logo + slogan, cele patru pagini, apoi rețelele sociale. */
   .footerInner {
@@ -1621,6 +1817,13 @@
   }
   .heroBottom span:hover,
   .heroBottom span:hover svg {
+    transform: none;
+  }
+  .finalStage:is(:hover, :focus-within) .finalSheet {
+    translate: none;
+  }
+  .finalAction > a:is(:hover, :focus-visible),
+  .finalAction > a:is(:hover, :focus-visible) svg {
     transform: none;
   }
 }
