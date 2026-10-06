@@ -192,7 +192,7 @@ describe("Paginile publice — integrare de randare", () => {
     expect(html).toContain("<h1>Cum funcționează DETALIA</h1>");
     const targets = new Set([...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]));
     const ids = new Set([...html.matchAll(/<section id="([^"]+)"/g)].map((m) => m[1]));
-    expect(ids.size).toBe(14);
+    expect(ids.size).toBe(16);
     targets.delete("continut");
     for (const target of targets) expect(ids.has(target), target).toBe(true);
     expect(html).toContain('id="continut"');

@@ -58,6 +58,19 @@ const SECTIONS: Section[] = [
     ),
   },
   {
+    id: "gaseste",
+    title: "Găsește detaliul de care ai nevoie",
+    body: (
+      <p>
+        Nu trebuie să ai ceva de publicat ca să începi. Explorează detalii, urmărește argumentele și
+        salvează ce îți este util. În feed poți <strong>căuta</strong> după cuvinte din titlu sau
+        descriere, poți filtra pe <strong>categorii</strong> și poți alege{" "}
+        <strong>„Așteaptă ajutor”</strong> — detaliile la care nimeni n-a propus încă o schiță sau
+        n-a luat o poziție.
+      </p>
+    ),
+  },
+  {
     id: "publica",
     title: "Publică un detaliu",
     body: (
@@ -108,8 +121,9 @@ const SECTIONS: Section[] = [
     body: (
       <p>
         Sub fiecare detaliu e un singur fir de discuție, care acoperă și schițele de pe el. Poți{" "}
-        <strong>@menționa</strong> o schiță anume ca să sari direct la tabul ei — util când discuți
-        mai multe variante în paralel.
+        <strong>răspunde</strong> oricărui comentariu și îl poți <strong>vota</strong> în sus sau în
+        jos. Poți <strong>@menționa</strong> o schiță anume ca să sari direct la tabul ei — util când
+        discuți mai multe variante în paralel.
       </p>
     ),
   },
@@ -141,11 +155,19 @@ const SECTIONS: Section[] = [
     id: "furnizor",
     title: "Furnizor de materiale",
     body: (
-      <p>
-        Dacă declari rolul <strong>Furnizor</strong>, pe orice detaliu al altcuiva vezi butonul „Pot
-        să ofertez materiale” — un semnal simplu, vizibil autorului și comunității, că poți
-        contribui cu materialele necesare pentru acel detaliu.
-      </p>
+      <>
+        <p>
+          Dacă declari rolul <strong>Furnizor</strong>, pe orice detaliu public al altcuiva vezi
+          butonul „Pot să ofertez materiale” — un semnal, vizibil autorului și comunității, că poți
+          contribui cu materialele necesare pentru acel detaliu.
+        </p>
+        <p>
+          Din același buton poți trimite autorului o <strong>ofertă de materiale</strong>, cu mesaj
+          și documente (PDF, Excel sau CSV). Oferta e vizibilă doar autorului detaliului. O poți
+          completa ulterior sau retrage. Ofertele trimise — sau, dacă ești autor, cele primite — le
+          găsești în profil, la <strong>„Ofertele mele”</strong>.
+        </p>
+      </>
     ),
   },
   {
@@ -163,11 +185,34 @@ const SECTIONS: Section[] = [
     id: "salvate-notificari",
     title: "Salvate și notificări",
     body: (
+      <>
+        <p>
+          Poți <strong>salva</strong> orice detaliu ca să-l regăsești rapid mai târziu. În{" "}
+          <strong>„Conținutul meu”</strong> (în bara laterală din feed și în profil) găsești
+          proiectele, planșele, detaliile salvate și ciornele — ce ai început și n-ai publicat încă.
+        </p>
+        <p>
+          Primești o <strong>notificare</strong> (în platformă) când cineva schițează peste unul
+          dintre detaliile tale, îți trimite sau îți completează o ofertă de materiale, îți șterge o
+          schiță, sau se înscrie prin linkul tău de invitație — nimic nu se întâmplă pe conturile
+          tale în tăcere.
+        </p>
+        <p>
+          Lunea primești pe email un <strong>rezumat săptămânal</strong>: ce s-a întâmplat pe
+          detaliile tale și câteva detalii noi din comunitate. Îl primești doar dacă ai avut
+          activitate pe detaliile tale. Te poți dezabona din linkul din email și îl poți reactiva din
+          editarea profilului.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: "invita",
+    title: "Invită colegi",
+    body: (
       <p>
-        Poți <strong>salva</strong> orice detaliu ca să-l regăsești rapid mai târziu. Primești o{" "}
-        <strong>notificare</strong> (în platformă) când cineva schițează peste unul dintre detaliile
-        tale, îl ofertă ca furnizor, sau îți șterge o schiță — nimic nu se întâmplă pe conturile
-        tale în tăcere.
+        Din profilul tău poți copia un <strong>link personal de invitație</strong>. Când cineva își
+        face cont prin el, primești o notificare.
       </p>
     ),
   },
@@ -233,11 +278,14 @@ const SECTIONS: Section[] = [
 
 const GROUPS: { title: string; ids: string[] }[] = [
   { title: "Începe aici", ids: ["ce-este", "cont"] },
-  { title: "Lucrul cu detaliile", ids: ["publica", "schiteaza", "valideaza", "dezbate"] },
+  {
+    title: "Lucrul cu detaliile",
+    ids: ["gaseste", "publica", "schiteaza", "valideaza", "dezbate"],
+  },
   { title: "Colaborare", ids: ["proiecte", "planse", "furnizor"] },
   {
     title: "Contul tău",
-    ids: ["profil", "salvate-notificari", "stergere-detaliu", "stergere-cont"],
+    ids: ["profil", "salvate-notificari", "invita", "stergere-detaliu", "stergere-cont"],
   },
   { title: "Suport", ids: ["ajutor"] },
 ];
