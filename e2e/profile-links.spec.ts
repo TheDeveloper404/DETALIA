@@ -61,6 +61,8 @@ test.describe("Nume/poză din panoul de validare → link spre profil", () => {
     await profileLink.click();
 
     // Propriul /profile/<userId> este redirecționat de aplicație spre /profile (cu editare).
-    await expect(page).toHaveURL(/\/profile$/);
+    // Timeout mărit: sunt două navigări la rând (/profile/<id> → redirect → /profile), iar URL-ul
+    // se schimbă abia după ce /profile e randat complet — pe un preview rece nu încap în 10s.
+    await expect(page).toHaveURL(/\/profile$/, { timeout: 20_000 });
   });
 });
