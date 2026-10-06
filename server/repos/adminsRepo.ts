@@ -1,7 +1,7 @@
 // Repo admin — magic link (token one-time) + sesiuni, ambele cheiate pe EMAIL (allowlist în env, fără
 // tabel de conturi). Singura zonă cu acces Drizzle pe `admin_login_tokens` / `admin_sessions` /
 // `admin_pending_sessions`.
-import { and, eq, gt, lt, sql } from "drizzle-orm";
+import { and, eq, gt, isNotNull, lt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { adminLoginTokens, adminPendingSessions, adminSessions } from "@/db/schema";
@@ -80,6 +80,32 @@ export async function consumeAdminPendingSession(token: string): Promise<string 
   const [row] = await db
     .delete(adminPendingSessions)
     .where(and(eq(adminPendingSessions.token, token), gt(adminPendingSessions.expires, new Date())))
+    .returning({ email: adminPendingSessions.email });
+  return row?.email ?? null;
+}
+
+// Înrolarea TOTP confirmată cu cod valid pe ACEASTĂ sesiune intermediară (AUD-02).
+export async function markAdminPendingTotpVerified(token: string): Promise<boolean> {
+  const [row] = await db
+    .update(adminPendingSessions)
+    .set({ totpVerifiedAt: new Date() })
+    .where(and(eq(adminPendingSessions.token, token), gt(adminPendingSessions.expires, new Date())))
+    .returning({ token: adminPendingSessions.token });
+  return !!row;
+}
+
+// Ca `consumeAdminPendingSession`, dar DOAR dacă sesiunea are dovada înrolării — condiția e în același
+// DELETE atomic, deci nu există fereastră între verificare și consum.
+export async function consumeTotpVerifiedAdminPendingSession(token: string): Promise<string | null> {
+  const [row] = await db
+    .delete(adminPendingSessions)
+    .where(
+      and(
+        eq(adminPendingSessions.token, token),
+        gt(adminPendingSessions.expires, new Date()),
+        isNotNull(adminPendingSessions.totpVerifiedAt),
+      ),
+    )
     .returning({ email: adminPendingSessions.email });
   return row?.email ?? null;
 }

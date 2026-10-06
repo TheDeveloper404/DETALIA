@@ -14,7 +14,8 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 // Pe preview (VERCEL_ENV !== "production") nu randăm widget-ul deloc: domeniul dinamic *.vercel.app
 // nu poate fi în allowlist-ul Turnstile din Cloudflare → widget-ul aruncă mereu eroare 110200
 // (vezi verifyTurnstile, care e no-op în afara producției, în oglindă cu asta).
-const TURNSTILE_ENABLED = Boolean(TURNSTILE_SITE_KEY) && process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
+const TURNSTILE_ENABLED =
+  Boolean(TURNSTILE_SITE_KEY) && process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 declare global {
   interface Window {
@@ -97,10 +98,7 @@ export function AuthForm({
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <input type="hidden" name="authPath" value={authPath} />
 
-      <label
-        htmlFor="email"
-        className="mb-2 block font-mono text-[11.5px] uppercase tracking-[0.08em] text-muted-foreground"
-      >
+      <label htmlFor="email" className="mb-2 block text-sm font-medium text-foreground">
         Email
       </label>
       <Input
@@ -128,10 +126,9 @@ export function AuthForm({
 
       <SubmitButton label={submitLabel} />
 
-      <div className="mt-[18px] flex items-center gap-2.5 font-mono text-xs leading-snug text-muted-foreground">
-        <span aria-hidden className="inline-block size-[5px] flex-none rotate-45 bg-primary" />
-        Fără parolă · primești un link de acces pe email
-      </div>
+      <p className="mt-[18px] font-mono text-xs leading-relaxed text-muted-foreground">
+        Fără parolă. Primești un link de acces pe email.
+      </p>
     </form>
   );
 }

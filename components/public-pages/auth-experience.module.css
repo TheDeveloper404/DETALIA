@@ -1,0 +1,378 @@
+.splitMain {
+  --auth-dark: #33201a;
+  --auth-ink: var(--background);
+  --auth-accent: color-mix(in srgb, var(--primary) 60%, var(--background));
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  width: 100%;
+  flex: 1;
+  background: var(--background);
+}
+.drawingColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding: 48px clamp(32px, 4vw, 72px);
+  color: var(--auth-ink);
+  background: var(--auth-dark);
+}
+.drawingHeading {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.drawingEyebrow {
+  margin: 0 0 16px;
+  color: var(--border);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 11px;
+  letter-spacing: 0.07em;
+}
+.drawingTitle {
+  max-width: 19ch;
+  margin: 0;
+  font-size: clamp(28px, 2.8vw, 40px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.15;
+}
+.drawingMessage {
+  width: 100%;
+  max-width: 640px;
+  margin: 32px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid color-mix(in srgb, var(--background) 20%, transparent);
+  color: var(--border);
+  font-size: 16px;
+  line-height: 1.6;
+}
+.formColumn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 72px clamp(32px, 5vw, 80px);
+  background: var(--background);
+}
+.formColumn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -8px;
+}
+.drawing {
+  width: 100%;
+  max-width: 640px;
+  margin: 24px auto 0;
+}
+.diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  fill: none;
+  stroke: var(--auth-ink);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.guideLines {
+  opacity: 0.2;
+  stroke-width: 1;
+  stroke-dasharray: 4 8;
+}
+.contours {
+  stroke-width: 2;
+}
+.profiles {
+  stroke-width: 1.4;
+}
+.hatches {
+  opacity: 0.45;
+  stroke-width: 1;
+}
+.dimensions {
+  stroke: var(--auth-accent);
+  stroke-width: 1.3;
+}
+.joint {
+  stroke: var(--auth-accent);
+  stroke-width: 2;
+}
+.line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: contour-trace 14s ease-in-out infinite;
+}
+.profiles .line {
+  animation-name: profile-trace;
+}
+.hatches .line {
+  animation-name: hatch-trace;
+}
+.dimensions .line {
+  animation-name: dimension-trace;
+}
+.joint .line {
+  animation-name: joint-trace;
+}
+.jointPoint {
+  fill: var(--auth-accent);
+  stroke: none;
+  animation: joint-reveal 14s ease-in-out infinite;
+}
+.drawing[data-paused="true"] .line,
+.drawing[data-paused="true"] .jointPoint {
+  animation-play-state: paused;
+}
+.drawingToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+.drawingCaption,
+.reducedMotionCaption {
+  margin: 0;
+  color: var(--border);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.motionControl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--background) 30%, transparent);
+  border-radius: var(--radius);
+  color: var(--auth-ink);
+  background: transparent;
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 180ms ease;
+}
+.motionControl:hover {
+  background: color-mix(in srgb, var(--background) 10%, transparent);
+}
+.motionControl:focus-visible {
+  outline: 2px solid var(--auth-accent) !important;
+  outline-offset: 4px;
+}
+.reducedMotionCaption {
+  display: none;
+}
+.drawingStages {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid color-mix(in srgb, var(--background) 20%, transparent);
+  list-style: none;
+  color: var(--border);
+  font-family: var(--font-plex-mono), monospace;
+  font-size: 11px;
+}
+.drawingStages li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.drawingStages span {
+  color: var(--auth-accent);
+}
+@keyframes contour-trace {
+  0%,
+  3% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  25%,
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes profile-trace {
+  0%,
+  16% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  38%,
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes hatch-trace {
+  0%,
+  32% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  36% {
+    opacity: 1;
+  }
+  54%,
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes dimension-trace {
+  0%,
+  48% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  52% {
+    opacity: 1;
+  }
+  68%,
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes joint-trace {
+  0%,
+  64% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  68% {
+    opacity: 1;
+  }
+  78%,
+  92% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+@keyframes joint-reveal {
+  0%,
+  72%,
+  100% {
+    opacity: 0;
+  }
+  78%,
+  92% {
+    opacity: 1;
+  }
+}
+@media (max-width: 1100px) {
+  .drawingColumn {
+    padding: 40px 32px;
+  }
+  .formColumn {
+    padding: 48px 32px;
+  }
+  .drawingStages {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .splitMain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .drawingColumn {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+  }
+  .drawingEyebrow {
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+  .drawingTitle {
+    font-size: 24px;
+  }
+  .drawing {
+    margin: 0;
+  }
+  .diagram {
+    max-height: 160px;
+  }
+  .drawingToolbar {
+    justify-content: flex-end;
+    margin-top: 0;
+  }
+  .drawingCaption,
+  .drawingStages,
+  .drawingMessage {
+    display: none;
+  }
+  .formColumn {
+    padding: 40px 24px;
+  }
+}
+@media (max-width: 440px) {
+  .drawingColumn {
+    gap: 12px;
+    padding: 20px;
+  }
+  .drawingTitle {
+    font-size: 20px;
+  }
+  .drawingEyebrow {
+    font-size: 9px;
+  }
+  .diagram {
+    max-height: 128px;
+  }
+  .motionControl {
+    padding: 8px;
+    font-size: 10px;
+  }
+  .formColumn {
+    padding: 32px 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drawing .line,
+  .drawing .jointPoint {
+    animation: none !important;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  .motionControl {
+    display: none;
+  }
+  .reducedMotionCaption {
+    display: inline;
+  }
+}

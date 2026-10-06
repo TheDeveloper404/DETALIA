@@ -3,13 +3,7 @@ import Link from "next/link";
 
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import styles from "@/components/public-pages/public-pages.module.css";
 
 // Acces PUBLIC — înregistrare deschisă, fără invitație. Magic link creează contul automat;
 // după autentificare, userul trece prin onboarding (rol, subrol, poză) înainte de feed.
@@ -46,40 +40,29 @@ export default async function SignupPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <AuthShell mode="signup">
-      <Card className="w-full gap-6 [--card-spacing:--spacing(8)] shadow-[0_22px_56px_-34px_rgba(33,29,24,0.35)]">
-        <CardHeader>
-          <CardTitle className="text-[27px] leading-tight tracking-tight">Creează cont</CardTitle>
-          <CardDescription className="text-[15px]">
-            Intră printre primii profesioniști. Cont gratuit, fără parolă — primești un link de acces
-            pe email.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="flex flex-col gap-5">
-          {errorMessage && (
-            <p
-              role="alert"
-              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-            >
-              {errorMessage}
-            </p>
-          )}
-
-          <AuthForm
-            callbackUrl={callbackUrl ?? "/onboarding"}
-            authPath="/signup"
-            submitLabel="Creează cont cu email"
-          />
-
-          <p className="text-center text-sm text-muted-foreground">
-            Ai deja cont?{" "}
-            <Link href="/login" className="font-medium text-foreground underline underline-offset-4">
-              Autentifică-te
-            </Link>
+    <AuthShell mode="signup" presentation="entry">
+      <section aria-labelledby="signup-title">
+        <p className={styles.eyebrow}>Creează cont</p>
+        <h1 id="signup-title">Adu perspectiva ta în detaliu.</h1>
+        <p className={styles.authDescription}>
+          Confirmi emailul, apoi îți completezi profilul profesional. Contul este gratuit.
+        </p>
+        {errorMessage && (
+          <p role="alert" className={styles.authError}>
+            {errorMessage}
           </p>
-        </CardContent>
-      </Card>
+        )}
+
+        <AuthForm
+          callbackUrl={callbackUrl ?? "/onboarding"}
+          authPath="/signup"
+          submitLabel="Creează cont gratuit"
+        />
+
+        <p className={styles.authAlternative}>
+          Ai deja cont? <Link href="/login">Autentifică-te</Link>
+        </p>
+      </section>
     </AuthShell>
   );
 }

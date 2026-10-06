@@ -184,6 +184,30 @@ describe("trimitere nouă vs editare — isNew determinat de existența ofertei 
     await sendOrUpdateMaterialOffer(input);
     expect(deleteBlobs).toHaveBeenCalledWith(["https://old.blob/f1.pdf"]);
   });
+
+  // AUD-01: repo-ul întoarce TOATE URL-urile vechi, inclusiv cele păstrate în lista nouă.
+  it("editare doar a mesajului (aceleași fișiere) → nimic șters din Blob", async () => {
+    vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
+    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([validFile.url]);
+    await sendOrUpdateMaterialOffer({ ...input, message: "Mesaj modificat" });
+    expect(deleteBlobs).toHaveBeenCalledWith([]);
+  });
+
+  it("un fișier păstrat + unul eliminat → se șterge doar cel eliminat", async () => {
+    vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
+    const removed = "https://abc.public.blob.vercel-storage.com/u/u-1/materials/vechi.pdf";
+    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([validFile.url, removed]);
+    await sendOrUpdateMaterialOffer(input);
+    expect(deleteBlobs).toHaveBeenCalledWith([removed]);
+  });
+
+  it("un fișier păstrat + unul nou adăugat → nimic șters din Blob", async () => {
+    vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
+    const added = { ...validFile, url: "https://abc.public.blob.vercel-storage.com/u/u-1/materials/nou.pdf" };
+    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([validFile.url]);
+    await sendOrUpdateMaterialOffer({ ...input, files: [validFile, added] });
+    expect(deleteBlobs).toHaveBeenCalledWith([]);
+  });
 });
 
 describe("notificarea e auxiliară — un eșec acolo NU trebuie să strice rezultatul (oferta e deja salvată)", () => {
