@@ -176,6 +176,56 @@ test.describe("Autentificare (UI passwordless)", () => {
     await page.goto("/verify-request");
     await expect(page.getByText("Verifică-ți email-ul", { exact: true })).toBeVisible();
   });
+
+  test("/verify-request: desenul se poate opri și relua din tastatură", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/verify-request");
+    const drawing = page.getByRole("img", { name: /Desen schematic animat/ });
+    await expect(drawing).toBeVisible();
+    const line = drawing.locator('path[pathLength="1"]').first();
+    await expect(line).toHaveCSS("animation-play-state", "running");
+
+    const pause = page.getByRole("button", { name: "Pauză animație", exact: true });
+    await pause.focus();
+    await pause.press("Enter");
+    const resume = page.getByRole("button", { name: "Reia animația", exact: true });
+    await expect(resume).toBeFocused();
+    await expect(page.locator('[data-paused="true"]')).toHaveCount(1);
+    await expect(line).toHaveCSS("animation-play-state", "paused");
+
+    await resume.press("Space");
+    await expect(pause).toBeFocused();
+    await expect(page.locator('[data-paused="false"]')).toHaveCount(1);
+    await expect(line).toHaveCSS("animation-play-state", "running");
+    await expect(page).toHaveURL(/\/verify-request$/);
+  });
+
+  test("/verify-request: desen static cu reduced motion la 768/390px", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    for (const width of [768, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto("/verify-request");
+      const drawing = page.getByRole("img", { name: /Desen schematic animat/ });
+      await expect(drawing).toBeVisible();
+      await expect(page.getByRole("button", { name: "Pauză animație", exact: true })).toBeHidden();
+      await expect(page.getByText("Desen fără animație", { exact: true })).toBeVisible();
+      const line = drawing.locator('path[pathLength="1"]').first();
+      await expect(line).toHaveCSS("animation-name", "none");
+      await expect(line).toHaveCSS("stroke-dashoffset", "0px");
+      await expect(line).toHaveCSS("opacity", "1");
+      await expect(
+        page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true }),
+      ).toBeVisible();
+
+      const skip = page.getByRole("link", { name: "Sari la formular", exact: true });
+      await skip.focus();
+      await skip.press("Enter");
+      await expect(page.locator("#formular")).toBeFocused();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+  });
 });
 
 // BUG 2026-07-30: /login cu email fără cont arăta explicit "Nu există niciun cont..." iar /signup cu
