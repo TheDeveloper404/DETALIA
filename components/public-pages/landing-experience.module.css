@@ -12,6 +12,9 @@
 }
 .header {
   position: relative;
+  /* backdrop-filter creează un stacking context: fără z-index, .mobilePanel (z 50) rămâne prins
+     sub .heroCopy (z 2) și hero-ul acoperă meniul mobil. */
+  z-index: 10;
   /* Identic cu header-ul aplicației (app-header.tsx): crem 90% + blur, 80 px, logo 44, padding 48. */
   background: color-mix(in srgb, var(--secondary) 90%, transparent);
   -webkit-backdrop-filter: blur(8px);
