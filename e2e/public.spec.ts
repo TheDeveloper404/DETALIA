@@ -8,6 +8,33 @@ import { expect, test } from "@playwright/test";
 // Fluxurile authed (publicare detaliu, validare, schiță) = increment separat, cu sesiune seedată.
 
 test.describe("Landing", () => {
+  test("footer mobil: slogan sub logo, pe o singură linie la 320/390px", async ({ page }) => {
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto("/");
+      const footer = page.locator("footer");
+      const logo = footer.getByAltText("DETALIA", { exact: true });
+      const slogan = footer.getByText("Detalii de execuție. Perspective asumate.", { exact: true });
+      await expect(logo).toBeVisible();
+      await expect(slogan).toBeVisible();
+      const logoBox = await logo.boundingBox();
+      const sloganBox = await slogan.boundingBox();
+      expect(logoBox).not.toBeNull();
+      expect(sloganBox).not.toBeNull();
+      expect(sloganBox!.y).toBeGreaterThanOrEqual(logoBox!.y + logoBox!.height);
+      expect(
+        await slogan.evaluate((element) => {
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          return range.getClientRects().length;
+        }),
+      ).toBe(1);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+  });
+
   test("se încarcă și are CTA către signup și login", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveTitle(/DETALIA/i);

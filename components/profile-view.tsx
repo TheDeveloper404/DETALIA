@@ -372,7 +372,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
         </div>
 
         <div className="mt-5 border-t border-border pt-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <SectionLabel>Badge-uri</SectionLabel>
             {/* Referral — STRICT pe propriul profil (privat), lângă „Badge-uri" (2026-08-26: mutat
                 din colțul antetului, unde acoperea vizual imaginea de cover). */}

@@ -2,6 +2,7 @@
 
 import { Check, Copy, UserPlus, X } from "lucide-react";
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { Button } from "@/components/ui/button";
 
 // Strict pe propriul profil (viewerIsOwner, verificat de apelant) — link privat, cod deja generat de
 // server (profileService, lenes la prima vizită pe propriul profil).
@@ -44,16 +45,21 @@ export function ReferralLinkCard({ code, count }: { code: string; count: number 
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="technical"
+        size="cta"
         onClick={() => setOpen(true)}
         title="Invită un prieten prin linkul tău de referral"
-        className="flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-[#974a2e]"
+        aria-label={count > 0 ? `Invită un prieten · ${count}` : "Invită un prieten"}
+        className="shadow-sm"
       >
         <UserPlus className="size-4" strokeWidth={2} />
-        Invită un prieten
+        <span>
+          Invită<span className="hidden sm:inline"> un prieten</span>
+        </span>
         {count > 0 && <span className="font-mono text-[12px] opacity-90">· {count}</span>}
-      </button>
+      </Button>
 
       {open && (
         <div
@@ -79,8 +85,8 @@ export function ReferralLinkCard({ code, count }: { code: string; count: number 
               </button>
             </div>
             <p className="text-[13px] leading-relaxed text-muted-foreground">
-              Trimite-l unui prieten — dacă își face cont prin el, primești o notificare. La 10 useri
-              aduși primești badge-ul „Creștem împreună&rdquo;.
+              Trimite-l unui prieten — dacă își face cont prin el, primești o notificare. La 10
+              useri aduși primești badge-ul „Creștem împreună&rdquo;.
             </p>
             <div className="mt-3 flex items-center gap-1.5">
               <input

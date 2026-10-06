@@ -73,6 +73,22 @@ describe("Paginile publice — integrare de randare", () => {
     },
   );
 
+  it("explică principiile comunității prin exemple, în contextul rolurilor", () => {
+    const html = renderToStaticMarkup(createElement(Home));
+    const start = html.indexOf('aria-labelledby="principles-title"');
+    const principles = html.slice(start, html.indexOf("</section>", start));
+    expect(start).toBeGreaterThan(html.indexOf('aria-labelledby="roles-title"'));
+    expect(principles).toContain("Vezi cine spune, de ce spune și la ce se referă.");
+    expect((principles.match(/<li>/g) ?? []).length).toBe(3);
+    expect(principles).toContain("Andrei Popa");
+    expect(principles).toContain("Executant");
+    expect(principles).toContain("o explicație scrisă sau cu o schiță publicată");
+    expect(principles).toContain('alt="Detaliul inițial al racordului terasă–atic"');
+    expect(principles).toContain('alt="Schiță ilustrativă peste același racord"');
+    expect(principles).toContain("Exemple ilustrative, cu persoane și texte fictive.");
+    expect(principles).not.toContain("<button");
+  });
+
   it("păstrează callback-ul primit și afișează erorile fără internals", async () => {
     const html = renderToStaticMarkup(
       await LoginPage({

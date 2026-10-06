@@ -340,8 +340,10 @@ export function DetailWorkspace({
       )}
       <Button
         type="submit"
-        size="icon"
+        variant="technical"
+        size="cta"
         title={startSketchLabel}
+        aria-label={startSketchLabel}
         className="group/button !w-auto gap-0 overflow-hidden !px-2.5 shadow-md"
       >
         <Pencil className="size-4 shrink-0" strokeWidth={2} />

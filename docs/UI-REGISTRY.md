@@ -87,6 +87,12 @@ liste mărginite realist, nu pentru mii de rânduri). Nu construi un alt „Vezi
 ## Primitive shadcn disponibile
 
 `components/ui/`: `button.tsx`, `card.tsx`, `input.tsx`, `label.tsx`, `skeleton.tsx`, `textarea.tsx`.
+CTA cărămiziu aliniat cu landing-ul: `Button variant="technical" size="cta"` — colțuri 2 px,
+IBM Plex Mono 13 px majusculă, bordură/hover `--primary-button-border`; 38 px desktop, 44 px mobil.
+Folosit de Adaugă, Comentează, Schițează și Invită un prieten. Nu modifica varianta `default` global
+pentru o aliniere locală. Stările disabled/pending, focus și props native sunt cele ale `Button`.
+Butonul de referral afișează „Invită” sub breakpoint-ul `sm`, cu contorul păstrat; pe desktop
+afișează „Invită un prieten”. Numele accesibil rămâne complet și include contorul când există.
 Set minimal — dacă ai nevoie de `dialog`/`dropdown-menu`/`select` etc., verifică întâi dacă chiar
 lipsește (`npx shadcn add ...`) înainte de a construi manual echivalentul (parte din motivul pentru
 care modalul e reimplementat de 9 ori mai sus — nu există un `<Dialog>` shadcn instalat încă).
@@ -160,8 +166,8 @@ CTA public = stil „tehnic” (2 px, IBM Plex Mono 13 px majusculă, 38 px); mo
 (`app/ghid/ghid.module.css`: secțiuni · conținut · cuprins).
 Sub 1000 px header-ul public = logo + meniu `<details>` (panou compact de maximum 280 px lângă buton,
 sub header, cu toată navigația și ținte de atingere de minimum 44 px). Footer: logo stânga, linkuri
-dreapta; pe telefon, trei rânduri: logo + slogan inline, Ghid · Termeni · Confidențialitate · Suport,
-apoi LinkedIn · GitHub. Eticheta scurtă „Termeni” păstrează numele accesibil „Termeni și condiții”. Butonul de trimitere
+dreapta; pe telefon: logo, slogan imediat sub el pe o singură linie, Ghid · Termeni · Confidențialitate ·
+Suport, apoi LinkedIn · GitHub. Eticheta scurtă „Termeni” păstrează numele accesibil „Termeni și condiții”. Butonul de trimitere
 login/signup = același stil tehnic ca CTA-ul (44 px).
 
 Landing-ul are propriul `landing-experience.module.css`: grid blueprint, secțiuni late (maximum
@@ -171,6 +177,9 @@ mascat radial, nu pe toată suprafața. Banda de beneficii are accent teracotă,
 `landing-demos.tsx` conține demonstrații locale: detaliu → schiță → argumente, Proiecte/Planșe și
 perspective pe roluri. Taburi native cu `aria-selected`, `aria-controls`, focus roving,
 săgeți/Home/End; panouri inactive `hidden`. Exemplele sunt marcate ilustrative/fictive.
+Secțiunea 03: după taburile de roluri, trei exemple statice explică autorul/meseria (AvatarInitials +
+RolePill existente), dezacordul justificat și legătura detaliu–schiță (aceleași imagini din demonstrația
+01). Exemplele nu mimează controale; lista devine verticală sub 1000 px.
 Intrare discretă o singură dată în hero și la intrarea demonstrațiilor în viewport; fără bucle,
 autoplay sau cursor simulat. `prefers-reduced-motion` dezactivează animațiile.
 
