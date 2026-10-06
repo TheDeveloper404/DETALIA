@@ -1,12 +1,12 @@
 .splitMain {
-  --auth-dark: #33201a;
-  --auth-ink: var(--background);
-  --auth-accent: color-mix(in srgb, var(--primary) 60%, var(--background));
+  /* Coloana desenului pe cremul deschis al paginii: tuș închis, cote/racord în teracotă. */
+  --auth-ink: var(--foreground);
+  --auth-accent: var(--primary);
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
   width: 100%;
   flex: 1;
-  background: var(--background);
+  background: var(--secondary);
 }
 .drawingColumn {
   display: flex;
@@ -14,8 +14,26 @@
   justify-content: center;
   min-width: 0;
   padding: 48px clamp(32px, 4vw, 72px);
+  position: relative;
+  isolation: isolate;
   color: var(--auth-ink);
-  background: var(--auth-dark);
+  /* Trecere treptată spre cremul coloanei formularului — fără linie de despărțire. */
+  background: linear-gradient(90deg, var(--background) 55%, var(--secondary) 100%);
+}
+/* Grila din hero-ul landing-ului: aceeași rețea, opacitate și estompare radială. */
+.drawingColumn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--blueprint-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--blueprint-grid) 1px, transparent 1px);
+  background-size: 34px 34px;
+  opacity: 0.6;
+  -webkit-mask-image: radial-gradient(120% 90% at 50% 50%, #000 0%, transparent 72%);
+  mask-image: radial-gradient(120% 90% at 50% 50%, #000 0%, transparent 72%);
 }
 .drawingHeading {
   width: 100%;
@@ -24,8 +42,9 @@
 }
 .drawingEyebrow {
   margin: 0 0 16px;
-  color: var(--border);
+  color: var(--muted-foreground);
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 11px;
   letter-spacing: 0.07em;
 }
@@ -42,8 +61,8 @@
   max-width: 640px;
   margin: 32px auto 0;
   padding-top: 24px;
-  border-top: 1px solid color-mix(in srgb, var(--background) 20%, transparent);
-  color: var(--border);
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
   font-size: 16px;
   line-height: 1.6;
 }
@@ -53,7 +72,7 @@
   justify-content: center;
   min-width: 0;
   padding: 72px clamp(32px, 5vw, 80px);
-  background: var(--background);
+  background: var(--secondary);
 }
 .formColumn:focus-visible {
   outline: 2px solid var(--primary);
@@ -135,8 +154,9 @@
 .drawingCaption,
 .reducedMotionCaption {
   margin: 0;
-  color: var(--border);
+  color: var(--muted-foreground);
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 10px;
   line-height: 1.6;
 }
@@ -147,17 +167,18 @@
   gap: 8px;
   min-height: 44px;
   padding: 8px 12px;
-  border: 1px solid color-mix(in srgb, var(--background) 30%, transparent);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--auth-ink);
   background: transparent;
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 11px;
   cursor: pointer;
   transition: background-color 180ms ease;
 }
 .motionControl:hover {
-  background: color-mix(in srgb, var(--background) 10%, transparent);
+  background: var(--secondary);
 }
 .motionControl:focus-visible {
   outline: 2px solid var(--auth-accent) !important;
@@ -172,10 +193,11 @@
   gap: 8px;
   margin: 16px 0 0;
   padding: 16px 0 0;
-  border-top: 1px solid color-mix(in srgb, var(--background) 20%, transparent);
+  border-top: 1px solid var(--border);
   list-style: none;
-  color: var(--border);
+  color: var(--muted-foreground);
   font-family: var(--font-plex-mono), monospace;
+  font-weight: 600;
   font-size: 11px;
 }
 .drawingStages li {

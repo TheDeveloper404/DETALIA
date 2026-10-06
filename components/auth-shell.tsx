@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { BrandLogo } from "@/components/brand-logo";
 import { AnimatedAuthDrawing } from "@/components/public-pages/animated-auth-drawing";
 import experience from "@/components/public-pages/auth-experience.module.css";
+import landing from "@/components/public-pages/landing-experience.module.css";
 import styles from "@/components/public-pages/public-pages.module.css";
 
 export function AuthShell({
@@ -19,13 +20,16 @@ export function AuthShell({
 }) {
   const isEntry = presentation === "entry";
   return (
-    <div className={`${styles.publicPage} ${styles.authPage} ${isEntry ? styles.authEntry : ""}`}>
+    <div
+      className={`${styles.publicPage} ${styles.authPage} ${isEntry ? `${styles.authEntry} ${landing.landing}` : ""}`}
+    >
       <a className={styles.skipLink} href="#formular">
         Sari la formular
       </a>
-      <header className={styles.header}>
-        <div className={styles.headerInner}>
-          <BrandLogo size={38} />
+      {/* Login/signup: același header ca landing-ul (poziționare, logo, fundal). */}
+      <header className={isEntry ? landing.header : styles.header}>
+        <div className={isEntry ? landing.headerInner : styles.headerInner}>
+          <BrandLogo size={isEntry ? 44 : 38} />
           <Link href="/" className={styles.backLink}>
             <ArrowLeft size={16} aria-hidden="true" /> Înapoi la site
           </Link>
@@ -73,11 +77,13 @@ export function AuthShell({
           <div className={styles.authContent}>{children}</div>
         </main>
       )}
-      <footer className={styles.authFooter}>
-        <Link href="/termeni">Termeni și condiții</Link>
-        <Link href="/confidentialitate">Confidențialitate</Link>
-        <a href="mailto:support@detalia.ro">Suport</a>
-      </footer>
+      {!isEntry && (
+        <footer className={styles.authFooter}>
+          <Link href="/termeni">Termeni și condiții</Link>
+          <Link href="/confidentialitate">Confidențialitate</Link>
+          <a href="mailto:support@detalia.ro">Suport</a>
+        </footer>
+      )}
     </div>
   );
 }

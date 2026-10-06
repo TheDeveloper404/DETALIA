@@ -78,7 +78,7 @@
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem; /* brand — 10px, radius unic pe toată aplicația */
-  --container-max: 1280px; /* lățime unică de container (Auth/Onboarding/Feed/Landing). Profil rămâne mai îngust intenționat. */
+  --container-max: 1640px; /* lățime unică de container (Landing/Auth/Onboarding/Feed/aplicație). Profil rămâne mai îngust intenționat. */
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
