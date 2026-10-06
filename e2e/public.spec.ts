@@ -113,6 +113,64 @@ test.describe("Landing", () => {
     ).toBeVisible();
   });
 
+  test("desenul de fundație se încarcă în Proiecte și Planșe", async ({ page }) => {
+    await page.goto("/");
+    const workspace = page.locator("#proiecte-planse");
+    const foundation = workspace.getByRole("img", { name: /Secțiune cotată prin fundație/ });
+    await foundation.scrollIntoViewIfNeeded();
+    await expect(foundation).toBeVisible();
+    await expect(foundation).toHaveJSProperty("complete", true);
+    await expect
+      .poll(() => foundation.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    await workspace.getByRole("tab", { name: /Planșe/ }).click();
+    await expect(foundation).toBeVisible();
+    await expect(foundation).toHaveJSProperty("complete", true);
+    await expect
+      .poll(() => foundation.evaluate((image: HTMLImageElement) => image.naturalWidth))
+      .toBeGreaterThan(0);
+    await expect(workspace.getByText("02 / Detaliul de fundație", { exact: true })).toBeVisible();
+  });
+
+  for (const { width, motion } of [
+    { width: 320, motion: "reduce" },
+    { width: 390, motion: "reduce" },
+    { width: 768, motion: "reduce" },
+    { width: 1440, motion: "no-preference" },
+  ] as const) {
+    test(`CTA final accesibil la ${width}px (${motion})`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.emulateMedia({ reducedMotion: motion });
+      await page.goto("/");
+      const finalSection = page.locator('section[aria-labelledby="final-title"]');
+      const signup = finalSection.getByRole("link", { name: "Creează cont gratuit", exact: true });
+      await signup.scrollIntoViewIfNeeded();
+      await expect(
+        finalSection.getByRole("heading", { name: "Ce detaliu ai vrea să pui pe masă?" }),
+      ).toBeVisible();
+      await expect(
+        finalSection.getByRole("link", { name: "Autentifică-te", exact: true }),
+      ).toHaveAttribute("href", "/login");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      await signup.focus();
+      await expect(signup).toBeFocused();
+      if (motion === "reduce") {
+        expect(
+          await finalSection.evaluate(
+            (element) =>
+              element
+                .getAnimations({ subtree: true })
+                .filter((animation) => animation.playState === "running").length,
+          ),
+        ).toBe(0);
+      }
+      await signup.click();
+      await expect(page).toHaveURL(/\/signup$/);
+    });
+  }
+
   test("la 390px login/signup rămân accesibile, inclusiv cu reduced motion", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });

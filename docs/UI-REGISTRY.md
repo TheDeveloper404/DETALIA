@@ -182,6 +182,14 @@ RolePill existente), dezacordul justificat și legătura detaliu–schiță (ace
 01). Exemplele nu mimează controale; lista devine verticală sub 1000 px.
 Intrare discretă o singură dată în hero și la intrarea demonstrațiilor în viewport; fără bucle,
 autoplay sau cursor simulat. `prefers-reduced-motion` dezactivează animațiile.
+Secțiunea 02 folosește desenul de fundație furnizat de user (`public/landing/foundation-detail.jpg`):
+detaliu în Proiecte și a doua foaie în Planșe, fără decuparea desenului.
+CTA-ul final păstrează textele și fundalul teracotă; `FinalCtaScene` compune o masă conturată și foi
+tehnice în perspectivă (poartă de acces stânga, coamă de acoperiș dreapta; originalele furnizate de user).
+„Ai deja cont?” are un spațiu de 12 px sub CTA. Foile se așază succesiv o singură dată la intrarea în viewport și se desfac
+discret la hover/focus. Sub 1200 px decorul se mută sub mesaj; sub 600 px foile devin compacte.
+Decorul are `aria-hidden` și `pointer-events: none`; CTA-ul rămâne accesibil fără JavaScript.
+Reduced motion elimină animațiile și deplasările la hover/focus. Fără librărie nouă de animație.
 
 `AuthShell` — logo + revenire la site, desen ilustrativ pe desktop, formular direct pe
 suprafață și linkuri legale/suport. Login/signup/confirmare folosesc un singur `h1`, iar

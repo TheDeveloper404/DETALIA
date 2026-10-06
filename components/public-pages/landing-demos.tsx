@@ -400,15 +400,15 @@ export function WorkspaceDemo() {
               </div>
               <div className={styles.projectDetail}>
                 <Image
-                  src="/landing/terrace-detail.webp"
-                  alt="Detaliu de terasă din proiectul ilustrativ."
-                  width={1200}
-                  height={800}
+                  src="/landing/foundation-detail.jpg"
+                  alt="Secțiune cotată prin fundație și racordul cu terenul, în proiectul ilustrativ."
+                  width={933}
+                  height={870}
                   sizes="(max-width: 900px) 200px, 320px"
                 />
                 <div>
                   <span className={styles.eyebrow}>Detaliu în proiect</span>
-                  <h5>Racord terasă–atic</h5>
+                  <h5>Fundație · racord cu terenul</h5>
                   <p>Întrebarea și schița rămân în contextul echipei.</p>
                   <span className={styles.previewStatus}>
                     <MessageSquare size={14} aria-hidden="true" /> Discuție legată de detaliu
@@ -456,13 +456,13 @@ export function WorkspaceDemo() {
                 </figure>
                 <figure>
                   <Image
-                    src="/landing/terrace-sketch.webp"
-                    alt="Schița ilustrativă, alăturată detaliului pe planșă."
-                    width={1200}
-                    height={800}
+                    src="/landing/foundation-detail.jpg"
+                    alt="Secțiune cotată prin fundație, alăturată detaliului de terasă pe planșă."
+                    width={933}
+                    height={870}
                     sizes="(max-width: 900px) 45vw, 360px"
                   />
-                  <figcaption>02 / Schița alăturată</figcaption>
+                  <figcaption>02 / Detaliul de fundație</figcaption>
                 </figure>
                 <p>
                   <Plus size={16} aria-hidden="true" /> Ideile rămân împreună, pe suprafața ta de
