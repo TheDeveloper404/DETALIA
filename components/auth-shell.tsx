@@ -13,10 +13,12 @@ export function AuthShell({
   mode,
   children,
   presentation = "default",
+  showDrawing = true,
 }: {
   mode: "login" | "signup";
   children: ReactNode;
   presentation?: "default" | "entry" | "centered";
+  showDrawing?: boolean;
 }) {
   const isEntry = presentation === "entry";
   // `centered`: pagina de după click pe magic link („Te conectăm…”) — același header/culori ca
@@ -44,19 +46,21 @@ export function AuthShell({
           <div className={experience.centeredContent}>{children}</div>
         </main>
       ) : isEntry ? (
-        <main className={experience.splitMain}>
-          <aside className={experience.drawingColumn} aria-label="Desen tehnic ilustrativ">
-            <div className={experience.drawingHeading}>
-              <p className={experience.drawingEyebrow}>DETALIU / RACORD FEREASTRĂ</p>
-              <p className={experience.drawingTitle}>Desenul este punctul de întâlnire.</p>
-            </div>
-            <AnimatedAuthDrawing />
-            <p className={experience.drawingMessage}>
-              {mode === "signup"
-                ? "O perspectivă în plus poate deschide o discuție bună."
-                : "Detaliile tale și discuțiile lor te așteaptă."}
-            </p>
-          </aside>
+        <main className={showDrawing ? experience.splitMain : experience.formOnlyMain}>
+          {showDrawing && (
+            <aside className={experience.drawingColumn} aria-label="Desen tehnic ilustrativ">
+              <div className={experience.drawingHeading}>
+                <p className={experience.drawingEyebrow}>DETALIU / RACORD FEREASTRĂ</p>
+                <p className={experience.drawingTitle}>Desenul este punctul de întâlnire.</p>
+              </div>
+              <AnimatedAuthDrawing />
+              <p className={experience.drawingMessage}>
+                {mode === "signup"
+                  ? "O perspectivă în plus poate deschide o discuție bună."
+                  : "Detaliile tale și discuțiile lor te așteaptă."}
+              </p>
+            </aside>
+          )}
           <div id="formular" tabIndex={-1} className={experience.formColumn}>
             <div className={styles.authContent}>{children}</div>
           </div>

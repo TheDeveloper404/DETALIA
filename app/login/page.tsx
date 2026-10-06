@@ -26,7 +26,7 @@ export default async function LoginPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <AuthShell mode="login" presentation="entry">
+    <AuthShell mode="login" presentation="entry" showDrawing={false}>
       <section aria-labelledby="login-title">
         <p className={styles.eyebrow}>Autentificare</p>
         <h1 id="login-title">Bine ai revenit.</h1>

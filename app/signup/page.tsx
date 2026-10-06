@@ -40,7 +40,7 @@ export default async function SignupPage({
   const errorMessage = error ? (ERROR_MESSAGES[error] ?? ERROR_MESSAGES.default) : null;
 
   return (
-    <AuthShell mode="signup" presentation="entry">
+    <AuthShell mode="signup" presentation="entry" showDrawing={false}>
       <section aria-labelledby="signup-title">
         <p className={styles.eyebrow}>Creează cont</p>
         <h1 id="signup-title">Adu perspectiva ta în detaliu.</h1>

@@ -21,7 +21,7 @@
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
-/* Meniul mobil (sub 1000 px) — <details> fără JS; panoul se deschide sub header, pe toată lățimea. */
+/* Meniul mobil (sub 1000 px) — <details> fără JS, panou compact lângă buton. */
 .mobileMenu {
   display: none;
 }
@@ -52,25 +52,37 @@
 .mobilePanel {
   position: absolute;
   top: 100%;
-  left: 0;
-  right: 0;
+  right: 20px;
+  width: min(280px, calc(100% - 40px));
   z-index: 50;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 12px;
-  padding: 16px 20px 20px;
-  border-bottom: 1px solid var(--border);
+  align-items: flex-start;
+  gap: 4px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
   background: var(--secondary);
   box-shadow: 0 12px 20px -16px var(--muted-foreground);
 }
 .mobileCta {
   justify-content: center;
 }
+.mobilePanel > a {
+  min-height: 44px;
+  font-size: 14px;
+}
+.mobilePanel > .mobileCta {
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
 .mobileSocial {
   display: flex;
-  gap: 20px;
-  padding-top: 12px;
+  gap: 16px;
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 4px;
   border-top: 1px solid var(--border);
 }
 .mobileSocial a {
@@ -82,6 +94,9 @@
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
+}
+.mobileSocial a:hover {
+  color: var(--primary);
 }
 .headerInner {
   max-width: var(--landing-max);
@@ -1037,6 +1052,16 @@
   font-weight: 600;
   color: var(--muted-foreground);
 }
+.footerPages,
+.footerNetworks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+.footerTermsShort {
+  display: none;
+}
 .footerInner nav a {
   display: inline-flex;
   align-items: center;
@@ -1449,22 +1474,54 @@
   .finalCta .sectionInner > p:not(.eyebrow) {
     font-size: 16px;
   }
-  /* Logo + slogan în stânga, linkurile într-o coloană aliniată la dreapta. */
+  /* Trei rânduri: logo + slogan, cele patru pagini, apoi rețelele sociale. */
   .footerInner {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
+    grid-template-columns: minmax(0, 1fr);
     padding: 16px 20px;
+    gap: 8px;
+  }
+  .footerBrand {
+    flex-direction: row;
+    align-items: center;
     gap: 16px;
   }
+  .footerBrand > a {
+    flex-shrink: 0;
+    min-height: 44px;
+  }
+  .footerBrand img {
+    height: 28px !important;
+  }
+  .footerBrand > span {
+    font-size: 14px;
+  }
   .footerInner nav {
-    flex-direction: column;
-    align-items: flex-end;
+    display: grid;
+    width: 100%;
+    font-size: 14px;
     gap: 0;
     margin-left: 0;
   }
+  .footerPages {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .footerPages a {
+    white-space: nowrap;
+  }
+  .footerNetworks {
+    gap: 24px;
+  }
+  .footerTermsFull {
+    display: none;
+  }
+  .footerTermsShort {
+    display: inline;
+  }
   .footerInner nav a {
-    min-height: 36px;
+    min-height: 44px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

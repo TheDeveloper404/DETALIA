@@ -3,7 +3,9 @@
 // Securitate: NU logăm conținutul/destinatarul (PII). Doar metadate, dacă e nevoie.
 
 // ── Template brand DETALIA (email-safe: inline CSS, fără fonturi externe) ─────────────────────────
-// Shell reutilizabil: header cu wordmark, card, conținut, footer. Folosit de magic link + notificări.
+// Shell reutilizabil: logo oficial PNG, card, conținut, footer. Folosit de magic link + notificări.
+// Asset static public, fără token/date personale în URL; PNG derivat din public/logo.svg.
+const EMAIL_LOGO_URL = "https://detalia.ro/brand/logo-email.png";
 const BRAND = {
   bg: "#faf8f4",
   card: "#ffffff",
@@ -15,21 +17,21 @@ const BRAND = {
 
 // `accent` opțional = suprascrie culoarea de brand (teracotă) doar pt acest email — folosit de
 // emailul de admin, ca să se diferențieze vizual instant de emailurile normale (buton + badge).
-// `badge` opțional = etichetă mică lângă wordmark (ex. „PANOU ADMIN").
+// `badge` opțional = etichetă mică lângă logo (ex. „PANOU ADMIN").
 function emailLayout(
   contentHtml: string,
-  options?: { accent?: string; badge?: string },
+  options?: { accent?: string; badge?: string; preheader?: string },
 ): string {
   const accent = options?.accent ?? BRAND.accent;
   return `<!doctype html>
 <html lang="ro"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"></head>
 <body style="margin:0;padding:0;background:${BRAND.bg};">
+  ${options?.preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">${esc(options.preheader)}</div>` : ""}
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.bg};">
     <tr><td align="center" style="padding:32px 16px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;font-family:Arial,Helvetica,sans-serif;">
         <tr><td style="padding:0 4px 18px;">
-          <span style="display:inline-block;width:9px;height:9px;background:${accent};transform:rotate(45deg);vertical-align:middle;"></span>
-          <span style="font-weight:800;letter-spacing:.2em;font-size:16px;color:${BRAND.text};vertical-align:middle;margin-left:9px;">DETALIA</span>
+          <img src="${EMAIL_LOGO_URL}" alt="DETALIA" width="180" height="45" style="display:inline-block;width:180px;max-width:100%;height:auto;border:0;vertical-align:middle;color:${BRAND.text};font-size:20px;font-weight:700;">
           ${
             options?.badge
               ? `<span style="display:inline-block;vertical-align:middle;margin-left:10px;padding:3px 9px;border-radius:20px;background:${accent};color:#ffffff;font-size:10.5px;font-weight:700;letter-spacing:.08em;">${options.badge}</span>`
@@ -51,21 +53,27 @@ function emailLayout(
 
 // Email-ul de magic link (autentificare passwordless). `ttlMinutes` din env (Auth.js).
 export function magicLinkEmailHtml(url: string, ttlMinutes: number): string {
-  return emailLayout(`
-    <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Autentificare în DETALIA</h1>
-    <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
-      Apasă butonul de mai jos ca să te conectezi. Linkul e valabil ${ttlMinutes} de minute și poate fi folosit o singură dată.
+  return emailLayout(
+    `
+    <h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;color:${BRAND.text};">Conectează-te la DETALIA</h1>
+    <p style="margin:0 0 24px;font-size:16px;line-height:1.6;color:${BRAND.muted};">
+      Salut! Apasă butonul de mai jos pentru a intra în DETALIA. Nu ai nevoie de parolă.
     </p>
-    ${emailButton(url, "Conectează-te")}
-    <p style="margin:22px 0 0;font-size:12.5px;line-height:1.5;color:${BRAND.muted};">
-      Dacă butonul nu merge,
-      <a href="${esc(url)}" style="color:${BRAND.accent};">deschide linkul de autentificare</a>.
+    ${emailButton(url, "Intră în DETALIA")}
+    <p style="margin:24px 0 0;font-size:14px;line-height:1.6;color:${BRAND.muted};">
+      Pentru siguranța ta, linkul este valabil <strong>${ttlMinutes} de minute</strong> și poate fi folosit o singură dată.
     </p>
-  `);
+    <p style="margin:16px 0 0;padding-top:16px;border-top:1px solid ${BRAND.border};font-size:14px;line-height:1.6;color:${BRAND.muted};">
+      Butonul nu se deschide?<br>
+      <a href="${esc(url)}" style="color:${BRAND.accent};text-decoration:underline;">Folosește acest link pentru a te conecta</a>.
+    </p>
+  `,
+    { preheader: `Intră în DETALIA fără parolă. Linkul este valabil ${ttlMinutes} de minute.` },
+  );
 }
 
 export function magicLinkEmailText(url: string, ttlMinutes: number): string {
-  return `Autentificare în DETALIA\n\nDeschide linkul pentru a te conecta (valabil ${ttlMinutes} de minute, o singură utilizare):\n${url}\n\nDacă nu ai cerut acest email, ignoră-l.`;
+  return `Conectează-te la DETALIA\n\nSalut! Deschide linkul de mai jos pentru a intra în DETALIA. Nu ai nevoie de parolă.\n\nIntră în DETALIA:\n${url}\n\nPentru siguranța ta, linkul este valabil ${ttlMinutes} de minute și poate fi folosit o singură dată.\n\nDacă nu ai cerut acest email, poți să-l ignori.`;
 }
 
 // Escape HTML — valorile controlate de user (titlu, nume) NU intră brut în email (anti-XSS).
@@ -155,7 +163,6 @@ export function sketchDeletedEmailText(detailTitle: string, url: string): string
   return `Schița ta a fost eliminată\n\nSchița ta de la detaliul „${detailTitle}" a fost eliminată de autorul detaliului.\n\nVezi detaliul:\n${url}`;
 }
 
-
 export function materialOfferSentEmailHtml(who: string, detailTitle: string, url: string): string {
   return emailLayout(`
     <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Ai primit o ofertă de materiale</h1>
@@ -170,7 +177,11 @@ export function materialOfferSentEmailText(who: string, detailTitle: string, url
   return `Ai primit o ofertă de materiale\n\n${who} a trimis o ofertă de materiale pentru detaliul tău „${detailTitle}".\n\nVezi oferta:\n${url}`;
 }
 
-export function materialOfferEditedEmailHtml(who: string, detailTitle: string, url: string): string {
+export function materialOfferEditedEmailHtml(
+  who: string,
+  detailTitle: string,
+  url: string,
+): string {
   return emailLayout(`
     <h1 style="margin:0 0 12px;font-size:22px;line-height:1.25;color:${BRAND.text};">Ofertă de materiale actualizată</h1>
     <p style="margin:0 0 22px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
@@ -180,7 +191,11 @@ export function materialOfferEditedEmailHtml(who: string, detailTitle: string, u
   `);
 }
 
-export function materialOfferEditedEmailText(who: string, detailTitle: string, url: string): string {
+export function materialOfferEditedEmailText(
+  who: string,
+  detailTitle: string,
+  url: string,
+): string {
   return `Ofertă de materiale actualizată\n\n${who} a actualizat oferta de materiale pentru detaliul tău „${detailTitle}".\n\nVezi oferta:\n${url}`;
 }
 
@@ -219,7 +234,9 @@ function roCount(n: number, one: string, few: string, many: string): string {
 function digestMineLines(mine: WeeklyDigestData["mine"]): string[] {
   const out: string[] = [];
   if (mine.comments > 0)
-    out.push(roCount(mine.comments, "un comentariu nou", "%d comentarii noi", "%d de comentarii noi"));
+    out.push(
+      roCount(mine.comments, "un comentariu nou", "%d comentarii noi", "%d de comentarii noi"),
+    );
   if (mine.sketches > 0)
     out.push(roCount(mine.sketches, "o schiță nouă", "%d schițe noi", "%d de schițe noi"));
   if (mine.validations > 0)
@@ -312,7 +329,10 @@ export async function sendEmail(input: {
     if (!res.ok) console.error("Resend: trimitere respinsă, status", res.status);
     return res.ok;
   } catch (err) {
-    console.error("Resend: eroare de rețea la trimitere:", err instanceof Error ? err.message : String(err));
+    console.error(
+      "Resend: eroare de rețea la trimitere:",
+      err instanceof Error ? err.message : String(err),
+    );
     return false;
   }
 }

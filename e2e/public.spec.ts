@@ -113,37 +113,26 @@ test.describe("Landing", () => {
 
 test.describe("Autentificare (UI passwordless)", () => {
   for (const path of ["/login", "/signup"]) {
-    test(`${path}: desenul se poate opri și relua din tastatură, fără submit`, async ({ page }) => {
+    test(`${path}: formular direct, fără desen sau controale de animație`, async ({ page }) => {
       await page.emulateMedia({ reducedMotion: "no-preference" });
       await page.goto(path);
-      await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toBeVisible();
-      const pause = page.getByRole("button", { name: "Pauză animație", exact: true });
-      await pause.focus();
-      await pause.press("Enter");
-      const resume = page.getByRole("button", { name: "Reia animația", exact: true });
-      await expect(resume).toBeFocused();
-      await expect(page.locator('[data-paused="true"]')).toHaveCount(1);
-      const line = page.locator('svg[role="img"] path[pathLength="1"]').first();
-      await expect(line).toHaveCSS("animation-play-state", "paused");
-      await resume.press("Space");
-      await expect(pause).toBeFocused();
-      await expect(line).toHaveCSS("animation-play-state", "running");
+      await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: /Pauză animație|Reia animația/ })).toHaveCount(
+        0,
+      );
+      await expect(page.getByLabel("Email")).toBeVisible();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
       await expect(page.getByLabel("Email")).toBeEmpty();
     });
   }
 
-  test("desen static cu reduced motion și formular accesibil la 768/390px", async ({ page }) => {
+  test("formular fără desen, accesibil cu reduced motion la 768/390px", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     for (const width of [768, 390]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto("/signup");
-      await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Pauză animație" })).toBeHidden();
-      await expect(page.getByText("Desen fără animație", { exact: true })).toBeVisible();
-      const line = page.locator('svg[role="img"] path[pathLength="1"]').first();
-      await expect(line).toHaveCSS("animation-name", "none");
-      await expect(line).toHaveCSS("stroke-dashoffset", "0px");
+      await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toHaveCount(0);
+      await expect(page.getByRole("button", { name: "Pauză animație" })).toHaveCount(0);
       await expect(page.getByLabel("Email")).toBeVisible();
       await expect(
         page.getByRole("button", { name: "Creează cont gratuit", exact: true }),
