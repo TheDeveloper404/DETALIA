@@ -158,7 +158,7 @@ export function CommentsSection({
                 </span>
               )}
             </span>
-            <Button type="submit" size="sm" disabled={pending}>
+            <Button type="submit" variant="technical" size="cta" disabled={pending}>
               {pending ? "Se trimite…" : "Comentează"}
             </Button>
           </div>
