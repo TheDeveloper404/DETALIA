@@ -176,6 +176,13 @@
       "when": 1788411571642,
       "tag": "0024_chief_terrax",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791277038450,
+      "tag": "0025_regular_nightmare",
+      "breakpoints": true
     }
   ]
 }

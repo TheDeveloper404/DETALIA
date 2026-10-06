@@ -12,6 +12,7 @@ import {
   bumpAdminPendingAttempts,
   consumeAdminLoginToken,
   consumeAdminPendingSession,
+  consumeTotpVerifiedAdminPendingSession,
   deleteAdminPendingSession,
   deleteAdminPendingSessionsForEmail,
   deleteAdminSession,
@@ -21,6 +22,7 @@ import {
   insertAdminLoginToken,
   insertAdminPendingSession,
   insertAdminSession,
+  markAdminPendingTotpVerified,
 } from "@/server/repos/adminsRepo";
 
 export { isAdminEmail };
@@ -152,17 +154,31 @@ export async function destroyAdminPendingSession(): Promise<void> {
 // Consumul e ATOMIC pe rândul de pending: `DELETE ... RETURNING` (prin `getValid` + `delete` nu s-ar
 // putea, deci ștergem întâi și creăm sesiunea DOAR dacă ștergerea a găsit efectiv rândul) — două cereri
 // concurente care trec simultan verificarea codului nu pot produce două sesiuni complete.
-export async function promoteAdminPendingSession(): Promise<string | null> {
+// `requireTotpVerified`: promovarea de după înrolare, despărțită de verificarea codului (adminul notează
+// întâi codurile de rezervă) — sesiunea trebuie să poarte dovada setată de `markPendingTotpVerified` (AUD-02).
+export async function promoteAdminPendingSession(
+  { requireTotpVerified = false }: { requireTotpVerified?: boolean } = {},
+): Promise<string | null> {
   const store = await cookies();
   const token = store.get(PENDING_COOKIE)?.value;
   if (!token) return null;
 
-  const email = await consumeAdminPendingSession(hashToken(token));
+  const email = requireTotpVerified
+    ? await consumeTotpVerifiedAdminPendingSession(hashToken(token))
+    : await consumeAdminPendingSession(hashToken(token));
   if (!email || !isAdminEmail(email)) return null;
 
   store.delete({ name: PENDING_COOKIE, path: "/admin-page" });
   await createAdminSession(email);
   return email;
+}
+
+// Înrolarea TOTP a fost confirmată cu un cod valid pe sesiunea intermediară curentă → o marcăm (AUD-02).
+export async function markPendingTotpVerified(): Promise<boolean> {
+  const store = await cookies();
+  const token = store.get(PENDING_COOKIE)?.value;
+  if (!token) return false;
+  return markAdminPendingTotpVerified(hashToken(token));
 }
 
 // Înregistrează un cod greșit. Peste prag, sesiunea intermediară moare — adminul o ia de la magic link.

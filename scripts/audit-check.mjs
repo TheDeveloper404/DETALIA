@@ -13,7 +13,14 @@ import { classifyFindings, isValidAuditReport } from "./audit-report.mjs";
 // GHSA-r28c-9q8g-f849 (postcss, path traversal via sourceMappingURL) — SCOASĂ 2026-08-07: rezolvată
 // prin fix real (`npm audit fix`, postcss 8.5.16 → 8.5.26), nu mai e risc acceptat, nu mai apare deloc
 // în `npm audit`.
-const ALLOWLIST = new Map([]);
+//
+// GHSA-vfj7-8cjw-p6xm (braces, DoS prin pattern-uri brace imbricate) — ACCEPTAT 2026-10-06 (AUD-08): nu există
+// versiune reparată (ultima, 3.0.3, e afectată); singurul „fix" din npm e downgrade shadcn → 1.0.0. Ajunge doar
+// prin tooling de dev (`eslint-config-next`, `shadcn` → fast-glob/micromatch); `npm audit --omit=dev` nu-l
+// raportează, iar pattern-urile vin din config-ul nostru, nu din input de user. Scoate-l când apare un patch.
+const ALLOWLIST = new Map([
+  ["GHSA-vfj7-8cjw-p6xm", "braces — fără patch upstream, doar tooling de dev, fără input de user"],
+]);
 
 let report;
 try {

@@ -275,6 +275,9 @@ export async function anonymizeUserRow(userId: string, placeholderEmail: string)
       location: null,
       website: null,
       company: null,
+      phone: null,
+      phoneVisible: false,
+      emailVisible: false,
       status: "DELETED",
     })
     .where(eq(users.id, userId));

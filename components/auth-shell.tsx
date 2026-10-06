@@ -1,126 +1,83 @@
+import Image from "next/image";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { BrandLogo } from "@/components/brand-logo";
-
-// Cadru comun pentru login/signup — aceeași lățime (1320px) și limbaj vizual ca landing-ul:
-// header de brand + corp pe două coloane (panou „cum funcționează" în stânga, cardul cu formular
-// în dreapta, peste un fundal blueprint) + footer. Panoul e ascuns pe mobil (rămâne doar cardul,
-// centrat). Importat din designul Claude Design „Detalia Auth" (2026-06-23).
-
-// Pașii sunt identici pe ambele moduri — complementează hero-ul (nu îl repetă).
-const STEPS = [
-  {
-    n: "01",
-    title: "Publici un detaliu",
-    body: "Încarci desenul de execuție și contextul lui.",
-  },
-  {
-    n: "02",
-    title: "Primești propuneri desenate",
-    body: "Alți profesioniști arată pe desen cum ar face.",
-  },
-  {
-    n: "03",
-    title: "Comunitatea validează pe roluri",
-    body: "Fiecare aprobă sau dezaprobă, cu rolul la vedere.",
-  },
-];
-
-// Kicker + titlu diferă pe mod; restul panoului e identic.
-const PANEL_COPY = {
-  login: {
-    kicker: "Bun venit înapoi",
-    title: "Detaliile tale și dezbaterile lor te așteaptă.",
-  },
-  signup: {
-    kicker: "Comunitate nouă · fii printre primii",
-    title: "Un detaliu cântărit de breaslă, nu de un singur autor.",
-  },
-} as const;
+import { AnimatedAuthDrawing } from "@/components/public-pages/animated-auth-drawing";
+import experience from "@/components/public-pages/auth-experience.module.css";
+import styles from "@/components/public-pages/public-pages.module.css";
 
 export function AuthShell({
   mode,
   children,
+  presentation = "default",
 }: {
   mode: "login" | "signup";
   children: ReactNode;
+  presentation?: "default" | "entry";
 }) {
-  const panel = PANEL_COPY[mode];
-
+  const isEntry = presentation === "entry";
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="sticky top-0 z-50 flex h-[80px] flex-none items-center border-b border-border bg-secondary/90 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
+    <div className={`${styles.publicPage} ${styles.authPage} ${isEntry ? styles.authEntry : ""}`}>
+      <a className={styles.skipLink} href="#formular">
+        Sari la formular
+      </a>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
           <BrandLogo size={38} />
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-[15px] font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
-          >
-            <span aria-hidden>←</span> Înapoi la site
+          <Link href="/" className={styles.backLink}>
+            <ArrowLeft size={16} aria-hidden="true" /> Înapoi la site
           </Link>
         </div>
       </header>
-
-      <main className="relative flex flex-1 items-center overflow-hidden">
-        {/* Fundal blueprint — grilă fină mascată radial spre dreapta-sus (varianta A din landing). */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            backgroundImage:
-              "linear-gradient(var(--blueprint-grid) 1px,transparent 1px),linear-gradient(90deg,var(--blueprint-grid) 1px,transparent 1px)",
-            backgroundSize: "34px 34px",
-            opacity: 0.6,
-            WebkitMaskImage:
-              "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
-            maskImage: "radial-gradient(120% 90% at 82% 42%,#000 0%,transparent 72%)",
-          }}
-        />
-
-        <div className="relative z-10 mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-center gap-16 px-6 py-14 lg:grid-cols-[1.05fr_0.95fr]">
-          {/* Panou „cum funcționează" — ascuns pe mobil. */}
-          <section className="hidden min-h-[520px] flex-col justify-center overflow-hidden rounded-lg border border-border bg-secondary p-12 lg:flex">
-            <div className="mb-6 flex items-center gap-2.5 font-mono text-[11.5px] uppercase tracking-[0.16em] text-primary">
-              <span aria-hidden className="inline-block size-1.5 rotate-45 bg-primary" />
-              {panel.kicker}
+      {isEntry ? (
+        <main className={experience.splitMain}>
+          <aside className={experience.drawingColumn} aria-label="Desen tehnic ilustrativ">
+            <div className={experience.drawingHeading}>
+              <p className={experience.drawingEyebrow}>DETALIU / RACORD FEREASTRĂ</p>
+              <p className={experience.drawingTitle}>Desenul este punctul de întâlnire.</p>
             </div>
-            <h2 className="mb-8 max-w-[18ch] text-balance text-3xl font-bold leading-[1.16] tracking-tight text-foreground">
-              {panel.title}
-            </h2>
-
-            <ul className="flex max-w-[400px] list-none flex-col p-0">
-              {STEPS.map((s) => (
-                <li
-                  key={s.n}
-                  className="flex items-start gap-[18px] border-t border-border py-[18px] last:border-b"
-                >
-                  <span className="w-[26px] flex-none font-mono text-[13px] tracking-[0.06em] text-primary">
-                    {s.n}
-                  </span>
-                  <div>
-                    <div className="mb-0.5 text-[16.5px] font-semibold text-foreground">
-                      {s.title}
-                    </div>
-                    <div className="text-sm leading-relaxed text-muted-foreground">{s.body}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {/* Coloana cu formular — logo de brand peste card. */}
-          <div className="flex w-full justify-center">
-            <div className="w-full max-w-[420px]">
-              <div className="mb-7 flex items-center">
-                {/* eslint-disable-next-line @next/next/no-img-element -- asset SVG static de brand */}
-                <img src="/logo.svg" alt="DETALIA" style={{ height: 32, width: "auto", display: "block" }} />
-              </div>
-              {children}
-            </div>
+            <AnimatedAuthDrawing />
+            <p className={experience.drawingMessage}>
+              {mode === "signup"
+                ? "O perspectivă în plus poate deschide o discuție bună."
+                : "Detaliile tale și discuțiile lor te așteaptă."}
+            </p>
+          </aside>
+          <div id="formular" tabIndex={-1} className={experience.formColumn}>
+            <div className={styles.authContent}>{children}</div>
           </div>
-        </div>
-      </main>
+        </main>
+      ) : (
+        <main id="formular" className={styles.authMain}>
+          <div className={styles.authDrawing} aria-hidden="true">
+            <p className={styles.eyebrow}>
+              DETALIU — ȘARPANTĂ
+              <br />
+              DESENUL ESTE PUNCTUL DE ÎNTÂLNIRE
+            </p>
+            <Image
+              src="/landing/hero-detail.png"
+              alt=""
+              width={1540}
+              height={1025}
+              sizes="(max-width: 760px) 1px, 740px"
+            />
+            <p>
+              {mode === "signup"
+                ? "O perspectivă în plus poate deschide o discuție bună."
+                : "Detaliile tale și discuțiile lor te așteaptă."}
+            </p>
+          </div>
+          <div className={styles.authContent}>{children}</div>
+        </main>
+      )}
+      <footer className={styles.authFooter}>
+        <Link href="/termeni">Termeni și condiții</Link>
+        <Link href="/confidentialitate">Confidențialitate</Link>
+        <a href="mailto:support@detalia.ro">Suport</a>
+      </footer>
     </div>
   );
 }
