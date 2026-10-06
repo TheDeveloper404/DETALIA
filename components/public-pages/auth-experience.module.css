@@ -398,3 +398,34 @@
     display: inline;
   }
 }
+/* Pagina de după click pe magic link („Te conectăm…”): conținut pe mijloc, mare, pe cremul paginilor de auth. */
+.centeredMain {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 20px;
+  background: var(--secondary);
+}
+.centeredContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+.centeredContent h1 {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 52px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+.centeredContent p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 18px;
+  line-height: 1.6;
+}

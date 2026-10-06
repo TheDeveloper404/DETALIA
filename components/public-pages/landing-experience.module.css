@@ -11,14 +11,83 @@
   outline-offset: 5px;
 }
 .header {
-  background: var(--secondary);
+  position: relative;
+  /* backdrop-filter creează un stacking context: fără z-index, .mobilePanel (z 50) rămâne prins
+     sub .heroCopy (z 2) și hero-ul acoperă meniul mobil. */
+  z-index: 10;
+  /* Identic cu header-ul aplicației (app-header.tsx): crem 90% + blur, 80 px, logo 44, padding 48. */
+  background: color-mix(in srgb, var(--secondary) 90%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
+}
+/* Meniul mobil (sub 1000 px) — <details> fără JS; panoul se deschide sub header, pe toată lățimea. */
+.mobileMenu {
+  display: none;
+}
+.mobileMenu > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--card);
+  color: var(--foreground);
+  list-style: none;
+  cursor: pointer;
+}
+.mobileMenu > summary::-webkit-details-marker {
+  display: none;
+}
+.mobileMenu > summary:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.mobileMenu[open] .menuIconOpen,
+.mobileMenu:not([open]) .menuIconClose {
+  display: none;
+}
+.mobilePanel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 16px 20px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--secondary);
+  box-shadow: 0 12px 20px -16px var(--muted-foreground);
+}
+.mobileCta {
+  justify-content: center;
+}
+.mobileSocial {
+  display: flex;
+  gap: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.mobileSocial a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--muted-foreground);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
 }
 .headerInner {
   max-width: var(--landing-max);
   margin: auto;
-  min-height: 96px;
-  padding: 20px 48px;
+  min-height: 80px;
+  padding: 14px 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1073,9 +1142,12 @@
   }
 }
 @media (max-width: 1000px) {
-  /* Sub 1000 px Ghid + rețelele rămân doar în footer, ca să încapă butoanele de cont. */
-  .hideOnMobile {
-    display: none !important;
+  /* Sub 1000 px header-ul = logo + meniu; navigația completă stă în panoul meniului. */
+  .headerActions {
+    display: none;
+  }
+  .mobileMenu {
+    display: block;
   }
   .hero {
     grid-template-columns: 1fr;
@@ -1377,14 +1449,22 @@
   .finalCta .sectionInner > p:not(.eyebrow) {
     font-size: 16px;
   }
+  /* Logo + slogan în stânga, linkurile într-o coloană aliniată la dreapta. */
   .footerInner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
     padding: 16px 20px;
     gap: 16px;
   }
   .footerInner nav {
-    width: 100%;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0;
     margin-left: 0;
-    gap: 16px;
+  }
+  .footerInner nav a {
+    min-height: 36px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

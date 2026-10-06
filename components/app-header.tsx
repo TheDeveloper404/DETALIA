@@ -23,16 +23,14 @@ export async function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 flex h-[80px] items-center border-b border-border bg-secondary/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-6">
-        <BrandLogoHome size={38} />
+      {/* Aliniat cu header-ul public (landing-experience.module.css): logo 44 (28 sub 600 px), padding 48 / 32 / 20 px. */}
+      <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-5 min-[601px]:px-8 min-[1201px]:px-12 max-[600px]:[&>a_img]:h-7!">
+        <BrandLogoHome size={44} />
 
         <div className="flex items-center gap-1.5">
           <HomeIconLink />
           <NotificationBell notifications={notifications} count={unread} />
-          <UserMenu
-            name={media?.name ?? session.user.name ?? null}
-            image={media?.image ?? null}
-          />
+          <UserMenu name={media?.name ?? session.user.name ?? null} image={media?.image ?? null} />
         </div>
       </div>
     </header>

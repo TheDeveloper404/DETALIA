@@ -90,12 +90,15 @@ test.describe("Landing", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/");
+    // Pe mobil header-ul = logo + meniu; butoanele de cont sunt în panoul meniului.
+    await page.locator("header summary[aria-label='Meniu']").click();
     await expect(
       page.locator("header").getByRole("link", { name: "Autentificare", exact: true }),
     ).toBeVisible();
     await expect(
       page.locator("header").getByRole("link", { name: "Creează cont gratuit", exact: true }),
     ).toBeVisible();
+    await page.locator("header summary[aria-label='Meniu']").click();
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
     ).toBe(true);
