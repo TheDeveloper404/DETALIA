@@ -208,9 +208,15 @@ construiește în cod un racord schematic 2D de fereastră, fără raster, anima
 `auth-experience.module.css`; singura stare client controlează pauza/reluarea prin buton nativ
 de 44 px, în afara formularului. SVG cu titlu/descriere și ID-uri unice; desenul nu este o
 soluție de execuție. Reduced motion afișează direct desenul complet și ascunde controlul redundant.
-Pe mobil desenul devine o bandă compactă; skip-link sare direct la formular. Intrarea discretă
+`/verify-request` folosește `hideDrawingOnMobile`: la ≤760 px banda cu desen și controlul sunt
+ascunse, iar mesajul începe direct sub header; desktop-ul păstrează desenul și controlul.
+Skip-link sare direct la formular. Intrarea discretă
 a elementelor formularului și hover/focus pe email rămân, dezactivate pentru reduced motion.
 `/verify` folosește `presentation="centered"`, fără desen; shell-ul implicit păstrează desenul static.
+
+Antet profil (`ProfileView`): sub `sm`, linkul „Editează profil” este în dreapta avatarului,
+în zona albă de sub cover, cu target 44 px. La ≥640 px păstrează poziția din rândul numelui.
+Este randat în continuare doar pentru proprietarul profilului.
 
 ## Neacoperit încă (adaugă pe măsură ce apare)
 

@@ -14,11 +14,13 @@ export function AuthShell({
   children,
   presentation = "default",
   showDrawing = true,
+  hideDrawingOnMobile = false,
 }: {
   mode: "login" | "signup";
   children: ReactNode;
   presentation?: "default" | "entry" | "centered";
   showDrawing?: boolean;
+  hideDrawingOnMobile?: boolean;
 }) {
   const isEntry = presentation === "entry";
   // `centered`: pagina de după click pe magic link („Te conectăm…”) — același header/culori ca
@@ -48,7 +50,10 @@ export function AuthShell({
       ) : isEntry ? (
         <main className={showDrawing ? experience.splitMain : experience.formOnlyMain}>
           {showDrawing && (
-            <aside className={experience.drawingColumn} aria-label="Desen tehnic ilustrativ">
+            <aside
+              className={`${experience.drawingColumn} ${hideDrawingOnMobile ? experience.drawingDesktopOnly : ""}`}
+              aria-label="Desen tehnic ilustrativ"
+            >
               <div className={experience.drawingHeading}>
                 <p className={experience.drawingEyebrow}>DETALIU / RACORD FEREASTRĂ</p>
                 <p className={experience.drawingTitle}>Desenul este punctul de întâlnire.</p>

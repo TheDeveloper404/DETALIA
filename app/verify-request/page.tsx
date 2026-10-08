@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Verifică emailul" };
 
 export default function VerifyRequestPage() {
   return (
-    <AuthShell mode="login" presentation="entry">
+    <AuthShell mode="login" presentation="entry" hideDrawingOnMobile>
       <section aria-labelledby="verify-request-title">
         <span
           aria-hidden
