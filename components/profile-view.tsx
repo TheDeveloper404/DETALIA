@@ -122,7 +122,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
           container"). */}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
       {/* Banner — imaginea de cover dacă există, altfel grilă blueprint mascată radial. */}
-      <div className="relative h-[180px] overflow-hidden bg-[#ece1d3]">
+      <div data-testid="profile-cover" className="relative h-[180px] overflow-hidden bg-[#ece1d3]">
         {data.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -151,6 +151,7 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
           așa un cover închis sau aglomerat nu mai acoperă numele. */}
       <div className="relative px-5 pb-5">
         <span
+          data-testid="profile-avatar"
           title={
             data.verified
               ? undefined

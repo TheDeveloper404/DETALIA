@@ -45,6 +45,9 @@ automat headerul `x-vercel-protection-bypass` pe fiecare request.
 Seed-ul creează userul `e2e-tester@detalia.test` + un detaliu de test în acea bază (mutație pe preview, non-prod).
 
 ## Ce acoperă acum
+- `profile-contact.spec.ts` — profil propriu la 390/639/640 px: poziția creionului față de avatar,
+  cover, nume și contact, plus navigarea spre editare. Folosește userul dedicat al testelor de contact.
+  Rulare pe Preview Vercel: `npx playwright test e2e/profile-contact.spec.ts --project=authed --workers=1`.
 - `public.spec.ts` — landing + CTA, formular login/signup, `/verify-request`, deny-by-default, 404.
   Nu trimite signup-ul (ar declanșa email real + rate limit).
 - `authed.spec.ts` — feed authed, profil propriu, **validarea pe roluri** (Aprob 1 click + Dezaprob cu
