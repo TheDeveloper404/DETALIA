@@ -285,9 +285,26 @@ test.describe("Autentificare (UI passwordless)", () => {
     await expect(page).toHaveURL(/\/verify-request$/);
   });
 
-  test("/verify-request: desen static cu reduced motion la 768/390px", async ({ page }) => {
+  test("/verify-request: desen ascuns doar pe mobil", async ({ page }) => {
+    for (const width of [320, 390, 760]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto("/verify-request");
+      await expect(page.locator('aside[aria-label="Desen tehnic ilustrativ"]')).toBeHidden();
+      await expect(
+        page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true }),
+      ).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+    }
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await expect(page.getByRole("img", { name: /Desen schematic animat/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Pauză animație", exact: true })).toBeVisible();
+  });
+
+  test("/verify-request: desen static cu reduced motion la 768/1024px", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    for (const width of [768, 390]) {
+    for (const width of [768, 1024]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto("/verify-request");
       const drawing = page.getByRole("img", { name: /Desen schematic animat/ });

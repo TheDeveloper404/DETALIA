@@ -46,10 +46,12 @@ test.describe.serial("Profil — telefon/email opțional, vizibilitate opt-in", 
     await db.update(users).set({ phoneVisible: false, emailVisible: false }).where(eq(users.id, authorUserId));
   });
 
-  test("proprietarul completează telefon + bifează vizibil → apare pe propriul profil public", async ({
+  test("profil propriu: creion lângă avatar pe mobil, navigare editare și contact vizibil", async ({
     browser,
     baseURL,
   }) => {
+    // Trei viewport-uri, fiecare cu navigare profil → editare, pe Preview Vercel.
+    test.setTimeout(90_000);
     const userId = await ensureContactUser();
     const phone = `07${Date.now()}`.slice(0, 12);
 
@@ -90,6 +92,54 @@ test.describe.serial("Profil — telefon/email opțional, vizibilitate opt-in", 
       await page.getByLabel("Vizibil altor useri").first().check();
       await page.getByRole("button", { name: "Salvează profilul" }).click();
       await expect(page.getByRole("status")).toHaveText("Profilul a fost actualizat.");
+
+      // Regresie Greptile PR #310: creion pe alb, lângă avatar sub 640 px; la 640 px
+      // revine în zona numelui. Userul dedicat are contact vizibil, fără curse cu seed-ul comun.
+      for (const width of [390, 639, 640]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.goto("/profile");
+        const name = page.getByRole("heading", { name: CONTACT_NAME, exact: true });
+        const edit = page.getByRole("link", { name: "Editează profil", exact: true });
+        const contact = page.getByRole("button", { name: "Date de contact", exact: true });
+        await expect(name).toBeVisible();
+        await expect(edit).toBeVisible();
+        await expect(contact).toBeVisible();
+        await page.evaluate(() => document.fonts.ready);
+
+        const [avatarBox, coverBox, editBox, nameBox, contactBox] = await Promise.all([
+          page.getByTestId("profile-avatar").boundingBox(),
+          page.getByTestId("profile-cover").boundingBox(),
+          edit.boundingBox(),
+          name.boundingBox(),
+          contact.boundingBox(),
+        ]);
+        if (!avatarBox || !coverBox || !editBox || !nameBox || !contactBox) {
+          throw new Error(`Lipsesc elemente din antetul profilului la ${width}px`);
+        }
+        expect(editBox.width).toBeGreaterThanOrEqual(44);
+        expect(editBox.height).toBeGreaterThanOrEqual(44);
+        if (width < 640) {
+          expect(editBox.x).toBeGreaterThanOrEqual(avatarBox.x + avatarBox.width);
+          expect(editBox.y).toBeGreaterThanOrEqual(coverBox.y + coverBox.height - 1);
+          expect(editBox.y + editBox.height).toBeLessThanOrEqual(
+            avatarBox.y + avatarBox.height + 1,
+          );
+        } else {
+          expect(editBox.y).toBeGreaterThanOrEqual(avatarBox.y + avatarBox.height);
+        }
+        for (const box of [nameBox, contactBox]) {
+          const overlaps =
+            editBox.x < box.x + box.width &&
+            editBox.x + editBox.width > box.x &&
+            editBox.y < box.y + box.height &&
+            editBox.y + editBox.height > box.y;
+          expect(overlaps, `Creionul suprapune numele/contactul la ${width}px`).toBe(false);
+        }
+        await expect(edit).toHaveAttribute("href", "/profile/edit");
+        await edit.click();
+        await expect(page).toHaveURL(/\/profile\/edit$/);
+        await expect(page.getByRole("heading", { name: "Detalii profil", exact: true })).toBeVisible();
+      }
 
       // Telefon/email nu mai stau direct în antet (2026-07-16) — grupate în modalul „Date de contact",
       // ca să nu împingă butonul „Editează profil" la fiecare câmp activat.

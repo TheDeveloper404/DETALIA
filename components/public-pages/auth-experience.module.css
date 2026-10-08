@@ -370,6 +370,12 @@
   .formColumn {
     padding: 40px 24px;
   }
+  .drawingDesktopOnly {
+    display: none;
+  }
+  .splitMain:has(> .drawingDesktopOnly) {
+    align-items: start;
+  }
 }
 @media (max-width: 440px) {
   .drawingColumn {
