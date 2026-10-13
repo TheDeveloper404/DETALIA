@@ -235,7 +235,7 @@ export function LandingPage() {
           </FinalCtaScene>
         </section>
       </main>
-      <PublicFooter description="Dezvoltat de ACL Smart Software, DETALIA conectează profesioniștii din construcții prin detalii, schițe și dezbateri." />
+      <PublicFooter description="Dezvoltat de ACL Smart Software în colaborare cu NMSPACE, DETALIA conectează profesioniștii din construcții prin detalii, schițe și dezbateri." />
       <BackToTop />
       <CookieConsent />
     </div>
