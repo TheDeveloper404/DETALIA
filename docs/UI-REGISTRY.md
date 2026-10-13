@@ -162,6 +162,13 @@ separă secțiunile; un singur CTA principal per context. Landing-ul este compus
 Header + footer public = `PublicHeader` / `PublicFooter` din `public-chrome.tsx` (landing + `/ghid`, NU le
 duplica): logo 44 px, fundal crem `--secondary`; header: Ghid | Autentificare (text mono) ·
 Creează cont (`primaryLink`) | LinkedIn · GitHub, cu separatoare; footer: slogan sub logo, texte 15 px/600.
+Desktop footer: logo + tagline in the left column, links aligned with the logo in the right column.
+Landing only: `PublicFooter` accepts a short Romanian `description` below the links, separated
+by a fine border (14 px, natural wrapping on narrow screens). Mobile stacks brand, links, description.
+`BackToTop` appears after 400 px of
+scrolling, fixed bottom-right: 44×44 px, technical 2 px corners, primary colors, accessible label
+„Înapoi sus”. Returns smoothly to page coordinates (0, 0), keeping the arrow visible throughout
+the ascent; reduced motion uses an instant return. The hidden control is excluded from keyboard navigation.
 CTA public = stil „tehnic” (2 px, IBM Plex Mono 13 px majusculă, 38 px); mono mic ≤12 px = 600. `/ghid` = layout de documentație
 (`app/ghid/ghid.module.css`: secțiuni · conținut · cuprins).
 Sub 1000 px header-ul public = logo + meniu `<details>` (panou compact de maximum 280 px lângă buton,

@@ -138,9 +138,9 @@ describe("Paginile publice — integrare de randare", () => {
     expect(homeHeader).toContain('height="44"');
     expect(openTagsOf(homeHeader)).toHaveLength(2);
     expect(tagOf(home, "footer")).toContain('height="44"');
-    // Sloganul stă sub logo, în același bloc, separat de linkurile din dreapta.
+    // Logo + slogan la stânga; linkurile și descrierea, în această ordine, la dreapta.
     expect(tagOf(home, "footer")).toMatch(
-      /class="[^"]*footerBrand[^"]*">.*?alt="DETALIA".*?<span>Detalii de execuție\. Perspective asumate\.<\/span><\/div><nav/,
+      /class="[^"]*footerBrand[^"]*">.*?alt="DETALIA".*?<span>Detalii de execuție\. Perspective asumate\.<\/span><\/div><div class="[^"]*footerInfo[^"]*"><nav.*?<\/nav><p class="[^"]*footerDescription[^"]*">Dezvoltat de ACL Smart Software, DETALIA conectează profesioniștii din construcții prin detalii, schițe și dezbateri\.<\/p>/,
     );
 
     for (const page of [LoginPage, SignupPage]) {

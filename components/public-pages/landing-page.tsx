@@ -8,6 +8,7 @@ import { DetailDemo, RoleDemo, WorkspaceDemo } from "./landing-demos";
 import { FinalCtaScene } from "./final-cta-scene";
 import { PublicFooter, PublicHeader } from "./public-chrome";
 import { TechnicalSheet } from "./technical-sheet";
+import { BackToTop } from "./back-to-top";
 import shared from "./public-pages.module.css";
 import styles from "./landing-experience.module.css";
 
@@ -234,7 +235,8 @@ export function LandingPage() {
           </FinalCtaScene>
         </section>
       </main>
-      <PublicFooter />
+      <PublicFooter description="Dezvoltat de ACL Smart Software, DETALIA conectează profesioniștii din construcții prin detalii, schițe și dezbateri." />
+      <BackToTop />
       <CookieConsent />
     </div>
   );

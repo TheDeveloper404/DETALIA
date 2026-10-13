@@ -99,7 +99,7 @@ export function PublicHeader() {
   );
 }
 
-export function PublicFooter() {
+export function PublicFooter({ description }: { description?: string }) {
   return (
     <footer className={styles.footer}>
       <div className={styles.footerInner}>
@@ -107,37 +107,40 @@ export function PublicFooter() {
           <BrandLogo size={44} />
           <span>Detalii de execuție. Perspective asumate.</span>
         </div>
-        <nav aria-label="Informații și suport">
-          <div className={styles.footerPages}>
-            <Link href="/ghid">Ghid</Link>
-            <Link href="/termeni" aria-label="Termeni și condiții">
-              <span className={styles.footerTermsFull}>Termeni și condiții</span>
-              <span className={styles.footerTermsShort} aria-hidden="true">
-                Termeni
-              </span>
-            </Link>
-            <Link href="/confidentialitate">Confidențialitate</Link>
-            <a href="mailto:support@detalia.ro">Suport</a>
-          </div>
-          <div className={styles.footerNetworks}>
-            <a
-              href={LINKEDIN_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.footerSocial}
-            >
-              <LinkedInIcon size={18} /> LinkedIn
-            </a>
-            <a
-              href={GITHUB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={styles.footerSocial}
-            >
-              <GitHubIcon size={18} /> GitHub
-            </a>
-          </div>
-        </nav>
+        <div className={styles.footerInfo}>
+          <nav aria-label="Informații și suport">
+            <div className={styles.footerPages}>
+              <Link href="/ghid">Ghid</Link>
+              <Link href="/termeni" aria-label="Termeni și condiții">
+                <span className={styles.footerTermsFull}>Termeni și condiții</span>
+                <span className={styles.footerTermsShort} aria-hidden="true">
+                  Termeni
+                </span>
+              </Link>
+              <Link href="/confidentialitate">Confidențialitate</Link>
+              <a href="mailto:support@detalia.ro">Suport</a>
+            </div>
+            <div className={styles.footerNetworks}>
+              <a
+                href={LINKEDIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.footerSocial}
+              >
+                <LinkedInIcon size={18} /> LinkedIn
+              </a>
+              <a
+                href={GITHUB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.footerSocial}
+              >
+                <GitHubIcon size={18} /> GitHub
+              </a>
+            </div>
+          </nav>
+          {description && <p className={styles.footerDescription}>{description}</p>}
+        </div>
       </div>
     </footer>
   );
