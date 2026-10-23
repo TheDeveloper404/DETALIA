@@ -342,7 +342,7 @@ test.describe("Anti-enumerare (login/signup)", () => {
     await page.getByRole("button", { name: "Trimite link-ul de acces" }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
-    await expect(page.getByText("Verifică-ți email-ul", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true })).toBeVisible();
   });
 
   test("/signup cu email cu cont existent → /verify-request, nu un mesaj de eroare distinct", async ({
@@ -353,7 +353,7 @@ test.describe("Anti-enumerare (login/signup)", () => {
     await page.getByRole("button", { name: "Creează cont gratuit", exact: true }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
-    await expect(page.getByText("Verifică-ți email-ul", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true })).toBeVisible();
   });
 });
 
