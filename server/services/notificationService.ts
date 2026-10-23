@@ -212,13 +212,17 @@ export async function notifyMaterialOfferEdited(input: {
   });
 }
 
-export async function notifyReferralJoined(input: { recipientUserId: string; joinedUserName: string | null }) {
+export async function notifyReferralJoined(input: {
+  recipientUserId: string;
+  joinedUserId: string;
+  joinedUserName: string | null;
+}) {
   const who = input.joinedUserName ?? "Cineva";
   const url = ownProfileUrl();
   await notify({
     recipientUserId: input.recipientUserId,
     type: "REFERRAL_JOINED",
-    payloadJson: { joinedUserName: input.joinedUserName },
+    payloadJson: { joinedUserId: input.joinedUserId, joinedUserName: input.joinedUserName },
     emailSubject: plainSubject(`${who} s-a alăturat prin linkul tău de referral`),
     emailHtml: referralJoinedEmailHtml(who, url),
     emailText: referralJoinedEmailText(who, url),

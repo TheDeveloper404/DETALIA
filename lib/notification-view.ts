@@ -12,6 +12,7 @@ type NotificationPayload = {
   sketchAuthorSubRole?: string | null;
   sketchAuthorVerified?: boolean;
   supplierName?: string | null;
+  joinedUserId?: string;
   joinedUserName?: string | null;
 };
 
@@ -34,7 +35,12 @@ export function mapNotificationRows(rows: NotificationRow[]): NotificationView[]
       actorSubRole: p.sketchAuthorSubRole ?? null,
       actorVerified: p.sketchAuthorVerified ?? false,
       detailTitle: p.detailTitle ?? "un detaliu",
-      href: p.detailId ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}` : null,
+      // Referral: link spre profilul celui înscris (notificările mai vechi n-au joinedUserId → fără link).
+      href: p.detailId
+        ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}`
+        : p.joinedUserId
+          ? `/profile/${p.joinedUserId}`
+          : null,
       createdAt: n.createdAt.toISOString(),
       unread: n.readAt === null,
     };

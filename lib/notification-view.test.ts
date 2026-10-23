@@ -40,6 +40,18 @@ describe("mapNotificationRows", () => {
     expect(n.href).toBe("/details/d1?sketch=s1");
   });
 
+  it("referral cu joinedUserId → href spre profilul userului înscris", () => {
+    const [n] = mapNotificationRows([
+      row({ type: "REFERRAL_JOINED", payloadJson: { joinedUserId: "u1", joinedUserName: "Maria" } }),
+    ]);
+    expect(n.href).toBe("/profile/u1");
+  });
+
+  it("referral vechi, fără joinedUserId → href null", () => {
+    const [n] = mapNotificationRows([row({ type: "REFERRAL_JOINED", payloadJson: { joinedUserName: "Maria" } })]);
+    expect(n.href).toBeNull();
+  });
+
   it("detailTitle absent din payload → titlu placeholder, nu undefined", () => {
     const [n] = mapNotificationRows([row({ payloadJson: {} })]);
     expect(n.detailTitle).toBe("un detaliu");
