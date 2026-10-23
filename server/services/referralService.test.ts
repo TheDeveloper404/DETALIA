@@ -91,6 +91,7 @@ describe("applyReferral — validare + gating", () => {
     expect(setReferredByIfAbsent).toHaveBeenCalledWith(NEW_USER_ID, REFERRER_ID);
     expect(notifyReferralJoined).toHaveBeenCalledWith({
       recipientUserId: REFERRER_ID,
+      joinedUserId: NEW_USER_ID,
       joinedUserName: "Ion Nou",
     });
   });

@@ -60,7 +60,11 @@ export async function applyReferral(input: {
   if (applied) {
     try {
       const actor = await getNotificationActor(input.newUserId);
-      await notifyReferralJoined({ recipientUserId: referrerId, joinedUserName: actor?.name ?? null });
+      await notifyReferralJoined({
+        recipientUserId: referrerId,
+        joinedUserId: input.newUserId,
+        joinedUserName: actor?.name ?? null,
+      });
     } catch (err) {
       console.error("[referralService] notifyReferralJoined eșuată (non-fatal)", {
         newUserId: input.newUserId,
