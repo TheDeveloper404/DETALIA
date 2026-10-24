@@ -122,3 +122,36 @@ test("Resursă LINK: câmpul de text rămâne mereu vizibil (niciodată previzua
   // LINK n-are buton de upload deloc (UPLOADABLE_RESOURCE_TYPES nu-l include).
   await expect(resourcesList.locator('input[type="file"]')).toHaveCount(0);
 });
+
+// Scurtătura „Atașează plan CAD" de sub zona de desen (2026-10-24): butonul deschide alegerea fișierului,
+// fișierul ajunge ca resursă CAD în „Alte resurse" + chip lângă desen; „Elimină" din chip scoate rândul.
+test("„Atașează plan CAD” de lângă desen: urcă fișierul ca resursă CAD; „Elimină” îl scoate din ambele locuri", async ({
+  page,
+}) => {
+  await stripBypassHeadersForBlobUploads(page);
+  await page.goto("/details/new");
+
+  const dir = mkdtempSync(path.join(tmpdir(), "detalia-cad-"));
+  const dxf = path.join(dir, "plan-fundatie.dxf");
+  writeFileSync(dxf, "0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n");
+
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "Atașează plan CAD" }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles(dxf);
+
+  const chip = page.getByText("Plan CAD · încărcat");
+  await expect(chip).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/plan-fundatie.*\.dxf/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Încă un plan CAD" })).toBeVisible();
+
+  // Același rând apare la „Alte resurse", ca resursă CAD încărcată (nu link).
+  const resourcesList = page.getByTestId("resources-list");
+  await expect(resourcesList.getByLabel("Tip resursă 1")).toHaveValue("CAD");
+  await expect(resourcesList.getByText("Încărcat")).toBeVisible();
+
+  await page.getByRole("button", { name: "Elimină", exact: true }).click();
+  await expect(chip).toHaveCount(0);
+  await expect(resourcesList).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Atașează plan CAD" })).toBeVisible();
+});

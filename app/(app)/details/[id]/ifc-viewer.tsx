@@ -35,7 +35,9 @@ export function IfcViewer({ url }: { url: string }) {
 
     async function load() {
       const ifcLoader = components.get(OBC.IfcLoader);
-      await ifcLoader.setup({ autoSetWasm: false, wasm: { path: "/ifc/", absolute: false } });
+      // `absolute: true` = calea e luată ca atare (/ifc/web-ifc.wasm de pe domeniul nostru). Cu `false`,
+      // web-ifc o prefixează cu directorul script-ului (/_next/static/chunks//ifc/…) → 404.
+      await ifcLoader.setup({ autoSetWasm: false, wasm: { path: "/ifc/", absolute: true } });
       const res = await fetch(url);
       if (!res.ok) throw new Error(`IFC_FETCH_${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());

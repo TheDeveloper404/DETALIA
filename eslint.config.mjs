@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Worker-ul + WASM-ul viewer-ului IFC, copiate din node_modules de next.config.ts (gitignored):
+    "public/ifc/**",
     // Tooling local (gitignored) — nu fac parte din app:
     ".claude/**",
     ".agents/**",

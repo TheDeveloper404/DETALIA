@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, FileCheck, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
+import { Box, Check, ChevronDown, FileCheck, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
@@ -590,6 +590,7 @@ export function DetailForm({
   // Upload direct de fișier pentru resurse PDF/CAD (alternativă la lipirea unui link extern).
   const [resourceUploadingIndex, setResourceUploadingIndex] = useState<number | null>(null);
   const [resourceUploadError, setResourceUploadError] = useState<Record<number, string>>({});
+  const cadFileRef = useRef<HTMLInputElement>(null);
   async function handleResourceFile(i: number, type: ResourceType, file: File) {
     const maxBytes = type === "CAD" ? MAX_CAD_BYTES : type === "PDF" ? MAX_DOC_BYTES : MAX_IMAGE_BYTES;
     const limitLabel = resourceUploadLimitLabel(type);
@@ -1052,6 +1053,80 @@ export function DetailForm({
               )}
             </div>
           )}
+
+          {/* Plan CAD direct lângă desen (2026-10-24, mostră aprobată) — scurtătură spre o resursă CAD:
+              adaugă rândul la „Alte resurse" și urcă fișierul, fără să cauți „Plan CAD" în listă. Vizibil
+              pe toate cele trei moduri (planul CAD nu depinde de cum faci imaginea 2D). */}
+          <input
+            ref={cadFileRef}
+            type="file"
+            accept={resourceFileAccept("CAD")}
+            className="hidden"
+            data-testid="cad-shortcut-input"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file || addDisabled) return;
+              const i = resources.length;
+              setResources((rs) => [...rs, { type: "CAD", value: "" }]);
+              void handleResourceFile(i, "CAD", file);
+            }}
+          />
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {resources.map((r, i) =>
+              r.type === "CAD" && uploadedResourceIndices.has(i) && r.value.trim() ? (
+                <span
+                  key={i}
+                  className="inline-flex min-w-0 max-w-full items-center gap-2.5 rounded-[9px] border border-input bg-card py-1.5 pl-1.5 pr-2"
+                >
+                  <span className="inline-flex size-[30px] flex-none items-center justify-center rounded-[7px] border border-input">
+                    <FileCheck className="size-4 text-emerald-600" strokeWidth={2} />
+                  </span>
+                  <span className="min-w-0 truncate text-[13px] font-semibold">
+                    {decodeURIComponent(r.value.split(/[?#]/)[0].split("/").pop() ?? "")}
+                  </span>
+                  <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                    Plan CAD · încărcat
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeResource(i)}
+                    className="shrink-0 font-mono text-[11px] text-destructive underline-offset-2 hover:underline"
+                  >
+                    Elimină
+                  </button>
+                </span>
+              ) : null,
+            )}
+            <button
+              type="button"
+              onClick={() => cadFileRef.current?.click()}
+              disabled={addDisabled || resourceUploadingIndex !== null}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-[9px] border px-3.5 py-2.5 font-heading text-[13.5px] font-semibold transition-colors",
+                addDisabled || resourceUploadingIndex !== null
+                  ? "cursor-not-allowed border-[#e6ddcf] bg-[#f4f1ea] text-[#c4bbac]"
+                  : "border-[#ecdcc8] bg-[#f6ede4] text-primary hover:border-primary",
+              )}
+            >
+              {resources.some((r, i) => r.type === "CAD" && uploadedResourceIndices.has(i) && r.value.trim()) ? (
+                <>
+                  <Plus className="size-[15px]" strokeWidth={2} />
+                  Încă un plan CAD
+                </>
+              ) : (
+                <>
+                  <Box className="size-[15px]" strokeWidth={2} />
+                  Atașează plan CAD
+                </>
+              )}
+            </button>
+            <span className="font-mono text-[11px] text-[#a59a88]">
+              {addDisabled
+                ? `Maxim ${MAX_DETAIL_RESOURCES} resurse. Elimină una de la Resurse ca să atașezi un plan CAD.`
+                : `DWG, DXF sau IFC (model 3D) · max ${MAX_CAD_MB} MB · opțional`}
+            </span>
+          </div>
         </div>
 
         {/* RESURSE SUPLIMENTARE */}
