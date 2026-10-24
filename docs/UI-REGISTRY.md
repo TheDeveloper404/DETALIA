@@ -44,7 +44,8 @@ de materiale.
 **Divergență rămasă (de reconciliat, nu de rezolvat acum):** același `role="dialog"` + `aria-modal="true"`
 e încă reimplementat manual, cu markup diferit, în: `intro-splash.tsx`, `profile-view.tsx`,
 `send-to-canvas-modal.tsx`, `app/(app)/details/[id]/comment-likers-modal.tsx`,
-`app/(app)/details/[id]/resource-image.tsx`, și lightbox-ul din
+`app/(app)/details/[id]/resource-image.tsx`, `app/(app)/details/[id]/resource-ifc.tsx` (viewer 3D IFC,
+2026-10-24 — același tipar ca `resource-image.tsx`), și lightbox-ul din
 `app/(app)/projects/[id]/content-grid.tsx` (`CanvasShareTile`) — familie structurală DIFERITĂ (un
 singur div full-screen, backdrop+conținut combinate, fără panou separat) de `DialogOverlay`, nu
 aceeași duplicare, consolidarea lor ar fi o abstracție forțată. Un modal-panou NOU folosește

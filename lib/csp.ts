@@ -31,8 +31,9 @@ export function buildCspHeader(nonce: string, isDev = false, previewTools = true
     "frame-ancestors 'none'",
     "form-action 'self'",
     // nonce pt scripturile noastre + Next; host vercel.live doar pe preview; challenges.cloudflare.com = Turnstile.
-    // `unsafe-eval` doar în dev (HMR).
-    `script-src 'self' 'nonce-${nonce}'${live} https://challenges.cloudflare.com${isDev ? " 'unsafe-eval'" : ""}`,
+    // `unsafe-eval` doar în dev (HMR). `wasm-unsafe-eval` MEREU: viewer-ul 3D IFC compilează WASM-ul
+    // `web-ifc` (servit de noi, /ifc/) — permite DOAR compilarea WebAssembly, NU eval/new Function pe JS.
+    `script-src 'self' 'nonce-${nonce}'${live} https://challenges.cloudflare.com 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'", // vezi nota: atributele style din React nu pot fi noncuite
     `img-src 'self' data: blob: https://*.public.blob.vercel-storage.com${previewTools ? " https://vercel.live https://vercel.com" : ""}`,
     `font-src 'self' data:${live}`,

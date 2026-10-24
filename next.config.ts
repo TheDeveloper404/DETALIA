@@ -22,6 +22,18 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Viewer IFC: `@thatopen/fragments` detectează la runtime build-ul WebGPU al three.js
+  // (`THREE.WebGPURenderer ?? ...`, `THREE.TSL`, `THREE.NodeMaterial`) — pe build-ul WebGL acele exporturi
+  // lipsesc intenționat și librăria cade pe fallback. Turbopack le raportează ca eroare de build; le
+  // ignorăm DOAR în pachetul ăsta și DOAR pentru exporturi lipsă.
+  turbopack: {
+    ignoreIssue: [
+      {
+        path: "**/node_modules/@thatopen/fragments/**",
+        title: /^Export \w+ doesn't exist in target module/,
+      },
+    ],
+  },
   // `sharp` (reprocessBlobImage, lib/image-processing.ts) are binar nativ. `serverExternalPackages`
   // NU e suficient pe Vercel: sursa Next.js exclude explicit `sharp`/`@img/sharp-libvips*` din file
   // tracing când rulează pe platforma Vercel (presupune că platforma le livrează separat) — dacă acel

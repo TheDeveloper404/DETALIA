@@ -15,3 +15,9 @@ export const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["IMAGE", "PDF", 
 export function looksLikeUploadedResource(type: ResourceType, value: string): boolean {
   return UPLOADABLE_RESOURCE_TYPES.has(type) && /\.public\.blob\.vercel-storage\.com\//.test(value);
 }
+
+// Resursă CAD care se poate deschide în viewer-ul 3D (ifc-viewer.tsx) — după extensia din path, fără
+// query/hash. Doar decizie de AFIȘARE (butonul „3D"); upload-ul e validat separat pe server.
+export function isIfcUrl(url: string): boolean {
+  return /\.ifc$/i.test(url.split(/[?#]/)[0]);
+}

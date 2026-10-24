@@ -41,8 +41,9 @@ export const ALLOWED_CAD_TYPES = [
   "application/dwg",
   "application/x-dwg",
   "application/acad",
+  "application/x-step", // .ifc (IFC-SPF)
 ] as const;
-export const ALLOWED_CAD_EXTENSIONS = ["dwg", "dxf"] as const;
+export const ALLOWED_CAD_EXTENSIONS = ["dwg", "dxf", "ifc"] as const;
 
 // Oferte de materiale (Furnizor) — PDF/Excel/CSV. La fel ca CAD: xls/xlsx/csv n-au un content-type de
 // încredere din browser (Excel vechi trimite des "application/octet-stream" sau "application/vnd.ms-excel"

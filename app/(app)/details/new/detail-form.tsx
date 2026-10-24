@@ -100,7 +100,7 @@ const RESOURCE_LABEL: Record<ResourceType, string> = {
 function resourcePlaceholder(type: ResourceType): string {
   if (type === "LINK") return "https://… link către normativ sau articol";
   if (type === "PDF") return "https://… link (sau încarcă fișierul PDF)";
-  if (type === "CAD") return "https://… link (sau încarcă fișierul DWG/DXF)";
+  if (type === "CAD") return "https://… link (sau încarcă fișierul DWG/DXF/IFC)";
   return "https://… link (sau încarcă imaginea)";
 }
 
@@ -108,7 +108,7 @@ function resourcePlaceholder(type: ResourceType): string {
 // către o imagine găzduită) — 2026-07-16. `ResourceType`/`UPLOADABLE_RESOURCE_TYPES`/
 // `looksLikeUploadedResource` trăiesc în lib/resource-type.ts (fără dependențe grele — testabile unitar).
 function resourceFileAccept(type: ResourceType): string {
-  if (type === "CAD") return ".dwg,.dxf";
+  if (type === "CAD") return ".dwg,.dxf,.ifc";
   if (type === "PDF") return "application/pdf";
   return (ALLOWED_IMAGE_TYPES as readonly string[]).join(",");
 }
