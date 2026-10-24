@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 
 import { AuthShell } from "@/components/auth-shell";
 import styles from "@/components/public-pages/public-pages.module.css";
+import { magicLinkTtlMinutes } from "@/lib/auth";
 
 // Pagină custom pentru `verifyRequest` (Auth.js) — afișată după ce userul cere magic link-ul.
 // Înlocuiește pagina default (temă întunecată, engleză) cu limbajul vizual DETALIA: același shell
@@ -22,8 +23,9 @@ export default function VerifyRequestPage() {
         </span>
         <h1 id="verify-request-title">Verifică-ți email-ul</h1>
         <p className={styles.authDescription}>
-          Ți-am trimis un link de acces. Deschide-l ca să intri în cont — link-ul e valabil un timp
-          scurt și se folosește o singură dată.
+          Ți-am trimis un link de acces. Deschide-l ca să intri în cont —{" "}
+          <strong>link-ul e valabil doar {magicLinkTtlMinutes} minute</strong> și se folosește o
+          singură dată.
         </p>
         <div className="flex items-start gap-2.5 rounded-lg border border-border bg-secondary/60 px-3.5 py-3 font-mono text-xs leading-relaxed text-muted-foreground">
           <span

@@ -249,6 +249,17 @@ test.describe("Autentificare (UI passwordless)", () => {
     ).toBeVisible();
   });
 
+  test("/signup avertizează la greșeală de tipar în domeniul emailului", async ({ page }) => {
+    await page.goto("/signup");
+    await page.getByLabel("Email").fill("ion@gmail.con");
+    await page.getByLabel("Email").blur();
+    const warning = page.getByText(/Ai vrut să scrii/);
+    await expect(warning).toContainText("Ai vrut să scrii ion@gmail.com?");
+    await page.getByLabel("Email").fill("ion@gmail.com");
+    await page.getByLabel("Email").blur();
+    await expect(warning).toHaveCount(0);
+  });
+
   test("login ⇄ signup sunt legate reciproc", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("link", { name: "Creează unul" }).click();
@@ -260,6 +271,7 @@ test.describe("Autentificare (UI passwordless)", () => {
   test("/verify-request e public și brandat (română)", async ({ page }) => {
     await page.goto("/verify-request");
     await expect(page.getByText("Verifică-ți email-ul", { exact: true })).toBeVisible();
+    await expect(page.getByText(/link-ul e valabil doar \d+ minute/)).toBeVisible();
   });
 
   test("/verify-request: desenul se poate opri și relua din tastatură", async ({ page }) => {

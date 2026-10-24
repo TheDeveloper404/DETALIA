@@ -1,12 +1,13 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { signInWithEmailAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { suggestEmailFix } from "@/lib/email-typo";
 
 // Site key public Turnstile (inline la build). Fără el (dev fără chei) nu randăm widget-ul, iar
 // verificarea server-side e no-op → fluxul de auth merge normal local.
@@ -93,6 +94,9 @@ export function AuthForm({
   authPath: string;
   submitLabel: string;
 }) {
+  // Avertizare la greșeli de tipar în domeniu (ex. `gmail.con`) — nu blochează trimiterea.
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
+
   return (
     <form action={signInWithEmailAction} className="flex flex-col">
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
@@ -109,7 +113,13 @@ export function AuthForm({
         autoComplete="email"
         placeholder="nume@mail.ro"
         className="h-12 bg-background text-base"
+        onBlur={(e) => setEmailSuggestion(suggestEmailFix(e.currentTarget.value))}
       />
+      {emailSuggestion && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          Ai vrut să scrii <strong>{emailSuggestion}</strong>? Verifică adresa înainte să trimiți.
+        </p>
+      )}
 
       {/* Turnstile — widget invizibil/managed care injectează `cf-turnstile-response` în acest form.
           Randare explicită (vezi TurnstileWidget) — `render=explicit` dezactivează scanarea automată
