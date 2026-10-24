@@ -20,10 +20,9 @@ import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
 import { magicLinkEmailHtml, magicLinkEmailText, sendEmail } from "@/lib/email";
 import { resolveMagicLinkBaseUrl } from "@/lib/magic-link-url";
-import { SESSION_MAX_AGE_SECONDS } from "@/lib/session-config";
+import { magicLinkTtlMinutes, SESSION_MAX_AGE_SECONDS } from "@/lib/session-config";
 
-// TTL magic link (minute) → secunde. Default prudent: 15 min dacă env lipsește.
-export const magicLinkTtlMinutes = Number(process.env.MAGIC_LINK_TTL_MINUTES ?? "15");
+// TTL magic link (minute, din `lib/session-config`) → secunde.
 const magicLinkMaxAgeSeconds = magicLinkTtlMinutes * 60;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({

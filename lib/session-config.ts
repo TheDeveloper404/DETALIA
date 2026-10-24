@@ -7,3 +7,7 @@
 // fără dependențe. O singură sursă de adevăr; înainte, `e2e/auth.setup.ts` avea propriul `30` care
 // diverga tăcut de `7`-le din prod (gol găsit la checkpoint-ul lunar de teste, 2026-09-01).
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
+
+// TTL magic link (minute). Default prudent: 15 min dacă env lipsește. Tot aici, nu în `lib/auth.ts`,
+// ca pagina `/verify-request` să-l poată afișa fără să tragă `next-auth` la import.
+export const magicLinkTtlMinutes = Number(process.env.MAGIC_LINK_TTL_MINUTES ?? "15");

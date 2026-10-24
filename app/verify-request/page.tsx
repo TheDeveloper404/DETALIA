@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 
 import { AuthShell } from "@/components/auth-shell";
 import styles from "@/components/public-pages/public-pages.module.css";
-import { magicLinkTtlMinutes } from "@/lib/auth";
+import { magicLinkTtlMinutes } from "@/lib/session-config";
 
 // Pagină custom pentru `verifyRequest` (Auth.js) — afișată după ce userul cere magic link-ul.
 // Înlocuiește pagina default (temă întunecată, engleză) cu limbajul vizual DETALIA: același shell
