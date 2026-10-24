@@ -125,7 +125,7 @@ test("Resursă LINK: câmpul de text rămâne mereu vizibil (niciodată previzua
 
 // Scurtătura „Atașează plan CAD" de sub zona de desen (2026-10-24): butonul deschide alegerea fișierului,
 // fișierul ajunge ca resursă CAD în „Alte resurse" + chip lângă desen; „Elimină" din chip scoate rândul.
-test("„Atașează plan CAD” de lângă desen: urcă fișierul ca resursă CAD; „Elimină” îl scoate din ambele locuri", async ({
+test("„Atașează plan CAD” de lângă desen: urcă fișierul ca resursă CAD; „Elimină” îl scoate, rândul de dedesubt rămâne încărcat", async ({
   page,
 }) => {
   await stripBypassHeadersForBlobUploads(page);
@@ -150,8 +150,19 @@ test("„Atașează plan CAD” de lângă desen: urcă fișierul ca resursă CA
   await expect(resourcesList.getByLabel("Tip resursă 1")).toHaveValue("CAD");
   await expect(resourcesList.getByText("Încărcat")).toBeVisible();
 
+  // Al doilea rând: PDF urcat SUB rândul CAD — după eliminarea CAD-ului urcă pe poziția 1 și trebuie să
+  // rămână „Încărcat" (bug reparat 2026-10-24: marcajul rămânea pe indexul vechi → revenea URL-ul lung).
+  const pdf = path.join(dir, "normativ.pdf");
+  writeFileSync(pdf, "%PDF-1.4\n%%EOF\n");
+  await page.getByRole("button", { name: "Adaugă resursă" }).click();
+  await resourcesList.getByLabel("Tip resursă 2").selectOption("PDF");
+  await resourcesList.locator('input[type="file"]').setInputFiles(pdf);
+  await expect(resourcesList.getByText("Încărcat")).toHaveCount(2, { timeout: 15_000 });
+
   await page.getByRole("button", { name: "Elimină", exact: true }).click();
   await expect(chip).toHaveCount(0);
-  await expect(resourcesList).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Atașează plan CAD" })).toBeVisible();
+  await expect(resourcesList.getByLabel("Tip resursă 1")).toHaveValue("PDF");
+  await expect(resourcesList.getByText("Încărcat")).toHaveCount(1);
+  await expect(resourcesList.locator('input[type="text"]')).toHaveCount(0);
 });

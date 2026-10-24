@@ -576,9 +576,20 @@ export function DetailForm({
   function updateResource(i: number, patch: Partial<ResourceRow>) {
     setResources((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   }
+  // Rândurile de sub cel eliminat urcă o poziție → și marcajul „încărcat" + erorile de upload (ținute pe
+  // index) urcă odată cu ele; altfel un rând încărcat de dedesubt revine la câmpul de text cu URL-ul lung.
   function removeResource(i: number) {
     setResources((rs) => rs.filter((_, j) => j !== i));
-    setUploadedResourceIndices((s) => new Set([...s].filter((x) => x !== i)));
+    setUploadedResourceIndices(
+      (s) => new Set([...s].filter((x) => x !== i).map((x) => (x > i ? x - 1 : x))),
+    );
+    setResourceUploadError((e) =>
+      Object.fromEntries(
+        Object.entries(e)
+          .filter(([k]) => Number(k) !== i)
+          .map(([k, v]) => [Number(k) > i ? Number(k) - 1 : Number(k), v]),
+      ),
+    );
   }
   // „Schimbă" din previzualizarea compactă (sau tipul rândului s-a schimbat): revine la câmpul de
   // text/upload, golind valoarea veche.
