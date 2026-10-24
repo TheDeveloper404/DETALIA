@@ -34,17 +34,6 @@ describe("buildCspHeader", () => {
     expect(scriptSrc).not.toContain("'unsafe-inline'");
   });
 
-  it("'wasm-unsafe-eval' (viewer IFC) e în script-src pe prod și dev; 'unsafe-eval' NU e pe prod", () => {
-    const prod = buildCspHeader("xyz", false, false);
-    const dev = buildCspHeader("xyz", true, true);
-    for (const csp of [prod, dev]) {
-      const scriptSrc = csp.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
-      expect(scriptSrc).toContain("'wasm-unsafe-eval'");
-    }
-    const prodScriptSrc = prod.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";
-    expect(prodScriptSrc).not.toContain("'unsafe-eval'");
-  });
-
   it("dev: adaugă 'unsafe-eval' (HMR) în script-src", () => {
     const csp = buildCspHeader("xyz", true, true);
     const scriptSrc = csp.split(";").find((d) => d.trim().startsWith("script-src")) ?? "";

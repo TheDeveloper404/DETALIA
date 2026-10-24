@@ -1,20 +1,5 @@
-import { copyFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
-
 import { withPostHogConfig } from "@posthog/nextjs-config";
 import type { NextConfig } from "next";
-
-// Viewer 3D IFC (app/(app)/details/[id]/ifc-viewer.tsx): WASM-ul `web-ifc` + worker-ul `@thatopen/fragments`
-// copiate în `public/ifc/` (gitignored) și servite de pe domeniul nostru, NU de pe unpkg — CSP-ul nu primește
-// un CDN extern, iar versiunea e mereu exact cea instalată. Aici, nu în `prebuild`: Vercel rulează direct
-// `next build` (fără scripturile npm), iar config-ul se încarcă la orice `next dev`/`next build`.
-const ifcOutDir = join(process.cwd(), "public", "ifc");
-mkdirSync(ifcOutDir, { recursive: true });
-copyFileSync(join(process.cwd(), "node_modules/web-ifc/web-ifc.wasm"), join(ifcOutDir, "web-ifc.wasm"));
-copyFileSync(
-  join(process.cwd(), "node_modules/@thatopen/fragments/dist/Worker/worker.min.mjs"),
-  join(ifcOutDir, "fragments-worker.mjs"),
-);
 
 // SEC-08 — Headere de securitate statice (aceleași pe toate rutele). CSP-ul NU mai e aici: are nonce per
 // request → e setat în `proxy.ts` (vezi `lib/csp.ts`). Restul headerelor nu depind de request, deci rămân aici.
@@ -37,18 +22,6 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Viewer IFC: `@thatopen/fragments` detectează la runtime build-ul WebGPU al three.js
-  // (`THREE.WebGPURenderer ?? ...`, `THREE.TSL`, `THREE.NodeMaterial`) — pe build-ul WebGL acele exporturi
-  // lipsesc intenționat și librăria cade pe fallback. Turbopack le raportează ca eroare de build; le
-  // ignorăm DOAR în pachetul ăsta și DOAR pentru exporturi lipsă.
-  turbopack: {
-    ignoreIssue: [
-      {
-        path: "**/node_modules/@thatopen/fragments/**",
-        title: /^Export \w+ doesn't exist in target module/,
-      },
-    ],
-  },
   // `sharp` (reprocessBlobImage, lib/image-processing.ts) are binar nativ. `serverExternalPackages`
   // NU e suficient pe Vercel: sursa Next.js exclude explicit `sharp`/`@img/sharp-libvips*` din file
   // tracing când rulează pe platforma Vercel (presupune că platforma le livrează separat) — dacă acel

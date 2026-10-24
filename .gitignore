@@ -9,8 +9,6 @@ build/
 dist/
 *.tsbuildinfo
 next-env.d.ts
-# WASM + worker viewer IFC — copiate din node_modules la încărcarea next.config.ts
-public/ifc/
 
 # === Variabile de mediu / secrete (NICIODATĂ în git) ===
 .env
