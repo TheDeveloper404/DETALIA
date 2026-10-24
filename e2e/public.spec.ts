@@ -267,9 +267,12 @@ test.describe("Autentificare (UI passwordless)", () => {
     await page.goto("/signup");
     const email = page.getByLabel("Email");
     await email.fill("ion@gmail.con");
-    // Server action-ul pleacă ca POST; în 2s nu trebuie să apară niciunul.
+    // Server action-ul pleacă ca POST cu header-ul `next-action` (alte POST-uri, ex. PostHog, nu contează);
+    // în 2s nu trebuie să apară niciunul.
     const posted = page
-      .waitForRequest((r) => r.method() === "POST", { timeout: 2000 })
+      .waitForRequest((r) => r.method() === "POST" && r.headers()["next-action"] !== undefined, {
+        timeout: 2000,
+      })
       .then(
         () => true,
         () => false,
@@ -373,7 +376,9 @@ test.describe("Anti-enumerare (login/signup)", () => {
     await page.getByRole("button", { name: "Trimite link-ul de acces" }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
-    await expect(page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true }),
+    ).toBeVisible();
   });
 
   test("/signup cu email cu cont existent → /verify-request, nu un mesaj de eroare distinct", async ({
@@ -384,7 +389,9 @@ test.describe("Anti-enumerare (login/signup)", () => {
     await page.getByRole("button", { name: "Creează cont gratuit", exact: true }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
-    await expect(page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true }),
+    ).toBeVisible();
   });
 });
 

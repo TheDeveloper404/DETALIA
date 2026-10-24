@@ -109,7 +109,9 @@ export function AuthForm({
       action={signInWithEmailAction}
       className="flex flex-col"
       onSubmit={(e) => {
-        const suggestion = suggestEmailFix(String(new FormData(e.currentTarget).get("email") ?? ""));
+        const suggestion = suggestEmailFix(
+          String(new FormData(e.currentTarget).get("email") ?? ""),
+        );
         if (suggestion && stoppedForRef.current !== suggestion) {
           e.preventDefault();
           stoppedForRef.current = suggestion;
@@ -132,13 +134,11 @@ export function AuthForm({
         placeholder="nume@mail.ro"
         className="h-12 bg-background text-base"
         onBlur={(e) => setEmailSuggestion(suggestEmailFix(e.currentTarget.value))}
-        onChange={() => setEmailSuggestion(null)}
+        onChange={() => {
+          setEmailSuggestion(null);
+          stoppedForRef.current = null;
+        }}
       />
-      {emailSuggestion && (
-        <p role="alert" className="mt-2 text-sm text-destructive">
-          Ai vrut să scrii <strong>{emailSuggestion}</strong>? Verifică adresa înainte să trimiți.
-        </p>
-      )}
 
       {/* Turnstile — widget invizibil/managed care injectează `cf-turnstile-response` în acest form.
           Randare explicită (vezi TurnstileWidget) — `render=explicit` dezactivează scanarea automată
@@ -154,6 +154,13 @@ export function AuthForm({
       )}
 
       <SubmitButton label={submitLabel} />
+      {/* Sub buton, nu sub câmp: apare la blur, adică pe mousedown-ul click-ului pe buton — deasupra lui
+          l-ar împinge în jos în timpul click-ului și click-ul s-ar pierde. */}
+      {emailSuggestion && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          Ai vrut să scrii <strong>{emailSuggestion}</strong>? Verifică adresa înainte să trimiți.
+        </p>
+      )}
 
       <p className="mt-[18px] font-mono text-xs leading-relaxed text-muted-foreground">
         Fără parolă. Primești un link de acces pe email.

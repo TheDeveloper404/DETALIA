@@ -18,6 +18,9 @@ describe("suggestEmailFix", () => {
     ["Ion@Gmail.Con", "Ion@gmail.com"],
     ["ion@ymail.con", "ion@ymail.com"],
     ["ion@mail.con", "ion@mail.com"],
+    ["ion@hotmal.fr", null],
+    ["ion@yaho.fr", null],
+    ["ion@cloud.ro", null],
   ])("%s → %s", (input, expected) => {
     expect(suggestEmailFix(input)).toBe(expected);
   });
@@ -28,6 +31,8 @@ describe("suggestEmailFix", () => {
     "ion@yahoo.fr",
     "ion@live.ro",
     "ion@mail.com",
+    "ion@email.com",
+    "ion@email.ro",
     "ion@firma.ro",
     "ion@detalia.ro",
     "ion@aimarchitecture.ro",

@@ -13,6 +13,7 @@ const KNOWN_DOMAINS = [
   "ymail.com",
   "mail.com",
   "aol.com",
+  "email.com",
 ];
 const PROVIDERS = [...new Set(KNOWN_DOMAINS.map((d) => d.split(".")[0]))];
 
@@ -51,7 +52,10 @@ export function suggestEmailFix(email: string): string | null {
   const at = email.lastIndexOf("@");
   if (at <= 0) return null;
   const local = email.slice(0, at);
-  const domain = email.slice(at + 1).trim().toLowerCase();
+  const domain = email
+    .slice(at + 1)
+    .trim()
+    .toLowerCase();
   if (!domain || KNOWN_DOMAINS.includes(domain)) return null;
 
   const dot = domain.lastIndexOf(".");
@@ -62,9 +66,10 @@ export function suggestEmailFix(email: string): string | null {
   let fixed: string | null = tld === "com" ? `${name}.com` : null;
   const provider = findProvider(name);
   if (provider) {
+    // O terminație regională (`.fr`, `.ro`) se păstrează doar dacă domeniul corectat e cunoscut — altfel
+    // nu sugerăm nimic: `hotmal.fr` → `hotmail.com` ar trimite userul la altă căsuță.
     if (KNOWN_DOMAINS.includes(`${provider}.${tld}`)) fixed = `${provider}.${tld}`;
-    else if (provider !== name || tld === "" || editDistance(tld, "com") <= 1)
-      fixed = `${provider}.com`;
+    else if (tld === "" || editDistance(tld, "com") <= 1) fixed = `${provider}.com`;
   }
 
   return fixed && fixed !== domain ? `${local}@${fixed}` : null;
