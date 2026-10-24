@@ -84,6 +84,12 @@ test("Resursă CAD .ifc: butonul „3D” deschide viewer-ul, modelul se încarc
     await resourcesList.locator('input[type="file"]').setInputFiles(makeFile("model.ifc", TINY_IFC));
     await expect(resourcesList.getByText("Încărcat")).toBeVisible({ timeout: 15_000 });
 
+    // Al doilea plan CAD: link .ifc EXTERN, lipit de mână — rămâne doar download, fără „3D" (viewer-ul
+    // descarcă și parsează în browser doar fișiere din store-ul nostru).
+    await page.getByRole("button", { name: "Adaugă resursă" }).click();
+    await resourcesList.getByLabel("Tip resursă 2").selectOption("CAD");
+    await resourcesList.locator('input[type="text"]').fill("https://example.com/extern.ifc");
+
     await page.getByRole("button", { name: "Publică detaliul" }).click();
     await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 15_000 });
     detailId = page.url().split("/details/")[1] ?? null;
@@ -99,9 +105,17 @@ test("Resursă CAD .ifc: butonul „3D” deschide viewer-ul, modelul se încarc
       for (const r of resources) if (r.url) blobUrls.push(r.url);
     }
 
-    await page.getByRole("button", { name: `Vezi modelul 3D: ${title}` }).click();
+    // Doar fișierul urcat la noi are „3D"; link-ul extern nu.
+    const trigger = page.getByRole("button", { name: `Vezi modelul 3D: ${title}` });
+    await expect(trigger).toHaveCount(1);
+    await trigger.click();
     const dialog = page.getByRole("dialog", { name: `Model 3D: ${title}` });
     await expect(dialog).toBeVisible();
+    // Focusul de tastatură intră în dialog și Tab nu iese din el.
+    const close = dialog.getByRole("button", { name: "Închide" });
+    await expect(close).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(close).toBeFocused();
 
     // „ready" = WASM + worker încărcate sub CSP, IFC parsat, camera încadrată pe model.
     const viewer = dialog.getByTestId("ifc-viewer");
@@ -110,6 +124,7 @@ test("Resursă CAD .ifc: butonul „3D” deschide viewer-ul, modelul se încarc
 
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
   } finally {
     if (detailId) await db.delete(details).where(eq(details.id, detailId));
     if (blobUrls.length > 0) await deleteBlobs(blobUrls);

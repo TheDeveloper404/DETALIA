@@ -1093,12 +1093,12 @@ export function DetailForm({
                   <span className="inline-flex size-[30px] flex-none items-center justify-center rounded-[7px] border border-input">
                     <FileCheck className="size-4 text-emerald-600" strokeWidth={2} />
                   </span>
-                  <span className="min-w-0 truncate text-[13px] font-semibold">
-                    {decodeURIComponent(r.value.split(/[?#]/)[0].split("/").pop() ?? "")}
+                  {/* Fără numele fișierului: la upload primește un nume aleator (lib/blob-upload.ts), iar la
+                      editare originalul nu mai există — afișăm tipul + extensia, la fel în ambele cazuri. */}
+                  <span className="whitespace-nowrap text-[13px] font-semibold">
+                    Plan CAD · .{r.value.split(/[?#]/)[0].split(".").pop()?.toUpperCase()}
                   </span>
-                  <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
-                    Plan CAD · încărcat
-                  </span>
+                  <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">încărcat</span>
                   <button
                     type="button"
                     onClick={() => removeResource(i)}

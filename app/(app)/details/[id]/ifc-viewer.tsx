@@ -1,6 +1,7 @@
 "use client";
 
 import * as OBC from "@thatopen/components";
+import posthog from "posthog-js";
 import { useEffect, useRef, useState } from "react";
 
 // Viewer 3D pentru resursele CAD `.ifc` — That Open Engine (web-ifc + fragments peste three.js).
@@ -15,30 +16,36 @@ export function IfcViewer({ url }: { url: string }) {
     const container = containerRef.current;
     if (!container) return;
     let disposed = false;
+    // Închiderea viewer-ului oprește și descărcarea IFC-ului (pot fi zeci de MB pe mobil).
+    const abort = new AbortController();
 
     const components = new OBC.Components();
-    const world = components.get(OBC.Worlds).create<OBC.SimpleScene, OBC.SimpleCamera, OBC.SimpleRenderer>();
-    world.scene = new OBC.SimpleScene(components);
-    world.scene.setup();
-    world.renderer = new OBC.SimpleRenderer(components, container);
-    world.camera = new OBC.SimpleCamera(components);
-    components.init();
 
-    const fragments = components.get(OBC.FragmentsManager);
-    fragments.init("/ifc/fragments-worker.mjs");
-    world.camera.controls.addEventListener("update", () => fragments.core.update());
-    fragments.list.onItemSet.add(({ value: model }) => {
-      model.useCamera(world.camera.three);
-      world.scene.three.add(model.object);
-      fragments.core.update(true);
-    });
+    // Tot setup-ul (inclusiv renderer-ul WebGL, care aruncă pe dispozitive fără WebGL) e sub același
+    // `catch` → mesajul „Nu am putut deschide modelul", nu o excepție care strică pagina detaliului.
+    async function load(el: HTMLDivElement) {
+      const world = components.get(OBC.Worlds).create<OBC.SimpleScene, OBC.SimpleCamera, OBC.SimpleRenderer>();
+      world.scene = new OBC.SimpleScene(components);
+      world.scene.setup();
+      world.renderer = new OBC.SimpleRenderer(components, el);
+      world.camera = new OBC.SimpleCamera(components);
+      components.init();
 
-    async function load() {
+      const fragments = components.get(OBC.FragmentsManager);
+      fragments.init("/ifc/fragments-worker.mjs");
+      world.camera.controls.addEventListener("update", () => fragments.core.update());
+      fragments.list.onItemSet.add(({ value: model }) => {
+        model.useCamera(world.camera.three);
+        world.scene.three.add(model.object);
+        fragments.core.update(true);
+      });
+
       const ifcLoader = components.get(OBC.IfcLoader);
       // `absolute: true` = calea e luată ca atare (/ifc/web-ifc.wasm de pe domeniul nostru). Cu `false`,
       // web-ifc o prefixează cu directorul script-ului (/_next/static/chunks//ifc/…) → 404.
       await ifcLoader.setup({ autoSetWasm: false, wasm: { path: "/ifc/", absolute: true } });
-      const res = await fetch(url);
+      if (disposed) return;
+      const res = await fetch(url, { signal: abort.signal });
       if (!res.ok) throw new Error(`IFC_FETCH_${res.status}`);
       const bytes = new Uint8Array(await res.arrayBuffer());
       if (disposed) return;
@@ -48,13 +55,22 @@ export function IfcViewer({ url }: { url: string }) {
       setStatus("ready");
     }
 
-    load().catch(() => {
-      if (!disposed) setStatus("error");
+    load(container).catch((err) => {
+      // După închidere (inclusiv abort-ul descărcării) nu e o eroare de raportat.
+      if (disposed) return;
+      posthog.captureException(err);
+      setStatus("error");
     });
 
     return () => {
       disposed = true;
-      components.dispose();
+      abort.abort();
+      try {
+        components.dispose();
+      } catch {
+        // Setup-ul a eșuat înainte de cameră (ex. fără WebGL) → `SimpleWorld.dispose()` aruncă
+        // „No camera initialized!"; nu avem nimic alocat pe GPU, iar demontarea nu trebuie să strice pagina.
+      }
     };
   }, [url]);
 

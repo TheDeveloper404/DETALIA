@@ -2,7 +2,7 @@
 
 import { Box, X } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // three.js + That Open Engine (câțiva MB) se descarcă DOAR la click pe „3D", nu la încărcarea paginii.
 const IfcViewer = dynamic(() => import("./ifc-viewer").then((m) => m.IfcViewer), {
@@ -14,19 +14,33 @@ const IfcViewer = dynamic(() => import("./ifc-viewer").then((m) => m.IfcViewer),
 // 3D. Același tipar ca resource-image.tsx (fundal negru, X sus-dreapta, Escape închide).
 export function ResourceIfc({ url, title }: { url: string; title: string }) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
+  // Focusul de tastatură intră în dialog (pe „Închide" — singurul element focusabil), Tab nu iese din el,
+  // iar la închidere revine pe butonul „3D".
   useEffect(() => {
     if (!open) return;
+    const trigger = triggerRef.current;
+    closeRef.current?.focus();
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOpen(false);
+      if (e.key === "Tab") {
+        e.preventDefault();
+        closeRef.current?.focus();
+      }
     }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      trigger?.focus();
+    };
   }, [open]);
 
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground/80 transition-colors hover:border-primary"
@@ -45,6 +59,7 @@ export function ResourceIfc({ url, title }: { url: string; title: string }) {
           onClick={() => setOpen(false)}
         >
           <button
+            ref={closeRef}
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Închide"

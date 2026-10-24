@@ -140,9 +140,9 @@ test("„Atașează plan CAD” de lângă desen: urcă fișierul ca resursă CA
   const chooser = await chooserPromise;
   await chooser.setFiles(dxf);
 
-  const chip = page.getByText("Plan CAD · încărcat");
+  // Chip-ul arată tipul + extensia, NU numele (la upload fișierul primește un nume aleator — Greptile, PR #321).
+  const chip = page.getByText("Plan CAD · .DXF");
   await expect(chip).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(/plan-fundatie.*\.dxf/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Încă un plan CAD" })).toBeVisible();
 
   // Același rând apare la „Alte resurse", ca resursă CAD încărcată (nu link).

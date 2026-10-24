@@ -6,6 +6,7 @@ import { after } from "next/server";
 
 import { RolePill } from "@/components/role-pill";
 import { auth } from "@/lib/auth";
+import { isOwnBlobUrl } from "@/lib/blob-url";
 import { isIfcUrl } from "@/lib/resource-type";
 import { MAX_ANNOTATIONS_PER_DETAIL, type Stroke } from "@/server/domain/sketch";
 import { getComments } from "@/server/services/commentService";
@@ -300,8 +301,11 @@ export default async function DetailPage({
                     <span className="max-w-[28ch] truncate">{label}</span>
                   </span>
                 );
-                if (r.type === "CAD" && r.url && isIfcUrl(r.url)) {
-                  // CAD .ifc: chip-ul de download rămâne, plus butonul „3D" (viewer în lightbox).
+                if (r.type === "CAD" && r.url && isIfcUrl(r.url) && isOwnBlobUrl(r.url)) {
+                  // CAD .ifc: chip-ul de download rămâne, plus butonul „3D" (viewer în lightbox). DOAR pentru
+                  // fișierele din store-ul NOSTRU: viewer-ul descarcă și parsează fișierul în browser, iar în
+                  // asta avem încredere doar pentru ce s-a urcat la noi. Un link .ifc extern (alt domeniu sau alt
+                  // store Vercel Blob) rămâne doar download.
                   return (
                     <span key={r.id} className="inline-flex items-center gap-1.5">
                       <a
