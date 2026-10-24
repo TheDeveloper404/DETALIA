@@ -1,8 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { resolveMagicLinkBaseUrl } from "./magic-link-url";
 
 describe("resolveMagicLinkBaseUrl — link din email magic-link folosește host-ul request-ului curent, cu allowlist", () => {
+  // Fallback-ul (host necunoscut/lipsă) = originea Production — fixată aici ca asertările să compare cu o valoare
+  // de încredere cunoscută, nu cu aceeași funcție pe care o folosește codul testat.
+  beforeEach(() => {
+    vi.stubEnv("AUTH_URL", "https://detalia.ro");
+    return () => vi.unstubAllEnvs();
+  });
+
   it("acceptă un deployment de preview real (hash), scope-ul echipei noastre", () => {
     const req = new Request("https://ignored.example.com", {
       headers: { "x-forwarded-host": "detalia-abc123-livius-projects-1af30dca.vercel.app" },
@@ -29,14 +36,14 @@ describe("resolveMagicLinkBaseUrl — link din email magic-link folosește host-
       headers: { "x-forwarded-host": "evil.com" },
     });
     expect(resolveMagicLinkBaseUrl(req)).not.toBe("https://evil.com");
-    expect(resolveMagicLinkBaseUrl(req)).toBe(process.env.AUTH_URL ?? "http://localhost:3000");
+    expect(resolveMagicLinkBaseUrl(req)).toBe("https://detalia.ro");
   });
 
   it("SEC: respinge un subdomeniu vercel.app care NU aparține proiectului detalia", () => {
     const req = new Request("https://ignored.example.com", {
       headers: { "x-forwarded-host": "alt-proiect-xyz.vercel.app" },
     });
-    expect(resolveMagicLinkBaseUrl(req)).toBe(process.env.AUTH_URL ?? "http://localhost:3000");
+    expect(resolveMagicLinkBaseUrl(req)).toBe("https://detalia.ro");
   });
 
   it("SEC-01 (audit 2026-08-22): respinge un proiect Vercel AL ALTCUIVA cu prefix „detalia-”, doar din namespace-ul global vercel.app — namespace-ul nu e al nostru, doar sufixul de scope al echipei e", () => {
@@ -44,7 +51,7 @@ describe("resolveMagicLinkBaseUrl — link din email magic-link folosește host-
       headers: { "x-forwarded-host": "detalia-auth.vercel.app" },
     });
     expect(resolveMagicLinkBaseUrl(req)).not.toBe("https://detalia-auth.vercel.app");
-    expect(resolveMagicLinkBaseUrl(req)).toBe(process.env.AUTH_URL ?? "http://localhost:3000");
+    expect(resolveMagicLinkBaseUrl(req)).toBe("https://detalia.ro");
   });
 
   it("SEC-08: protocolul e mereu https pe un host din allowlist, indiferent ce trimite x-forwarded-proto", () => {
@@ -68,6 +75,6 @@ describe("resolveMagicLinkBaseUrl — link din email magic-link folosește host-
 
   it("fără niciun header de host → fallback AUTH_URL sau localhost (nu crapă)", () => {
     const req = new Request("https://ignored.example.com");
-    expect(resolveMagicLinkBaseUrl(req)).toBe(process.env.AUTH_URL ?? "http://localhost:3000");
+    expect(resolveMagicLinkBaseUrl(req)).toBe("https://detalia.ro");
   });
 });

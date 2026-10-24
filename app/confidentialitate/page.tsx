@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Confidențialitate",
   description: "Notă de confidențialitate (GDPR) DETALIA — ce date colectăm, de ce, și drepturile tale.",
+  alternates: { canonical: "/confidentialitate" },
 };
 
 // Notă de confidențialitate (GDPR) — conținut sincronizat cu registrul din docs/CONFIDENTIALITATE-GDPR.md.

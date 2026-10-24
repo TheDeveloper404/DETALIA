@@ -4,6 +4,7 @@ import { createAdminLoginUrl, adminLinkTtlMinutes, isAdminEmail } from "@/lib/ad
 import { audit } from "@/lib/audit";
 import { adminLoginEmailHtml, adminLoginEmailText, sendEmail } from "@/lib/email";
 import { checkLimit, clientIp, hashAuditId, limiters } from "@/lib/rate-limit";
+import { siteUrl } from "@/lib/site-url";
 import { verifyTurnstile } from "@/lib/turnstile";
 
 export type AdminLoginState = { sent: boolean; error: string | null };
@@ -38,7 +39,7 @@ export async function requestAdminLinkAction(
   if (isAdminEmail(email)) {
     // SEC-004: NU folosim Host header ca fallback (client/edge-controlled pe preview → un admin ar putea
     // autentifica pe deploy-ul greșit). Singurul fallback sigur e localhost, la fel ca în lib/auth.ts.
-    const origin = process.env.AUTH_URL ?? "http://localhost:3000";
+    const origin = siteUrl();
     const url = await createAdminLoginUrl(email, origin);
     const ttl = adminLinkTtlMinutes();
     await sendEmail({

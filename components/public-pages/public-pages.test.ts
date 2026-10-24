@@ -19,6 +19,9 @@ describe("Paginile publice — integrare de randare", () => {
   it("păstrează logo-ul oficial, CTA-urile și ancorele fără splash", () => {
     const html = renderToStaticMarkup(createElement(Home));
     expect(html).toContain('src="/logo.svg"');
+    // JSON-LD (schema.org) pe landing — date structurate pentru Google.
+    expect(html).toContain('<script type="application/ld+json">');
+    expect(html).toContain('"@type":"Organization"');
     expect(html).not.toContain('src="/logo-dark.svg"');
     expect(html).toContain('href="/signup"');
     expect(html).toContain('href="/login"');
@@ -103,6 +106,7 @@ describe("Paginile publice — integrare de randare", () => {
   it("păstrează metadata specială pentru referral", async () => {
     expect(await generateMetadata({ searchParams: Promise.resolve({ ref: "demo" }) })).toEqual({
       title: { absolute: "Te invit în DETALIA" },
+      alternates: { canonical: "/signup" },
     });
   });
   it("verify-request arată ca login/signup (header landing, fără footer)", () => {

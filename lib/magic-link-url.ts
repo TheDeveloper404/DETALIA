@@ -16,6 +16,8 @@
 // global, nu al nostru; oricine își poate crea un proiect Vercel numit `detalia-auth` și primește
 // exact acel domeniu. Fix: cere explicit sufixul scope-ului nostru de echipă
 // (`livius-projects-1af30dca`, verificat direct din Vercel API), nu doar prefixul „detalia-”.
+import { siteUrl } from "@/lib/site-url";
+
 const ALLOWED_EXACT_HOSTS = new Set(["detalia.ro"]);
 const ALLOWED_HOST_PATTERN = /^detalia-[a-z0-9-]+-livius-projects-1af30dca\.vercel\.app$/;
 
@@ -31,7 +33,7 @@ export function resolveTrustedOrigin(host: string | null | undefined): string {
   // SEC-08: protocolul NU vine din `x-forwarded-proto` (tot un header de client) — hostul din
   // allowlist e mereu servit pe https; doar fallback-ul de localhost e http.
   if (host && isAllowedHost(host)) return `https://${host}`;
-  return process.env.AUTH_URL ?? "http://localhost:3000";
+  return siteUrl();
 }
 
 export function resolveMagicLinkBaseUrl(request: Request): string {

@@ -4,6 +4,8 @@
 //  - Un singur autor pe foaie. Stroke-uri normalizate 0..1, validate.
 //  - actorUserId vine ÎNTOTDEAUNA din sesiune (apelantul) — fără IDOR.
 
+import { cache } from "react";
+
 import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import {
@@ -458,10 +460,11 @@ export function getAnnotations(detailId: string) {
 
 // Teaser PUBLIC (fără sesiune) — DOAR schițe PUBLISHED (repo-ul filtrează; o schiță ștearsă/DRAFT
 // întoarce null, uniform, fără să distingem cauza — anti-enumerare, la fel ca restul platformei).
-export function getPublicSketch(sketchId: string) {
-  if (!isUuid(sketchId)) return Promise.resolve(null);
+// React `cache()`: `generateMetadata` ȘI pagina /s/[id] îl cheamă cu același id pe același request (ca `getDetail`).
+export const getPublicSketch = cache(async (sketchId: string) => {
+  if (!isUuid(sketchId)) return null;
   return getPublicSketchTeaser(sketchId);
-}
+});
 
 // Ciornele userului curent (DRAFT) — pentru pagina „Ciornele mele" (reluare oricând).
 export function getMyDrafts(userId: string) {

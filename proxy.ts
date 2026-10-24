@@ -260,8 +260,11 @@ export default async function proxy(req: NextRequest) {
 // punct (`.*\..*`) — altfel o rută viitoare cu punct în segment ar scăpa tăcut de poarta de auth.
 // Regula de aur: orice rută nouă e protejată by default (deny-by-default via PUBLIC_PATHS) — adaug-o în
 // PUBLIC_PATHS DOAR dacă trebuie să fie publică; NU adăuga extensii noi aici fără motiv de asset static.
+// `opengraph-image`/`apple-icon`/`manifest.webmanifest` = fișiere de metadata generate STATIC la build
+// (app/opengraph-image.tsx, apple-icon.tsx, manifest.ts), fără extensie de imagine în URL — excluse aici ca
+// robots/sitemap: crawlerele de preview le cer fără sesiune și n-au nevoie de auth/nonce/lockdown.
 export const config = {
   matcher: [
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|woff|woff2|ttf|otf)$).*)",
+    "/((?!api/auth|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|(?:opengraph-image|apple-icon|manifest\\.webmanifest)$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|css|js|map|woff|woff2|ttf|otf)$).*)",
   ],
 };

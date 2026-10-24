@@ -15,6 +15,7 @@ import {
   sketchProposedEmailHtml,
   sketchProposedEmailText,
 } from "@/lib/email";
+import { siteUrl } from "@/lib/site-url";
 import {
   deleteReadNotificationsOlderThan,
   insertNotification,
@@ -29,13 +30,11 @@ import { isUuid } from "@/server/domain/ids";
 import { getProjectAccess } from "@/server/services/projectService";
 
 function detailUrl(detailId: string): string {
-  const base = process.env.AUTH_URL ?? "http://localhost:3000";
-  return `${base}/details/${detailId}`;
+  return `${siteUrl()}/details/${detailId}`;
 }
 
 function ownProfileUrl(): string {
-  const base = process.env.AUTH_URL ?? "http://localhost:3000";
-  return `${base}/profile`;
+  return `${siteUrl()}/profile`;
 }
 
 // Emailurile de notificare sunt OPRITE implicit (decizie de produs 2026-07-03): notificarea in-app ajunge,
