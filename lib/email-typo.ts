@@ -38,9 +38,11 @@ function editDistance(a: string, b: string): number {
 
 // Numele furnizorului se compară separat de TLD, ca domeniile valide (`yahoo.fr`, `live.ro`) să nu fie
 // „corectate". Potrivire aproximativă doar pe nume de minim 5 litere — `aol`/`live` sunt prea scurte.
+// Potrivirea exactă are prioritate: `ymail` e la o literă de `gmail` și n-are voie să fie „corectat".
 function findProvider(name: string): string | undefined {
-  return PROVIDERS.find(
-    (p) => p === name || (p.length >= 5 && editDistance(name, p) <= (p.length > 5 ? 2 : 1)),
+  return (
+    PROVIDERS.find((p) => p === name) ??
+    PROVIDERS.find((p) => p.length >= 5 && editDistance(name, p) <= (p.length > 5 ? 2 : 1))
   );
 }
 

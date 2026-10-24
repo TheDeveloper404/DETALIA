@@ -44,6 +44,10 @@ function TurnstileWidget({ siteKey }: { siteKey: string }) {
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: siteKey,
         theme: "light",
+        // Fără callback, Turnstile aruncă excepție la orice eroare de client (ex. 300030 într-un tab lăsat
+        // deschis ore întregi) → eroare netratată în PostHog + alertă Slack. `false` = Turnstile își
+        // păstrează reîncercarea automată (`retry: auto`) și doar scrie un warning în consolă.
+        "error-callback": () => false,
       });
     }
 
@@ -94,11 +98,25 @@ export function AuthForm({
   authPath: string;
   submitLabel: string;
 }) {
-  // Avertizare la greșeli de tipar în domeniu (ex. `gmail.con`) — nu blochează trimiterea.
+  // Avertizare la greșeli de tipar în domeniu (ex. `gmail.con`): apare la ieșirea din câmp, dispare la
+  // orice editare. Primul submit cu o adresă suspectă e oprit ca userul s-o vadă (și cu Enter direct
+  // din câmp); al doilea trece — adresa poate fi corectă, nu blocăm.
   const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
+  const stoppedForRef = useRef<string | null>(null);
 
   return (
-    <form action={signInWithEmailAction} className="flex flex-col">
+    <form
+      action={signInWithEmailAction}
+      className="flex flex-col"
+      onSubmit={(e) => {
+        const suggestion = suggestEmailFix(String(new FormData(e.currentTarget).get("email") ?? ""));
+        if (suggestion && stoppedForRef.current !== suggestion) {
+          e.preventDefault();
+          stoppedForRef.current = suggestion;
+          setEmailSuggestion(suggestion);
+        }
+      }}
+    >
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <input type="hidden" name="authPath" value={authPath} />
 
@@ -114,6 +132,7 @@ export function AuthForm({
         placeholder="nume@mail.ro"
         className="h-12 bg-background text-base"
         onBlur={(e) => setEmailSuggestion(suggestEmailFix(e.currentTarget.value))}
+        onChange={() => setEmailSuggestion(null)}
       />
       {emailSuggestion && (
         <p role="alert" className="mt-2 text-sm text-destructive">

@@ -16,6 +16,8 @@ describe("suggestEmailFix", () => {
     ["ion@icloud.cmo", "ion@icloud.com"],
     ["ion@firma.con", "ion@firma.com"],
     ["Ion@Gmail.Con", "Ion@gmail.com"],
+    ["ion@ymail.con", "ion@ymail.com"],
+    ["ion@mail.con", "ion@mail.com"],
   ])("%s → %s", (input, expected) => {
     expect(suggestEmailFix(input)).toBe(expected);
   });
