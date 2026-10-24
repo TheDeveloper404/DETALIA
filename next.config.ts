@@ -52,11 +52,11 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
-      // robots.txt/sitemap.xml sunt excluse din matcher-ul proxy.ts (nu au nevoie de nonce, sunt text simplu,
+      // robots.txt/sitemap.xml (+ fișierele de metadata OG/apple-icon/manifest) sunt excluse din matcher-ul proxy.ts (nu au nevoie de nonce, sunt text simplu,
       // nu HTML) → CSP-ul dinamic din lib/csp.ts nu ajunge la ele. Politică statică minimă, doar ca headerul
       // să existe (ZAP: "CSP Header Not Set", risc real aproape nul, dar ieftin de închis).
       {
-        source: "/(robots.txt|sitemap.xml)",
+        source: "/(robots.txt|sitemap.xml|opengraph-image|apple-icon|manifest.webmanifest)",
         // `frame-ancestors`/`form-action` NU fac fallback la `default-src` (particularitate CSP) —
         // explicite aici ca să nu apară „Failure to Define Directive with No Fallback" la scanere
         // (ZAP 2026-08-22). Risc real era deja zero: fără content HTML de framing/formulare pe aceste

@@ -12,6 +12,7 @@ import styles from "./ghid.module.css";
 export const metadata: Metadata = {
   title: "Ghid de utilizare",
   description: "Ce poți face pe DETALIA și cum funcționează fiecare parte a platformei.",
+  alternates: { canonical: "/ghid" },
 };
 
 // Ghid de utilizare — PUBLIC (accesibil și înainte de autentificare, vezi PUBLIC_PATHS din proxy.ts),

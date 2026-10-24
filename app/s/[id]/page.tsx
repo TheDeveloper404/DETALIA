@@ -7,6 +7,7 @@ import { notFound, redirect } from "next/navigation";
 import { BrandLogo } from "@/components/brand-logo";
 import { RolePill } from "@/components/role-pill";
 import { auth } from "@/lib/auth";
+import { SITE_OPEN_GRAPH } from "@/lib/seo";
 import { REMOVED_AUTHOR_LABEL } from "@/server/domain/sketch";
 import { getPublicSketch } from "@/server/services/sketchService";
 
@@ -28,6 +29,9 @@ export async function generateMetadata({
     title: `Schiță peste „${sketch.detailTitle}”`,
     // Descrierea intră în OG și ajunge indexată — o identitate retrasă nu are ce căuta aici.
     description: `O schiță de ${sketch.authorRemoved ? "un autor retras" : (sketch.authorName ?? "un membru al comunității")} peste „${sketch.detailTitle}”, pe DETALIA.`,
+    // Preview-ul de share arată schița însăși (aceeași imagine randată public pe pagină); fără thumbnail
+    // rămâne imaginea implicită din app/opengraph-image.tsx.
+    ...(sketch.thumbnailUrl && { openGraph: { ...SITE_OPEN_GRAPH, images: [sketch.thumbnailUrl] } }),
   };
 }
 

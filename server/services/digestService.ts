@@ -12,6 +12,7 @@ import {
   weeklyDigestEmailText,
 } from "@/lib/email";
 import { createSignedToken } from "@/lib/signed-token";
+import { siteUrl } from "@/lib/site-url";
 import {
   countCommentsOnOwnDetails,
   countSketchesOnOwnDetails,
@@ -25,12 +26,6 @@ const COMMUNITY_LIMIT = 5;
 
 export const DIGEST_UNSUBSCRIBE_PURPOSE = "digest-unsubscribe";
 
-function baseUrl(): string {
-  // Cronul nu are host de request → `AUTH_URL` (Production) e baza corectă aici (ca `detailUrl` din
-  // notificationService). Fallback local doar pentru teste/dev.
-  return process.env.AUTH_URL ?? "http://localhost:3000";
-}
-
 export type WeeklyDigest = { userId: string; email: string; data: WeeklyDigestData };
 
 export async function buildWeeklyDigests(now: Date = new Date()): Promise<WeeklyDigest[]> {
@@ -43,7 +38,8 @@ export async function buildWeeklyDigests(now: Date = new Date()): Promise<Weekly
     listNewCommunityDetails(since, COMMUNITY_LIMIT),
   ]);
 
-  const base = baseUrl();
+  // Cronul nu are host de request → originea Production (`siteUrl`) e baza corectă aici.
+  const base = siteUrl();
   const communityItems = community.map((d) => ({ title: d.title, url: `${base}/details/${d.id}` }));
 
   const out: WeeklyDigest[] = [];

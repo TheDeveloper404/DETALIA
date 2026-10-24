@@ -5,8 +5,8 @@
 // răspunsul corect fără cod suplimentar de rutare.
 import type { MetadataRoute } from "next";
 
-// Fără `sitemap:` — sitemap.xml nu există încă (nu face parte din scopul acestui fix); de adăugat
-// aici dacă/când apare.
+import { siteUrl } from "@/lib/site-url";
+
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
@@ -14,5 +14,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin-page/", "/api/", "/verify", "/projects/join/"],
     },
+    sitemap: `${siteUrl()}/sitemap.xml`,
   };
 }

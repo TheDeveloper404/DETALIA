@@ -25,10 +25,11 @@ export async function generateMetadata({
   searchParams: Promise<{ ref?: string }>;
 }): Promise<Metadata> {
   const { ref } = await searchParams;
+  // Canonical fără `?ref=` — link-urile de referral sunt aceeași pagină pentru indexare.
   if (ref) {
-    return { title: { absolute: "Te invit în DETALIA" } };
+    return { title: { absolute: "Te invit în DETALIA" }, alternates: { canonical: "/signup" } };
   }
-  return { title: "Înregistrare" };
+  return { title: "Înregistrare", alternates: { canonical: "/signup" } };
 }
 
 export default async function SignupPage({

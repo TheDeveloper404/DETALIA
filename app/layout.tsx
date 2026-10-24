@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { Archivo, Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import NextTopLoader from "nextjs-toploader";
+
+import { SITE_OPEN_GRAPH } from "@/lib/seo";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,9 +32,15 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
+  // Baza pentru URL-urile absolute din meta (og:image, canonical) — aceeași sursă ca link-urile din emailuri.
+  metadataBase: new URL(siteUrl()),
   title: { default: "DETALIA", template: "%s — DETALIA" },
   description:
     "Comunitatea profesională din construcții, organizată în jurul detaliului de execuție.",
+  // Fără title/description aici: ar fi moștenite de toate paginile care nu își setează propriul openGraph;
+  // fără ele, crawlerele de preview cad pe <title>/description-ul paginii. Imaginea: app/opengraph-image.tsx.
+  openGraph: SITE_OPEN_GRAPH,
+  twitter: { card: "summary_large_image" },
 };
 
 export default async function RootLayout({
