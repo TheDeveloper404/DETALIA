@@ -4,7 +4,7 @@ import * as OBC from "@thatopen/components";
 import { useEffect, useRef, useState } from "react";
 
 // Viewer 3D pentru resursele CAD `.ifc` — That Open Engine (web-ifc + fragments peste three.js).
-// WASM-ul și worker-ul sunt servite de noi din /ifc/ (scripts/copy-ifc-assets.mjs), NU de pe unpkg:
+// WASM-ul și worker-ul sunt servite de noi din /ifc/ (copiate de next.config.ts), NU de pe unpkg:
 // CSP-ul nu primește un CDN extern și versiunea e mereu cea instalată. Încărcat DOAR prin
 // `dynamic()` din resource-ifc.tsx, deci three.js nu intră în bundle-ul paginii.
 export function IfcViewer({ url }: { url: string }) {
