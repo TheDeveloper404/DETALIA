@@ -249,6 +249,39 @@ test.describe("Autentificare (UI passwordless)", () => {
     ).toBeVisible();
   });
 
+  test("/signup avertizează la greșeală de tipar în domeniul emailului", async ({ page }) => {
+    await page.goto("/signup");
+    const email = page.getByLabel("Email");
+    const warning = page.getByText(/Ai vrut să scrii/);
+    await email.fill("ion@gmail.con");
+    await email.blur();
+    await expect(warning).toContainText("Ai vrut să scrii ion@gmail.com?");
+    // Orice editare șterge avertizarea veche.
+    await email.fill("ion@gmail.com");
+    await expect(warning).toHaveCount(0);
+  });
+
+  test("/signup: Enter direct din câmp cu adresă suspectă NU trimite, afișează avertizarea", async ({
+    page,
+  }) => {
+    await page.goto("/signup");
+    const email = page.getByLabel("Email");
+    await email.fill("ion@gmail.con");
+    // Server action-ul pleacă ca POST cu header-ul `next-action` (alte POST-uri, ex. PostHog, nu contează);
+    // în 2s nu trebuie să apară niciunul.
+    const posted = page
+      .waitForRequest((r) => r.method() === "POST" && r.headers()["next-action"] !== undefined, {
+        timeout: 2000,
+      })
+      .then(
+        () => true,
+        () => false,
+      );
+    await email.press("Enter");
+    await expect(page.getByText(/Ai vrut să scrii/)).toContainText("ion@gmail.com");
+    expect(await posted).toBe(false);
+  });
+
   test("login ⇄ signup sunt legate reciproc", async ({ page }) => {
     await page.goto("/login");
     await page.getByRole("link", { name: "Creează unul" }).click();
@@ -260,6 +293,7 @@ test.describe("Autentificare (UI passwordless)", () => {
   test("/verify-request e public și brandat (română)", async ({ page }) => {
     await page.goto("/verify-request");
     await expect(page.getByText("Verifică-ți email-ul", { exact: true })).toBeVisible();
+    await expect(page.getByText(/link-ul e valabil doar \d+ minute/)).toBeVisible();
   });
 
   test("/verify-request: desenul se poate opri și relua din tastatură", async ({ page }) => {
@@ -342,7 +376,9 @@ test.describe("Anti-enumerare (login/signup)", () => {
     await page.getByRole("button", { name: "Trimite link-ul de acces" }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
-    await expect(page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true }),
+    ).toBeVisible();
   });
 
   test("/signup cu email cu cont existent → /verify-request, nu un mesaj de eroare distinct", async ({
@@ -353,7 +389,9 @@ test.describe("Anti-enumerare (login/signup)", () => {
     await page.getByRole("button", { name: "Creează cont gratuit", exact: true }).click();
 
     await expect(page).toHaveURL(/\/verify-request$/);
-    await expect(page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Verifică-ți email-ul", exact: true }),
+    ).toBeVisible();
   });
 });
 

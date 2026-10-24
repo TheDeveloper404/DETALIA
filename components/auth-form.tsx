@@ -1,12 +1,13 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 
 import { signInWithEmailAction } from "@/app/auth-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { suggestEmailFix } from "@/lib/email-typo";
 
 // Site key public Turnstile (inline la build). Fără el (dev fără chei) nu randăm widget-ul, iar
 // verificarea server-side e no-op → fluxul de auth merge normal local.
@@ -43,6 +44,10 @@ function TurnstileWidget({ siteKey }: { siteKey: string }) {
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey: siteKey,
         theme: "light",
+        // Fără callback, Turnstile aruncă excepție la orice eroare de client (ex. 300030 într-un tab lăsat
+        // deschis ore întregi) → eroare netratată în PostHog + alertă Slack. `false` = Turnstile își
+        // păstrează reîncercarea automată (`retry: auto`) și doar scrie un warning în consolă.
+        "error-callback": () => false,
       });
     }
 
@@ -93,8 +98,27 @@ export function AuthForm({
   authPath: string;
   submitLabel: string;
 }) {
+  // Avertizare la greșeli de tipar în domeniu (ex. `gmail.con`): apare la ieșirea din câmp, dispare la
+  // orice editare. Primul submit cu o adresă suspectă e oprit ca userul s-o vadă (și cu Enter direct
+  // din câmp); al doilea trece — adresa poate fi corectă, nu blocăm.
+  const [emailSuggestion, setEmailSuggestion] = useState<string | null>(null);
+  const stoppedForRef = useRef<string | null>(null);
+
   return (
-    <form action={signInWithEmailAction} className="flex flex-col">
+    <form
+      action={signInWithEmailAction}
+      className="flex flex-col"
+      onSubmit={(e) => {
+        const suggestion = suggestEmailFix(
+          String(new FormData(e.currentTarget).get("email") ?? ""),
+        );
+        if (suggestion && stoppedForRef.current !== suggestion) {
+          e.preventDefault();
+          stoppedForRef.current = suggestion;
+          setEmailSuggestion(suggestion);
+        }
+      }}
+    >
       <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <input type="hidden" name="authPath" value={authPath} />
 
@@ -109,6 +133,11 @@ export function AuthForm({
         autoComplete="email"
         placeholder="nume@mail.ro"
         className="h-12 bg-background text-base"
+        onBlur={(e) => setEmailSuggestion(suggestEmailFix(e.currentTarget.value))}
+        onChange={() => {
+          setEmailSuggestion(null);
+          stoppedForRef.current = null;
+        }}
       />
 
       {/* Turnstile — widget invizibil/managed care injectează `cf-turnstile-response` în acest form.
@@ -125,6 +154,13 @@ export function AuthForm({
       )}
 
       <SubmitButton label={submitLabel} />
+      {/* Sub buton, nu sub câmp: apare la blur, adică pe mousedown-ul click-ului pe buton — deasupra lui
+          l-ar împinge în jos în timpul click-ului și click-ul s-ar pierde. */}
+      {emailSuggestion && (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          Ai vrut să scrii <strong>{emailSuggestion}</strong>? Verifică adresa înainte să trimiți.
+        </p>
+      )}
 
       <p className="mt-[18px] font-mono text-xs leading-relaxed text-muted-foreground">
         Fără parolă. Primești un link de acces pe email.
