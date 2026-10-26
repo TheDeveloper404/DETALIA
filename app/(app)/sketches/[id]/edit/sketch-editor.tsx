@@ -82,13 +82,15 @@ export function SketchEditor({
     if (!canvasRef.current) return;
     setPending(true);
     setError(null);
-    const thumbnail = await canvasRef.current.exportThumbnail();
+    // JPEG, nu PNG: peste o poză-mamă mare (ex. 2268×4032) PNG-ul iese ~10MB → peste limita de body a
+    // Server Action (4MB) / Vercel (4.5MB), cererea e respinsă înainte de handler (incident 2026-10-26).
+    const thumbnail = await canvasRef.current.exportThumbnail("image/jpeg");
     const fd = new FormData();
     fd.set("sketchId", sketchId);
     fd.set("detailId", detailId);
     fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
     fd.set("note", note);
-    if (thumbnail) fd.set("thumbnail", thumbnail, "thumbnail.png");
+    if (thumbnail) fd.set("thumbnail", thumbnail, "thumbnail.jpg");
     const res = await sendSketchAction(fd); // pe succes redirecționează (nu mai revine)
     setPending(false);
     if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");
