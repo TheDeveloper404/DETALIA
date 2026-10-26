@@ -1,5 +1,6 @@
 "use client";
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { Box, Check, ChevronDown, FileCheck, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -62,7 +63,7 @@ const initialState: FormState = { error: null };
 export type CategoryOption = { id: string; name: string; parentId: string | null; isGroup: boolean };
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
-type ResourceRow = { type: ResourceType; value: string };
+type ResourceRow = { type: ResourceType; value: string; id?: string; previewUrl?: string };
 
 // Plafon pentru adnotarea trimisă în body-ul server action-ului. Mult sub `bodySizeLimit` (4 MB,
 // next.config.ts) ca să rămână loc pentru restul formularului — și sub `MAX_STROKES_BYTES` (3 MB,
@@ -355,12 +356,16 @@ export function DetailForm({
   const [mode, setMode] = useState<"upload" | "draw" | "canvas">("upload");
   // La editare, pornim cu imaginea existentă ca previzualizare (null = ciornă fără imagine încă).
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(
-    initial?.imageUrl ? { url: initial.imageUrl, name: "imaginea curentă" } : null,
+    initial?.imageUrl ? { url: blobReadUrl(initial.imageUrl, "detail", initial.detailId), name: "imaginea curentă" } : null,
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>(initial?.resources ?? []);
+  const resourcePreviewUrls = useRef<string[]>([]);
+  useEffect(() => () => {
+    resourcePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
   // Indecșii resurselor „încărcate" (fișier urcat de noi, nu link lipit de mână) — arată previzualizare
   // compactă în loc de câmpul de text cu URL-ul. Inițializat și din resursele EXISTENTE (editare), nu
   // doar din upload-uri noi în sesiunea curentă.
@@ -624,7 +629,9 @@ export function DetailForm({
         type === "IMAGE"
           ? await uploadImageToBlob("resources", file, "image")
           : await uploadDocToBlob("resources", file, type === "CAD" ? "cad" : "pdf");
-      updateResource(i, { value: url });
+      const previewUrl = type === "IMAGE" ? URL.createObjectURL(file) : undefined;
+      if (previewUrl) resourcePreviewUrls.current.push(previewUrl);
+      updateResource(i, { value: url, id: undefined, previewUrl });
       setUploadedResourceIndices((s) => new Set(s).add(i));
     } catch (err) {
       const message =
@@ -1191,7 +1198,7 @@ export function DetailForm({
                         <div className="flex min-w-0 flex-1 items-center gap-2.5">
                           {r.type === "IMAGE" ? (
                             <div className="relative size-[38px] flex-none overflow-hidden rounded-[9px] border border-input bg-card">
-                              <Image src={r.value} alt="" fill sizes="38px" unoptimized className="object-cover" />
+                              <Image src={r.previewUrl ?? (r.id ? blobReadUrl(r.value, "resource", r.id) : r.value)} alt="" fill sizes="38px" unoptimized className="object-cover" />
                             </div>
                           ) : (
                             <div className="inline-flex size-[38px] flex-none items-center justify-center rounded-[9px] border border-input bg-card">

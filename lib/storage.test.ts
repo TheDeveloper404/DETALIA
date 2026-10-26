@@ -17,7 +17,7 @@ describe("deleteBlobs", () => {
   it("cheamă del() doar cu URL-urile valide de Blob", async () => {
     del.mockResolvedValueOnce(undefined);
     await deleteBlobs([VALID_URL, "https://example.com/not-a-blob.png"]);
-    expect(del).toHaveBeenCalledWith([VALID_URL]);
+    expect(del).toHaveBeenCalledWith([VALID_URL], {});
   });
 
   it("nu aruncă dacă del() eșuează (best-effort)", async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { Copy, LayoutDashboard, Loader2, MoreVertical, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -145,7 +146,8 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-t-lg bg-secondary">
           {canvas.thumbnailUrl ? (
             <Image
-              src={canvas.thumbnailUrl}
+              src={blobReadUrl(canvas.thumbnailUrl, "canvas", canvas.id)}
+              unoptimized={canvas.thumbnailUrl.includes(".private.blob.")}
               alt=""
               fill
               sizes="(max-width: 640px) 100vw, 300px"

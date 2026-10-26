@@ -20,7 +20,8 @@ import {
   resolveDeletionMode,
   validateDetailInput,
 } from "@/server/domain/detail";
-import { isOwnBlobUrl, isUsersBlobUrl } from "@/lib/blob-url";
+import { isOwnBlobUrl } from "@/lib/blob-url";
+import { canUseBlobUrls } from "@/server/services/blobFileService";
 import { shouldCountView } from "@/lib/rate-limit";
 import { deleteBlobs } from "@/lib/storage";
 import { countExistingCategoryIds } from "@/server/repos/categoriesRepo";
@@ -68,8 +69,9 @@ import {
 // ștergerea acelui detaliu, `deleteDetailCascade` colectează și URL-ul, iar `deleteBlobs` (lib/storage.ts)
 // filtrează doar pe store, nu pe proprietar, deci șterge fișierul VICTIMEI din Blob. Link-uri externe
 // (non-Blob, ex. LINK spre un normativ) rămân permise — riscul e specific store-ului nostru.
-function hasForeignBlobResource(resources: DetailResourceInput[], userId: string): boolean {
-  return resources.some((r) => r.url && isOwnBlobUrl(r.url) && !isUsersBlobUrl(r.url, userId));
+async function hasForeignBlobResource(resources: DetailResourceInput[], userId: string): Promise<boolean> {
+  const urls = resources.map((r) => r.url).filter((url): url is string => !!url && isOwnBlobUrl(url));
+  return !(await canUseBlobUrls(urls, userId));
 }
 
 type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_PROJECT_MEMBER";
@@ -123,7 +125,7 @@ export async function createDetail(input: {
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
-  if (hasForeignBlobResource(value.resources, input.authorId)) {
+  if (await hasForeignBlobResource(value.resources, input.authorId)) {
     return { ok: false, error: "INVALID_RESOURCE" };
   }
 
@@ -217,7 +219,7 @@ export async function updateDetail(input: {
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
-  if (hasForeignBlobResource(value.resources, input.userId)) {
+  if (await hasForeignBlobResource(value.resources, input.userId)) {
     return { ok: false, error: "INVALID_RESOURCE" };
   }
 
@@ -304,7 +306,7 @@ export async function createDetailDraft(
   const validation = await validateDraft(input);
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
-  if (hasForeignBlobResource(value.resources, input.authorId)) {
+  if (await hasForeignBlobResource(value.resources, input.authorId)) {
     return { ok: false, error: "INVALID_RESOURCE" };
   }
 
@@ -345,7 +347,7 @@ export async function saveDetailDraft(
   const validation = await validateDraft(input);
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
-  if (hasForeignBlobResource(value.resources, input.authorId)) {
+  if (await hasForeignBlobResource(value.resources, input.authorId)) {
     return { ok: false, error: "INVALID_RESOURCE" };
   }
 
@@ -397,7 +399,7 @@ export async function publishDetailDraft(
   });
   if (!validation.ok) return { ok: false, error: validation.error };
   const value = validation.value;
-  if (hasForeignBlobResource(value.resources, input.authorId)) {
+  if (await hasForeignBlobResource(value.resources, input.authorId)) {
     return { ok: false, error: "INVALID_RESOURCE" };
   }
 

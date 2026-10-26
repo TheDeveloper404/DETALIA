@@ -20,7 +20,7 @@ import {
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { deleteSupplierOffer } from "@/server/repos/supplierOffersRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
-import { isUsersBlobUrl } from "@/lib/blob-url";
+import { canUseBlobUrls } from "@/server/services/blobFileService";
 import { deleteBlobs } from "@/lib/storage";
 import { notifyMaterialOfferEdited, notifyMaterialOfferSent } from "@/server/services/notificationService";
 
@@ -81,7 +81,7 @@ export async function sendOrUpdateMaterialOffer(input: {
   // l-a urcat. Fără gardul de proprietate, un furnizor putea atașa URL-ul Blob al altui user pe ofertă,
   // apoi să-l șteargă din storage prin editare (orphanedUrls) sau retragere — `deleteBlobs` filtrează pe
   // store, nu pe owner. Același pattern ca `detailService.hasForeignBlobResource` / `onboardingService`.
-  if (validated.files.some((f) => !isUsersBlobUrl(f.url, input.userId))) {
+  if (!(await canUseBlobUrls(validated.files.map((f) => f.url), input.userId))) {
     return { ok: false, error: "INVALID_FILE" };
   }
 

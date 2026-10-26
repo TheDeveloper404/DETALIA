@@ -151,4 +151,23 @@ disponibil după autentificare (azi: onboarding). _(CHANGELOG 2026-08-25, SCHEMA
 
 ---
 
+## ADR-017 — Fisiere de continut in Blob privat, citire autorizata prin aplicatie
+**Decizie aprobata de Liviu (2026-10-26):** doua store-uri. Avatarele, cover-urile si imaginile din
+comentarii pastreaza storage public. Imaginile/resursele de detaliu, thumbnail-urile schitelor,
+plansele personale/partajate si atasamentele ofertelor folosesc storage privat, inclusiv dupa release.
+Regulile de vizibilitate existente decid citirea; publicarea nu copiaza fisiere intre store-uri.
+**Alternative:** proxy peste public nu protejeaza URL-ul brut; promovarea fizica public/private adauga
+operatii Blob/DB fara tranzactie comuna. Varianta privata permanenta elimina aceasta sincronizare.
+**Contract:** GET `/api/files/[kind]/[id]`, identificator UUID si tip explicit; URL-ul se citeste numai
+din DB. Service-ul verifica owner/proiect/status/hiddenAfterRelease. Ofertele: autorul real al detaliului
+sau furnizorul propriei oferte. Drafturile si plansele personale nu devin publice. Stream fara cache
+public; Next Image foloseste `unoptimized` pentru aceste rute. Cheile raman exclusiv server-side.
+**STRIDE:** IDOR si acces dupa revocare → verificare pe entitate la fiecare cerere; SSRF → store-uri
+configurate strict; furt de token → niciun token in client/loguri; divulgare prin cache → no-store;
+pierdere la migrare → copie verificata, manifest, actualizare conditionata a referintelor, retragere
+publica doar dupa verificarea tuturor bazelor care folosesc store-ul comun si oprirea scrierilor vechi.
+**Consecinte:** citirile trec prin server (cost/latenta suplimentare); fara schema noua sau dependente.
+Migrarea necesita cutover coordonat si backup privat; revenirea la codul vechi dupa cutover nu e sigura.
+Nu putem retrage fisiere deja descarcate. DET-01/02 si imaginile comentariilor raman in afara acestui task.
+
 > Deciziile noi sau schimbările se consemnează aici (formă scurtă) + în `CHANGELOG.md` (cronologic, cu dată).

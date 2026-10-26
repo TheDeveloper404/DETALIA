@@ -8,10 +8,8 @@ import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
 import { MobileCategoryFilter } from "@/components/mobile-category-filter";
 import { ProductTour } from "@/components/product-tour";
-import { WhatsNewModal } from "@/components/whats-new-modal";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
-import { getUnseenAnnouncement } from "@/server/services/announcementService";
 import { resolveFeedPage } from "@/server/domain/detail";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
@@ -57,7 +55,7 @@ export default async function FeedPage({
   const unanswered = rawUnanswered === "1";
   const page = resolveFeedPage(rawPage);
 
-  const [categories, totalPublished, role, authors, media, platform, debated, unseenAnnouncement, savedCount] =
+  const [categories, totalPublished, role, authors, media, platform, debated, savedCount] =
     await Promise.all([
       listCategoriesWithCounts(),
       getPublishedDetailsCount(),
@@ -66,7 +64,6 @@ export default async function FeedPage({
       getUserMedia(session.user.id),
       getPlatformState(),
       getTopDebated(7),
-      getUnseenAnnouncement(session.user.id),
       getSavedDetailsCount(session.user.id),
     ]);
 
@@ -118,9 +115,6 @@ export default async function FeedPage({
   return (
     <>
     <ProductTour active={tour === "1"} hasFeedItems={details.length > 0} />
-    {/* Suprimat complet la userul chiar nou (tur activ) — apare firesc la a DOUA vizită, nu întârziat
-        peste tur (2026-08-26, vezi comentariul din whats-new-modal.tsx). */}
-    <WhatsNewModal items={tour === "1" ? [] : (unseenAnnouncement ?? [])} />
     <FeedEntrance welcome={welcome === "1"}>
     <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
       <FeedSidebar

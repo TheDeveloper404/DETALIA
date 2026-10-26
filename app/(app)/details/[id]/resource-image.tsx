@@ -26,7 +26,7 @@ export function ResourceImage({ url, alt }: { url: string; alt: string }) {
         className="relative size-[52px] flex-none overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary"
         aria-label={`Mărește imaginea: ${alt}`}
       >
-        <Image src={url} alt={alt} fill sizes="52px" className="object-cover" />
+        <Image src={url} unoptimized={url.startsWith("/api/")} alt={alt} fill sizes="52px" className="object-cover" />
       </button>
 
       {open && (
@@ -45,7 +45,7 @@ export function ResourceImage({ url, alt }: { url: string; alt: string }) {
             <X className="size-5" strokeWidth={2} />
           </button>
           <div className="relative h-[85vh] w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-            <Image src={url} alt={alt} fill sizes="90vw" className="object-contain" />
+            <Image src={url} unoptimized={url.startsWith("/api/")} alt={alt} fill sizes="90vw" className="object-contain" />
           </div>
         </div>
       )}

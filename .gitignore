@@ -93,6 +93,9 @@ docs/EMAILURI.md
 docs/INCIDENTS.md
 docs/DEPLOY.md
 docs/SECURITATE.md
+docs/securitate/
+# Rapoarte de audit de securitate (Codex faza 1-3 etc.) — descriu vulnerabilități deschise, repo PUBLIC
+faza-*.md
 docs/PLAN-SEED.md
 docs/PLAN-TESTE.md
 docs/QA_TEST_CASES.md
@@ -112,4 +115,6 @@ docs/QA_TEST_CASES.md
 .env*
 
 .vercel
+.env*
+
 .env*

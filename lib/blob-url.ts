@@ -16,9 +16,29 @@ const OWN_STORE_ID = (() => {
 // URL de imagine acceptat la persistare: store Vercel Blob public ȘI (când știm store-ul) exact al nostru.
 export function isOwnBlobUrl(url: string): boolean {
   if (!BLOB_URL_RE.test(url)) return false;
-  if (!OWN_STORE_ID) return true; // dev fără Blob configurat — forma generală rămâne poarta
   try {
-    return new URL(url).hostname === `${OWN_STORE_ID}.public.blob.vercel-storage.com`;
+    const parsed = new URL(url);
+    if (parsed.username || parsed.password || parsed.port || parsed.search || parsed.hash)
+      return false;
+    if (parsed.hostname.includes(".private.blob.")) {
+      // SDK-ul si HTTP normalizeaza URL-ul, dar referintele DB se compara textual.
+      // Caile generate de noi sunt ASCII fara escape-uri: refuzam aliasurile inainte de orice lookup/read/delete.
+      if (parsed.href !== url || parsed.pathname.includes("%") || parsed.pathname.includes("//"))
+        return false;
+      const privateId =
+        process.env.BLOB_PRIVATE_READ_WRITE_TOKEN?.match(/^vercel_blob_rw_([A-Za-z0-9]+)_/)?.[1] ??
+        process.env.BLOB_PRIVATE_STORE_ID;
+      return (
+        !!privateId &&
+        parsed.hostname ===
+          `${privateId.replace(/^store_/, "").toLowerCase()}.private.blob.vercel-storage.com`
+      );
+    }
+    const publicId = OWN_STORE_ID ?? process.env.BLOB_STORE_ID;
+    return publicId
+      ? parsed.hostname ===
+          `${publicId.replace(/^store_/, "").toLowerCase()}.public.blob.vercel-storage.com`
+      : true;
   } catch {
     return false;
   }

@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { FeedItem } from "@/server/repos/detailsRepo";
+import { blobReadUrl } from "@/lib/blob-read-url";
 
 import { FeedSaveButton } from "./feed-save-button";
 import { HighlightedText } from "./highlighted-text";
@@ -83,7 +84,8 @@ export function DetailCard({
         <Link href={href} className="block size-full">
           <Image
             // Feed-ul arată DOAR detalii PUBLISHED (listFeed) → imageUrl mereu setat (DRAFT nu ajunge aici).
-            src={detail.imageUrl!}
+            src={blobReadUrl(detail.imageUrl!, "detail", detail.id)}
+            unoptimized={detail.imageUrl!.includes(".private.blob.")}
             alt={detail.title}
             fill
             sizes="(max-width: 640px) 100vw, 260px"

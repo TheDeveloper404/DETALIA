@@ -634,7 +634,7 @@ describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(["x"])) }),
+      vi.fn().mockResolvedValueOnce(new Response("x")),
     );
     vi.mocked(uploadProjectCanvasShare).mockResolvedValueOnce({ ok: true, url: "https://blob/share.png" });
     vi.mocked(insertCanvasShare).mockResolvedValueOnce({ id: SHARE_ID } as never);
@@ -658,7 +658,7 @@ describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(["x"])) }),
+      vi.fn().mockResolvedValueOnce(new Response("x")),
     );
     vi.mocked(uploadProjectCanvasShare).mockResolvedValueOnce({ ok: true, url: "https://blob/share.png" });
     const fkError = Object.assign(new Error("insert or update on table violates foreign key constraint"), {

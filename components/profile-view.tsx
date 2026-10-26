@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { BADGE_DEFS, type BadgeId, type EarnedBadge } from "@/server/domain/badges";
+import { blobReadUrl } from "@/lib/blob-read-url";
 
 import { PersonSilhouette } from "./avatar-initials";
 import { BadgeEarnedPopup } from "./badge-earned-popup";
@@ -531,7 +532,7 @@ function DetailsTab({ items, viewerIsOwner }: { items: ProfileDetailItem[]; view
           >
             <div className="relative flex h-[120px] items-center justify-center overflow-hidden border-b border-border bg-secondary">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={d.imageUrl} alt={d.title} className="absolute inset-0 size-full object-cover" />
+              <img src={blobReadUrl(d.imageUrl, "detail", d.id)} alt={d.title} className="absolute inset-0 size-full object-cover" />
               {d.categoryName && (
                 <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-0.5 font-mono text-[9.5px] uppercase text-primary">
                   {d.categoryName}
@@ -589,7 +590,7 @@ function SketchesTab({ items }: { items: ProfileSketchItem[] }) {
             >
               <div className="relative h-[74px] w-24 shrink-0 overflow-hidden rounded-lg border border-border bg-secondary">
                 {s.thumbnailUrl && (
-                  <Image src={s.thumbnailUrl} alt="" fill sizes="96px" className="object-cover" />
+                  <Image src={blobReadUrl(s.thumbnailUrl, "sketch", s.id)} unoptimized={s.thumbnailUrl.includes(".private.blob.")} alt="" fill sizes="96px" className="object-cover" />
                 )}
               </div>
               <div className="min-w-0 flex-1">

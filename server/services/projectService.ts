@@ -11,6 +11,7 @@ import { audit } from "@/lib/audit";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
+import { readOwnBlob } from "@/lib/blob-store";
 import {
   canReleaseToCommunity,
   formatShareTimestamp,
@@ -427,9 +428,9 @@ export async function shareCanvasToProject(input: {
 
   let blob: Blob;
   try {
-    const res = await fetch(canvas.thumbnailUrl);
-    if (!res.ok) return { ok: false, error: "UPLOAD_FAILED" };
-    blob = await res.blob();
+    const res = await readOwnBlob(canvas.thumbnailUrl);
+    if (!res) return { ok: false, error: "UPLOAD_FAILED" };
+    blob = await new Response(res.body).blob();
   } catch {
     return { ok: false, error: "UPLOAD_FAILED" };
   }

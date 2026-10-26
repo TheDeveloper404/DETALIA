@@ -1,3 +1,4 @@
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { Compass, FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -288,7 +289,7 @@ export default async function DetailPage({
               {detail.resources.map((r) => {
                 // IMAGE: thumbnail + lightbox (imaginea propriu-zisă), NU chip cu link ca restul tipurilor.
                 if (r.type === "IMAGE" && r.url) {
-                  return <ResourceImage key={r.id} url={r.url} alt={detail.title} />;
+                  return <ResourceImage key={r.id} url={blobReadUrl(r.url, "resource", r.id)} alt={detail.title} />;
                 }
                 const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
                 const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
@@ -303,7 +304,7 @@ export default async function DetailPage({
                 ) : (
                   <a
                     key={r.id}
-                    href={r.url}
+                    href={blobReadUrl(r.url, "resource", r.id)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="transition-colors hover:[&>span]:border-primary"
@@ -319,7 +320,7 @@ export default async function DetailPage({
           <DetailWorkspace
             detailId={detail.id}
             // Pagina publică arată DOAR detalii PUBLISHED (getDetail) → imageUrl mereu setat.
-            imageUrl={detail.imageUrl!}
+            imageUrl={blobReadUrl(detail.imageUrl!, "detail", detail.id)}
             header={{
               title: detail.title,
               description: detail.description,

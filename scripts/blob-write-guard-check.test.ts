@@ -3,6 +3,18 @@ import { describe, expect, it } from "vitest";
 import { findViolations } from "./blob-write-guard-check.lib.mjs";
 
 describe("findViolations — gardă write-path Blob fără verificare de ownership (SEC-N01)", () => {
+  it("recunoaste canUseBlobUrls, pastrand detectarea unui sink vecin negardat", () => {
+    const source = `
+      export async function guarded(input) {
+        if (!(await canUseBlobUrls(input.urls, input.userId))) return { ok: false };
+        await replaceMaterialOfferFiles(input.id, input.files);
+      }
+      export async function unguarded(input) {
+        await replaceMaterialOfferFiles(input.id, input.files);
+      }
+    `;
+    expect(findViolations(source).map((v) => v.functionName)).toEqual(["unguarded"]);
+  });
   it("prinde exact tiparul bug-ului istoric: sink apelat fără nicio gardă în corpul funcției", async () => {
     const source = `
       export async function createDetail(input: { authorId: string; resources: unknown[] }) {
@@ -66,7 +78,10 @@ describe("findViolations — gardă write-path Blob fără verificare de ownersh
     `;
     const violations = findViolations(source);
     expect(violations).toHaveLength(1);
-    expect(violations[0]).toMatchObject({ functionName: "sendOrUpdateMaterialOffer", sink: "replaceMaterialOfferFiles" });
+    expect(violations[0]).toMatchObject({
+      functionName: "sendOrUpdateMaterialOffer",
+      sink: "replaceMaterialOfferFiles",
+    });
   });
 
   it("SEC-N02: NU flagează când isUsersBlobUrl e prezent înainte de replaceMaterialOfferFiles (fix-ul aplicat)", () => {

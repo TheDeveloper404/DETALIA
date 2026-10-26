@@ -1,3 +1,4 @@
+import { blobReadUrl } from "@/lib/blob-read-url";
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
@@ -33,7 +34,7 @@ export default async function SketchEditPage({ params }: { params: Promise<{ id:
       sketchId={id}
       detailId={detail.id}
       // Detaliul-mamă al unei schițe e mereu PUBLISHED (getDetail) → imageUrl mereu setat.
-      imageUrl={detail.imageUrl!}
+      imageUrl={blobReadUrl(detail.imageUrl!, "detail", detail.id)}
       initialStrokes={draft.value.strokes}
       backgroundStrokes={draft.value.backgroundStrokes}
       initialNote={draft.value.note}

@@ -65,4 +65,8 @@ export const ALLOWED_MATERIAL_EXTENSIONS = ["pdf", "xlsx", "xls", "csv"] as cons
 
 // URL valid de Blob al store-ului nostru (acces public). Folosit la persistarea URL-ului întors
 // de upload-ul client → nu acceptăm URL-uri arbitrare în DB.
-export const BLOB_URL_RE = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;
+export const BLOB_URL_RE = /^https:\/\/[a-z0-9-]+\.(?:public|private)\.blob\.vercel-storage\.com\//i;
+
+export function blobAccessForFolder(folder: string): "public" | "private" {
+  return folder === "avatars" || folder === "covers" || folder === "comments" ? "public" : "private";
+}

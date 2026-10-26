@@ -186,7 +186,8 @@ Tratat ca domeniu CRITICAL (auth, roluri, permisiuni):
 - **Fără secrete în cod** — toate cheile în environment management (Vercel env).
 - **PII (email, tokenuri, dovezi de rol) nu se loghează** — doar metadate.
 
-Auditul complet pe 13 categorii, cu verdict și findings: `docs/SECURITATE.md`.
+Starea curentă (constatări deschise, risc asumat): `docs/SECURITATE.md`; istoricul auditurilor:
+`docs/securitate/`.
 
 ## 7. Decizii de arhitectură cheie
 
@@ -204,3 +205,13 @@ Rezumat; justificare completă și alternative respinse pentru fiecare → `docs
   statistici și scor afișat.
 - **Trei niveluri de vizibilitate pe conținut** (public / restrâns la un proiect / strict privat pe
   planșă), fiecare cu propria poartă de acces server-side, fără suprapunere de mecanism.
+
+### Storage privat — ADR-017 (2026-10-26)
+Fisierele de detaliu/resurse/schita/plansa/oferta folosesc un store Blob privat separat. Publicarea
+schimba numai vizibilitatea DB; fisierul ramane privat in storage. GET `/api/files/[kind]/[id]` citeste
+URL-ul din repo si verifica accesul in `blobFileService`: detaliu/resursa dupa status si proiect, schita
+dupa status + `hiddenAfterRelease`, plansa personala dupa owner, partajare dupa proiect, oferta dupa
+autorul real al detaliului sau furnizor. Citirea este streaming, fara cache public; imaginile protejate
+ocolesc Next Image Optimization. Preview-urile de upload noi sunt locale browserului.
+Avatarele/cover-urile/imaginile comentariilor raman publice. Compatibilitatea de citire a URL-urilor
+publice vechi permite migrarea coordonata; nu inchide DET-03 pana la retragerea lor. Procedura in DEPLOY.

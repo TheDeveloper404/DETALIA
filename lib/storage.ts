@@ -5,6 +5,7 @@
 import { del } from "@vercel/blob";
 
 import { isOwnBlobUrl } from "@/lib/blob-url";
+import { blobStoreOptions, isPrivateBlobUrl } from "@/lib/blob-store";
 import { processAndUploadImage } from "@/lib/image-processing";
 // Limitele de upload trăiesc în `lib/upload-limits.ts` (partajate client+server, fără SDK Blob).
 import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
@@ -58,7 +59,10 @@ export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<
   const valid = urls.filter((u): u is string => !!u && isOwnBlobUrl(u));
   if (valid.length === 0) return;
   try {
-    await del(valid);
+    const publicUrls = valid.filter((url) => !isPrivateBlobUrl(url));
+    const privateUrls = valid.filter(isPrivateBlobUrl);
+    if (publicUrls.length) await del(publicUrls, blobStoreOptions("public"));
+    if (privateUrls.length) await del(privateUrls, blobStoreOptions("private"));
   } catch (err) {
     // Găsit la /code-review QODO (2026-08-11): logam array-ul complet de URL-uri pe eroare — util la
     // debug, dar inutil de expansiv în Vercel Logs (URL-urile Blob sunt long-lived). Doar count + host.

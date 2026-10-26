@@ -8,6 +8,7 @@
 //  - Autosave NU verifică dacă fiecare detailId din document mai e PUBLISHED (starea altui user nu are voie
 //    să pice salvarea) — reconcilierea placeholder se face doar la citire (getCanvasForEdit).
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import {
@@ -172,7 +173,7 @@ export async function addDetailToCanvas(input: {
   }
 
   // getDetailById e PUBLISHED-only (comentariul de mai sus) → imageUrl mereu setat.
-  let imageUrl = detail.imageUrl!;
+  let imageUrl = blobReadUrl(detail.imageUrl!, "detail", detail.id);
   if (input.sketchId) {
     const sketch = await getSketchById(input.sketchId);
     if (
@@ -185,7 +186,7 @@ export async function addDetailToCanvas(input: {
     ) {
       return { ok: false, error: "DETAIL_NOT_FOUND" };
     }
-    imageUrl = sketch.thumbnailUrl;
+    imageUrl = blobReadUrl(sketch.thumbnailUrl, "sketch", sketch.id);
   }
 
   // Plafon — doar dacă item-ul (același detaliu SAU aceeași schiță) nu e deja pe planșă (insert idempotent).
@@ -284,7 +285,7 @@ export async function getCanvasForEdit(input: {
       items.push({
         detailId: row.detailId,
         sketchId: row.sketchId,
-        imageUrl: sketch.thumbnailUrl,
+        imageUrl: blobReadUrl(sketch.thumbnailUrl, "sketch", sketch.id),
         title: detail?.title ?? "Schiță",
       });
     } else {
@@ -292,7 +293,7 @@ export async function getCanvasForEdit(input: {
       if (detail?.projectId && !accessByProject.get(detail.projectId)) {
         continue;
       }
-      if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: detail.imageUrl!, title: detail.title });
+      if (detail) items.push({ detailId: row.detailId, sketchId: null, imageUrl: blobReadUrl(detail.imageUrl!, "detail", row.detailId), title: detail.title });
     }
   }
 

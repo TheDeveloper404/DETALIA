@@ -5,8 +5,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { blobStoreOptions } from "@/lib/blob-store";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import {
+  blobAccessForFolder,
   ALLOWED_CAD_EXTENSIONS,
   ALLOWED_CAD_TYPES,
   ALLOWED_DOC_TYPES,
@@ -44,12 +46,18 @@ function resolveKind(clientPayload: string | null): UploadKind {
 // Persistarea URL-ului în DB NU se face aici: `onUploadCompleted` (callback Vercel) nu rulează pe
 // localhost, așa că URL-ul întors de upload se salvează printr-un server action separat (vezi profile/actions.ts).
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
-
   try {
+    const body = (await request.json()) as HandleUploadBody;
+    // La callback, SDK-ul verifica semnatura folosind store-ul care a emis tokenul.
+    const pathname = body.type === "blob.generate-client-token" ? body.payload.pathname : body.payload.blob.pathname;
+    const folder = pathname.split("/")[2];
+    const access = blobAccessForFolder(folder);
+    const options = blobStoreOptions(access);
+    if (access === "private" && !options.token) throw new Error("PRIVATE_BLOB_NOT_CONFIGURED");
     const json = await handleUpload({
       body,
       request,
+      token: options.token,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -75,6 +83,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         // lib/blob-upload.ts) — altfel tokenul emis ar permite oricui să urce/suprascrie orice cale din
         // store. Namespace-ul e ce leagă un URL de Blob de proprietarul lui (vezi isUsersBlobUrl).
         if (!pathname.startsWith(`u/${session.user.id}/`)) {
+          throw new Error("INVALID_PATH");
+        }
+
+        if (!["avatars", "covers", "comments", "details", "resources", "materials"].includes(pathname.split("/")[2])) {
           throw new Error("INVALID_PATH");
         }
 

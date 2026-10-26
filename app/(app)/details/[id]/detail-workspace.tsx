@@ -659,6 +659,7 @@ export function DetailWorkspace({
                   comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
               <Image
                 src={imageUrl}
+                unoptimized={imageUrl.startsWith("/api/")}
                 alt={header.title}
                 fill
                 sizes="(max-width: 1024px) 100vw, 768px"

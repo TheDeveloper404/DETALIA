@@ -1,5 +1,6 @@
 "use client";
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { ChevronDown, Download, FileText } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
@@ -75,7 +76,7 @@ export function MaterialOfferPanel({ offers }: { offers: MaterialOfferForDetail[
                       {o.files.map((f) => (
                         <li key={f.id}>
                           <a
-                            href={f.url}
+                            href={blobReadUrl(f.url, "offer", f.id)}
                             download={f.fileName}
                             target="_blank"
                             rel="noopener noreferrer"

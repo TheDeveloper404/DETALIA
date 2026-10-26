@@ -91,4 +91,29 @@ describe("proxy — rute fără sesiune de user", () => {
     const res = await proxy(new NextRequest(`${BASE}/api/cron/altceva`));
     expect(isRedirect(res)).toBe(true);
   });
+
+  // "Fisierele continutului public pot fi citite anonim; handler-ul aplica autorizarea pe entitate." (proxy.ts).
+  it.each(["detail", "resource", "sketch"])(
+    "fisierul %s ajunge anonim la handler-ul cu autorizare",
+    async (kind) => {
+      const res = await proxy(
+        new NextRequest(`${BASE}/api/files/${kind}/22222222-2222-4222-8222-222222222222`),
+      );
+      expect(res.headers.get("x-middleware-next")).toBe("1");
+      expect(res.headers.get("location")).toBeNull();
+    },
+  );
+
+  // "Deny-by-default: tot ce e sub zona protejata cere sesiune" (AGENTS.md).
+  it.each(["canvas", "canvas-share", "offer", "unknown", "detail"])(
+    "prefixul privat sau incomplet %s ramane protejat",
+    async (kind) => {
+      const path =
+        kind === "detail"
+          ? `/api/files/${kind}`
+          : `/api/files/${kind}/22222222-2222-4222-8222-222222222222`;
+      const res = await proxy(new NextRequest(`${BASE}${path}`));
+      expect(isRedirect(res)).toBe(true);
+    },
+  );
 });

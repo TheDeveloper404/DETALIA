@@ -1,4 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubEnv("BLOB_PRIVATE_STORE_ID", "testprivate");
+});
+afterEach(() => vi.unstubAllEnvs());
 
 const { put, del } = vi.hoisted(() => ({ put: vi.fn(), del: vi.fn() }));
 vi.mock("@vercel/blob", () => ({ put, del }));
@@ -30,6 +36,7 @@ describe("processAndUploadImage — namespace u/<userId>/ (SEC-N04)", () => {
     expect(put).toHaveBeenCalledTimes(1);
     const [path] = put.mock.calls[0] as [string, unknown, unknown];
     expect(path).toMatch(/^u\/user-123\/sketches\//);
+    expect(put.mock.calls[0][2]).toMatchObject({ access: "private", storeId: "testprivate" });
   });
 
   it("respectă folder-ul dat pentru fiecare tip de conținut (canvases, project-shares)", async () => {
