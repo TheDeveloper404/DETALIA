@@ -11,7 +11,9 @@ const SITEVERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverif
 // SEC-N03 (audit securitate 2026-08-20): fără acest semnal, lipsa secretului în producție dezactiva
 // anti-bot-ul TĂCUT — același mod de eșec ca RATE_LIMIT_FAIL_OPEN, dar fără nicio alertă (vezi
 // lib/rate-limit.ts:43-45, pattern identic). Un cold start per deploy, nu per request.
-if (!SECRET && process.env.VERCEL_ENV === "production") {
+// Staging (mediu Vercel custom, VERCEL_ENV="preview") se comportă ca producția — domeniu fix staging.detalia.ro.
+const PROD_LIKE = process.env.VERCEL_ENV === "production" || process.env.VERCEL_TARGET_ENV === "staging";
+if (!SECRET && PROD_LIKE) {
   audit("turnstile_disabled_in_prod", {}, "error");
 }
 
@@ -24,7 +26,7 @@ export async function verifyTurnstile(
   // Preview (VERCEL_ENV !== "production") → widget-ul nu se randează (vezi TURNSTILE_ENABLED în
   // auth-form.tsx/login-form.tsx): domeniul dinamic *.vercel.app nu poate fi în allowlist-ul Turnstile
   // din Cloudflare (eroare 110200). No-op aici, la fel ca lipsa secretului — preview nu e trafic public.
-  if (process.env.VERCEL_ENV !== "production") return true;
+  if (!PROD_LIKE) return true;
   // Widget nerenderat / token lipsă în prod = suspect → respins.
   if (!token) return false;
 
