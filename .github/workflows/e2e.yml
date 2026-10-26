@@ -13,6 +13,7 @@
 # Secrete necesare (GitHub → Settings → Secrets and variables → Actions):
 #   E2E_DATABASE_URL                — ramura Neon dev/preview (ACEEAȘI pe care o folosește preview-ul)
 #   E2E_AUTH_SECRET                 — AUTH_SECRET-ul din scope-ul Preview (semnarea sesiunii seedate)
+#   BLOB_PRIVATE_READ_WRITE_TOKEN  — tokenul store-ului privat folosit de Preview (.env.e2e)
 #   VERCEL_AUTOMATION_BYPASS_SECRET — Vercel → Deployment Protection → Protection Bypass for Automation
 #   E2E_UPSTASH_REDIS_REST_URL      — opțional, scope Preview (Vercel → Env Vars) — fără el, setup-ul
 #                                      sare peste reset-ul cotelor rate-limit (warning, nu eroare) și
@@ -117,6 +118,7 @@ jobs:
           UPSTASH_REDIS_REST_URL: ${{ secrets.E2E_UPSTASH_REDIS_REST_URL }}
           UPSTASH_REDIS_REST_TOKEN: ${{ secrets.E2E_UPSTASH_REDIS_REST_TOKEN }}
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+          BLOB_PRIVATE_READ_WRITE_TOKEN: ${{ secrets.BLOB_PRIVATE_READ_WRITE_TOKEN }}
 
       - name: Raport Playwright (la eșec)
         if: failure()
