@@ -61,37 +61,6 @@ describe("verifyTurnstile", () => {
     });
   });
 
-  // Mediul Vercel custom "staging" are VERCEL_ENV="preview"; doar VERCEL_TARGET_ENV îl distinge.
-  // Pe domeniul fix staging.detalia.ro Turnstile funcționează → staging se comportă ca producția.
-  describe("staging (VERCEL_ENV=preview, VERCEL_TARGET_ENV=staging)", () => {
-    beforeEach(() => {
-      vi.stubEnv("VERCEL_ENV", "preview");
-      vi.stubEnv("VERCEL_TARGET_ENV", "staging");
-    });
-
-    it("fără secret → emite audit error, ca în producție", async () => {
-      vi.stubEnv("TURNSTILE_SECRET_KEY", "");
-      await loadVerifyTurnstile();
-      expect(auditMock).toHaveBeenCalledWith("turnstile_disabled_in_prod", {}, "error");
-    });
-
-    it("cu secret, fără token → respins (nu mai e no-op ca pe preview)", async () => {
-      vi.stubEnv("TURNSTILE_SECRET_KEY", "test-secret");
-      const verifyTurnstile = await loadVerifyTurnstile();
-      global.fetch = vi.fn();
-      expect(await verifyTurnstile(null)).toBe(false);
-      expect(global.fetch).not.toHaveBeenCalled();
-    });
-
-    it("cu secret, token valid → verificat la Cloudflare", async () => {
-      vi.stubEnv("TURNSTILE_SECRET_KEY", "test-secret");
-      const verifyTurnstile = await loadVerifyTurnstile();
-      global.fetch = vi.fn().mockResolvedValue({ json: async () => ({ success: true }) });
-      expect(await verifyTurnstile("tok-valid")).toBe(true);
-      expect(global.fetch).toHaveBeenCalledTimes(1);
-    });
-  });
-
   describe("cu TURNSTILE_SECRET_KEY (producție)", () => {
     beforeEach(() => {
       vi.stubEnv("TURNSTILE_SECRET_KEY", "test-secret");

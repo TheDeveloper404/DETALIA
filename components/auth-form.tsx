@@ -16,8 +16,7 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 // nu poate fi în allowlist-ul Turnstile din Cloudflare → widget-ul aruncă mereu eroare 110200
 // (vezi verifyTurnstile, care e no-op în afara producției, în oglindă cu asta).
 const TURNSTILE_ENABLED =
-  Boolean(TURNSTILE_SITE_KEY) &&
-  (process.env.NEXT_PUBLIC_VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_TARGET_ENV === "staging");
+  Boolean(TURNSTILE_SITE_KEY) && process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 declare global {
   interface Window {

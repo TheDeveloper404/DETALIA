@@ -90,8 +90,6 @@ const nextConfig: NextConfig = {
   // vechi atribuia greșit acest mapping la Sentry client-side.
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV,
-    // Mediul custom "staging" are VERCEL_ENV="preview"; doar VERCEL_TARGET_ENV îl distinge.
-    NEXT_PUBLIC_VERCEL_TARGET_ENV: process.env.VERCEL_TARGET_ENV,
   },
 };
 

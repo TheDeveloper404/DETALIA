@@ -13,9 +13,7 @@ const INITIAL: AdminLoginState = { sent: false, error: null };
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 // Pe preview (VERCEL_ENV !== "production") nu randăm widget-ul: domeniul dinamic *.vercel.app nu
 // poate fi în allowlist-ul Turnstile din Cloudflare → eroare 110200. No-op în oglindă cu verifyTurnstile.
-const TURNSTILE_ENABLED =
-  Boolean(TURNSTILE_SITE_KEY) &&
-  (process.env.NEXT_PUBLIC_VERCEL_ENV === "production" || process.env.NEXT_PUBLIC_VERCEL_TARGET_ENV === "staging");
+const TURNSTILE_ENABLED = Boolean(TURNSTILE_SITE_KEY) && process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 export function AdminLoginForm() {
   const [state, formAction, pending] = useActionState(requestAdminLinkAction, INITIAL);

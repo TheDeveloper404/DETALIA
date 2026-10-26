@@ -48,9 +48,8 @@ type Window = Parameters<typeof Ratelimit.slidingWindow>[1];
 
 // Namespace pe mediu: același Redis poate fi partajat de local/preview/prod fără ca testele dintr-un
 // mediu să consume cotele altuia (chei separate). VERCEL_ENV pe Vercel; NODE_ENV local.
-// Staging (mediu Vercel custom, VERCEL_ENV="preview") are namespace propriu și praguri de producție.
-const ENV_NS = process.env.VERCEL_TARGET_ENV ?? process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "dev";
-const IS_PRODUCTION = process.env.VERCEL_ENV === "production" || process.env.VERCEL_TARGET_ENV === "staging";
+const ENV_NS = process.env.VERCEL_ENV ?? process.env.NODE_ENV ?? "dev";
+const IS_PRODUCTION = process.env.VERCEL_ENV === "production";
 
 function make(max: number, window: Window, prefix: string): Ratelimit | null {
   if (!redis) return null;

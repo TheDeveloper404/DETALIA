@@ -224,8 +224,7 @@ export default async function proxy(req: NextRequest) {
   // scripturile inline) ȘI pe headerul CSP (request + response) → Next aplică nonce-ul pe scripturile lui.
   const nonce = btoa(crypto.randomUUID());
   // Toolbar-ul Vercel (vercel.live/pusher) rulează doar pe preview → pe producție îl scoatem din CSP.
-  // Staging (VERCEL_TARGET_ENV) primește CSP-ul strict de producție.
-  const previewTools = process.env.VERCEL_ENV !== "production" && process.env.VERCEL_TARGET_ENV !== "staging";
+  const previewTools = process.env.VERCEL_ENV !== "production";
   const csp = buildCspHeader(nonce, process.env.NODE_ENV === "development", previewTools);
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set("x-nonce", nonce);
