@@ -219,7 +219,7 @@ const MAX_PEN_SIZE = 40;
 
 export type SketchCanvasHandle = {
   getStrokes: () => Stroke[];
-  exportThumbnail: () => Promise<Blob | null>;
+  exportThumbnail: (type?: "image/png" | "image/jpeg") => Promise<Blob | null>;
 };
 
 // Suprafața de desen a editorului: rail de unelte (stânga) + canvas fit-to-area (dreapta).
@@ -289,7 +289,7 @@ export const SketchCanvas = forwardRef<
     ref,
     () => ({
       getStrokes: () => present,
-      exportThumbnail: async () => {
+      exportThumbnail: async (type = "image/png") => {
         const img = imgRef.current;
         // Vezi `resolveExportWidth` (sketch-render.ts) pt istoricul bug-ului (export mereu la 1000px).
         const w = resolveExportWidth(
@@ -315,7 +315,7 @@ export const SketchCanvas = forwardRef<
         renderStrokes(ctx, present, w, h);
         return new Promise((resolve) => {
           try {
-            off.toBlob((b) => resolve(b), "image/png");
+            off.toBlob((b) => resolve(b), type, 0.9);
           } catch {
             resolve(null);
           }
