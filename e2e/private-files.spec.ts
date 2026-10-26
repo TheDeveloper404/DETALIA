@@ -52,7 +52,7 @@ test("DET-03: imagine privata reala, URL brut anonim refuzat si acces revocat cu
     // Citire directa fara sesiune/Authorization, fara header-ele de bypass Vercel.
     expect((await fetch(upload.url)).ok).toBe(false);
     await page.goto(`/projects/${projectId}`);
-    const image = page.locator(`img[src="/api/project-image/detail/${detailId}"]`);
+    const image = page.locator(`img[src^="/api/project-image/detail/${detailId}"]`);
     await expect
       .poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0);

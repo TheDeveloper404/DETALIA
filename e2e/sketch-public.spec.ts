@@ -39,7 +39,7 @@ test("teaser anonim: thumbnail Blob privat incarcat prin proxy-ul public si hand
       .returning({ id: sketches.id });
     sketchId = row.id;
     await page.goto(`/s/${sketchId}`);
-    const image = page.locator(`img[src="/api/files/sketch/${sketchId}"]`);
+    const image = page.locator(`img[src^="/api/files/sketch/${sketchId}"]`);
     await expect
       .poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth))
       .toBeGreaterThan(0);
