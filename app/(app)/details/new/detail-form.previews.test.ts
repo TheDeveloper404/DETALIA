@@ -27,6 +27,7 @@ vi.mock("@/components/canvas-crop-picker", () => ({ CanvasCropPicker: () => null
 vi.mock("@/components/sketch/sketch-viewer", () => ({ SketchViewer: () => null }));
 vi.mock("@/lib/blob-upload", () => ({ uploadImageToBlob: upload, uploadDocToBlob: upload, isHeicFile: () => false }));
 vi.mock("./actions", () => ({ createDetailAction: vi.fn() }));
+vi.mock("@/app/support-actions", () => ({ submitSupportRequestAction: vi.fn() }));
 
 import { DetailForm, type DetailFormInitial } from "./detail-form";
 

@@ -14,6 +14,7 @@ vi.mock("react", async (original) => ({
 vi.mock("next/dynamic", () => ({ default: () => "sketch-canvas" }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), unstable_rethrow: vi.fn() }));
 vi.mock("./sketch-actions", () => ({ saveStrokesAction: vi.fn(), sendSketchAction: vi.fn() }));
+vi.mock("@/app/support-actions", () => ({ submitSupportRequestAction: vi.fn() }));
 
 import type { Stroke } from "@/server/domain/sketch";
 import { SketchEditor } from "./sketch-editor";

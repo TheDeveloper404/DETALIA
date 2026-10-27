@@ -23,6 +23,7 @@ vi.mock("@/components/plansa/plansa-canvas", () => ({ PlansaCanvas: () => null }
 vi.mock("@/components/ui/button", () => ({ Button: () => null }));
 vi.mock("@/lib/blob-upload", () => ({ uploadImageToBlob: upload }));
 vi.mock("./canvas-actions", () => ({ saveCanvasDocumentAction: saveDocument, removeDetailFromCanvasAction: vi.fn() }));
+vi.mock("@/app/support-actions", () => ({ submitSupportRequestAction: vi.fn() }));
 
 import { PlansaCanvas } from "@/components/plansa/plansa-canvas";
 import CanvasEditor from "./canvas-editor";

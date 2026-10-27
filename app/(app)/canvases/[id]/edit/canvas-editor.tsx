@@ -45,10 +45,10 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
   const canvasRef = useRef<PlansaCanvasHandle>(null);
   const [saved, setSaved] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // Salvări de document eșuate la rând (thumbnail-ul e auxiliar, nu se numără) — pentru SupportHint.
-  const [saveFailures, setSaveFailures] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  // Doar salvarile de document esuate la rand; thumbnail-ul nu se numara.
+  const [saveFailures, setSaveFailures] = useState(0);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastThumb = useRef(0);
   const revision = useRef(0);
