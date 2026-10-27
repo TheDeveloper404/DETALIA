@@ -5,10 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { signOutAction } from "@/app/(app)/profile/actions";
+import { SupportDialog } from "@/components/support/support-dialog";
 
 import { PersonSilhouette } from "./avatar-initials";
 
-// Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
+// Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Ajutor + Deconectare (reală, via signOut).
 export function UserMenu({
   name,
   image,
@@ -17,6 +18,7 @@ export function UserMenu({
   image: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -85,6 +87,17 @@ export function UserMenu({
             >
               Vizualizare profil
             </Link>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setHelpOpen(true);
+              }}
+              className="block w-full px-3.5 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted"
+            >
+              Ajutor
+            </button>
             <form action={signOutAction}>
               <button
                 type="submit"
@@ -96,6 +109,7 @@ export function UserMenu({
             </form>
         </div>
       )}
+      {helpOpen && <SupportDialog flow="menu" onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

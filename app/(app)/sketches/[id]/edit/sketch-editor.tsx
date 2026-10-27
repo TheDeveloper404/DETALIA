@@ -8,6 +8,8 @@ import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
+import { SupportHint } from "@/components/support/support-hint";
+import { useFailureCount } from "@/components/support/use-failure-count";
 import { uploadImageToBlob } from "@/lib/blob-upload";
 import { cn } from "@/lib/utils";
 import { MAX_SKETCH_NOTE_LENGTH, REMOVED_AUTHOR_LABEL, type Stroke } from "@/server/domain/sketch";
@@ -55,6 +57,8 @@ export function SketchEditor({
   const canvasRef = useRef<SketchCanvasHandle>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fiecare încercare resetează `error` la null înainte → un mesaj setat din nou = încă un eșec.
+  const failures = useFailureCount(error);
   // Canvas-ul incarcat dinamic confirma desenul dupa montare, cand ref-ul poate fi citit.
   const [count, setCount] = useState(0);
   // Notă separată de desen (2026-07-16) — panou colapsabil, NICIODATĂ suprapus peste canvas (împinge
@@ -193,6 +197,7 @@ export function SketchEditor({
           className="z-20 flex-none border-b border-destructive/30 bg-destructive/10 px-[18px] py-2 text-center text-sm text-destructive"
         >
           {error}
+          <SupportHint failures={failures} flow="sketch_save" errorMessage={error} />
         </p>
       )}
 

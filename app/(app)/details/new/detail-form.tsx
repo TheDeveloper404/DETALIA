@@ -10,6 +10,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { CanvasCropPicker, type CropCanvasOption } from "@/components/canvas-crop-picker";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
+import { SupportHint } from "@/components/support/support-hint";
+import { useFailureCount } from "@/components/support/use-failure-count";
 import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 import {
   HEIC_ERROR_MESSAGE,
@@ -349,6 +351,8 @@ export function DetailForm({
     saveDraftAction ?? noopDraftAction,
     initialState,
   );
+  // Doar publicarea (nu ciorna, nu validarea client) intră în contorul de eșecuri pentru SupportHint.
+  const publishFailures = useFailureCount(state.error ? state : null);
   // Sursa imaginii detaliului: „upload" (fișier existent), „draw" (desenat pe loc, pe foaie goală) sau
   // „canvas" (decupaj dintr-o planșă proprie, §7 din plan — vezi CanvasCropPicker). „canvas" e un pas
   // TRANZITORIU: la „Aplică decupajul" revenim direct pe „upload" cu fișierul rezultat (acțiunea de
@@ -697,6 +701,9 @@ export function DetailForm({
           className="mb-5 scroll-mt-24 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
         >
           {clientError ?? state.error ?? draftState.error}
+          {!clientError && state.error && (
+            <SupportHint failures={publishFailures} flow="detail_publish" errorMessage={state.error} />
+          )}
         </p>
       )}
 

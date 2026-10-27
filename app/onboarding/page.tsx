@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { auth } from "@/lib/auth";
+import { SUPPORT_EMAIL } from "@/lib/support-contact";
 import { userHasRole } from "@/server/services/roleService";
 
 import { OnboardingForm } from "./onboarding-form";
@@ -139,6 +140,24 @@ export default async function OnboardingPage() {
           </div>
 
           <OnboardingForm />
+
+          <p
+            style={{
+              margin: "28px auto 0",
+              maxWidth: 560,
+              borderTop: "1px solid var(--border)",
+              paddingTop: 18,
+              textAlign: "center",
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: "var(--muted-foreground)",
+            }}
+          >
+            Ai o întrebare sau ceva nu merge? Scrie-ne la{" "}
+            <a href={`mailto:${SUPPORT_EMAIL}`} style={{ fontWeight: 600, color: "var(--primary)" }}>
+              {SUPPORT_EMAIL}
+            </a>
+          </p>
         </div>
       </main>
     </div>

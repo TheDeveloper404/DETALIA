@@ -228,6 +228,20 @@ Antet profil (`ProfileView`): sub `sm`, linkul „Editează profil” este în d
 în zona albă de sub cover, cu target 44 px. La ≥640 px păstrează poziția din rândul numelui.
 Este randat în continuare doar pentru proprietarul profilului.
 
+## Suport în aplicație (`components/support/`)
+
+- `SupportDialog` — formularul „Ai nevoie de ajutor?" (pe `DialogOverlay`, portal în `body`, strat
+  `z-[70]` ca să apară și peste editoarele full-screen). Trimite prin `submitSupportRequestAction`
+  (`app/support-actions.ts`) în Slack; fără sesiune arată emailul de suport.
+- `SupportHint` — rândul pus SUB un mesaj de eroare existent: nimic la primul eșec, „Raportează
+  problema" de la al doilea, + WhatsApp de la al treilea (`supportLevel`, `lib/support-contact.ts`).
+  Randat ca `<span>`, încape într-un `<p role="alert">`. Contorul: `useFailureCount(stareaEșuată)` pentru
+  formulare cu `useActionState`/mesaj resetat la null; contor explicit unde eroarea nu se resetează
+  (autosave planșă).
+- `LoginSupportHint` — doar pe `/login?error=Verification`: TTL-ul linkului + caseta WhatsApp/email de la
+  al doilea link eșuat în 24h (localStorage).
+- WhatsApp NU apare în meniu; contactele stau în `lib/support-contact.ts` (sursă unică).
+
 ## Neacoperit încă (adaugă pe măsură ce apare)
 
 Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/notificare inline.

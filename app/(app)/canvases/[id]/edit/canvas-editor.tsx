@@ -10,6 +10,7 @@ import { unstable_rethrow, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PlansaCanvas, type PlansaCanvasHandle, type PlansaItemSource } from "@/components/plansa/plansa-canvas";
+import { SupportHint } from "@/components/support/support-hint";
 import { Button } from "@/components/ui/button";
 import { uploadImageToBlob } from "@/lib/blob-upload";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,8 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
   const canvasRef = useRef<PlansaCanvasHandle>(null);
   const [saved, setSaved] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // Salvări de document eșuate la rând (thumbnail-ul e auxiliar, nu se numără) — pentru SupportHint.
+  const [saveFailures, setSaveFailures] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,11 +65,13 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
         const res = await saveCanvasDocumentAction(canvasId, JSON.stringify(handle.getDocument()));
         if (!res.ok) {
           setSaveError(res.error ?? "Planșa nu a putut fi salvată.");
+          setSaveFailures((n) => n + 1);
           return false;
         }
         // Un raspuns pentru versiunea veche nu marcheaza drept salvate modificarile mai noi.
         if (savedRevision === revision.current) setSaved(true);
         setSaveError(null);
+        setSaveFailures(0);
 
         if (!thumbnailSaving.current && Date.now() - lastThumb.current > THUMB_THROTTLE_MS) {
           // Limitam incercarile, inclusiv cele esuate, ca thumbnail-ul sa nu consume cota documentului.
@@ -100,6 +105,7 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
       } catch (err) {
         unstable_rethrow(err);
         setSaveError("Planșa nu a putut fi salvată. Încearcă din nou.");
+        setSaveFailures((n) => n + 1);
         return false;
       }
     });
@@ -194,6 +200,11 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
         >
           {saveError ?? (saved ? "salvat ✓" : "se salvează…")}
         </span>
+        {saveError && saveFailures > 0 && (
+          <span className="text-[12px]">
+            <SupportHint failures={saveFailures} flow="canvas_save" errorMessage={saveError} />
+          </span>
+        )}
         <div className="ml-auto">
           <Button variant="outline" size="sm" onClick={exportPng} disabled={exporting}>
             <Download className="size-4" strokeWidth={2} />

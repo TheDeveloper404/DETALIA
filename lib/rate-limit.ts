@@ -80,7 +80,7 @@ export const limiters = {
   // Publicare detaliu per user (mai costisitoare: imagine + scrieri DB).
   createDetail: make(withTestHeadroom(10, 100), "1 h", "create-detail"),
   // Cotă de upload (emitere token Blob) per user.
-  upload: make(30, "1 h", "upload"),
+  upload: make(withTestHeadroom(30, 300), "1 h", "upload"),
   // Admin-login (anti-brute-force) — pe username ȘI pe IP. Strict (poartă privilegiată).
   adminLoginPerUser: make(10, "15 m", "admin:login:user"),
   adminLoginPerIp: make(30, "15 m", "admin:login:ip"),
@@ -94,6 +94,8 @@ export const limiters = {
   // un SELECT în DB per request, fără sesiune — pe IP, ca să nu limiteze mai mulți invitați legitimi
   // de pe aceeași rețea folosind ACELAȘI token.
   projectInvitePreviewPerIp: make(30, "1 m", "project-invite-preview:ip"),
+  // Cereri de ajutor (formular → Slack) per user — rare la uz real, cota oprește spam-ul în canal.
+  support: make(withTestHeadroom(3, 50), "1 h", "support"),
 } as const;
 
 // SEC-14: hartă inversă limiter→nume, ca să etichetăm evenimentul de audit FĂRĂ a schimba call-site-urile.

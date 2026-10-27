@@ -105,6 +105,7 @@ export default defineConfig({
         /detail-resource-upload\.spec\.ts/,
         /detail-tour\.spec\.ts/,
         /feed-tour\.spec\.ts/,
+        /support\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {
