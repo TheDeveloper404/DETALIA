@@ -3,7 +3,20 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/db", async () => {
   const { createTestDb } = await import("@/db/test-db");
-  return await createTestDb();
+  const testDb = await createTestDb();
+  // PGlite lacks neon-http's batch API; execute the genuine lazy repository queries in one real transaction.
+  Object.assign(testDb.db, {
+    batch: async (queries: { getQuery(): { sql: string; params: unknown[] } }[]) =>
+      testDb.client.transaction(async (tx) => {
+        const results = [];
+        for (const query of queries) {
+          const compiled = query.getQuery();
+          results.push(await tx.query(compiled.sql, compiled.params));
+        }
+        return results;
+      }),
+  });
+  return testDb;
 });
 
 const { db } = await import("@/db");
@@ -29,14 +42,16 @@ describe("DET-01 — eliminare si invitatie", () => {
   });
 
   // Regula (CONTEXT.md): "Eliminarea membrului invalideaza automat invitatia veche."
-  it.each(["join-first", "remove-first"])("pastreaza revocarea cu operatii concurente: %s", async (order) => {
+  it.each(["join-first", "remove-first"])("pastreaza revocarea pentru ordinea secventiala: %s", async (order) => {
     const oldToken = randomUUID(), newToken = randomUUID();
     const [project] = await db.insert(projects).values({ ownerId: owner, name: "Race", inviteToken: oldToken }).returning();
     await upsertActiveMembership(project.id, member, oldToken);
     if (order === "join-first") {
-      await Promise.all([upsertActiveMembership(project.id, member, oldToken), removeMembership(project.id, member, newToken)]);
+      await upsertActiveMembership(project.id, member, oldToken);
+      await removeMembership(project.id, member, newToken);
     } else {
-      await Promise.all([removeMembership(project.id, member, newToken), upsertActiveMembership(project.id, member, oldToken)]);
+      await removeMembership(project.id, member, newToken);
+      await upsertActiveMembership(project.id, member, oldToken);
     }
     const [membership] = await db.select().from(projectMembers).where(and(eq(projectMembers.projectId, project.id), eq(projectMembers.userId, member)));
     expect(membership.removedAt).not.toBeNull();

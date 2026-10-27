@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { canvasItems, canvases } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // Planșă (Canvas) — CRUD prin UI, netestat până acum. NU testăm motorul de desen/pan/zoom (engine propriu,
 // interacții fragile de reprodus determinist) — doar fluxul de produs: creare/redenumire/duplicare/ștergere
@@ -183,12 +184,15 @@ test("Elimină detaliu de pe planșă: distinct de ștergerea planșei întregi 
 });
 
 // Regula aprobata: "await latest document before navigate ... concurrent autosave doesn't mark stale saved".
+// Regula aprobata: "Keep document saves ordered, but run thumbnail work separately and do not make it a condition for leaving."
 test("iesirea salveaza ultimul desen; eroarea de retea permite reincercarea, thumbnail mare fara body mare", async ({ page }) => {
   const seed = JSON.parse(readFileSync(path.resolve(__dirname, ".auth", "seed.json"), "utf8")) as { testerUserId: string };
   const [created] = await db.insert(canvases).values({ ownerId: seed.testerUserId, name: `E2E flush ${Date.now()}` }).returning({ id: canvases.id });
   const editorPath = `/canvases/${created.id}/edit`;
   let resume: () => void = () => {};
+  let resumeThumbnail: () => void = () => {};
   try {
+    await stripBypassHeadersForBlobUploads(page);
     await page.addInitScript(() => {
       const original = HTMLCanvasElement.prototype.toBlob;
       HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
@@ -234,19 +238,82 @@ test("iesirea salveaza ultimul desen; eroarea de retea permite reincercarea, thu
       await route.continue();
     });
     const saveRequested = page.waitForRequest((request) => new URL(request.url()).pathname === editorPath && !!request.headers()["next-action"]);
+    const thumbnailPaused = new Promise<void>((resolve) => { resumeThumbnail = resolve; });
+    await page.route("**/api/blob/upload", async (route) => {
+      await thumbnailPaused;
+      await route.continue();
+    });
+    const thumbnailRequested = page.waitForRequest("**/api/blob/upload");
     await page.getByRole("link", { name: "Planșele mele" }).click();
     await saveRequested;
     await expect(page).toHaveURL(new RegExp(`${editorPath}$`));
     resume();
+    await thumbnailRequested;
+    // Navigarea si documentul salvat nu asteapta miniatura tinuta intentionat in retea.
     await expect(page).toHaveURL(/\/canvases$/);
 
-    const [stored] = await db.select({ state: canvases.state, thumbnailUrl: canvases.thumbnailUrl }).from(canvases).where(eq(canvases.id, created.id));
+    const [stored] = await db.select({ state: canvases.state }).from(canvases).where(eq(canvases.id, created.id));
     expect((stored.state as { strokes: unknown[] }).strokes.length).toBe(1);
-    expect(stored.thumbnailUrl).toMatch(/\/canvases\/[^/]+\.jpg$/);
+    resumeThumbnail();
+    await expect.poll(async () => {
+      const [row] = await db.select({ thumbnailUrl: canvases.thumbnailUrl }).from(canvases).where(eq(canvases.id, created.id));
+      return row.thumbnailUrl;
+    }).toMatch(/\/canvases\/[^/]+\.jpg$/);
     expect(actionBodies.length).toBeGreaterThan(0);
     expect(actionBodies.every((bytes) => bytes > 0 && bytes < 4_500_000)).toBe(true);
   } finally {
     resume();
+    resumeThumbnail();
+    const [row] = await db.select({ thumbnailUrl: canvases.thumbnailUrl }).from(canvases).where(eq(canvases.id, created.id));
+    await db.delete(canvases).where(eq(canvases.id, created.id));
+    if (row?.thumbnailUrl) await deleteBlobs([row.thumbnailUrl]);
+  }
+});
+
+// Regula aprobata: "Keep document saves ordered, but run thumbnail work separately and do not make it a condition for leaving."
+test("procesarea miniaturii nu blocheaza desenul urmator sau iesirea", async ({ page }) => {
+  const seed = JSON.parse(readFileSync(path.resolve(__dirname, ".auth", "seed.json"), "utf8")) as { testerUserId: string };
+  const [created] = await db.insert(canvases).values({ ownerId: seed.testerUserId, name: `E2E thumbnail queue ${Date.now()}` }).returning({ id: canvases.id });
+  const editorPath = `/canvases/${created.id}/edit`;
+  const thumbnailPath = `/api/canvases/${created.id}/thumbnail`;
+  let resumeThumbnail: () => void = () => {};
+  try {
+    await stripBypassHeadersForBlobUploads(page);
+    const paused = new Promise<void>((resolve) => { resumeThumbnail = resolve; });
+    await page.route(`**${thumbnailPath}`, async (route) => { await paused; await route.continue(); });
+    await page.goto(editorPath);
+    const canvas = page.locator("canvas");
+    await expect(canvas).toBeVisible();
+    await page.getByRole("button", { name: "Creion", exact: true }).click();
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("canvas fara bounding box");
+    const thumbnailRequested = page.waitForRequest(`**${thumbnailPath}`);
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 5 });
+    await page.mouse.up();
+    await thumbnailRequested;
+
+    // Persistarea miniaturii este deja in asteptare; urmatorul document trebuie sa ajunga la server.
+    const documentRequested = page.waitForRequest((request) => new URL(request.url()).pathname === editorPath && !!request.headers()["next-action"]);
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.3);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5, { steps: 5 });
+    await page.mouse.up();
+    await documentRequested;
+    await expect.poll(async () => {
+      const [row] = await db.select({ state: canvases.state }).from(canvases).where(eq(canvases.id, created.id));
+      return (row.state as { strokes: unknown[] }).strokes.length;
+    }).toBe(2);
+    await page.getByRole("link", { name: "Planșele mele" }).click();
+    await expect(page).toHaveURL(/\/canvases$/);
+    resumeThumbnail();
+    await expect.poll(async () => {
+      const [row] = await db.select({ thumbnailUrl: canvases.thumbnailUrl }).from(canvases).where(eq(canvases.id, created.id));
+      return row.thumbnailUrl;
+    }).toMatch(/\/canvases\/[^/]+\.jpg$/);
+  } finally {
+    resumeThumbnail();
     const [row] = await db.select({ thumbnailUrl: canvases.thumbnailUrl }).from(canvases).where(eq(canvases.id, created.id));
     await db.delete(canvases).where(eq(canvases.id, created.id));
     if (row?.thumbnailUrl) await deleteBlobs([row.thumbnailUrl]);

@@ -217,3 +217,36 @@ dependenta dintre rezultate fara exceptii de conflict folosite ca flux de contro
 pastreaza. Fisierele reprocesate se curata la conflict explicit sau esec cunoscut inainte de DB;
 la eroare de retea cu rezultat de commit incert nu se sterg, pentru a nu pierde o imagine deja referita.
 SQL PGlite verifica rollback real de statement; concurenta intre conexiuni si HTTP real necesita Preview.
+
+## ADR-021 — Eliminarea membrului dupa obtinerea lock-ului de proiect (2026-10-27)
+
+**Scop aprobat:** eliminarea ramane efectiva cand membrul reintra simultan, inclusiv prima intrare.
+**Decizie:** doua instructiuni SQL parametrizate in acelasi `db.batch` Neon HTTP: rotire invitatie,
+apoi UPDATE membership. La READ COMMITTED, a doua instructiune vede commit-ul reintrarii care
+tinea lock-ul proiectului. Ambele scrieri se confirma sau se anuleaza impreuna.
+**Alternativa respinsa:** CTE-ul modificator are un singur snapshot si poate rata randul
+nou/reactivat. Eliminarea filtrului removed_at singura nu rezolva randul inca inexistent.
+**STRIDE:** reintrare cu token vechi → serializare pe proiect si reverificare la join;
+acces pastrat dupa eliminare → snapshot nou inaintea UPDATE-ului; eroare la eliminare → rollback
+al rotirii. Gardul de owner si ramura fara token nou raman existente, fara schimbare de API/schema.
+**Consecinte:** un singur round-trip HTTP, doua instructiuni in tranzactie; READ COMMITTED este
+preconditie verificata pe preview/dev si production. Testele locale cu conexiuni independente
+controleaza ambele ordini ale lock-ului, inclusiv membru nou, si esecul celei de-a doua scrieri.
+
+## ADR-022 — Miniatura plansei in afara cozii de Server Actions (2026-10-27)
+
+**Scop aprobat:** miniatura optionala nu blocheaza urmatorul document sau iesirea din editor.
+**Decizie:** task-ul client separat incarca Blob-ul si foloseste fetch POST
+`/api/canvases/[id]/thumbnail`, JSON `{ thumbnailUrl: string }`. Salvarea documentului ramane
+Server Action. Serviciul existent `saveCanvasThumbnail` primeste acum URL staging, verifica owner-ul,
+valideaza namespace-ul canonic si reproceseaza imaginea inainte de persistare; actiunea veche dispare.
+**Alternativa respinsa:** un Promise detasat pentru thumbnail Server Action intra tot in dispatcher-ul
+FIFO Next.js. Nu activam optiuni experimentale globale si nu adaugam o abstractie de service.
+**Contract:** Origin identic obligatoriu (403); sesiune/status ACTIVE (401); mutation limiter (429);
+JSON/tip URL invalid sau imagine invalida (400); plansa lipsa/nedetinuta (404, contractul privat existent);
+eroare neasteptata (500 generic); succes 200 `{ ok: true }`. Identitatea vine numai din sesiune.
+**STRIDE:** CSRF → Origin; IDOR → ownership in service; stergere cross-user/SSRF → staging propriu
+canonic si pipeline existent; abuz → cota existenta si cel mult o miniatura client in curs.
+Un UPDATE explicit respins curata numai fisierul nou; o exceptie DB cu commit incert nu-l sterge.
+**Verificare:** integrare prin ruta/gard/service reale cu DB/Blob simulate; E2E Preview tine POST-ul
+miniaturii in asteptare si verifica o noua salvare document plus navigarea. Fara schema/dependinte/env noi.

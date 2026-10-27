@@ -18,7 +18,6 @@ import type { CanvasDocument } from "@/server/domain/plansa";
 import {
   removeDetailFromCanvasAction,
   saveCanvasDocumentAction,
-  saveCanvasThumbnailAction,
 } from "./canvas-actions";
 
 const AUTOSAVE_MS = 2000;
@@ -51,6 +50,7 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
   const lastThumb = useRef(0);
   const revision = useRef(0);
   const saving = useRef<Promise<boolean>>(Promise.resolve(true));
+  const thumbnailSaving = useRef(false);
 
   const persist = useCallback(() => {
     // Serializam salvarile; fiecare citeste documentul actual abia cand ii vine randul.
@@ -68,21 +68,33 @@ export default function CanvasEditor({ canvasId, name, initialDocument, sources 
         if (savedRevision === revision.current) setSaved(true);
         setSaveError(null);
 
-        if (Date.now() - lastThumb.current > THUMB_THROTTLE_MS) {
+        if (!thumbnailSaving.current && Date.now() - lastThumb.current > THUMB_THROTTLE_MS) {
           // Limitam incercarile, inclusiv cele esuate, ca thumbnail-ul sa nu consume cota documentului.
           lastThumb.current = Date.now();
-          const blob = await handle.exportThumbnail("image/jpeg");
-          if (blob) {
-            const url = await uploadImageToBlob("canvases/uploads", new File([blob], "canvas.jpg", { type: blob.type }));
-            const fd = new FormData();
-            fd.append("canvasId", canvasId);
-            fd.append("thumbnailUrl", url);
-            const thumbnail = await saveCanvasThumbnailAction(fd);
-            if (!thumbnail.ok) {
-              setSaveError(thumbnail.error ?? "Thumbnail-ul nu a putut fi salvat.");
-              return false;
+          thumbnailSaving.current = true;
+          // Miniatura este auxiliara: nu tine coada documentelor sau iesirea in asteptare.
+          void (async () => {
+            try {
+              const blob = await handle.exportThumbnail("image/jpeg");
+              if (blob) {
+                const url = await uploadImageToBlob("canvases/uploads", new File([blob], "canvas.jpg", { type: blob.type }));
+                const response = await fetch(`/api/canvases/${canvasId}/thumbnail`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ thumbnailUrl: url }),
+                });
+                if (!response.ok) {
+                  const result = await response.json() as { error?: { message?: string } };
+                  setSaveError(result.error?.message ?? "Thumbnail-ul nu a putut fi salvat.");
+                }
+              }
+            } catch (err) {
+              unstable_rethrow(err);
+              setSaveError("Thumbnail-ul nu a putut fi salvat. Încearcă din nou.");
+            } finally {
+              thumbnailSaving.current = false;
             }
-          }
+          })();
         }
         return true;
       } catch (err) {

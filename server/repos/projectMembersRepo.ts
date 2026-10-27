@@ -55,17 +55,19 @@ export async function upsertActiveMembership(projectId: string, userId: string, 
 // Eliminare membru (doar owner, verificat în service). No-op dacă userul nu era membru activ (idempotent).
 export async function removeMembership(projectId: string, userId: string, newInviteToken?: string) {
   if (newInviteToken) {
-    // Rotirea si eliminarea sunt un singur statement; lock-ul proiectului precede membership-ul.
-    await db.execute(sql`
-      with rotated_project as (
+    // Tranzactie READ COMMITTED: lock-ul proiectului precede un snapshot nou al membrilor.
+    // Un singur CTE nu vede membership-ul inserat/reactivat cat timp rotirea asteapta lock-ul.
+    await db.batch([
+      db.execute(sql`
         update ${projects} set invite_token = ${newInviteToken}, invite_token_created_at = now()
-        where ${projects.id} = ${projectId} returning id
-      )
-      update ${projectMembers} set removed_at = now()
-      from rotated_project
-      where ${projectMembers.projectId} = rotated_project.id
-        and ${projectMembers.userId} = ${userId} and ${projectMembers.removedAt} is null
-    `);
+        where ${projects.id} = ${projectId}
+      `),
+      db.execute(sql`
+        update ${projectMembers} set removed_at = now()
+        where ${projectMembers.projectId} = ${projectId}
+          and ${projectMembers.userId} = ${userId} and ${projectMembers.removedAt} is null
+      `),
+    ]);
     return;
   }
   await db

@@ -159,7 +159,8 @@ test("refresh-ul sesiunii nu prelungeste expirarea absoluta din registru", async
     expect((await (await context.request.get("/api/auth/session")).json()).user.id).toBe(userId);
     const [row] = await db.select({ expires: sessions.expires }).from(sessions).where(eq(sessions.sessionToken, sid));
     expect(row.expires.valueOf()).toBe(expires.valueOf());
-    await db.update(sessions).set({ expires: new Date(Date.now() - 1000) }).where(eq(sessions.sessionToken, sid));
+    // Un timestamp fix in trecut nu depinde de diferenta dintre ceasul runner-ului si Vercel.
+    await db.update(sessions).set({ expires: new Date("2000-01-01T00:00:00Z") }).where(eq(sessions.sessionToken, sid));
     expect(await (await context.request.get("/api/auth/session")).json()).toBeNull();
     await page.goto("/onboarding");
     await expect(page).toHaveURL(/\/login/);

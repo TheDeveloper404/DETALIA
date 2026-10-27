@@ -7,6 +7,9 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
+
+test.beforeEach(async ({ page }) => { await stripBypassHeadersForBlobUploads(page); });
 
 // Numerotarea „schița N" per autor trebuie să fie STABILĂ după ordinea de creare (prima = 1, mereu) —
 // NU recalculată după ordinea de afișare a taburilor (cea mai nouă primă). Bug raportat 2026-07-07:

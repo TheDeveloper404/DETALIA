@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // E2E — ciclul complet de schiță: pornire → desen → publicare (intră direct în teanc) → apare ca tab nou
 // pe detaliu → autorul schiței o șterge. Serial: fiecare pas depinde de starea lăsată de precedentul.
@@ -38,6 +39,7 @@ async function deleteSketchById(): Promise<void> {
 }
 
 test.describe.serial("Schiță — publish & delete", () => {
+  test.beforeEach(async ({ page }) => { await stripBypassHeadersForBlobUploads(page); });
   test.afterAll(deleteSketchById);
 
   // Regula aprobata: "direct thumbnail upload ... Preserve ... redirect success behavior".
@@ -79,7 +81,7 @@ test.describe.serial("Schiță — publish & delete", () => {
     // Eroarea de transport nu lasa butonul blocat; aceeasi schita poate fi retrimisa.
     await page.route("**/api/blob/upload", (route) => route.abort("failed"));
     await publishBtn.click();
-    await expect(page.getByRole("alert")).toHaveText("Nu am putut publica. Încearcă din nou.");
+    await expect(page.getByRole("alert").filter({ hasText: "Nu am putut publica. Încearcă din nou." })).toBeVisible();
     await expect(publishBtn).toBeEnabled();
     expect(await page.evaluate(() => (window as Window & { thumbnailTestBytes?: number }).thumbnailTestBytes)).toBe(5_000_000);
     await page.unroute("**/api/blob/upload");

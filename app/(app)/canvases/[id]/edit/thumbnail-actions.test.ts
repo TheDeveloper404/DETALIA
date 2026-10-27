@@ -2,7 +2,7 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   activeUser: vi.fn(), limit: vi.fn(), reprocess: vi.fn(), removeBlobs: vi.fn(),
-  canvasThumbnail: vi.fn(), publish: vi.fn(), redirect: vi.fn(),
+  publish: vi.fn(), redirect: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/require-active-user", () => ({ requireActiveUserId: mocks.activeUser }));
@@ -10,20 +10,15 @@ vi.mock("@/lib/rate-limit", () => ({ checkLimit: mocks.limit, limiters: { mutati
 vi.mock("@/lib/image-processing", () => ({ reprocessBlobImage: mocks.reprocess }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: mocks.removeBlobs }));
 vi.mock("@/lib/posthog-server", () => ({ captureServerEvent: vi.fn(), flushPostHogEvents: vi.fn() }));
-vi.mock("@/server/services/plansaService", () => ({
-  saveCanvasThumbnail: mocks.canvasThumbnail, saveCanvasDocument: vi.fn(), removeDetailFromCanvas: vi.fn(),
-}));
 vi.mock("@/server/services/sketchService", () => ({ publish: mocks.publish, saveStrokes: vi.fn() }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 
-import { saveCanvasThumbnailAction } from "./canvas-actions";
 import { sendSketchAction } from "../../../sketches/[id]/edit/sketch-actions";
 
 const USER = "11111111-1111-4111-8111-111111111111";
 const base = "https://testprivate.private.blob.vercel-storage.com";
 const form = (folder: string, url = `${base}/u/${USER}/${folder}/uploads/raw.jpg`) => {
   const data = new FormData();
-  data.set("canvasId", "22222222-2222-4222-8222-222222222222");
   data.set("sketchId", "33333333-3333-4333-8333-333333333333");
   data.set("detailId", "44444444-4444-4444-8444-444444444444");
   data.set("thumbnailUrl", url);
@@ -37,14 +32,12 @@ beforeEach(() => {
   mocks.activeUser.mockResolvedValue(USER);
   mocks.limit.mockResolvedValue({ ok: true });
   mocks.reprocess.mockResolvedValue({ ok: true, url: `${base}/u/${USER}/processed.jpg` });
-  mocks.canvasThumbnail.mockResolvedValue({ ok: true });
   mocks.publish.mockResolvedValue({ ok: true });
   mocks.redirect.mockImplementation((url: string) => { throw new Error(`REDIRECT ${url}`); });
 });
 afterEach(() => vi.unstubAllEnvs());
 
 describe.each([
-  { folder: "canvases", action: saveCanvasThumbnailAction },
   { folder: "sketches", action: sendSketchAction },
 ])("thumbnail staging $folder", ({ folder, action }) => {
   // Regula aprobata: "Actions accepta doar surse canonice din prefixul staging al userului".
@@ -59,7 +52,6 @@ describe.each([
     expect(mocks.reprocess).not.toHaveBeenCalled();
     expect(mocks.removeBlobs).not.toHaveBeenCalled();
     expect(mocks.publish).not.toHaveBeenCalled();
-    expect(mocks.canvasThumbnail).not.toHaveBeenCalled();
   });
 
   // Regula aprobata: "serverul valideaza ownership-ul si reprocesseaza imaginea".
@@ -67,7 +59,6 @@ describe.each([
     mocks.reprocess.mockResolvedValue({ ok: false });
     expect(await action(form(folder))).toMatchObject({ ok: false });
     expect(mocks.publish).not.toHaveBeenCalled();
-    expect(mocks.canvasThumbnail).not.toHaveBeenCalled();
   });
 
   it("nu citeste/transforma fisierul cand limita de mutatii a fost atinsa", async () => {
@@ -75,13 +66,6 @@ describe.each([
     expect(await action(form(folder))).toMatchObject({ ok: false });
     expect(mocks.reprocess).not.toHaveBeenCalled();
   });
-});
-
-// Regula aprobata: "Imaginea merge browser -> Blob; action-ul primeste doar URL + desenul vectorial".
-it("salveaza thumbnail-ul plansei din URL dupa reencodare, fara File in FormData", async () => {
-  expect(await saveCanvasThumbnailAction(form("canvases"))).toEqual({ ok: true });
-  expect(mocks.reprocess).toHaveBeenCalledWith(`${base}/u/${USER}/canvases/uploads/raw.jpg`, "canvases", USER);
-  expect(mocks.canvasThumbnail).toHaveBeenCalledWith(expect.objectContaining({ ownerId: USER, thumbnailUrl: `${base}/u/${USER}/processed.jpg` }));
 });
 
 // Regula existenta: "Pe succes → redirect la detaliu".

@@ -55,7 +55,8 @@ export function SketchEditor({
   const canvasRef = useRef<SketchCanvasHandle>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [count, setCount] = useState(initialStrokes.length);
+  // Canvas-ul incarcat dinamic confirma desenul dupa montare, cand ref-ul poate fi citit.
+  const [count, setCount] = useState(0);
   // Notă separată de desen (2026-07-16) — panou colapsabil, NICIODATĂ suprapus peste canvas (împinge
   // layout-ul, nu flotează peste el). Deschis implicit dacă exista deja o notă (reluare ciornă).
   const [note, setNote] = useState(initialNote ?? "");

@@ -1,5 +1,5 @@
 import { Children, isValidElement, type ReactNode } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const { refs, setters, push, saveDocument, saveThumbnail, upload } = vi.hoisted(() => ({
   refs: [] as { current: unknown }[],
@@ -22,7 +22,7 @@ vi.mock("next/link", () => ({ default: () => null }));
 vi.mock("@/components/plansa/plansa-canvas", () => ({ PlansaCanvas: () => null }));
 vi.mock("@/components/ui/button", () => ({ Button: () => null }));
 vi.mock("@/lib/blob-upload", () => ({ uploadImageToBlob: upload }));
-vi.mock("./canvas-actions", () => ({ saveCanvasDocumentAction: saveDocument, saveCanvasThumbnailAction: saveThumbnail, removeDetailFromCanvasAction: vi.fn() }));
+vi.mock("./canvas-actions", () => ({ saveCanvasDocumentAction: saveDocument, removeDetailFromCanvasAction: vi.fn() }));
 
 import { PlansaCanvas } from "@/components/plansa/plansa-canvas";
 import CanvasEditor from "./canvas-editor";
@@ -39,11 +39,19 @@ function findNavigate(node: ReactNode): ((event: { preventDefault: () => void })
   return Children.toArray(node.props.children).map(findNavigate).find(Boolean);
 }
 
+beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn(async () => {
+    const result = await saveThumbnail();
+    return Response.json(result, { status: result.ok ? 200 : 400 });
+  }));
+});
+
 afterEach(() => {
   refs.length = 0;
   setters.length = 0;
   vi.clearAllMocks();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 // Regula aprobata: "iesirea salveaza ultimul desen"; editorul nu accepta alt desen intre ultima salvare si navigare.
@@ -93,4 +101,69 @@ it("pastreaza intervalul thumbnail-ului dupa esec, dar continua sa salveze docum
   await vi.advanceTimersByTimeAsync(2_000);
   expect(saveDocument).toHaveBeenCalledTimes(3);
   expect(upload).toHaveBeenCalledTimes(2);
+});
+
+// Regula aprobata: "Keep document saves ordered, but run thumbnail work separately and do not make it a condition for leaving."
+it("un upload de thumbnail in asteptare nu blocheaza urmatorul document sau iesirea", async () => {
+  vi.useFakeTimers({ now: new Date("2026-10-27T10:00:00Z") });
+  let finishUpload!: (url: string) => void;
+  upload.mockImplementation(() => new Promise<string>((resolve) => { finishUpload = resolve; }));
+  const tree = CanvasEditor({ canvasId: "canvas", name: "Plan", initialDocument: null, sources: [] });
+  refs[0].current = {
+    getDocument: () => ({ version: 1, items: [], strokes: [] }),
+    exportThumbnail: async () => new Blob(["image"], { type: "image/jpeg" }),
+  };
+  findChange(tree)!();
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(upload).toHaveBeenCalledTimes(1);
+  findChange(tree)!();
+  await vi.advanceTimersByTimeAsync(22_000);
+  expect(saveDocument).toHaveBeenCalledTimes(2);
+  expect(upload).toHaveBeenCalledTimes(1);
+  findNavigate(tree)!({ preventDefault: vi.fn() });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(push).toHaveBeenCalledWith("/canvases");
+  finishUpload("https://storage.test/thumbnail.jpg");
+  await vi.advanceTimersByTimeAsync(0);
+  expect(saveThumbnail).toHaveBeenCalledTimes(1);
+});
+
+// Regula aprobata: "Keep document saves ordered, but run thumbnail work separately and do not make it a condition for leaving."
+it.each(["upload", "action"])("eroarea optionala de thumbnail nu anuleaza iesirea: %s", async (failure) => {
+  vi.useFakeTimers({ now: new Date("2026-10-27T10:00:00Z") });
+  if (failure === "upload") upload.mockRejectedValue(new Error("offline"));
+  else {
+    upload.mockResolvedValue("https://storage.test/thumbnail.jpg");
+    saveThumbnail.mockResolvedValueOnce({ ok: false });
+  }
+  const tree = CanvasEditor({ canvasId: "canvas", name: "Plan", initialDocument: null, sources: [] });
+  refs[0].current = {
+    getDocument: () => ({ version: 1, items: [], strokes: [] }),
+    exportThumbnail: async () => new Blob(["image"], { type: "image/jpeg" }),
+  };
+  findNavigate(tree)!({ preventDefault: vi.fn() });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(push).toHaveBeenCalledWith("/canvases");
+  expect(saveDocument).toHaveBeenCalledTimes(1);
+});
+
+// Regula aprobata: "Keep document saves ordered, but run thumbnail work separately and do not make it a condition for leaving."
+it("persistarea miniaturii foloseste HTTP si nu intra in coada comuna de Server Actions", async () => {
+  vi.useFakeTimers({ now: new Date("2026-10-27T10:00:00Z") });
+  upload.mockResolvedValue("https://storage.test/thumbnail.jpg");
+  let finishThumbnail!: (response: Response) => void;
+  vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { finishThumbnail = resolve; }));
+  const tree = CanvasEditor({ canvasId: "canvas", name: "Plan", initialDocument: null, sources: [] });
+  refs[0].current = { getDocument: () => ({ version: 1, items: [], strokes: [] }), exportThumbnail: async () => new Blob(["image"], { type: "image/jpeg" }) };
+  findChange(tree)!();
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(fetch).toHaveBeenCalledWith("/api/canvases/canvas/thumbnail", expect.objectContaining({ method: "POST" }));
+  findChange(tree)!();
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(saveDocument).toHaveBeenCalledTimes(2);
+  findNavigate(tree)!({ preventDefault: vi.fn() });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(push).toHaveBeenCalledWith("/canvases");
+  finishThumbnail(Response.json({ ok: true }));
+  await vi.advanceTimersByTimeAsync(0);
 });
