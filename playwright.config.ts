@@ -117,6 +117,7 @@ export default defineConfig({
     {
       name: "security",
       testMatch: [
+        /access-revocation\.spec\.ts/,
         /security\.spec\.ts/,
         /integration\.spec\.ts/,
         /admin-auth\.spec\.ts/,

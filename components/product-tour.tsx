@@ -73,8 +73,7 @@ export const TOUR_STEPS: NonNullable<Config["steps"]> = [
   },
 ];
 
-// Doi pași țintesc elemente care NU sunt mereu în DOM la /feed:
-//  - `my-content` e în sidebar (`feed-sidebar.tsx`), ascuns sub breakpoint-ul `lg` (`hidden lg:flex`);
+// Pasii din sidebar (`categories`, `profile`, `my-content`) sunt ascunsi sub breakpoint-ul lg;
 //  - `feed-first-card` există doar când feed-ul are cel puțin un detaliu.
 // Filtrate EXPLICIT (nu lăsate pe skip-ul silențios al driver.js) ca numărătoarea de progres
 // („X din N") să rămână corectă pentru pașii chiar afișați — aceeași lecție ca la vechiul pas
@@ -84,7 +83,7 @@ export function getTourSteps(opts: {
   hasFeedItems: boolean;
 }): NonNullable<Config["steps"]> {
   return TOUR_STEPS.filter((step) => {
-    if (!opts.isDesktop && step.element === '[data-tour="my-content"]') return false;
+    if (!opts.isDesktop && ['[data-tour="categories"]', '[data-tour="profile"]', '[data-tour="my-content"]'].includes(String(step.element))) return false;
     if (!opts.hasFeedItems && step.element === '[data-tour="feed-first-card"]') return false;
     return true;
   });
@@ -118,6 +117,7 @@ export function ProductTour({
 
     // Curăță ?tour=1 din URL imediat (fără reload) — refresh/înapoi nu mai repornesc turul.
     router.replace(pathname, { scroll: false });
+    if (!window.matchMedia("(min-width: 768px)").matches) return;
 
     const steps = getTourSteps({
       isDesktop: window.matchMedia("(min-width: 1024px)").matches,

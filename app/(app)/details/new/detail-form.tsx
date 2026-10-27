@@ -363,9 +363,20 @@ export function DetailForm({
   const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>(initial?.resources ?? []);
   const resourcePreviewUrls = useRef<string[]>([]);
+  useEffect(() => {
+    const active = new Set(resources.map((resource) => resource.previewUrl));
+    resourcePreviewUrls.current = resourcePreviewUrls.current.filter((url) => {
+      if (active.has(url)) return true;
+      URL.revokeObjectURL(url);
+      return false;
+    });
+  }, [resources]);
   useEffect(() => () => {
     resourcePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
   }, []);
+  useEffect(() => () => {
+    if (preview?.url.startsWith("blob:")) URL.revokeObjectURL(preview.url);
+  }, [preview]);
   // Indecșii resurselor „încărcate" (fișier urcat de noi, nu link lipit de mână) — arată previzualizare
   // compactă în loc de câmpul de text cu URL-ul. Inițializat și din resursele EXISTENTE (editare), nu
   // doar din upload-uri noi în sesiunea curentă.
@@ -599,7 +610,7 @@ export function DetailForm({
   // „Schimbă" din previzualizarea compactă (sau tipul rândului s-a schimbat): revine la câmpul de
   // text/upload, golind valoarea veche.
   function clearUploadedResource(i: number) {
-    updateResource(i, { value: "" });
+    updateResource(i, { value: "", previewUrl: undefined });
     setUploadedResourceIndices((s) => new Set([...s].filter((x) => x !== i)));
   }
 

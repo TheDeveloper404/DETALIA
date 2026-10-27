@@ -76,14 +76,18 @@ export async function getThreadCommentForTarget(
   targetType: TargetType,
   targetId: string,
 ): Promise<{ id: string; authorId: string; rootId: string } | null> {
+  const root = alias(comments, "thread_root");
   const [row] = await db
     .select({ id: comments.id, authorId: comments.authorId, parentCommentId: comments.parentCommentId })
     .from(comments)
+    .leftJoin(root, eq(root.id, comments.parentCommentId))
     .where(
       and(
         eq(comments.id, id),
         eq(comments.targetType, targetType),
         eq(comments.targetId, targetId),
+        eq(comments.hiddenAfterRelease, false),
+        sql`(${comments.parentCommentId} is null or ${root.hiddenAfterRelease} = false)`,
       ),
     )
     .limit(1);
@@ -103,6 +107,7 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
   // corelat (vezi capcana din CLAUDE.md).
   const replyTo = alias(comments, "reply_to");
   const replyToUser = alias(users, "reply_to_user");
+  const root = alias(comments, "visible_thread_root");
 
   return db
     .select({
@@ -128,9 +133,10 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
       likers: commentLikers,
     })
     .from(comments)
+    .leftJoin(root, eq(root.id, comments.parentCommentId))
     .leftJoin(users, eq(users.id, comments.authorId))
     .leftJoin(roles, eq(roles.userId, comments.authorId))
-    .leftJoin(replyTo, eq(replyTo.id, comments.replyToCommentId))
+    .leftJoin(replyTo, and(eq(replyTo.id, comments.replyToCommentId), eq(replyTo.hiddenAfterRelease, false)))
     .leftJoin(replyToUser, eq(replyToUser.id, replyTo.authorId))
     .where(
       and(
@@ -138,6 +144,7 @@ export async function listCommentsForTarget(targetType: TargetType, targetId: st
         eq(comments.targetId, targetId),
         // SEC-001 (audit 2026-08-11): comentariu al altui membru, ascuns la „Scoate în comunitate".
         eq(comments.hiddenAfterRelease, false),
+        sql`(${comments.parentCommentId} is null or ${root.hiddenAfterRelease} = false)`,
       ),
     )
     .orderBy(asc(comments.createdAt));
@@ -150,6 +157,7 @@ export type TargetComment = Awaited<ReturnType<typeof listCommentsForTarget>>[nu
 export async function getCommentTarget(
   id: string,
 ): Promise<{ targetType: TargetType; targetId: string; authorId: string } | null> {
+  const root = alias(comments, "target_thread_root");
   const [row] = await db
     .select({
       targetType: comments.targetType,
@@ -157,7 +165,9 @@ export async function getCommentTarget(
       authorId: comments.authorId,
     })
     .from(comments)
-    .where(eq(comments.id, id))
+    .leftJoin(root, eq(root.id, comments.parentCommentId))
+    .where(and(eq(comments.id, id), eq(comments.hiddenAfterRelease, false),
+      sql`(${comments.parentCommentId} is null or ${root.hiddenAfterRelease} = false)`))
     .limit(1);
   return row ?? null;
 }

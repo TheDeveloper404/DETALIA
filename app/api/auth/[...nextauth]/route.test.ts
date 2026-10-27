@@ -4,9 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // AUD-05 — POST direct pe /api/auth/signin/* trimitea magic link ocolind rate limit-ul și Turnstile
 // din `signInWithEmailAction`. Restul rutelor Auth.js (signout, callback etc.) trebuie să meargă neatinse.
 
-const { authPost } = vi.hoisted(() => ({ authPost: vi.fn(async () => new Response(null, { status: 302 })) }));
+const { authPost, revokeCurrentSession } = vi.hoisted(() => ({
+  authPost: vi.fn(async () => new Response(null, { status: 302 })),
+  revokeCurrentSession: vi.fn(),
+}));
 
-vi.mock("@/lib/auth", () => ({ handlers: { GET: vi.fn(), POST: authPost } }));
+vi.mock("@/lib/auth", () => ({ handlers: { GET: vi.fn(), POST: authPost }, revokeCurrentSession }));
 
 import { POST } from "./route";
 

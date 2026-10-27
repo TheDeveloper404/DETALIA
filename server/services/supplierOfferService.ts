@@ -45,7 +45,7 @@ export async function toggleSupplierOffer(input: {
   // Tranziție ATOMICĂ (bug găsit 2026-07-16): decizia „a fost primul click?" o ia inserarea din DB
   // (`onConflictDoNothing().returning()`), NU o citire prealabilă — altfel dublu-click/tab dublu putea
   // trimite 2 notificări pentru un singur eveniment real (aceeași clasă de bug ca la validări, deja
-  // rezolvată acolo prin `upsertDisapprovalIfTransition`).
+  // rezolvată acolo prin `upsertDisapprovalWithComment`).
   const insertedNow = await insertSupplierOfferIfAbsent(input.userId, input.detailId);
   if (!insertedNow) {
     // Exista deja → acest click e o retragere (sau a pierdut cursa de inserare — oricum, rezultatul

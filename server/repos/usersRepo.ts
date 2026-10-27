@@ -1,6 +1,6 @@
 // Repo users — extensii DETALIA peste tabelul gestionat de Auth.js. Singurul loc cu acces Drizzle pe `users`.
 // Auth.js gestionează crearea/sesiunile; aici doar actualizăm câmpuri de profil (ex: poza).
-import { and, desc, eq, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -29,19 +29,20 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
 // query deja plătit oricum de poarta de onboarding (userHasRole) — nu adaugă round-trip nou.
 export async function getUserGateInfo(
   userId: string,
+  sessionId: string,
 ): Promise<{ status: (typeof userStatus.enumValues)[number]; hasRole: boolean } | null> {
   const [row] = await db
     .select({ status: users.status, hasRole: sql<boolean>`${roles.userId} is not null` })
     .from(users)
+    .innerJoin(sessions, and(eq(sessions.userId, users.id), eq(sessions.sessionToken, sessionId), gt(sessions.expires, new Date())))
     .leftJoin(roles, eq(roles.userId, users.id))
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;
 }
 
-// Datele de profil colectate la onboarding (text). Imaginile (image/coverImage) se setează separat,
-// după upload-ul în Blob. `name` îl compunem aici din first + last pentru codul care-l citește.
-export async function updateUserProfile(
+// Profilul si rolul devin vizibile impreuna. O cerere care pierde conflictul pe rol nu modifica profilul.
+export async function completeOnboardingProfileAndRole(
   userId: string,
   fields: {
     firstName: string;
@@ -51,9 +52,32 @@ export async function updateUserProfile(
     location: string | null;
     website: string | null;
     company: string | null;
+    roleMain: (typeof roles.$inferInsert)["roleMain"];
+    subRole: string | null;
+    secondaryRole: string | null;
+    image?: string;
+    coverImage?: string;
+    coverPosition: number;
   },
-) {
-  await db.update(users).set(fields).where(eq(users.id, userId));
+): Promise<boolean> {
+  const result = await db.execute<{ id: string }>(sql`
+    with claimed_role as (
+      insert into ${roles} (user_id, role_main, sub_role, secondary_role)
+      values (${userId}, ${fields.roleMain}, ${fields.subRole}, ${fields.secondaryRole})
+      on conflict (user_id) do nothing
+      returning user_id
+    )
+    update ${users}
+    set first_name = ${fields.firstName}, last_name = ${fields.lastName}, name = ${fields.name},
+        headline = ${fields.headline}, location = ${fields.location}, website = ${fields.website}, company = ${fields.company},
+        image = coalesce(${fields.image ?? null}, ${users.image}),
+        cover_image = coalesce(${fields.coverImage ?? null}, ${users.coverImage}),
+        cover_position = case when ${fields.coverImage ?? null}::text is null then ${users.coverPosition} else ${fields.coverPosition} end
+    from claimed_role
+    where ${users.id} = claimed_role.user_id
+    returning ${users.id}
+  `);
+  return result.rows.length > 0;
 }
 
 // Setează URL-ul cover-ului după upload (best-effort, ca și avatarul).
@@ -69,20 +93,6 @@ export async function updateUserCoverPosition(userId: string, position: number) 
 // Snapshot-ul de badge-uri VĂZUTE — scris DOAR de owner (verificat în service), la confirmarea pop-up-ului.
 export async function updateSeenBadges(userId: string, seenBadges: Record<string, string>) {
   await db.update(users).set({ seenBadges }).where(eq(users.id, userId));
-}
-
-// Ultima versiune văzută a panoului „Ce e nou" — scrisă DOAR de owner (verificat în service).
-export async function updateLastSeenAnnouncement(userId: string, version: string) {
-  await db.update(users).set({ lastSeenAnnouncementVersion: version }).where(eq(users.id, userId));
-}
-
-export async function getLastSeenAnnouncement(userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ lastSeenAnnouncementVersion: users.lastSeenAnnouncementVersion })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  return row?.lastSeenAnnouncementVersion ?? null;
 }
 
 // Turul ghidat de pe pagina de detaliu — văzut vreodată? Scris DOAR de owner (verificat în service).

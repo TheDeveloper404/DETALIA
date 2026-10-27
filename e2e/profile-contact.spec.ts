@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { roles, users } from "../db/schema";
+import { roles, users, sessions } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 import { getSeed } from "./seed";
 
 // Telefon/email opțional pe profil, vizibilitate opt-in per câmp (2026-07-16). Proprietarul
@@ -58,12 +59,14 @@ test.describe.serial("Profil — telefon/email opțional, vizibilitate opt-in", 
     const url = new URL(baseURL ?? "http://localhost:3000");
     const secure = url.protocol === "https:";
     const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-    const maxAgeSeconds = 30 * 86_400;
+    const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
+    const sid = crypto.randomUUID();
+    await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
     const sessionToken = await encode({
       secret: process.env.AUTH_SECRET!,
       salt: cookieName,
       maxAge: maxAgeSeconds,
-      token: { sub: userId, id: userId, status: "ACTIVE", name: CONTACT_NAME, email: CONTACT_EMAIL },
+      token: { sid, sub: userId, id: userId, status: "ACTIVE", name: CONTACT_NAME, email: CONTACT_EMAIL },
     });
 
     const context = await browser.newContext({

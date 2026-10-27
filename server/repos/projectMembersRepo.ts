@@ -3,7 +3,7 @@
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { projectMembers, roles, users } from "@/db/schema";
+import { projectMembers, projects, roles, users } from "@/db/schema";
 
 import { verifiedCondition } from "@/server/repos/repoHelpers";
 
@@ -36,20 +36,38 @@ export async function countActiveMembers(projectId: string): Promise<number> {
 // null`, `joinedAt` reîmprospătat) pentru re-alăturare. Un singur rând per (proiect, user) — vezi
 // comentariul din db/schema.ts la `projectMembers` pentru de ce (afișarea „Autor eliminat" e o
 // verificare LIVE pe acest rând, nu pe istoric).
-export async function upsertActiveMembership(projectId: string, userId: string) {
-  const [row] = await db
-    .insert(projectMembers)
-    .values({ projectId, userId })
-    .onConflictDoUpdate({
-      target: [projectMembers.projectId, projectMembers.userId],
-      set: { removedAt: null, joinedAt: new Date() },
-    })
-    .returning();
-  return row;
+export async function upsertActiveMembership(projectId: string, userId: string, inviteToken: string) {
+  // Aceeasi blocare de proiect ca la eliminare: tokenul se reverifica DUPA orice rotire concurenta.
+  const result = await db.execute(sql`
+    with locked_project as (
+      select ${projects.id} as id from ${projects}
+      where ${projects.id} = ${projectId} and ${projects.inviteToken} = ${inviteToken}
+      for update
+    )
+    insert into ${projectMembers} (project_id, user_id)
+    select id, ${userId}::uuid from locked_project where true
+    on conflict (project_id, user_id) do update set removed_at = null, joined_at = now()
+    returning id
+  `);
+  return result.rows.length > 0;
 }
 
 // Eliminare membru (doar owner, verificat în service). No-op dacă userul nu era membru activ (idempotent).
-export async function removeMembership(projectId: string, userId: string) {
+export async function removeMembership(projectId: string, userId: string, newInviteToken?: string) {
+  if (newInviteToken) {
+    // Rotirea si eliminarea sunt un singur statement; lock-ul proiectului precede membership-ul.
+    await db.execute(sql`
+      with rotated_project as (
+        update ${projects} set invite_token = ${newInviteToken}, invite_token_created_at = now()
+        where ${projects.id} = ${projectId} returning id
+      )
+      update ${projectMembers} set removed_at = now()
+      from rotated_project
+      where ${projectMembers.projectId} = rotated_project.id
+        and ${projectMembers.userId} = ${userId} and ${projectMembers.removedAt} is null
+    `);
+    return;
+  }
   await db
     .update(projectMembers)
     .set({ removedAt: new Date() })

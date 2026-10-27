@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
     // Trimiterea unei schițe postează prin Server Action strokes JSON + thumbnail PNG (1000px lățime,
     // poate depăși 1MB). Default-ul de 1MB pică cu 413 → ridicăm plafonul. Acțiunea e auth-gated + rate-limited.
     serverActions: {
-      bodySizeLimit: "4mb",
+      bodySizeLimit: "20mb",
     },
   },
   images: {

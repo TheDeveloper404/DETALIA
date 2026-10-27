@@ -11,8 +11,8 @@ vi.mock("@/db", async () => {
 });
 
 const { db } = await import("@/db");
-const { users, roles, details, projects, comments, validations } = await import("@/db/schema");
-const { listDigestRecipients, countCommentsOnOwnDetails, listNewCommunityDetails } = await import(
+const { users, roles, details, projects, comments, validations, sketches } = await import("@/db/schema");
+const { listDigestRecipients, countCommentsOnOwnDetails, countSketchesOnOwnDetails, countValidationsOnOwnDetails, listNewCommunityDetails } = await import(
   "./digestRepo"
 );
 
@@ -94,12 +94,29 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  await db.delete(sketches);
   await db.delete(comments);
   await db.delete(validations);
   await db.delete(details);
   await db.delete(projects);
   await db.delete(roles);
   await db.delete(users);
+});
+
+// Regula aprobata: "Repara acum cele trei contoare" pentru "emailul numara contributii ascunse: aplicatia afiseaza 0, dar digestul raporteaza 1."
+it("exclude activitatea ascunsa din toate cele trei contoare, pastrand activitatea vizibila", async () => {
+  const owner = await makeUser("digest-hidden-owner@test.local", { role: false, digest: false });
+  const [detail] = await db.insert(details).values({ authorId: owner, title: "Digest ascuns", createdAt: old }).returning();
+  await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, body: "ascuns", hiddenAfterRelease: true, createdAt: recent });
+  await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", hiddenAfterRelease: true, createdAt: recent });
+  await db.insert(validations).values({ userId: other, targetType: "DETAIL", targetId: detail.id, position: "APPROVE", hiddenAfterRelease: true, createdAt: recent });
+  const counters = [countCommentsOnOwnDetails, countSketchesOnOwnDetails, countValidationsOnOwnDetails];
+  expect(await Promise.all(counters.map(async (counter) => (await counter(since)).get(owner) ?? 0))).toEqual([0, 0, 0]);
+
+  await db.insert(comments).values({ authorId: author, targetType: "DETAIL", targetId: detail.id, body: "vizibil", createdAt: recent });
+  await db.insert(sketches).values({ authorId: author, detailId: detail.id, status: "PUBLISHED", createdAt: recent });
+  await db.insert(validations).values({ userId: author, targetType: "DETAIL", targetId: detail.id, position: "APPROVE", createdAt: recent });
+  expect(await Promise.all(counters.map(async (counter) => (await counter(since)).get(owner) ?? 0))).toEqual([1, 1, 1]);
 });
 
 describe("listDigestRecipients", () => {

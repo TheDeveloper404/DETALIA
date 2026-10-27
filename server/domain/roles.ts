@@ -79,3 +79,15 @@ export function isValidSubRole(roleMain: RoleMain, subRole: string): boolean {
 export function isValidSecondaryRole(value: string): boolean {
   return (SECONDARY_ROLES as readonly string[]).includes(value);
 }
+
+export type RoleDeclarationError = "INVALID_ROLE" | "INVALID_SUBROLE" | "INVALID_SECONDARY_ROLE";
+
+export function validateRoleDeclaration(input: { roleMain: string; subRole: string | null; secondaryRole?: string | null }):
+  { ok: true; value: { roleMain: RoleMain; subRole: string | null; secondaryRole: string | null } } | { ok: false; error: RoleDeclarationError } {
+  if (!isValidRoleMain(input.roleMain)) return { ok: false, error: "INVALID_ROLE" };
+  const subRole = input.subRole?.trim() || null;
+  if (subRole !== null && !isValidSubRole(input.roleMain, subRole)) return { ok: false, error: "INVALID_SUBROLE" };
+  const secondaryRole = input.secondaryRole?.trim() || null;
+  if (secondaryRole !== null && !isValidSecondaryRole(secondaryRole)) return { ok: false, error: "INVALID_SECONDARY_ROLE" };
+  return { ok: true, value: { roleMain: input.roleMain, subRole, secondaryRole } };
+}

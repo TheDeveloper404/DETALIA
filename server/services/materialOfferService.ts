@@ -21,7 +21,6 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { deleteSupplierOffer } from "@/server/repos/supplierOffersRepo";
 import { getNotificationActor } from "@/server/repos/usersRepo";
 import { canUseBlobUrls } from "@/server/services/blobFileService";
-import { deleteBlobs } from "@/lib/storage";
 import { notifyMaterialOfferEdited, notifyMaterialOfferSent } from "@/server/services/notificationService";
 
 type MaterialOfferError =
@@ -79,7 +78,7 @@ export async function sendOrUpdateMaterialOffer(input: {
 
   // SEC-N02 (recidivă SEC-N01, 2026-09-01): validarea de domeniu verifică DOAR forma URL-ului, nu CINE
   // l-a urcat. Fără gardul de proprietate, un furnizor putea atașa URL-ul Blob al altui user pe ofertă,
-  // apoi să-l șteargă din storage prin editare (orphanedUrls) sau retragere — `deleteBlobs` filtrează pe
+  // apoi să-l șteargă din storage prin retragere — `deleteBlobs` filtrează pe
   // store, nu pe owner. Același pattern ca `detailService.hasForeignBlobResource` / `onboardingService`.
   if (!(await canUseBlobUrls(validated.files.map((f) => f.url), input.userId))) {
     return { ok: false, error: "INVALID_FILE" };
@@ -93,11 +92,9 @@ export async function sendOrUpdateMaterialOffer(input: {
     supplierId: input.userId,
     message: validated.message,
   });
-  const oldUrls = await replaceMaterialOfferFiles(offerId, validated.files);
-  // Orfane = vechi MINUS păstrate. Fișierele păstrate la editare sunt și în lista nouă — dacă le-am
-  // șterge din Blob, rândurile din DB ar rămâne spre fișiere inexistente (AUD-01).
-  const keptUrls = new Set(validated.files.map((f) => f.url));
-  await deleteBlobs(oldUrls.filter((url) => !keptUrls.has(url)));
+  await replaceMaterialOfferFiles(offerId, validated.files);
+  // Decizie 2026-10-27: editarea schimbă doar lista din DB. Ștergerea fizică este amânată:
+  // altfel o editare concurentă poate păstra tocmai URL-ul pe care această cerere l-ar șterge.
 
   // Notificarea e auxiliară — un eșec aici nu trebuie să facă oferta (deja salvată) să pară eșuată.
   try {
@@ -131,8 +128,8 @@ export async function withdrawSupplierParticipation(input: {
   if (isUuid(input.detailId)) {
     const offerId = await getMaterialOfferId(input.detailId, input.userId);
     if (offerId) {
-      const urls = await deleteMaterialOffer(offerId);
-      await deleteBlobs(urls);
+      // Ca la editare, curatenia fizica este separata: alt document poate pastra acelasi URL.
+      await deleteMaterialOffer(offerId);
     }
     await deleteSupplierOffer(input.userId, input.detailId);
   }

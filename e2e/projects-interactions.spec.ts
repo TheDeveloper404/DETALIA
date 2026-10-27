@@ -4,7 +4,8 @@ import { expect, test, type Browser } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { canvases, details, projectCanvasShares, projects, roles, users } from "../db/schema";
+import { canvases, details, projectCanvasShares, projects, roles, users, sessions } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 import { deleteBlobs, uploadCanvasThumbnail } from "../lib/storage";
 import { pickLeafCategories } from "./category-helpers";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
@@ -40,12 +41,14 @@ async function sessionContextFor(browser: Browser, baseURL: string | undefined, 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name, email },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name, email },
   });
   return browser.newContext({
     storageState: {
@@ -126,6 +129,15 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     await page.getByRole("heading", { name: originalName }).dblclick();
     const input2 = page.locator("input").first();
     await input2.fill(renamedTo);
+    // Regula aprobata: "Erori de retea: trei componente din proiecte pot lasa butoane blocate" — "Da trebuie rezolvat acum."
+    await page.route(`**/projects/${projectId}`, async (route) => {
+      if (route.request().headers()["next-action"]) await route.abort("failed");
+      else await route.continue();
+    });
+    await input2.press("Enter");
+    await expect(page.getByText("Nu am putut redenumi proiectul. Încearcă din nou.", { exact: true })).toBeVisible();
+    await expect(input2).toHaveValue(renamedTo);
+    await page.unroute(`**/projects/${projectId}`);
     await input2.press("Enter");
     await expect(page.getByRole("heading", { name: renamedTo })).toBeVisible();
 
@@ -149,6 +161,19 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     await page.getByRole("button", { name: "Invită membri" }).click();
     const linkCode = page.locator("code");
     await expect(linkCode).toBeVisible();
+    // Regula aprobata: "Erori de retea: trei componente din proiecte pot lasa butoane blocate" — "Da trebuie rezolvat acum."
+    await page.route(`**/projects/${projectId}`, async (route) => {
+      if (route.request().headers()["next-action"]) await route.abort("failed");
+      else await route.continue();
+    });
+    const regenerate = page.getByRole("button", { name: "Regenerează", exact: true });
+    await regenerate.click();
+    await expect(page.getByText("Nu am putut regenera linkul. Încearcă din nou.", { exact: true })).toBeVisible();
+    await expect(regenerate).toBeEnabled();
+    await page.unroute(`**/projects/${projectId}`);
+    const oldInvite = await linkCode.textContent();
+    await regenerate.click();
+    await expect(linkCode).not.toHaveText(oldInvite ?? "");
     const inviteToken = ((await linkCode.textContent()) ?? "").split("/projects/join/")[1]?.trim() ?? "";
     expect(inviteToken).toBeTruthy();
     await page.keyboard.press("Escape");
@@ -169,6 +194,15 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
 
       await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();
+      // Regula aprobata: "Erori de retea: trei componente din proiecte pot lasa butoane blocate" — "Da trebuie rezolvat acum."
+      await mpage.route(`**/projects/${projectId}`, async (route) => {
+        if (route.request().headers()["next-action"]) await route.abort("failed");
+        else await route.continue();
+      });
+      await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
+      await expect(mpage.getByText("Nu am putut partaja planșa. Încearcă din nou.", { exact: true })).toBeVisible();
+      await expect(mpage.getByRole("button", { name: "Planșă E2E de partajat" })).toBeEnabled();
+      await mpage.unroute(`**/projects/${projectId}`);
       await mpage.getByRole("button", { name: "Planșă E2E de partajat" }).click();
 
       // Butonul din modal are ACELAȘI text ca numele planșei — un assert pe text simplu s-ar potrivi

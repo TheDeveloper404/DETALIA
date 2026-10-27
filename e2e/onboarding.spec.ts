@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { roles, users } from "../db/schema";
+import { roles, users, sessions } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 
 // Onboarding — netestat până acum. User DEDICAT fără rol (nu `testerUserId` din seed, care are deja rol
 // declarat) → cookie JWT propriu, ca în suspended.spec.ts. Verifică: /onboarding e accesibil DOAR fără rol,
@@ -42,13 +43,15 @@ test("onboarding: fără rol → formular → declară rolul → /feed; revizita
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
 
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name: NAME, email: EMAIL },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name: NAME, email: EMAIL },
   });
 
   const context = await browser.newContext({
@@ -78,6 +81,19 @@ test("onboarding: fără rol → formular → declară rolul → /feed; revizita
     await page.locator("#dt-first").fill("E2E");
     await page.locator("#dt-last").fill("Onboarding");
     await page.locator("#dt-rol").selectOption("PROIECTANT");
+    await page.locator("#dt-subrol").selectOption("Arhitect");
+
+    // Regula aprobata: onboarding-ul respins nu modifica profilul inaintea verificarii rolului.
+    const [before] = await db.select().from(users).where(eq(users.id, userId));
+    await page.locator("#dt-first").fill("Refuzat");
+    await page.locator("#dt-subrol").evaluate((select: HTMLSelectElement) => select.add(new Option("Subrol invalid", "INVALID")));
+    await page.locator("#dt-subrol").selectOption("INVALID");
+    await page.getByRole("button", { name: "Continuă în feed" }).click();
+    await expect(page.getByText("Subrolul ales nu corespunde rolului.", { exact: true })).toBeVisible();
+    const [afterRejected] = await db.select().from(users).where(eq(users.id, userId));
+    expect(afterRejected).toEqual(before);
+    expect(await db.select().from(roles).where(eq(roles.userId, userId))).toHaveLength(0);
+    await page.locator("#dt-first").fill("E2E");
     await page.locator("#dt-subrol").selectOption("Arhitect");
 
     await page.getByRole("button", { name: "Continuă în feed" }).click();
@@ -110,13 +126,15 @@ test("onboarding: subrol nou de Execuție (Tâmplar mobilă) e selectabil și se
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
 
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name, email },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name, email },
   });
 
   const context = await browser.newContext({

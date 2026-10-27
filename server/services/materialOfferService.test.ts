@@ -58,8 +58,47 @@ beforeEach(() => {
   } as never);
   vi.mocked(getMaterialOfferId).mockResolvedValue(null);
   vi.mocked(upsertMaterialOffer).mockResolvedValue("offer-1");
-  vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([]);
+  vi.mocked(replaceMaterialOfferFiles).mockResolvedValue(undefined);
+  vi.mocked(deleteBlobs).mockResolvedValue(undefined);
   vi.mocked(getNotificationActor).mockResolvedValue({ name: "Furnizor Ion" } as never);
+});
+
+describe("editări concurente — fișierele păstrate rămân disponibile", () => {
+  // "Da, amanam stergerea fizica la editare (recomandat)" — decizia Liviu, 2026-10-27.
+  it("două editări nu șterg fișierul păstrat de ultima ofertă", async () => {
+    const secondFile = { ...validFile, url: validFile.url.replace("f.pdf", "second.pdf") };
+    const storedFiles = new Set([validFile.url, secondFile.url]);
+    let attachedFiles = [validFile.url, secondFile.url];
+    let firstReplaceDone!: () => void;
+    const firstReplaced = new Promise<void>((resolve) => { firstReplaceDone = resolve; });
+    let secondReplaceDone!: () => void;
+    const secondReplaced = new Promise<void>((resolve) => { secondReplaceDone = resolve; });
+    vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
+    vi.mocked(replaceMaterialOfferFiles)
+      .mockImplementationOnce(async (_id, files) => {
+        attachedFiles = files.map((file) => file.url);
+        firstReplaceDone();
+        await secondReplaced;
+      })
+      .mockImplementationOnce(async (_id, files) => {
+        await firstReplaced;
+        attachedFiles = files.map((file) => file.url);
+        secondReplaceDone();
+      });
+    vi.mocked(deleteBlobs).mockImplementation(async (urls) => {
+      for (const url of urls) if (url) storedFiles.delete(url);
+    });
+
+    const results = await Promise.all([
+      sendOrUpdateMaterialOffer(input),
+      sendOrUpdateMaterialOffer({ ...input, files: [secondFile] }),
+    ]);
+
+    expect(results.every((result) => result.ok)).toBe(true);
+    expect(attachedFiles).toEqual([secondFile.url]);
+    expect(storedFiles.has(secondFile.url)).toBe(true);
+    expect(deleteBlobs).not.toHaveBeenCalled();
+  });
 });
 
 describe("gating pe rol — doar FURNIZOR poate ofertă (enforce pe server)", () => {
@@ -179,34 +218,31 @@ describe("trimitere nouă vs editare — isNew determinat de existența ofertei 
     expect(notifyMaterialOfferSent).not.toHaveBeenCalled();
   });
 
-  it("fișiere orfane (înlocuite la editare) → șterse din Blob", async () => {
-    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue(["https://old.blob/f1.pdf"]);
+  // "Da, amanam stergerea fizica la editare (recomandat)" — decizia Liviu, 2026-10-27.
+  it("fișiere înlocuite la editare → lista se actualizează fără ștergere fizică", async () => {
+    vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
     await sendOrUpdateMaterialOffer(input);
-    expect(deleteBlobs).toHaveBeenCalledWith(["https://old.blob/f1.pdf"]);
+    expect(replaceMaterialOfferFiles).toHaveBeenCalledWith("offer-1", input.files);
+    expect(deleteBlobs).not.toHaveBeenCalled();
   });
 
-  // AUD-01: repo-ul întoarce TOATE URL-urile vechi, inclusiv cele păstrate în lista nouă.
   it("editare doar a mesajului (aceleași fișiere) → nimic șters din Blob", async () => {
     vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
-    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([validFile.url]);
     await sendOrUpdateMaterialOffer({ ...input, message: "Mesaj modificat" });
-    expect(deleteBlobs).toHaveBeenCalledWith([]);
+    expect(deleteBlobs).not.toHaveBeenCalled();
   });
 
-  it("un fișier păstrat + unul eliminat → se șterge doar cel eliminat", async () => {
+  it("un fișier păstrat + unul eliminat → nimic șters fizic la editare", async () => {
     vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
-    const removed = "https://abc.public.blob.vercel-storage.com/u/u-1/materials/vechi.pdf";
-    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([validFile.url, removed]);
     await sendOrUpdateMaterialOffer(input);
-    expect(deleteBlobs).toHaveBeenCalledWith([removed]);
+    expect(deleteBlobs).not.toHaveBeenCalled();
   });
 
   it("un fișier păstrat + unul nou adăugat → nimic șters din Blob", async () => {
     vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
     const added = { ...validFile, url: "https://abc.public.blob.vercel-storage.com/u/u-1/materials/nou.pdf" };
-    vi.mocked(replaceMaterialOfferFiles).mockResolvedValue([validFile.url]);
     await sendOrUpdateMaterialOffer({ ...input, files: [validFile, added] });
-    expect(deleteBlobs).toHaveBeenCalledWith([]);
+    expect(deleteBlobs).not.toHaveBeenCalled();
   });
 });
 
@@ -228,13 +264,14 @@ describe("withdrawSupplierParticipation — 'Retrage' din modal, un singur buton
     expect(deleteSupplierOffer).toHaveBeenCalledWith("u-1", DETAIL_ID);
   });
 
-  it("ofertă existentă → ștearsă + fișierele curățate din Blob + mâna coborâtă (ambele, o singură acțiune)", async () => {
+  // Regula aprobata: "Da, amana stergerea si la retragere".
+  it("ofertă existentă → ștearsă din DB, fișiere păstrate fizic și mâna coborâtă", async () => {
     vi.mocked(getMaterialOfferId).mockResolvedValue("offer-1");
-    vi.mocked(deleteMaterialOffer).mockResolvedValue(["https://blob/f1.pdf"]);
+    vi.mocked(deleteMaterialOffer).mockResolvedValue(undefined);
     const res = await withdrawSupplierParticipation({ userId: "u-1", detailId: DETAIL_ID });
     expect(res).toEqual({ ok: true });
     expect(deleteMaterialOffer).toHaveBeenCalledWith("offer-1");
-    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/f1.pdf"]);
+    expect(deleteBlobs).not.toHaveBeenCalled();
     expect(deleteSupplierOffer).toHaveBeenCalledWith("u-1", DETAIL_ID);
   });
 

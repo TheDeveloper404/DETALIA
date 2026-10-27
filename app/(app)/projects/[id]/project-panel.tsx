@@ -2,6 +2,7 @@
 
 import { MoreVertical, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useActionState, useRef, useState, useSyncExternalStore } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -47,13 +48,19 @@ export function InviteLinkBox({ projectId, initialToken }: { projectId: string; 
   async function regenerate() {
     setPending(true);
     setError(null);
-    const res = await regenerateInviteLinkAction(projectId);
-    setPending(false);
-    if (!res.ok || !res.inviteToken) {
-      setError(res.error ?? "Nu am putut regenera linkul.");
-      return;
+    try {
+      const res = await regenerateInviteLinkAction(projectId);
+      if (!res.ok || !res.inviteToken) {
+        setError(res.error ?? "Nu am putut regenera linkul.");
+        return;
+      }
+      setToken(res.inviteToken);
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut regenera linkul. Încearcă din nou.");
+    } finally {
+      setPending(false);
     }
-    setToken(res.inviteToken);
   }
 
   return (

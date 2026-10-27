@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { PROJECT_NAME_MAX_LENGTH } from "@/server/domain/project";
@@ -42,13 +43,18 @@ export function EditableProjectName({
       setEditing(false);
       return;
     }
-    const res = await renameProjectAction(projectId, trimmed);
-    if (!res.ok) {
-      setError(res.error ?? "Nu am putut redenumi proiectul.");
-      return;
+    try {
+      const res = await renameProjectAction(projectId, trimmed);
+      if (!res.ok) {
+        setError(res.error ?? "Nu am putut redenumi proiectul.");
+        return;
+      }
+      setName(trimmed);
+      setEditing(false);
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut redenumi proiectul. Încearcă din nou.");
     }
-    setName(trimmed);
-    setEditing(false);
   }
 
   if (editing) {

@@ -7,7 +7,8 @@ import { expect, test, type Browser } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { details, projects, roles, users } from "../db/schema";
+import { details, projects, roles, users, sessions } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 import { deleteBlobs } from "../lib/storage";
 import { pickLeafCategories } from "./category-helpers";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
@@ -55,12 +56,14 @@ async function sessionContextFor(
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name, email },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name, email },
   });
   return browser.newContext({
     storageState: {

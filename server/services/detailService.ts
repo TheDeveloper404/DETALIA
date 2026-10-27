@@ -599,8 +599,7 @@ export async function deleteDetail(input: {
   // fișierele n-ar mai avea cui să-i fie utile. FK cascade NU acoperă asta (detaliul rămâne, nu se
   // șterge) — ștergere explicită, best-effort (nu blochează retragerea autorului dacă eșuează).
   try {
-    const offerUrls = await deleteMaterialOffersForDetail(input.detailId);
-    await deleteBlobs(offerUrls);
+    await deleteMaterialOffersForDetail(input.detailId);
   } catch (err) {
     console.error("[detailService] deleteMaterialOffersForDetail eșuat la anonimizare (non-fatal)", {
       detailId: input.detailId,

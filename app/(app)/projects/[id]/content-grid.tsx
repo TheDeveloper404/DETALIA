@@ -4,6 +4,7 @@ import { blobReadUrl } from "@/lib/blob-read-url";
 import { LayoutDashboard, Loader2, Plus, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
 import { DialogOverlay } from "@/components/dialog-overlay";
@@ -277,13 +278,19 @@ function AddContentModal({
     const fd = new FormData();
     fd.set("canvasId", canvasId);
     fd.set("projectId", projectId);
-    const res = await shareCanvasAction(INITIAL, fd);
-    setBusyId(null);
-    if (!res.ok) {
-      setError(res.error ?? "Nu am putut partaja planșa.");
-      return;
+    try {
+      const res = await shareCanvasAction(INITIAL, fd);
+      if (!res.ok) {
+        setError(res.error ?? "Nu am putut partaja planșa.");
+        return;
+      }
+      onClose();
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut partaja planșa. Încearcă din nou.");
+    } finally {
+      setBusyId(null);
     }
-    onClose();
   }
 
   return (

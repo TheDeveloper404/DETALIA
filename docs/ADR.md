@@ -171,3 +171,49 @@ Migrarea necesita cutover coordonat si backup privat; revenirea la codul vechi d
 Nu putem retrage fisiere deja descarcate. DET-01/02 si imaginile comentariilor raman in afara acestui task.
 
 > Deciziile noi sau schimbările se consemnează aici (formă scurtă) + în `CHANGELOG.md` (cronologic, cu dată).
+
+## ADR-018 — JWT revocabil pe sesiune si expirare absoluta (2026-10-27)
+
+**Decizie aprobata:** pastram Auth.js JWT si adaugam un sid stabil, aleator, inregistrat in tabelul
+existent sessions. Expirarea din DB se seteaza o singura data la login (+7 zile), fara prelungire.
+**Alternative:** sesiuni database native schimba decoderul proxy si mai multe contracte existente;
+sessionVersion pe user ar deloga toate dispozitivele, comportament necerut.
+**Flux:** login → sid + rand sessions → auth()/proxy verifica registrul → autorizare existenta.
+Proxy combina sesiune/status/rol in query-ul existent; auth() face verificarea proaspata necesara.
+Revocarea server-action este asteptata explicit inainte de signOut. La POST HTTP, Auth.js valideaza
+intai CSRF, apoi revocarea trebuie sa reuseasca inaintea livrarii raspunsului care sterge cookie-ul.
+**STRIDE:** replay cookie → rand revocat; prelungire JWT → expirare DB fixa; CSRF logout → validare
+Auth.js inainte de revocare; substituire user/sid → asociere verificata; DB indisponibila → acces
+refuzat / logout nereportat ca succes. Nu logam sid/cookie/email.
+**Consecinte:** o reconectare pentru cookie-urile vechi fara sid; celelalte dispozitive raman
+conectate la logout. Nu expunem sid in sesiunea publica. Requesturile deja autorizate pot termina,
+dar un cookie reemis concurent nu poate reactiva randul sters. Fara schema, dependinte sau env noi.
+
+## ADR-019 — Retentia fizica a atasamentelor ofertelor (2026-10-27)
+
+**Decizie aprobata:** editarea/retragerea ofertei, retragerea/stergerea detaliului si stergerea
+proiectului elimina referintele ofertei din DB, fara stergerea fizica a atasamentelor.
+**Motiv:** acelasi furnizor poate reutiliza un URL in mai multe oferte; o stergere imediata poate
+elimina fisierul altei oferte. Un pre-check de referinte singur nu inchide cursa cu reutilizarea.
+**Alternative:** stergere imediata (risc de pierdere), GC automat coordonat cu writer-ii (complexitate
+neceruta acum). Alegem retentie si curatenie separata, fara schema/registru/cron nou.
+**Consecinte:** fisierele fara referinte continua sa ocupe storage; curatenia initiala recomandata
+necesita inventar/dry-run, backup, toate bazele care impart store-ul si o fereastra fara scrieri.
+Se poate executa pe infrastructura curenta; VPS-ul nu este o dependenta tehnica. Nu se schimba
+stergerea imaginilor/resurselor detaliilor, schitelor sau planselor.
+
+## ADR-020 — Invariantele dezaprobarii si onboarding-ului intr-un singur statement (2026-10-27)
+
+**Scop aprobat:** pozitie + justificare fara scriere partiala; onboarding respins fara profil modificat.
+**Decizie:** SQL parametrizat cu CTE modificator, fara schema noua. validationsRepo decide tranzitia
+DISAPPROVE prin upsert conditionat si insereaza comentariul din RETURNING; un esec anuleaza statement-ul.
+Onboarding valideaza rolul in domain si verifica rolul existent inaintea procesarii imaginilor.
+usersRepo insereaza rolul cu ON CONFLICT DO NOTHING si actualizeaza profilul numai din claim-ul obtinut.
+Rolul si profilul devin vizibile impreuna la commit; o cerere concurenta pierzatoare nu modifica profilul.
+**Alternative:** preflight singur lasa cursa intre verificare si scriere; tranzactiile interactive nu
+sunt suportate de driverul neon-http instalat. batch atomic este posibil, dar CTE-ul exprima direct
+dependenta dintre rezultate fara exceptii de conflict folosite ca flux de control.
+**Consecinte:** erorile/codurile publice si gardurile actorului raman existente. Imaginile omise se
+pastreaza. Fisierele reprocesate se curata la conflict explicit sau esec cunoscut inainte de DB;
+la eroare de retea cu rezultat de commit incert nu se sterg, pentru a nu pierde o imagine deja referita.
+SQL PGlite verifica rollback real de statement; concurenta intre conexiuni si HTTP real necesita Preview.

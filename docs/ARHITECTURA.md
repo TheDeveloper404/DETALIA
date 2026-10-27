@@ -127,6 +127,8 @@ Decizii de modelare care se repetă în cod și merită înțelese:
 - **Ștergerea unei entități-părinte (proiect, detaliu) nu e doar `ON DELETE CASCADE`** —
   validările/comentariile polimorfice n-au FK spre țintă, iar fișierele din Blob nu cad în cascadă
   DB. Ștergerea e orchestrată explicit în service (colectează și șterge manual rândurile + Blob-urile).
+  Exceptie aprobata: atasamentele ofertelor pastreaza fisierul fizic pentru curatenie separata,
+  inclusiv cand oferta dispare prin cascada detaliu/proiect (ADR-019).
 
 ## 5. Fluxuri de domeniu
 
@@ -177,8 +179,10 @@ Tratat ca domeniu CRITICAL (auth, roluri, permisiuni):
 - **Magic link passwordless** (Auth.js Email provider) — token cu durată scurtă, one-time.
 - **Toate regulile de business validate server-side** — frontend-ul nu e sursă de adevăr (dezaprob
   fără justificare, poziții multiple per user, acces la conținut de proiect etc.).
-- **Sesiune JWT** — `status`-ul contului e stale până expiră tokenul pe citire; pe orice mutație
-  care produce conținut se face verificare tare (re-check DB + `signOut()` real dacă e suspendat).
+- **Sesiune JWT cu registru revocabil** — `sid` stabil in cookie si tabelul existent `sessions`.
+  Expirare absoluta la 7 zile de la login; logout revoca numai sesiunea curenta. `auth()` verifica
+  registrul, iar proxy-ul verifica sesiune/status/rol in acelasi SELECT. Actiunile sensibile folosesc
+  `requireActiveUserId`; notificari si picker-ul planselor cer de asemenea ACTIVE.
 - **Rate limiting** (Upstash, fail-closed în producție) pe login/mutații/upload + **Turnstile** pe
   login și signup.
 - **Audit trail structurat** + evenimente de securitate în PostHog (rate-limit lovit, acces respins

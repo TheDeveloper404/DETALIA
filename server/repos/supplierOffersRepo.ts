@@ -7,7 +7,7 @@ import { roles, supplierOffers, users } from "@/db/schema";
 // Inserare ATOMICĂ: `.returning()` întoarce rândul DOAR dacă insertul chiar a avut loc (PK compus, deci
 // un conflict = deja exista → array gol). Decizia „a fost primul click cu adevărat?" se ia AICI, în DB,
 // nu prin read-then-write în service (bug găsit 2026-07-16: read-then-write lăsa loc la 2 notificări
-// pentru un dublu-click/tab dublu — vezi `upsertDisapprovalIfTransition`, același tipar, deja rezolvat
+// pentru un dublu-click/tab dublu — vezi `upsertDisapprovalWithComment`, același tipar, deja rezolvat
 // acolo pt validări).
 export async function insertSupplierOfferIfAbsent(userId: string, detailId: string): Promise<boolean> {
   const inserted = await db

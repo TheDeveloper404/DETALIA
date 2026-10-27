@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { expect, test, type Browser } from "@playwright/test";
 
 import { db } from "../db";
-import { details, projectMembers, projects, roles, sketches, users } from "../db/schema";
+import { details, projectMembers, projects, roles, sketches, users, sessions } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 import { getSeed } from "./seed";
 
 // E2E — audit de securitate 13 categorii, 2026-08-10 (SEC-001 + SEC-002). Owner = testerUserId seedat
@@ -38,12 +39,14 @@ async function sessionContextFor(browser: Browser, baseURL: string | undefined, 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name, email },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name, email },
   });
   return browser.newContext({
     storageState: {

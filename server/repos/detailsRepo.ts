@@ -10,8 +10,6 @@ import {
   detailCategories,
   detailResources,
   details,
-  materialOfferFiles,
-  materialOffers,
   projectMembers,
   projects,
   roles,
@@ -568,13 +566,7 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
     .from(comments)
     .where(comWhere);
 
-  // Fișierele ofertelor de materiale — la fel, citite ÎNAINTE (join pe material_offers, care e cascada
-  // reală de la details; material_offer_files cascadă mai departe de la material_offers).
-  const materialOfferFileRows = await db
-    .select({ url: materialOfferFiles.url })
-    .from(materialOfferFiles)
-    .innerJoin(materialOffers, eq(materialOffers.id, materialOfferFiles.offerId))
-    .where(eq(materialOffers.detailId, detailId));
+  // Atasamentele ofertelor se pastreaza fizic pana la curatenia separata (decizie 2026-10-27).
 
   await db.batch([
     db.delete(validations).where(valWhere),
@@ -586,7 +578,6 @@ export async function deleteDetailCascade(detailId: string): Promise<string[]> {
     ...sketchRows.map((s) => s.thumbnailUrl),
     ...resourceRows.map((r) => r.url),
     ...commentImageRows.map((c) => c.imageUrl),
-    ...materialOfferFileRows.map((f) => f.url),
   ].filter((u): u is string => !!u);
 }
 

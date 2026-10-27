@@ -74,8 +74,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (!row || row.status !== "ACTIVE") {
           throw new Error("UNAUTHORIZED");
         }
-        // SEC-01: cotă de upload per user (emiterea tokenului = poarta).
-        if (!(await checkLimit(limiters.upload, session.user.id)).ok) {
+        // Thumbnail-urile autosalvate folosesc cota de mutatii, ca salvarea lor prin action.
+        // Cota de 30 upload-uri/ora ar bloca o plansa editata continuu dupa circa 10 minute.
+        const thumbnailUpload = folder === "sketches" || folder === "canvases";
+        if (!(await checkLimit(thumbnailUpload ? limiters.mutation : limiters.upload, session.user.id)).ok) {
           throw new Error("RATE_LIMITED");
         }
 
@@ -86,11 +88,14 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("INVALID_PATH");
         }
 
-        if (!["avatars", "covers", "comments", "details", "resources", "materials"].includes(pathname.split("/")[2])) {
+        if (!["avatars", "covers", "comments", "details", "resources", "materials", "sketches", "canvases"].includes(folder)) {
           throw new Error("INVALID_PATH");
         }
 
         const kind = resolveKind(clientPayload);
+        if (thumbnailUpload && (!pathname.startsWith(`u/${session.user.id}/${folder}/uploads/`) || kind !== "image")) {
+          throw new Error("INVALID_PATH");
+        }
         if (kind === "pdf") {
           return {
             allowedContentTypes: [...ALLOWED_DOC_TYPES],

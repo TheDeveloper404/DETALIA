@@ -3,11 +3,12 @@
 import { NotebookPen, Pencil, Save, Send, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
+import { uploadImageToBlob } from "@/lib/blob-upload";
 import { cn } from "@/lib/utils";
 import { MAX_SKETCH_NOTE_LENGTH, REMOVED_AUTHOR_LABEL, type Stroke } from "@/server/domain/sketch";
 
@@ -66,34 +67,45 @@ export function SketchEditor({
     if (!canvasRef.current) return;
     setPending(true);
     setError(null);
-    const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()), note);
-    if (!res.ok) {
+    try {
+      const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()), note);
+      if (!res.ok) {
+        setError(res.error ?? "Nu am putut salva.");
+        return;
+      }
+      router.push("/sketches/drafts");
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut salva. Încearcă din nou.");
+    } finally {
       setPending(false);
-      setError(res.error ?? "Nu am putut salva.");
-      return;
     }
-    // Ciorna salvată → direct în „Ciornele mele" (2026-07-18, discoverability: userii nu găseau unde
-    // aterizează ciorna — ex. ghicit URL-uri manual). Lista e cea mai clară confirmare: ciorna e sus,
-    // cu „Continuă". Nu mai stingem pending (navigăm).
-    router.push("/sketches/drafts");
   }
 
   async function handleSend() {
     if (!canvasRef.current) return;
     setPending(true);
     setError(null);
-    // JPEG, nu PNG: peste o poză-mamă mare (ex. 2268×4032) PNG-ul iese ~10MB → peste limita de body a
-    // Server Action (4MB) / Vercel (4.5MB), cererea e respinsă înainte de handler (incident 2026-10-26).
-    const thumbnail = await canvasRef.current.exportThumbnail("image/jpeg");
-    const fd = new FormData();
-    fd.set("sketchId", sketchId);
-    fd.set("detailId", detailId);
-    fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
-    fd.set("note", note);
-    if (thumbnail) fd.set("thumbnail", thumbnail, "thumbnail.jpg");
-    const res = await sendSketchAction(fd); // pe succes redirecționează (nu mai revine)
-    setPending(false);
-    if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");
+    try {
+      const thumbnail = await canvasRef.current.exportThumbnail("image/jpeg");
+      const fd = new FormData();
+      fd.set("sketchId", sketchId);
+      fd.set("detailId", detailId);
+      fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
+      fd.set("note", note);
+      // Imaginea merge browser -> Blob; action-ul primeste doar URL + desenul vectorial.
+      if (thumbnail) {
+        const url = await uploadImageToBlob("sketches/uploads", new File([thumbnail], "thumbnail.jpg", { type: thumbnail.type }));
+        fd.set("thumbnailUrl", url);
+      }
+      const res = await sendSketchAction(fd);
+      if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut publica. Încearcă din nou.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

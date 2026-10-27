@@ -73,7 +73,7 @@ export function withTestHeadroom(prodMax: number, testMax: number, isProduction 
 // Limitele FAZA 1 — centralizate, ușor de ajustat. Generoase pentru uz real, dar opresc flood-ul/abuzul.
 export const limiters = {
   // Magic link: poartă publică → cea mai strictă. Pe email (hash) ȘI pe IP.
-  authPerEmail: make(5, "1 h", "auth:email"),
+  authPerEmail: make(10, "1 h", "auth:email"),
   authPerIp: make(20, "1 h", "auth:ip"),
   // Mutații post-auth (validare, comentariu, save/send schiță) per user.
   mutation: make(40, "1 m", "mutation"),

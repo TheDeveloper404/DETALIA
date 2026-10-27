@@ -13,10 +13,8 @@ import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE" | "UPLOAD_FAILED";
 export type UploadImageResult = { ok: true; url: string } | { ok: false; error: ImageValidationError };
 
-// NOTĂ: upload-urile de imagini (avatar, cover, imagine detaliu) se fac acum CLIENT direct în Blob
-// (`@vercel/blob/client` → /api/blob/upload), ca să ocolească limita de body a server actions (1MB)
-// și a funcțiilor Vercel (~4.5MB). Aici a rămas doar upload-ul thumbnail-ului de schiță, care e un
-// Blob mic randat client-side și trimis printr-un server action (sub limită).
+// Upload-urile client (inclusiv thumbnail-urile) merg direct in Blob. Aici raman imaginile deja
+// pe server: copiile partajate in proiect si fixture-urile care genereaza thumbnail-uri in E2E.
 
 // Validare comună (EMPTY/TOO_LARGE) + re-encodare SEC-02 (sharp: magic bytes, strip metadata, plafon
 // dimensiuni) — un Blob generat de NOI (canvas/export), dar câmpul de fișier al unui server action e
@@ -28,11 +26,6 @@ async function uploadImage(blob: Blob, folder: string, userId: string): Promise<
   const processed = await processAndUploadImage(blob, folder, userId);
   if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
   return { ok: true, url: processed.url };
-}
-
-// Thumbnail al unei schițe (randat client-side la SEND).
-export async function uploadSketchThumbnail(blob: Blob, userId: string): Promise<UploadImageResult> {
-  return uploadImage(blob, "sketches", userId);
 }
 
 // Thumbnail al unei planșe (compus client-side la salvare — imagini + strokes pe canvas offscreen).

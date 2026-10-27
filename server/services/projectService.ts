@@ -196,7 +196,9 @@ export async function joinProjectByToken(input: {
     return { ok: false, error: "LIMIT_REACHED" };
   }
 
-  await upsertActiveMembership(project.id, input.userId);
+  if (!(await upsertActiveMembership(project.id, input.userId, input.token))) {
+    return { ok: false, error: "INVALID_TOKEN" };
+  }
   return { ok: true, projectId: project.id, projectName: project.name };
 }
 
@@ -220,7 +222,7 @@ export async function removeMember(input: {
   const project = await getProjectById(input.projectId);
   if (!project) return { ok: false, error: "NOT_FOUND" };
   if (project.ownerId !== input.requesterId) return { ok: false, error: "FORBIDDEN" };
-  await removeMembership(input.projectId, input.targetUserId);
+  await removeMembership(input.projectId, input.targetUserId, generateInviteToken());
   return { ok: true };
 }
 

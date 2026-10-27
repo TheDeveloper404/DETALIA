@@ -2,7 +2,7 @@
 // Toate rutele /api/auth/* (signin, callback magic link, signout, session) trec pe aici.
 import { NextResponse, type NextRequest } from "next/server";
 
-import { handlers } from "@/lib/auth";
+import { handlers, revokeCurrentSession } from "@/lib/auth";
 
 export const { GET } = handlers;
 
@@ -18,5 +18,18 @@ export async function POST(req: NextRequest) {
       { status: 403 },
     );
   }
-  return handlers.POST(req);
+  const response = await handlers.POST(req);
+  // Auth.js valideaza CSRF inainte sa emita stergerea cookie-ului de sesiune. Un POST
+  // respins nu trebuie sa revoce sesiunea victimei (logout CSRF).
+  const signedOut = action === "signout" && response.headers.getSetCookie().some((cookie) =>
+    /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?=;.*\bMax-Age=0(?:;|$)/i.test(cookie),
+  );
+  if (signedOut) {
+    try {
+      await revokeCurrentSession(req.headers);
+    } catch {
+      return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Deconectarea nu a putut fi finalizata." } }, { status: 500 });
+    }
+  }
+  return response;
 }

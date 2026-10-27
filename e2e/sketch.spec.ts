@@ -40,7 +40,21 @@ async function deleteSketchById(): Promise<void> {
 test.describe.serial("Schiță — publish & delete", () => {
   test.afterAll(deleteSketchById);
 
+  // Regula aprobata: "direct thumbnail upload ... Preserve ... redirect success behavior".
   test("Schițează → editor + desen → Publică → intră în teanc", async ({ page }) => {
+    // JPEG real produs de canvas, cu padding valid: peste plafonul de 4.5 MB al functiei.
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+        original.call(this, (blob) => {
+          if (blob && type === "image/jpeg") {
+            const large = new Blob([blob, new Uint8Array(Math.max(0, 5_000_000 - blob.size))], { type: blob.type });
+            (window as Window & { thumbnailTestBytes?: number }).thumbnailTestBytes = large.size;
+            callback(large);
+          } else callback(blob);
+        }, type, quality);
+      };
+    });
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Schițează" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
@@ -61,6 +75,21 @@ test.describe.serial("Schiță — publish & delete", () => {
 
     const publishBtn = page.getByRole("button", { name: /Publică schița/ });
     await expect(publishBtn).toBeEnabled();
+
+    // Eroarea de transport nu lasa butonul blocat; aceeasi schita poate fi retrimisa.
+    await page.route("**/api/blob/upload", (route) => route.abort("failed"));
+    await publishBtn.click();
+    await expect(page.getByRole("alert")).toHaveText("Nu am putut publica. Încearcă din nou.");
+    await expect(publishBtn).toBeEnabled();
+    expect(await page.evaluate(() => (window as Window & { thumbnailTestBytes?: number }).thumbnailTestBytes)).toBe(5_000_000);
+    await page.unroute("**/api/blob/upload");
+
+    const actionBodies: number[] = [];
+    page.on("request", (request) => {
+      if (request.headers()["next-action"] && new URL(request.url()).pathname === `/sketches/${sketchId}/edit`) {
+        actionBodies.push(request.postDataBuffer()?.length ?? 0);
+      }
+    });
     await publishBtn.click();
 
     // Publicarea redirecționează la detaliu; noul tab (avatar autor sesiune) apare în strip.
@@ -69,6 +98,10 @@ test.describe.serial("Schiță — publish & delete", () => {
     // tab-ul acestei schițe, după ID (data-testid stabil, vezi detail-workspace.tsx).
     await expect(page).toHaveURL(new RegExp(`${detailUrl()}$`));
     await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toBeVisible();
+    expect(actionBodies.length).toBeGreaterThan(0);
+    expect(actionBodies.every((bytes) => bytes > 0 && bytes < 4_500_000)).toBe(true);
+    const [published] = await db.select({ thumbnailUrl: sketches.thumbnailUrl }).from(sketches).where(eq(sketches.id, sketchId!));
+    expect(published.thumbnailUrl).toMatch(/\/sketches\/[^/]+\.jpg$/);
   });
 
   test("Tab-ul schiței → badge de teanc + ștergere de către autor", async ({ page }) => {

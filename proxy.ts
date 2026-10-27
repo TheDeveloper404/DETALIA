@@ -98,7 +98,7 @@ export default async function proxy(req: NextRequest) {
   const authToken =
     (await getToken({ req: tokenReq, secret: process.env.AUTH_SECRET, secureCookie: isHttps })) ??
     (await getToken({ req: tokenReq, secret: process.env.AUTH_SECRET, secureCookie: !isHttps }));
-  const isLoggedIn = !!authToken;
+  const isLoggedIn = !!authToken?.sid;
   // Aceeași regulă de fallback ca fostul callback `session()` din lib/auth.ts (id, cu sub ca rezervă).
   const userId = authToken?.id ?? authToken?.sub;
 
@@ -184,7 +184,7 @@ export default async function proxy(req: NextRequest) {
   // existență rula DOAR pe ramura `!hasRole` — un cont șters care păstra un rând `roles` orfan trecea
   // nedetectat de poarta veche).
   if (isLoggedIn && userId && !isPublic) {
-    const gate = await getUserGateInfo(userId);
+    const gate = await getUserGateInfo(userId, authToken!.sid!);
 
     // Cont dispărut din DB (curățare/GDPR) cu JWT încă tehnic valid → delogare directă, nu buclă de
     // onboarding (declareRole ar respinge oricum, dar userul nu vede de ce).

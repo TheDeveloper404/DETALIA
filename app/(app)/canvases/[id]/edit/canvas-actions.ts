@@ -2,7 +2,9 @@
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { deleteBlobs, uploadCanvasThumbnail } from "@/lib/storage";
+import { isUsersBlobUrl } from "@/lib/blob-url";
+import { reprocessBlobImage } from "@/lib/image-processing";
+import { deleteBlobs } from "@/lib/storage";
 import {
   removeDetailFromCanvas,
   saveCanvasDocument,
@@ -51,7 +53,7 @@ export async function saveCanvasDocumentAction(
   return { ok: true };
 }
 
-// Salvează thumbnail-ul planșei (PNG compus client-side pe canvas offscreen). Best-effort.
+// Thumbnail incarcat direct in Blob; Server Action primeste numai URL-ul temporar.
 export async function saveCanvasThumbnailAction(
   formData: FormData,
 ): Promise<CanvasEditActionResult> {
@@ -62,11 +64,14 @@ export async function saveCanvasThumbnailAction(
   }
 
   const canvasId = String(formData.get("canvasId") ?? "");
-  const thumb = formData.get("thumbnail");
-  if (!(thumb instanceof File) || thumb.size === 0) return { ok: true }; // nimic de urcat → no-op
+  const thumbnailUrl = String(formData.get("thumbnailUrl") ?? "");
+  if (!isUsersBlobUrl(thumbnailUrl, userId) ||
+      !new URL(thumbnailUrl).pathname.startsWith(`/u/${userId}/canvases/uploads/`)) {
+    return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
+  }
 
   // SEC-02: câmpul de fișier e controlat de client → re-encodăm cu sharp (magic bytes + strip + plafon).
-  const upload = await uploadCanvasThumbnail(thumb, userId);
+  const upload = await reprocessBlobImage(thumbnailUrl, "canvases", userId);
   if (!upload.ok) return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
 
   const res = await saveCanvasThumbnail({

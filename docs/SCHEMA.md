@@ -52,14 +52,16 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED | M
 | `phone` | text | nullable; contact opțional |
 | `phone_visible` / `email_visible` | boolean | default `false` — opt-in explicit, altfel privat inclusiv pt proprietar (2026-08-17) |
 | `seen_badges` | jsonb | default `{}` — ultimul snapshot de badge-uri VĂZUT (id→tier), pt pop-up „badge nou" |
-| `last_seen_announcement_version` | text | nullable — ultima versiune văzută a panoului „Ce e nou" |
+| `last_seen_announcement_version` | text | nullable — camp istoric al popup-ului „Ce e nou”, eliminat din aplicatie pe 2026-10-27; coloana pastrata fara migrare distructiva |
 | `seen_detail_tour` | boolean | default `false` — turul ghidat de pe pagina de detaliu, arătat vreodată? |
 | `referral_code` | text | nullable, **UNIQUE** — cod scurt de referral, generat LENEȘ la prima cerere a linkului (2026-08-25) |
 | `referred_by_user_id` | uuid FK→users.id | nullable, `ON DELETE SET NULL` — cine a adus acest user, setat O SINGURĂ DATĂ (2026-08-25) |
 | `weekly_digest_enabled` | boolean | default `true` — opt-OUT digest săptămânal pe email; linkul semnat din footer îl pune pe `false`, reactivare din `/profile/edit` (2026-09-03) |
 | `created_at` | timestamptz | (NU există `updated_at` pe `users`) |
 
-> Tabelele Auth.js (`accounts`, `sessions`, `verification_tokens`) sunt gestionate de adapterul Drizzle — vezi `db/schema.ts`, nu le mâna manual.
+> `accounts` si `verification_tokens` sunt gestionate de adapterul Drizzle. Tabelul existent `sessions`
+> este si registrul JWT: `session_token` pastreaza `sid`-ul stabil, `user_id` identitatea, iar `expires`
+> expirarea absoluta stabilita la login. Logout sterge randul sesiunii curente. Fara coloane noi.
 
 ### `roles` (un singur rol per user — declarat la signup)
 | coloană | tip | note |

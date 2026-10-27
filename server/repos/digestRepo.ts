@@ -29,6 +29,7 @@ export async function countCommentsOnOwnDetails(since: Date): Promise<Map<string
     .where(
       and(
         gte(comments.createdAt, since),
+        eq(comments.hiddenAfterRelease, false),
         ne(comments.authorId, details.authorId),
         isNull(details.anonymizedAt),
         // Doar detalii PUBLICATE — un detaliu întors în DRAFT nu mai trebuie să tragă digestul (CTA-ul
@@ -52,6 +53,7 @@ export async function countSketchesOnOwnDetails(since: Date): Promise<Map<string
     .where(
       and(
         gte(sketches.createdAt, since),
+        eq(sketches.hiddenAfterRelease, false),
         eq(sketches.status, "PUBLISHED"),
         eq(sketches.isAnnotation, false),
         ne(sketches.authorId, details.authorId),
@@ -72,6 +74,7 @@ export async function countValidationsOnOwnDetails(since: Date): Promise<Map<str
     .where(
       and(
         gte(validations.createdAt, since),
+        eq(validations.hiddenAfterRelease, false),
         ne(validations.userId, details.authorId),
         isNull(details.anonymizedAt),
         eq(details.status, "PUBLISHED"),

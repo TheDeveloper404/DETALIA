@@ -48,16 +48,13 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // SEC-08: nonce-ul CSP pus de proxy pe x-nonce. Îl citim aici (face layout-ul dinamic → nonce mereu proaspăt,
-  // potrivit cu headerul CSP) și îl aplicăm pe scriptul inline de pre-paint de mai jos.
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // SEC-08: păstrăm randarea dinamică pentru nonce-ul CSP al scripturilor Next.js.
+  // Scriptul vechi de intro a fost eliminat; framework-ul aplică nonce-ul automat la SSR.
+  await headers();
 
   return (
     <html
       lang="ro"
-      // Scriptul pre-paint de mai jos pune `data-intro` pe <html> înainte de hidratare (vezi IntroSplash) →
-      // diferă de SSR. suppressHydrationWarning silențiază exact acest mismatch intenționat (ca next-themes).
-      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${plexMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
@@ -71,16 +68,6 @@ export default async function RootLayout({
           shadow="0 0 8px #95492e,0 0 4px #95492e"
           showSpinner={false}
           speed={300}
-        />
-        {/* Pre-paint: overlay-ul de intro se randează din SSR (e cover-ul, cu logo, din prima pictare).
-            Pentru cine l-a văzut deja / reduced-motion, marcăm <html data-intro="seen"> ÎNAINTE de prima
-            pictare → CSS-ul îl ascunde instant (fără flash). Script sincron, în capul body-ului. */}
-        <script
-          nonce={nonce}
-          dangerouslySetInnerHTML={{
-            __html:
-              "(function(){try{var s=sessionStorage.getItem('detalia_intro_seen');var r=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;if(s||r)document.documentElement.setAttribute('data-intro','seen');}catch(e){}})();",
-          }}
         />
         {children}
         {/* Vercel Web Analytics — vizitatori + page views. First-party (`/_vercel/insights/*`, same-origin)

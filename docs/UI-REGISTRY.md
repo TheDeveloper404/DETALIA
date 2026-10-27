@@ -109,6 +109,9 @@ din heatmap, referral, + combinații derivate: `combinedContribution` (min publi
 în `badges.ts`, testat de `badges.test.ts`.
 
 ## Tur ghidat (`ProductTour` / `DetailProductTour`)
+
+Disponibil de la 768px (tableta/desktop); sub acest prag nu porneste. Pe telefon, vizita la detaliu
+nu marcheaza tutorialul drept vazut. Popup-ul „Ce e nou” a fost eliminat (2026-10-27).
 Pattern comun (driver.js, restilizat pe paletă — `.detalia-tour-popover` în `globals.css`), DOUĂ
 instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al paginii:
 - **Feed** (`components/product-tour.tsx`) — declanșat o singură dată, prin `?tour=1` în URL (NU un
@@ -123,8 +126,8 @@ instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al pagini
   noi) — adaugă un pas nou punând `data-tour` pe elementul existent + o intrare în `TOUR_STEPS`
   (feed) / `DETAIL_TOUR_STEPS` (`lib/detail-tour-steps.ts`), verificate de `product-tour.test.ts` /
   `lib/detail-tour-steps.test.ts` (selectori reali, fără duplicate).
-- **Feed — pași care pot lipsi legitim din DOM** (2026-08-27): `my-content` e în sidebar
-  (`hidden lg:flex`, absent pe mobil), `feed-first-card` există doar când feed-ul are ≥1 detaliu.
+- **Feed — pași care pot lipsi legitim din DOM**: `categories`, `profile`, `my-content` sunt in sidebar
+  (`hidden lg:flex`, ascuns sub 1024px), `feed-first-card` există doar când feed-ul are ≥1 detaliu.
   `getTourSteps({ isDesktop, hasFeedItems })` îi filtrează EXPLICIT înainte de `driver()` — nu te baza
   pe skip-ul silențios, strică numărătoarea „X din N". Orice pas nou pe o țintă condiționată trece
   prin același filtru.

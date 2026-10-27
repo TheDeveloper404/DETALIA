@@ -110,8 +110,7 @@ export const users = pgTable("users", {
   // proprie, deci avem nevoie de un singur snapshot ca să detectăm ce e NOU față de ultima vizită pe
   // propriul profil (nu doar ce e câștigat). Actualizat de `markBadgesSeen`, DOAR pe propriul profil.
   seenBadges: jsonb().notNull().default({}),
-  // Ultima versiune VĂZUTĂ a panoului „Ce e nou" (server/domain/announcements.ts). `null` pentru useri
-  // vechi = nu au văzut nimic încă. Actualizată de `markAnnouncementSeen`, doar pe propriul cont.
+  // Camp istoric al popup-ului „Ce e nou", eliminat pe 2026-10-27; pastrat fara migrare distructiva.
   lastSeenAnnouncementVersion: text(),
   // Turul ghidat de pe pagina de detaliu (components/detail-product-tour.tsx) a fost arătat vreodată?
   // Spre deosebire de turul din feed (`?tour=1`, declanșat o singură dată din onboarding — un singur
