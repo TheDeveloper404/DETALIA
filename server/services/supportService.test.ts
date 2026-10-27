@@ -65,12 +65,24 @@ describe("submitSupportRequest", () => {
     ["mesaj prea lung", { message: "x".repeat(1001) }],
     ["flux necunoscut", { flow: "orice" }],
     ["pagină fără slash", { page: "https://rau.example" }],
-    ["eroare prea lungă", { errorMessage: "e".repeat(201) }],
     ["încercări negative", { failures: -1 }],
-    ["încercări peste plafon", { failures: 21 }],
   ])("respinge input invalid: %s", async (_label, patch) => {
     expect(await submitSupportRequest({ ...base, ...patch })).toEqual({ ok: false, error: "VALIDATION" });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("plafonează încercările la 20 în loc să respingă cererea", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+    expect(await submitSupportRequest({ ...base, failures: 35 })).toEqual({ ok: true });
+    expect(String(fetchMock.mock.calls[0][1].body)).toContain("20 la rând");
+  });
+
+  it("taie eroarea lungă la 200 de caractere în loc să respingă cererea", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("ok", { status: 200 }));
+    expect(await submitSupportRequest({ ...base, errorMessage: "e".repeat(300) })).toEqual({ ok: true });
+    const body = String(fetchMock.mock.calls[0][1].body);
+    expect(body).toContain("e".repeat(200));
+    expect(body).not.toContain("e".repeat(201));
   });
 
   it("NOT_CONFIGURED fără webhook, fără niciun request", async () => {

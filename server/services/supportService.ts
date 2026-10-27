@@ -77,10 +77,8 @@ export async function submitSupportRequest(input: SupportRequestInput): Promise<
     !isSupportFlow(input.flow) ||
     !input.page.startsWith("/") ||
     input.page.length > 200 ||
-    (input.errorMessage?.length ?? 0) > 200 ||
     !Number.isInteger(failures) ||
-    failures < 0 ||
-    failures > 20
+    failures < 0
   ) {
     return { ok: false, error: "VALIDATION" };
   }
@@ -91,7 +89,13 @@ export async function submitSupportRequest(input: SupportRequestInput): Promise<
     return { ok: false, error: "NOT_CONFIGURED" };
   }
 
-  const payload = buildSupportPayload({ ...input, message, failures, flow: input.flow });
+  const payload = buildSupportPayload({
+    ...input,
+    message,
+    errorMessage: input.errorMessage?.slice(0, 200),
+    failures: Math.min(failures, 20),
+    flow: input.flow,
+  });
   try {
     const res = await fetch(webhook, {
       method: "POST",

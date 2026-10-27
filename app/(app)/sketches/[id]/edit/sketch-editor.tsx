@@ -98,10 +98,12 @@ export function SketchEditor({
       fd.set("detailId", detailId);
       fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
       fd.set("note", note);
-      // Imaginea merge browser -> Blob; action-ul primeste doar URL + desenul vectorial.
+      // Imaginea merge browser -> Blob; daca upload-ul pica, schita se publica fara thumbnail.
       if (thumbnail) {
-        const url = await uploadImageToBlob("sketches/uploads", new File([thumbnail], "thumbnail.jpg", { type: thumbnail.type }));
-        fd.set("thumbnailUrl", url);
+        try {
+          const url = await uploadImageToBlob("sketches/uploads", new File([thumbnail], "thumbnail.jpg", { type: thumbnail.type }));
+          fd.set("thumbnailUrl", url);
+        } catch {}
       }
       const res = await sendSketchAction(fd);
       if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");

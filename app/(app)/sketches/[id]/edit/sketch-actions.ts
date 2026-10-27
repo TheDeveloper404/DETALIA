@@ -84,9 +84,9 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
         !new URL(rawThumbnailUrl).pathname.startsWith(`/u/${userId}/sketches/uploads/`)) {
       return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
     }
+    // Thumbnail-ul e auxiliar: daca reprocesarea esueaza, schita se publica fara el.
     const upload = await reprocessBlobImage(rawThumbnailUrl, "sketches", userId);
-    if (!upload.ok) return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
-    thumbnailUrl = upload.url;
+    if (upload.ok) thumbnailUrl = upload.url;
   }
 
   const res = await publish({

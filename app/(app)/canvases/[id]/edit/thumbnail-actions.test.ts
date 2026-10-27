@@ -54,12 +54,6 @@ describe.each([
     expect(mocks.publish).not.toHaveBeenCalled();
   });
 
-  // Regula aprobata: "serverul valideaza ownership-ul si reprocesseaza imaginea".
-  it("nu persista daca imaginea nu poate fi decodata/reprocesata", async () => {
-    mocks.reprocess.mockResolvedValue({ ok: false });
-    expect(await action(form(folder))).toMatchObject({ ok: false });
-    expect(mocks.publish).not.toHaveBeenCalled();
-  });
 
   it("nu citeste/transforma fisierul cand limita de mutatii a fost atinsa", async () => {
     mocks.limit.mockResolvedValue({ ok: false });
@@ -74,6 +68,13 @@ it("publica schita cu URL-ul reprocesat si pastreaza redirect-ul de succes", asy
   expect(mocks.reprocess).toHaveBeenCalledWith(`${base}/u/${USER}/sketches/uploads/raw.jpg`, "sketches", USER);
   expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({ authorId: USER, thumbnailUrl: `${base}/u/${USER}/processed.jpg` }));
   expect(mocks.removeBlobs).not.toHaveBeenCalled();
+});
+
+// Decizie 2026-10-27: thumbnail-ul e auxiliar, publicarea nu depinde de el.
+it("publica schita fara thumbnail daca reprocesarea esueaza", async () => {
+  mocks.reprocess.mockResolvedValue({ ok: false });
+  await expect(sendSketchAction(form("sketches"))).rejects.toThrow("REDIRECT /details/44444444-4444-4444-8444-444444444444");
+  expect(mocks.publish).toHaveBeenCalledWith(expect.objectContaining({ thumbnailUrl: null }));
 });
 
 it("curata thumbnail-ul reprocesat daca publicarea esueaza", async () => {

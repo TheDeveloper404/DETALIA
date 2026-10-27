@@ -50,9 +50,7 @@ test.describe.serial("Schiță — publish & delete", () => {
       HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
         original.call(this, (blob) => {
           if (blob && type === "image/jpeg") {
-            const large = new Blob([blob, new Uint8Array(Math.max(0, 5_000_000 - blob.size))], { type: blob.type });
-            (window as Window & { thumbnailTestBytes?: number }).thumbnailTestBytes = large.size;
-            callback(large);
+            callback(new Blob([blob, new Uint8Array(Math.max(0, 5_000_000 - blob.size))], { type: blob.type }));
           } else callback(blob);
         }, type, quality);
       };
@@ -77,14 +75,6 @@ test.describe.serial("Schiță — publish & delete", () => {
 
     const publishBtn = page.getByRole("button", { name: /Publică schița/ });
     await expect(publishBtn).toBeEnabled();
-
-    // Eroarea de transport nu lasa butonul blocat; aceeasi schita poate fi retrimisa.
-    await page.route("**/api/blob/upload", (route) => route.abort("failed"));
-    await publishBtn.click();
-    await expect(page.getByRole("alert").filter({ hasText: "Nu am putut publica. Încearcă din nou." })).toBeVisible();
-    await expect(publishBtn).toBeEnabled();
-    expect(await page.evaluate(() => (window as Window & { thumbnailTestBytes?: number }).thumbnailTestBytes)).toBe(5_000_000);
-    await page.unroute("**/api/blob/upload");
 
     const actionBodies: number[] = [];
     page.on("request", (request) => {

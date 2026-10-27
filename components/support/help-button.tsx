@@ -15,7 +15,7 @@ export function HelpButton() {
         onClick={() => setOpen(true)}
         aria-label="Ajutor"
         title="Ajutor"
-        className="inline-flex h-12 w-12 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+        className="inline-flex h-12 w-12 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted max-[379px]:hidden"
       >
         <CircleHelp className="size-7" strokeWidth={2} />
       </button>
