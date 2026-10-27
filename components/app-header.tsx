@@ -5,6 +5,7 @@ import { getUserMedia } from "@/server/repos/usersRepo";
 
 import { BrandLogoHome, HomeIconLink } from "./feed-home-links";
 import { NotificationBell } from "./notification-bell";
+import { HelpButton } from "./support/help-button";
 import { UserMenu } from "./user-menu";
 
 // Header global — apare DOAR pentru useri autentificați (landing/login/signup rămân fără header).
@@ -31,6 +32,7 @@ export async function AppHeader() {
           <HomeIconLink />
           <NotificationBell notifications={notifications} count={unread} />
           <UserMenu name={media?.name ?? session.user.name ?? null} image={media?.image ?? null} />
+          <HelpButton />
         </div>
       </div>
     </header>

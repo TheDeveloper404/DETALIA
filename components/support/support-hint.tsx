@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { SupportDialog } from "@/components/support/support-dialog";
-import { supportLevel, whatsappUrl, type SupportFlow } from "@/lib/support-contact";
+import { supportLevel, WHATSAPP_NOTE, whatsappUrl, type SupportFlow } from "@/lib/support-contact";
 
 // Rândul de ajutor pus SUB un mesaj de eroare existent. Nimic la prima eroare; link de raportare de la a
 // doua; WhatsApp de la a treia (vezi `supportLevel`). Randat ca <span>, ca să încapă și într-un <p role="alert">.
@@ -43,6 +43,7 @@ export function SupportHint({
             >
               Scrie-ne pe WhatsApp
             </a>
+            <span className="block text-xs">{WHATSAPP_NOTE}</span>
           </span>
         )}
       </span>

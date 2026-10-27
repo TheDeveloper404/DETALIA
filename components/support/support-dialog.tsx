@@ -129,9 +129,10 @@ export function SupportDialog({
                 type="button"
                 onClick={send}
                 disabled={pending || tooShort}
+                aria-busy={pending}
                 className="h-10 rounded-[10px] border border-[#95492e] bg-primary px-[18px] text-sm font-semibold text-primary-foreground transition-colors hover:bg-[#974a2e] disabled:opacity-50"
               >
-                {pending ? "Se trimite…" : "Trimite"}
+                Trimite
               </button>
             </div>
           </div>

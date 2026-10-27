@@ -8,7 +8,7 @@ import {
   recentFailures,
   recordVerificationFailure,
 } from "@/components/support/login-failures";
-import { SUPPORT_EMAIL, whatsappUrl } from "@/lib/support-contact";
+import { SUPPORT_EMAIL, WHATSAPP_NOTE, whatsappUrl } from "@/lib/support-contact";
 
 // localStorage e un sistem EXTERN lui React → useSyncExternalStore (nu useEffect + setState); efectul doar
 // scrie eșecul nou și anunță abonații.
@@ -66,6 +66,7 @@ export function LoginSupportHint({ verificationFailed, ttlMinutes }: { verificat
           >
             Scrie-ne pe WhatsApp
           </a>
+          <span className="text-center text-xs text-muted-foreground">{WHATSAPP_NOTE}</span>
           <span className="text-center text-[13px] text-muted-foreground">
             sau la <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
           </span>
