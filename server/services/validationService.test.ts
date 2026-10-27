@@ -9,7 +9,7 @@ vi.mock("@/server/repos/validationsRepo", () => ({
   deletePosition: vi.fn(),
   listPositionsForTarget: vi.fn(),
   listUserPositionsForTargets: vi.fn(),
-  upsertDisapprovalIfTransition: vi.fn(),
+  upsertDisapprovalWithComment: vi.fn(),
   upsertPosition: vi.fn(),
 }));
 
@@ -17,7 +17,7 @@ import { insertComment } from "@/server/repos/commentsRepo";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
-import { upsertDisapprovalIfTransition, upsertPosition } from "@/server/repos/validationsRepo";
+import { upsertDisapprovalWithComment, upsertPosition } from "@/server/repos/validationsRepo";
 import { canAccessProjectDetail } from "@/server/services/projectService";
 
 import { approve, disapprove, recordSketchDisapproval, targetExists } from "./validationService";
@@ -29,6 +29,17 @@ const target = {
   targetId: "22222222-2222-4222-8222-222222222222",
 };
 
+// Regula aprobata: "Contributiile ascunse nu pot fi votate sau primi raspunsuri."
+it("DET-04: schita PUBLISHED ascunsa este refuzata la comentariu, aprobare si dezaprobare", async () => {
+  vi.mocked(getSketchById).mockResolvedValue({ detailId: target.targetId, authorId: "other", status: "PUBLISHED", hiddenAfterRelease: true } as never);
+  const hidden = { ...target, targetType: "SKETCH" as const };
+  expect(await targetExists("SKETCH", target.targetId, target.userId)).toBe(false);
+  expect(await approve(hidden)).toEqual({ ok: false, error: "TARGET_NOT_FOUND" });
+  expect(await disapprove({ ...hidden, justification: "Motiv" })).toEqual({ ok: false, error: "TARGET_NOT_FOUND" });
+  expect(upsertPosition).not.toHaveBeenCalled();
+  expect(upsertDisapprovalWithComment).not.toHaveBeenCalled();
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getRoleByUserId).mockResolvedValue(ROLE as never);
@@ -39,7 +50,7 @@ beforeEach(() => {
     title: "T",
   } as never);
   vi.mocked(upsertPosition).mockResolvedValue({ id: "v-1" } as never);
-  vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue({ id: "v-1" } as never);
+  vi.mocked(upsertDisapprovalWithComment).mockResolvedValue({ id: "v-1" } as never);
 });
 
 describe("rol declarat obligatoriu — poziția „cântărește” prin rol", () => {
@@ -62,18 +73,18 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
   it("disapprove fără justificare → JUSTIFICATION_REQUIRED, fără scriere", async () => {
     const r = await disapprove({ ...target, justification: "   " });
     expect(r).toEqual({ ok: false, error: "JUSTIFICATION_REQUIRED" });
-    expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
+    expect(upsertDisapprovalWithComment).not.toHaveBeenCalled();
     expect(insertComment).not.toHaveBeenCalled();
   });
 
   it("disapprove nou → tranziție atomică + comentariu-justificare exact o dată", async () => {
     const r = await disapprove({ ...target, justification: "  nu rezistă la îngheț  " });
     expect(r).toEqual({ ok: true });
-    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
-    expect(insertComment).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(insertComment).mock.calls[0][0]).toMatchObject({
+    expect(upsertDisapprovalWithComment).toHaveBeenCalledTimes(1);
+    expect(insertComment).not.toHaveBeenCalled();
+    expect(vi.mocked(upsertDisapprovalWithComment).mock.calls[0][0]).toMatchObject({
       body: "nu rezistă la îngheț", // trimmed
-      originValidationId: "v-1",
+      detailId: target.targetId,
     });
   });
 
@@ -82,7 +93,7 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
   // Bug găsit 2026-07-14: înainte se răspundea `{ ok: true }` aici, deci userul primea „succes"
   // fals fără să știe că justificarea lui nouă nu a fost salvată nicăieri.
   it("re-dezaprobare / cerere paralelă pierzătoare (tranziție null) → ALREADY_DISAPPROVED, NU dublează comentariul", async () => {
-    vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue(null as never);
+    vi.mocked(upsertDisapprovalWithComment).mockResolvedValue(null as never);
     const r = await disapprove({ ...target, justification: "iar nu merge" });
     expect(r).toEqual({ ok: false, error: "ALREADY_DISAPPROVED" });
     expect(insertComment).not.toHaveBeenCalled();
@@ -109,9 +120,10 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
       justification: "motiv valid",
     });
     expect(r).toEqual({ ok: true });
-    expect(vi.mocked(insertComment).mock.calls[0][0]).toMatchObject({
-      targetType: "DETAIL",
-      targetId: realDetailId,
+    expect(vi.mocked(upsertDisapprovalWithComment).mock.calls[0][0]).toMatchObject({
+      targetType: "SKETCH",
+      targetId: sketchId,
+      detailId: realDetailId,
       sketchContextId: sketchId,
     });
   });
@@ -160,14 +172,14 @@ describe("auto-validare PERMISĂ pe conținut propriu (decizie de produs 2026-08
   it("disapprove pe propriul detaliu → OK, cu justificare + comentariu ca la oricine altcineva", async () => {
     const r = await disapprove({ ...target, justification: "motiv valid" });
     expect(r).toEqual({ ok: true });
-    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
-    expect(insertComment).toHaveBeenCalledTimes(1);
+    expect(upsertDisapprovalWithComment).toHaveBeenCalledTimes(1);
+    expect(insertComment).not.toHaveBeenCalled();
   });
 
   it("regulile care NU s-au schimbat rămân active: dezaprobarea fără justificare tot se respinge", async () => {
     const r = await disapprove({ ...target, justification: "   " });
     expect(r).toEqual({ ok: false, error: "JUSTIFICATION_REQUIRED" });
-    expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
+    expect(upsertDisapprovalWithComment).not.toHaveBeenCalled();
   });
 });
 
@@ -180,9 +192,9 @@ describe("recordSketchDisapproval — materializarea dezaprobării la publicarea
       title: "T",
     } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
-    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
-    expect(insertComment).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(insertComment).mock.calls[0][0]).toMatchObject({ originValidationId: "v-1" });
+    expect(upsertDisapprovalWithComment).toHaveBeenCalledTimes(1);
+    expect(insertComment).not.toHaveBeenCalled();
+    expect(vi.mocked(upsertDisapprovalWithComment).mock.calls[0][0]).toMatchObject({ detailId: target.targetId, body: "Am propus o schiță alternativă ca dezaprobare — vezi teancul de schițe." });
   });
 
   it("dublu-publish / dezaprobare deja existentă (tranziție null) → fără comentariu dublu", async () => {
@@ -192,7 +204,7 @@ describe("recordSketchDisapproval — materializarea dezaprobării la publicarea
       authorId: "owner-x",
       title: "T",
     } as never);
-    vi.mocked(upsertDisapprovalIfTransition).mockResolvedValue(null as never);
+    vi.mocked(upsertDisapprovalWithComment).mockResolvedValue(null as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
     expect(insertComment).not.toHaveBeenCalled();
   });
@@ -205,7 +217,7 @@ describe("recordSketchDisapproval — materializarea dezaprobării la publicarea
       title: "T",
     } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
-    expect(upsertDisapprovalIfTransition).not.toHaveBeenCalled();
+    expect(upsertDisapprovalWithComment).not.toHaveBeenCalled();
     expect(insertComment).not.toHaveBeenCalled();
   });
 
@@ -222,7 +234,7 @@ describe("recordSketchDisapproval — materializarea dezaprobării la publicarea
       title: "T",
     } as never);
     await recordSketchDisapproval({ userId: target.userId, detailId: target.targetId });
-    expect(upsertDisapprovalIfTransition).toHaveBeenCalledTimes(1);
+    expect(upsertDisapprovalWithComment).toHaveBeenCalledTimes(1);
   });
 });
 

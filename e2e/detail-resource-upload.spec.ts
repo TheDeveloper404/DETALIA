@@ -36,6 +36,15 @@ test("Resursă IMAGE încărcată: link-ul dispare, apare previzualizare compact
   let mainImageUrl: string | null = null;
 
   try {
+    // Regula aprobata: "Preview-uri de imagini: eliberarea memoriei imediat dupa eliminare/inlocuire."
+    await page.addInitScript(() => {
+      const original = URL.revokeObjectURL.bind(URL);
+      (window as Window & { revokedPreviews?: string[] }).revokedPreviews = [];
+      URL.revokeObjectURL = (url: string) => {
+        (window as Window & { revokedPreviews?: string[] }).revokedPreviews?.push(url);
+        original(url);
+      };
+    });
     await stripBypassHeadersForBlobUploads(page);
     await page.goto("/details/new");
     await page.locator("#title").fill(title);
@@ -67,10 +76,13 @@ test("Resursă IMAGE încărcată: link-ul dispare, apare previzualizare compact
     await expect(textField).toHaveCount(0);
     // Thumbnail-ul e o imagine reală (Next Image), nu doar text — confirmă previzualizarea, nu un placeholder gol.
     await expect(resourcesList.locator("img")).toBeVisible();
+    const previewUrl = await resourcesList.locator("img").getAttribute("src");
+    expect(previewUrl).toMatch(/^blob:/);
 
     // „Schimbă" revine explicit la câmpul de text (gol) + butonul de upload — nu rămâne blocat pe
     // previzualizare dacă userul vrea să încarce alt fișier sau să lipească un link.
     await resourcesList.getByRole("button", { name: "Schimbă" }).click();
+    await expect.poll(() => page.evaluate(() => (window as Window & { revokedPreviews?: string[] }).revokedPreviews)).toContain(previewUrl);
     await expect(textField).toBeVisible();
     await expect(textField).toHaveValue("");
     await expect(resourcesList.getByText("Încărcat")).toHaveCount(0);

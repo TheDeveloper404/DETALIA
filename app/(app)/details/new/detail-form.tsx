@@ -1,5 +1,6 @@
 "use client";
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { Box, Check, ChevronDown, FileCheck, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
@@ -9,6 +10,8 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { CanvasCropPicker, type CropCanvasOption } from "@/components/canvas-crop-picker";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
+import { SupportHint } from "@/components/support/support-hint";
+import { useFailureCount } from "@/components/support/use-failure-count";
 import { MAX_SKETCH_NOTE_LENGTH, type Stroke } from "@/server/domain/sketch";
 import {
   HEIC_ERROR_MESSAGE,
@@ -62,7 +65,7 @@ const initialState: FormState = { error: null };
 export type CategoryOption = { id: string; name: string; parentId: string | null; isGroup: boolean };
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
-type ResourceRow = { type: ResourceType; value: string };
+type ResourceRow = { type: ResourceType; value: string; id?: string; previewUrl?: string };
 
 // Plafon pentru adnotarea trimisă în body-ul server action-ului. Mult sub `bodySizeLimit` (4 MB,
 // next.config.ts) ca să rămână loc pentru restul formularului — și sub `MAX_STROKES_BYTES` (3 MB,
@@ -348,6 +351,8 @@ export function DetailForm({
     saveDraftAction ?? noopDraftAction,
     initialState,
   );
+  // Doar publicarea (nu ciorna, nu validarea client) intră în contorul de eșecuri pentru SupportHint.
+  const publishFailures = useFailureCount(state.error ? state : null);
   // Sursa imaginii detaliului: „upload" (fișier existent), „draw" (desenat pe loc, pe foaie goală) sau
   // „canvas" (decupaj dintr-o planșă proprie, §7 din plan — vezi CanvasCropPicker). „canvas" e un pas
   // TRANZITORIU: la „Aplică decupajul" revenim direct pe „upload" cu fișierul rezultat (acțiunea de
@@ -355,12 +360,27 @@ export function DetailForm({
   const [mode, setMode] = useState<"upload" | "draw" | "canvas">("upload");
   // La editare, pornim cu imaginea existentă ca previzualizare (null = ciornă fără imagine încă).
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(
-    initial?.imageUrl ? { url: initial.imageUrl, name: "imaginea curentă" } : null,
+    initial?.imageUrl ? { url: blobReadUrl(initial.imageUrl, "detail", initial.detailId), name: "imaginea curentă" } : null,
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
   const [resources, setResources] = useState<ResourceRow[]>(initial?.resources ?? []);
+  const resourcePreviewUrls = useRef<string[]>([]);
+  useEffect(() => {
+    const active = new Set(resources.map((resource) => resource.previewUrl));
+    resourcePreviewUrls.current = resourcePreviewUrls.current.filter((url) => {
+      if (active.has(url)) return true;
+      URL.revokeObjectURL(url);
+      return false;
+    });
+  }, [resources]);
+  useEffect(() => () => {
+    resourcePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+  useEffect(() => () => {
+    if (preview?.url.startsWith("blob:")) URL.revokeObjectURL(preview.url);
+  }, [preview]);
   // Indecșii resurselor „încărcate" (fișier urcat de noi, nu link lipit de mână) — arată previzualizare
   // compactă în loc de câmpul de text cu URL-ul. Inițializat și din resursele EXISTENTE (editare), nu
   // doar din upload-uri noi în sesiunea curentă.
@@ -594,7 +614,7 @@ export function DetailForm({
   // „Schimbă" din previzualizarea compactă (sau tipul rândului s-a schimbat): revine la câmpul de
   // text/upload, golind valoarea veche.
   function clearUploadedResource(i: number) {
-    updateResource(i, { value: "" });
+    updateResource(i, { value: "", previewUrl: undefined });
     setUploadedResourceIndices((s) => new Set([...s].filter((x) => x !== i)));
   }
 
@@ -624,7 +644,9 @@ export function DetailForm({
         type === "IMAGE"
           ? await uploadImageToBlob("resources", file, "image")
           : await uploadDocToBlob("resources", file, type === "CAD" ? "cad" : "pdf");
-      updateResource(i, { value: url });
+      const previewUrl = type === "IMAGE" ? URL.createObjectURL(file) : undefined;
+      if (previewUrl) resourcePreviewUrls.current.push(previewUrl);
+      updateResource(i, { value: url, id: undefined, previewUrl });
       setUploadedResourceIndices((s) => new Set(s).add(i));
     } catch (err) {
       const message =
@@ -679,6 +701,9 @@ export function DetailForm({
           className="mb-5 scroll-mt-24 rounded-[10px] border border-destructive/30 bg-destructive/10 px-3.5 py-2.5 text-sm text-destructive"
         >
           {clientError ?? state.error ?? draftState.error}
+          {!clientError && state.error && (
+            <SupportHint failures={publishFailures} flow="detail_publish" errorMessage={state.error} />
+          )}
         </p>
       )}
 
@@ -1191,7 +1216,7 @@ export function DetailForm({
                         <div className="flex min-w-0 flex-1 items-center gap-2.5">
                           {r.type === "IMAGE" ? (
                             <div className="relative size-[38px] flex-none overflow-hidden rounded-[9px] border border-input bg-card">
-                              <Image src={r.value} alt="" fill sizes="38px" unoptimized className="object-cover" />
+                              <Image src={r.previewUrl ?? (r.id ? blobReadUrl(r.value, "resource", r.id) : r.value)} alt="" fill sizes="38px" unoptimized className="object-cover" />
                             </div>
                           ) : (
                             <div className="inline-flex size-[38px] flex-none items-center justify-center rounded-[9px] border border-input bg-card">

@@ -31,7 +31,9 @@ vi.mock("@/server/services/plansaService", () => ({
   listMyCanvases: vi.fn(),
 }));
 
-import { deleteCanvasAction, duplicateCanvasAction, renameCanvasAction } from "./canvas-list-actions";
+import { listMyCanvases } from "@/server/services/plansaService";
+
+import { getMyCanvasesForPicker, deleteCanvasAction, duplicateCanvasAction, renameCanvasAction } from "./canvas-list-actions";
 
 function formData(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -98,4 +100,19 @@ describe("deleteCanvasAction", () => {
     expect(res).toEqual({ ok: false, error: "Planșa nu mai există." });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
+});
+
+// Regula aprobata: "Un cont suspendat nu poate citi notificari sau lista planselor prin Server Actions."
+it("DET-05: nu citeste numele planselor cand poarta ACTIVE refuza", async () => {
+  requireActiveUserId.mockRejectedValueOnce(new Error("suspended"));
+  await expect(getMyCanvasesForPicker()).rejects.toThrow("suspended");
+  expect(listMyCanvases).not.toHaveBeenCalled();
+});
+
+// Regula: "lista planselor mele (id + nume)" (canvas-list-actions.ts).
+it("picker-ul citeste numai identitatea validata si intoarce id si nume", async () => {
+  requireActiveUserId.mockResolvedValueOnce("active-user");
+  vi.mocked(listMyCanvases).mockResolvedValueOnce([{ id: "canvas", name: "Plan" }] as never);
+  expect(await getMyCanvasesForPicker()).toEqual([{ id: "canvas", name: "Plan" }]);
+  expect(listMyCanvases).toHaveBeenCalledWith("active-user");
 });

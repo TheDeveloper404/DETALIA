@@ -4,6 +4,8 @@ import Link from "next/link";
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
 import styles from "@/components/public-pages/public-pages.module.css";
+import { LoginSupportHint } from "@/components/support/login-support-hint";
+import { magicLinkTtlMinutes } from "@/lib/session-config";
 
 // Mesaje de eroare prietenoase (fără a expune internals). Cheia = error.type din Auth.js.
 const ERROR_MESSAGES: Record<string, string> = {
@@ -36,6 +38,7 @@ export default async function LoginPage({
             {errorMessage}
           </p>
         )}
+        <LoginSupportHint verificationFailed={error === "Verification"} ttlMinutes={magicLinkTtlMinutes} />
 
         <AuthForm
           callbackUrl={callbackUrl ?? "/feed?welcome=1"}

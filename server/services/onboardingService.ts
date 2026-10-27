@@ -1,20 +1,17 @@
-// Service onboarding — profil text + imagini (opționale) + declarare rol, într-un singur pas atomic
-// din perspectiva apelantului. Server Action-ul (app/onboarding/actions.ts) rămâne subțire: extrage
+// Service onboarding — profil + rol salvate atomic in DB; imaginile optionale se pregatesc inainte.
+// Server Action-ul (app/onboarding/actions.ts) rămâne subțire: extrage
 // FormData → deleagă AICI → mapează eroarea la mesaj de UI → redirect.
 import { isUsersBlobUrl } from "@/lib/blob-url";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
-import {
-  updateUserCoverImage,
-  updateUserCoverPosition,
-  updateUserImage,
-  updateUserProfile,
-} from "@/server/repos/usersRepo";
-import { declareRole, type DeclareRoleResult } from "@/server/services/roleService";
+import { completeOnboardingProfileAndRole } from "@/server/repos/usersRepo";
+import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { validateRoleDeclaration, type RoleDeclarationError } from "@/server/domain/roles";
 
 type CompleteOnboardingError =
   | "INVALID_TYPE"
-  | Extract<DeclareRoleResult, { ok: false }>["error"];
+  | "ALREADY_HAS_ROLE"
+  | RoleDeclarationError;
 
 export type CompleteOnboardingResult = { ok: true } | { ok: false; error: CompleteOnboardingError };
 
@@ -40,16 +37,9 @@ export async function completeOnboarding(input: {
   if (avatarUrl && !isUsersBlobUrl(avatarUrl, userId)) return { ok: false, error: "INVALID_TYPE" };
   if (coverUrl && !isUsersBlobUrl(coverUrl, userId)) return { ok: false, error: "INVALID_TYPE" };
 
-  // ── Profil text PRIMUL ────
-  await updateUserProfile(userId, {
-    firstName: input.firstName,
-    lastName: input.lastName,
-    name: `${input.firstName} ${input.lastName}`,
-    headline: input.headline,
-    location: input.location,
-    website: input.website,
-    company: input.company,
-  });
+  const role = validateRoleDeclaration(input);
+  if (!role.ok) return role;
+  if (await getRoleByUserId(userId)) return { ok: false, error: "ALREADY_HAS_ROLE" };
 
   // ── Imagini (opționale) — re-encodare (strip metadata) + plafonare; salvăm DOAR URL-ul curat.
   // Avatar + cover se procesează ÎN PARALEL (fiecare = fetch+sharp+reupload+delete, secvențial ar
@@ -68,24 +58,24 @@ export async function completeOnboarding(input: {
     if (avatarResult?.ok) await deleteBlobs([avatarResult.url]);
     return { ok: false, error: "INVALID_TYPE" };
   }
-  if (avatarResult?.ok) {
-    await updateUserImage(userId, avatarResult.url);
-  }
-  if (coverResult?.ok) {
-    await updateUserCoverImage(userId, coverResult.url);
-    await updateUserCoverPosition(userId, input.coverPosition);
-  }
-
-  // ── Declară rolul ULTIMUL — e markerul de „onboarding complet" (page.tsx redirectează când există
-  // rol). Dacă orice scriere de mai sus eșuează, rolul NU se creează → următoarea accesare reia
-  // onboardingul, nu lasă un profil parțial permanent (rol fără nume).
-  const roleResult = await declareRole({
-    userId,
-    roleMain: input.roleMain,
-    subRole: input.subRole,
-    secondaryRole: input.secondaryRole,
+  // Rolul ramane markerul de onboarding complet: commit atomic cu profilul si imaginile procesate.
+  const completed = await completeOnboardingProfileAndRole(userId, {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    name: `${input.firstName} ${input.lastName}`,
+    headline: input.headline,
+    location: input.location,
+    website: input.website,
+    company: input.company,
+    ...role.value,
+    image: avatarResult?.ok ? avatarResult.url : undefined,
+    coverImage: coverResult?.ok ? coverResult.url : undefined,
+    coverPosition: input.coverPosition,
   });
-  if (!roleResult.ok) return { ok: false, error: roleResult.error };
+  if (!completed) {
+    await deleteBlobs([avatarResult?.ok ? avatarResult.url : null, coverResult?.ok ? coverResult.url : null]);
+    return { ok: false, error: "ALREADY_HAS_ROLE" };
+  }
 
   return { ok: true };
 }

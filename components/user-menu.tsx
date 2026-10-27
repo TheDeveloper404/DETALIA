@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { signOutAction } from "@/app/(app)/profile/actions";
+import { LOGIN_FAILURES_KEY } from "@/components/support/login-failures";
+import { SupportDialog } from "@/components/support/support-dialog";
 
 import { PersonSilhouette } from "./avatar-initials";
 
-// Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Deconectare (reală, via signOut).
+// Meniul utilizatorului din header (avatar → dropdown). Vizualizare profil + Ajutor + Deconectare (reală, via signOut).
 export function UserMenu({
   name,
   image,
@@ -17,6 +19,7 @@ export function UserMenu({
   image: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const [prevPathname, setPrevPathname] = useState(pathname);
@@ -27,6 +30,13 @@ export function UserMenu({
     setPrevPathname(pathname);
     setOpen(false);
   }
+
+  // Logat = linkul a mers: esecurile de login anterioare nu mai conteaza pentru caseta WhatsApp.
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(LOGIN_FAILURES_KEY);
+    } catch {}
+  }, []);
 
   // Închidere la click în afară + Escape. NU folosim backdrop `fixed` (ca la kebab) fiindcă header-ul are
   // `backdrop-blur` → devine containing block pentru `fixed`, iar backdrop-ul n-ar acoperi tot ecranul.
@@ -55,14 +65,14 @@ export function UserMenu({
         aria-expanded={open}
         aria-label="Meniul tău"
         data-tour="menu"
-        className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-full text-muted-foreground transition-colors hover:bg-muted"
+        className="inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-full text-muted-foreground transition-colors hover:bg-muted"
       >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="h-8 w-8 rounded-full object-cover" />
+          <img src={image} alt="" className="h-10 w-10 rounded-full object-cover" />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <PersonSilhouette className="size-4" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <PersonSilhouette className="size-5" />
           </span>
         )}
       </button>
@@ -85,6 +95,17 @@ export function UserMenu({
             >
               Vizualizare profil
             </Link>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                setHelpOpen(true);
+              }}
+              className="block w-full px-3.5 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted"
+            >
+              Ajutor
+            </button>
             <form action={signOutAction}>
               <button
                 type="submit"
@@ -96,6 +117,7 @@ export function UserMenu({
             </form>
         </div>
       )}
+      {helpOpen && <SupportDialog flow="menu" onClose={() => setHelpOpen(false)} />}
     </div>
   );
 }

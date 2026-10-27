@@ -3,11 +3,14 @@
 import { NotebookPen, Pencil, Save, Send, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { unstable_rethrow, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
+import { SupportHint } from "@/components/support/support-hint";
+import { useFailureCount } from "@/components/support/use-failure-count";
+import { uploadImageToBlob } from "@/lib/blob-upload";
 import { cn } from "@/lib/utils";
 import { MAX_SKETCH_NOTE_LENGTH, REMOVED_AUTHOR_LABEL, type Stroke } from "@/server/domain/sketch";
 
@@ -54,7 +57,10 @@ export function SketchEditor({
   const canvasRef = useRef<SketchCanvasHandle>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [count, setCount] = useState(initialStrokes.length);
+  // Fiecare încercare resetează `error` la null înainte → un mesaj setat din nou = încă un eșec.
+  const failures = useFailureCount(error);
+  // Canvas-ul incarcat dinamic confirma desenul dupa montare, cand ref-ul poate fi citit.
+  const [count, setCount] = useState(0);
   // Notă separată de desen (2026-07-16) — panou colapsabil, NICIODATĂ suprapus peste canvas (împinge
   // layout-ul, nu flotează peste el). Deschis implicit dacă exista deja o notă (reluare ciornă).
   const [note, setNote] = useState(initialNote ?? "");
@@ -66,34 +72,47 @@ export function SketchEditor({
     if (!canvasRef.current) return;
     setPending(true);
     setError(null);
-    const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()), note);
-    if (!res.ok) {
+    try {
+      const res = await saveStrokesAction(sketchId, JSON.stringify(canvasRef.current.getStrokes()), note);
+      if (!res.ok) {
+        setError(res.error ?? "Nu am putut salva.");
+        return;
+      }
+      router.push("/sketches/drafts");
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut salva. Încearcă din nou.");
+    } finally {
       setPending(false);
-      setError(res.error ?? "Nu am putut salva.");
-      return;
     }
-    // Ciorna salvată → direct în „Ciornele mele" (2026-07-18, discoverability: userii nu găseau unde
-    // aterizează ciorna — ex. ghicit URL-uri manual). Lista e cea mai clară confirmare: ciorna e sus,
-    // cu „Continuă". Nu mai stingem pending (navigăm).
-    router.push("/sketches/drafts");
   }
 
   async function handleSend() {
     if (!canvasRef.current) return;
     setPending(true);
     setError(null);
-    // JPEG, nu PNG: peste o poză-mamă mare (ex. 2268×4032) PNG-ul iese ~10MB → peste limita de body a
-    // Server Action (4MB) / Vercel (4.5MB), cererea e respinsă înainte de handler (incident 2026-10-26).
-    const thumbnail = await canvasRef.current.exportThumbnail("image/jpeg");
-    const fd = new FormData();
-    fd.set("sketchId", sketchId);
-    fd.set("detailId", detailId);
-    fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
-    fd.set("note", note);
-    if (thumbnail) fd.set("thumbnail", thumbnail, "thumbnail.jpg");
-    const res = await sendSketchAction(fd); // pe succes redirecționează (nu mai revine)
-    setPending(false);
-    if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");
+    try {
+      const thumbnail = await canvasRef.current.exportThumbnail("image/jpeg");
+      const fd = new FormData();
+      fd.set("sketchId", sketchId);
+      fd.set("detailId", detailId);
+      fd.set("strokes", JSON.stringify(canvasRef.current.getStrokes()));
+      fd.set("note", note);
+      // Imaginea merge browser -> Blob; daca upload-ul pica, schita se publica fara thumbnail.
+      if (thumbnail) {
+        try {
+          const url = await uploadImageToBlob("sketches/uploads", new File([thumbnail], "thumbnail.jpg", { type: thumbnail.type }));
+          fd.set("thumbnailUrl", url);
+        } catch {}
+      }
+      const res = await sendSketchAction(fd);
+      if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut publica. Încearcă din nou.");
+    } finally {
+      setPending(false);
+    }
   }
 
   return (
@@ -180,6 +199,7 @@ export function SketchEditor({
           className="z-20 flex-none border-b border-destructive/30 bg-destructive/10 px-[18px] py-2 text-center text-sm text-destructive"
         >
           {error}
+          <SupportHint failures={failures} flow="sketch_save" errorMessage={error} />
         </p>
       )}
 

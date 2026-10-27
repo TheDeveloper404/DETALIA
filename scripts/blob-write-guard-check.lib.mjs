@@ -28,7 +28,12 @@ const SINK_NAMES = [
 // Gărzi cunoscute: toate verifică (direct sau intern) `isUsersBlobUrl` înainte de a lăsa URL-ul să
 // ajungă la un sink. `reprocessBlobImage` (lib/image-processing.ts) o face INTERN — un apelant care
 // trece prin ea e la fel de acoperit ca unul care apelează `isUsersBlobUrl` direct.
-const GUARD_NAMES = ["isUsersBlobUrl", "hasForeignBlobResource", "reprocessBlobImage"];
+const GUARD_NAMES = [
+  "isUsersBlobUrl",
+  "hasForeignBlobResource",
+  "reprocessBlobImage",
+  "canUseBlobUrls",
+];
 
 const SINK_RE = new RegExp(`\\b(${SINK_NAMES.join("|")})\\s*\\(`);
 const GUARD_RE = new RegExp(`\\b(${GUARD_NAMES.join("|")})\\s*\\(`);

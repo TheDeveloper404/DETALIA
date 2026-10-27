@@ -2,11 +2,9 @@
 
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { deleteBlobs, uploadCanvasThumbnail } from "@/lib/storage";
 import {
   removeDetailFromCanvas,
   saveCanvasDocument,
-  saveCanvasThumbnail,
 } from "@/server/services/plansaService";
 
 export type CanvasEditActionResult = { ok: boolean; error?: string };
@@ -48,36 +46,6 @@ export async function saveCanvasDocumentAction(
     document: parseDocument(documentJson),
   });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut salva." };
-  return { ok: true };
-}
-
-// Salvează thumbnail-ul planșei (PNG compus client-side pe canvas offscreen). Best-effort.
-export async function saveCanvasThumbnailAction(
-  formData: FormData,
-): Promise<CanvasEditActionResult> {
-  const userId = await requireActiveUserId();
-
-  if (!(await checkLimit(limiters.mutation, userId)).ok) {
-    return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
-  }
-
-  const canvasId = String(formData.get("canvasId") ?? "");
-  const thumb = formData.get("thumbnail");
-  if (!(thumb instanceof File) || thumb.size === 0) return { ok: true }; // nimic de urcat → no-op
-
-  // SEC-02: câmpul de fișier e controlat de client → re-encodăm cu sharp (magic bytes + strip + plafon).
-  const upload = await uploadCanvasThumbnail(thumb, userId);
-  if (!upload.ok) return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
-
-  const res = await saveCanvasThumbnail({
-    canvasId,
-    ownerId: userId,
-    thumbnailUrl: upload.url,
-  });
-  if (!res.ok) {
-    await deleteBlobs([upload.url]); // planșa nu-i a lui / a dispărut → blob orfan, curăță
-    return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut salva thumbnail-ul." };
-  }
   return { ok: true };
 }
 

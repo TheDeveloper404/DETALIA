@@ -8,15 +8,14 @@ import { Redis } from "@upstash/redis";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { categories, detailCategories, details, roles, users } from "../db/schema";
+import { categories, detailCategories, details, roles, users, sessions } from "../db/schema";
 import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
-import { CURRENT_ANNOUNCEMENT_VERSION } from "../server/domain/announcements";
 import { pickLeafCategories } from "./category-helpers";
 
 // Setup AUTHED — seedează direct în DB un user ACTIVE cu rol declarat, apoi emite un cookie de sesiune
 // JWT valid (strategie `session.strategy = "jwt"`, vezi lib/auth.ts) prin `encode()` din `@auth/core/jwt`
-// — ACELAȘI mecanism folosit de Auth.js la login real, doar pre-populat. Tabelul `sessions` NU se mai
-// scrie (sesiunea trăiește în cookie, nu în DB) de la migrarea 2026-07-02. Salvează storageState (cookie)
+// — ACELASI mecanism folosit de Auth.js la login real, cu sid in registrul sessions.
+// Salveaza storageState (cookie)
 // + seed.json (id detaliu țintă).
 
 const AUTH_DIR = path.resolve(__dirname, ".auth");
@@ -83,13 +82,13 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
   // Onboarding-uri de UI marcate ca „văzute" — NECONDIȚIONAT (nu doar la insert): userul de test e
   // UPSERT (rândul persistă între rulări), deci un `if (!user)` singur n-ar acoperi rândul deja existent
   // dintr-o rulare anterioară, dinainte ca acest flag să fi existat. Fără asta, turul ghidat de pe
-  // pagina de detaliu (`DetailProductTour`) sau panoul „Ce e nou" (`WhatsNewModal`) ar putea porni
+  // pagina de detaliu (`DetailProductTour`) ar putea porni
   // NEDETERMINIST la prima navigare a oricărui spec către /feed sau /details/[id] din suită — un
   // overlay peste tot ecranul care ar bloca exact click-urile pe care alte teste le așteaptă acolo
   // (găsit 2026-08-18, la scrierea testului pt tur — risc real, nu doar teoretic).
   await db
     .update(users)
-    .set({ seenDetailTour: true, lastSeenAnnouncementVersion: CURRENT_ANNOUNCEMENT_VERSION })
+    .set({ seenDetailTour: true })
     .where(eq(users.id, user.id));
 
   // 3) Rol declarat (un singur rol/user — unique pe userId) → userul nu e împins spre /onboarding.
@@ -200,11 +199,13 @@ setup("seed user + rol + sesiune + detaliu și salvează storageState", async ()
 
   // `salt` = numele cookie-ului (așa derivează Auth.js cheia de criptare la decode, vezi
   // @auth/core/lib/utils/session.js). Payload-ul mimează exact ce pune callback-ul `jwt()` la login real.
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: user.id, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: user.id, id: user.id, status: "ACTIVE", name: TEST_NAME, email: TEST_EMAIL },
+    token: { sid, sub: user.id, id: user.id, status: "ACTIVE", name: TEST_NAME, email: TEST_EMAIL },
   });
 
   mkdirSync(AUTH_DIR, { recursive: true });

@@ -13,5 +13,5 @@ export const UPLOADABLE_RESOURCE_TYPES = new Set<ResourceType>(["IMAGE", "PDF", 
 // un fals-pozitiv rar (link extern care conține din întâmplare acest host) nu are consecințe reale,
 // doar arată previzualizarea compactă în loc de câmp de text.
 export function looksLikeUploadedResource(type: ResourceType, value: string): boolean {
-  return UPLOADABLE_RESOURCE_TYPES.has(type) && /\.public\.blob\.vercel-storage\.com\//.test(value);
+  return UPLOADABLE_RESOURCE_TYPES.has(type) && /\.(?:public|private)\.blob\.vercel-storage\.com\//.test(value);
 }

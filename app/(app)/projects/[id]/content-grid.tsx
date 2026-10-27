@@ -1,8 +1,10 @@
 "use client";
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { LayoutDashboard, Loader2, Plus, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 
 import { DialogOverlay } from "@/components/dialog-overlay";
@@ -123,7 +125,7 @@ export function ContentGrid({
               className={cn(TILE_CLASS, "block no-underline opacity-80 hover:opacity-100")}
             >
               {d.imageUrl && (
-                <Image src={d.imageUrl} alt="" fill sizes="240px" className="object-cover" />
+                <Image src={blobReadUrl(d.imageUrl, "detail", d.id)} unoptimized={d.imageUrl.includes(".private.blob.")} alt="" fill sizes="240px" className="object-cover" />
               )}
               <span className="absolute left-1.5 top-1.5 rounded-full bg-black/55 px-2 py-0.5 text-[10.5px] text-white">
                 În comunitate
@@ -276,13 +278,19 @@ function AddContentModal({
     const fd = new FormData();
     fd.set("canvasId", canvasId);
     fd.set("projectId", projectId);
-    const res = await shareCanvasAction(INITIAL, fd);
-    setBusyId(null);
-    if (!res.ok) {
-      setError(res.error ?? "Nu am putut partaja planșa.");
-      return;
+    try {
+      const res = await shareCanvasAction(INITIAL, fd);
+      if (!res.ok) {
+        setError(res.error ?? "Nu am putut partaja planșa.");
+        return;
+      }
+      onClose();
+    } catch (err) {
+      unstable_rethrow(err);
+      setError("Nu am putut partaja planșa. Încearcă din nou.");
+    } finally {
+      setBusyId(null);
     }
-    onClose();
   }
 
   return (

@@ -30,7 +30,7 @@ vi.mock("@/server/repos/projectMembersRepo", () => ({
   isActiveMember: vi.fn(),
   listActiveMembers: vi.fn(),
   removeMembership: vi.fn(),
-  upsertActiveMembership: vi.fn(),
+  upsertActiveMembership: vi.fn(() => Promise.resolve(true)),
 }));
 vi.mock("@/server/repos/projectsRepo", () => ({
   countProjectsOwnedBy: vi.fn(() => Promise.resolve(0)),
@@ -282,7 +282,7 @@ describe("joinProjectByToken", () => {
   it("token valid → membership upsert (idempotent și pt re-alăturare)", async () => {
     vi.mocked(getProjectByInviteToken).mockResolvedValueOnce(projectRow() as never);
     const res = await joinProjectByToken({ token: "tok-abc", userId: MEMBER_ID });
-    expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID, "tok-abc");
     expect(res).toEqual({ ok: true, projectId: PROJECT_ID, projectName: "Renovare bloc A" });
   });
 
@@ -302,7 +302,7 @@ describe("joinProjectByToken", () => {
     const res = await joinProjectByToken({ token: "tok-abc", userId: MEMBER_ID });
     expect(res).toEqual({ ok: true, projectId: PROJECT_ID, projectName: "Renovare bloc A" });
     expect(countActiveMembers).not.toHaveBeenCalled();
-    expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(upsertActiveMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID, "tok-abc");
   });
 
   // SEC-006 (audit securitate 2026-08-11): token expirat (TTL 3 zile) = tratat identic cu token
@@ -348,7 +348,7 @@ describe("removeMember — DOAR owner", () => {
   it("owner elimină un membru → ok", async () => {
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow() as never);
     const res = await removeMember({ projectId: PROJECT_ID, requesterId: OWNER_ID, targetUserId: MEMBER_ID });
-    expect(removeMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID);
+    expect(removeMembership).toHaveBeenCalledWith(PROJECT_ID, MEMBER_ID, "new-token-abc");
     expect(res).toEqual({ ok: true });
   });
 });
@@ -634,7 +634,7 @@ describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(["x"])) }),
+      vi.fn().mockResolvedValueOnce(new Response("x")),
     );
     vi.mocked(uploadProjectCanvasShare).mockResolvedValueOnce({ ok: true, url: "https://blob/share.png" });
     vi.mocked(insertCanvasShare).mockResolvedValueOnce({ id: SHARE_ID } as never);
@@ -658,7 +658,7 @@ describe("shareCanvasToProject — IDOR: owner planșă + membru proiect, ambele
     vi.mocked(getProjectById).mockResolvedValueOnce(projectRow({ ownerId: OWNER_ID }) as never);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValueOnce({ ok: true, blob: () => Promise.resolve(new Blob(["x"])) }),
+      vi.fn().mockResolvedValueOnce(new Response("x")),
     );
     vi.mocked(uploadProjectCanvasShare).mockResolvedValueOnce({ ok: true, url: "https://blob/share.png" });
     const fkError = Object.assign(new Error("insert or update on table violates foreign key constraint"), {

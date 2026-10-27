@@ -39,6 +39,10 @@ const PUBLIC_PATHS = [
   "/verify", // auto-confirmare magic link (JS redirect → callback); inertă la GET automat de scanner (pre-auth)
   "/maintenance", // ecranul „site în lucru" (ținta rewrite-ului de lockdown) — public by design
   "/s", // teaser PUBLIC read-only al unei schițe (decizie 2026-07-05) — vezi app/s/[id]/page.tsx
+  // Numai aceste tipuri pot contine fisiere publice; handler-ul decide accesul pe entitatea din DB.
+  "/api/files/detail",
+  "/api/files/resource",
+  "/api/files/sketch",
   // Invitație de proiect (2026-08-09) — public INTENȚIONAT: un vizitator FĂRĂ cont trebuie să vadă
   // „ai fost invitat în X" înainte de autentificare. STRICT „/projects/join" (nu "/projects" simplu —
   // acela rămâne protejat, e lista proiectelor userului).
@@ -94,7 +98,7 @@ export default async function proxy(req: NextRequest) {
   const authToken =
     (await getToken({ req: tokenReq, secret: process.env.AUTH_SECRET, secureCookie: isHttps })) ??
     (await getToken({ req: tokenReq, secret: process.env.AUTH_SECRET, secureCookie: !isHttps }));
-  const isLoggedIn = !!authToken;
+  const isLoggedIn = !!authToken?.sid;
   // Aceeași regulă de fallback ca fostul callback `session()` din lib/auth.ts (id, cu sub ca rezervă).
   const userId = authToken?.id ?? authToken?.sub;
 
@@ -157,7 +161,8 @@ export default async function proxy(req: NextRequest) {
 
   // SEC-05: „/projects/join” și „/s” n-au sens ca path exact (cer strict un token/id după) — dacă
   // sunt accesate exact (fără segment), NU trebuie tratate ca publice (vezi lib/public-paths.ts).
-  const isPublic = isPublicPath(pathname, PUBLIC_PATHS, ["/projects/join", "/s"]);
+  // Fisierele continutului public pot fi citite anonim; handler-ul aplica autorizarea pe entitate.
+  const isPublic = isPublicPath(pathname, PUBLIC_PATHS, ["/projects/join", "/s", "/api/files/detail", "/api/files/resource", "/api/files/sketch"]);
 
   // Neautentificat pe rută protejată → redirect la login, cu callback de revenire.
   if (!isPublic && !isLoggedIn) {
@@ -179,7 +184,7 @@ export default async function proxy(req: NextRequest) {
   // existență rula DOAR pe ramura `!hasRole` — un cont șters care păstra un rând `roles` orfan trecea
   // nedetectat de poarta veche).
   if (isLoggedIn && userId && !isPublic) {
-    const gate = await getUserGateInfo(userId);
+    const gate = await getUserGateInfo(userId, authToken!.sid!);
 
     // Cont dispărut din DB (curățare/GDPR) cu JWT încă tehnic valid → delogare directă, nu buclă de
     // onboarding (declareRole ar respinge oricum, dar userul nu vede de ce).

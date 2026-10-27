@@ -9,17 +9,18 @@
 //   5. plafonăm dimensiunile; re-urcăm imaginea curată; ștergem originalul (necurat).
 // La orice eșec: ștergem blob-ul orfan și respingem.
 
-import { del, put } from "@vercel/blob";
+import { put } from "@vercel/blob";
 import sharp from "sharp";
 
 import { isUsersBlobUrl } from "@/lib/blob-url";
-import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
+import { blobStoreOptions, deleteOwnBlob, isPrivateBlobUrl, readOwnBlob } from "@/lib/blob-store";
+import { blobAccessForFolder, MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
 // §11c#4 / SEC-02: ștergere best-effort a unui blob orfan, dar cu LOG la eșec (altfel orfanul rămâne fără
 // urmă → risipă de storage invizibilă). URL-ul de blob nu e PII (cale random).
 async function delOrphan(url: string): Promise<void> {
   try {
-    await del(url);
+    await deleteOwnBlob(url);
   } catch (err) {
     console.warn("blob: ștergere orfan eșuată:", err instanceof Error ? err.message : String(err));
   }
@@ -88,15 +89,17 @@ export async function reprocessBlobImage(url: string, folder: string, userId: st
   // Acceptăm DOAR URL-uri din store-ul nostru, urcate de userul curent → fetch-ul nu poate fi îndreptat
   // spre alte gazde (anti-SSRF) și nu putem șterge/consuma fișierul altcuiva.
   if (!isUsersBlobUrl(url, userId)) return { ok: false };
+  // Exceptiile publice nu pot fi folosite ca ruta de export pentru un URL privat pastrat.
+  if (isPrivateBlobUrl(url) && ["avatars", "covers", "comments"].includes(folder)) return { ok: false };
 
   let input: Buffer;
   try {
-    const res = await fetch(url);
-    if (!res.ok) {
+    const res = await readOwnBlob(url);
+    if (!res) {
       await delOrphan(url);
       return { ok: false };
     }
-    input = Buffer.from(await res.arrayBuffer());
+    input = Buffer.from(await new Response(res.body).arrayBuffer());
   } catch {
     await delOrphan(url);
     return { ok: false };
@@ -110,7 +113,8 @@ export async function reprocessBlobImage(url: string, folder: string, userId: st
 
   try {
     const uploaded = await put(`u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
-      access: "public",
+      access: blobAccessForFolder(folder),
+      ...blobStoreOptions(blobAccessForFolder(folder)),
       addRandomSuffix: false,
       contentType: clean.contentType,
     });
@@ -136,7 +140,8 @@ export async function processAndUploadImage(
   if (!clean) return { ok: false };
   try {
     const uploaded = await put(`u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
-      access: "public",
+      access: "private",
+      ...blobStoreOptions("private"),
       addRandomSuffix: false,
       contentType: clean.contentType,
     });

@@ -8,7 +8,6 @@ import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteAccount } from "@/server/services/accountService";
-import { markAnnouncementSeen } from "@/server/services/announcementService";
 import { markDetailTourSeen } from "@/server/services/tourService";
 import {
   markBadgesSeen,
@@ -168,12 +167,6 @@ const SIGN_OUT_REDIRECT = "/logout";
 export async function confirmBadgesSeenAction(): Promise<void> {
   const userId = await requireActiveUserId();
   await markBadgesSeen(userId);
-}
-
-// Confirmă panoul „Ce e nou" — marchează versiunea curentă ca văzută. userId din sesiune (anti-IDOR).
-export async function confirmAnnouncementSeenAction(): Promise<void> {
-  const userId = await requireActiveUserId();
-  await markAnnouncementSeen(userId);
 }
 
 // Confirmă turul ghidat de pe pagina de detaliu — nu se mai arată din nou. userId din sesiune (anti-IDOR).

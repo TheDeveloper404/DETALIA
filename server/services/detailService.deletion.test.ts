@@ -60,7 +60,7 @@ beforeEach(() => {
   repo.getDetailById.mockResolvedValue(detailRow as never);
   repo.deleteDetailCascade.mockResolvedValue([] as never);
   repo.anonymizeDetailAuthor.mockResolvedValue(true as never);
-  vi.mocked(deleteMaterialOffersForDetail).mockResolvedValue([] as never);
+  vi.mocked(deleteMaterialOffersForDetail).mockResolvedValue(undefined);
   vi.mocked(getRoleByUserId).mockResolvedValue({
     roleMain: "ARHITECT",
     subRole: "Structurist",
@@ -134,21 +134,15 @@ describe("deleteDetail — detaliu CU interacțiuni", () => {
     expect(res).toEqual({ ok: true, mode: "ANONYMIZE", alreadyDone: true });
   });
 
-  // Ofertele de materiale NU rămân la anonimizare (decizie 2026-08-25) — FK cascade nu le atinge
-  // (detaliul rămâne). `deleteMaterialOffersForDetail` le șterge explicit ȘI întoarce URL-urile
-  // fișierelor pentru `deleteBlobs`. Golul găsit la checkpoint-ul lunar de teste (2026-09-01):
-  // testul nu mock-uia `materialOffersRepo`, deci apelul cădea tăcut în catch-ul non-fatal.
-  it("ANONYMIZE — ofertele de materiale de pe detaliu sunt șterse, fișierele lor curățate din Blob", async () => {
-    vi.mocked(deleteMaterialOffersForDetail).mockResolvedValue([
-      "https://blob/offer-a.pdf",
-      "https://blob/offer-b.xlsx",
-    ] as never);
+  // Regula aprobata: "Da, aplica regula tuturor atasamentelor ofertelor" — oferta se elimina din DB, fisierul se pastreaza.
+  it("ANONYMIZE — ofertele sunt șterse din DB, fișierele fizice se păstrează", async () => {
+    vi.mocked(deleteMaterialOffersForDetail).mockResolvedValue(undefined);
 
     const res = await deleteDetail({ detailId: DETAIL, userId: AUTHOR });
 
     expect(res).toEqual({ ok: true, mode: "ANONYMIZE", alreadyDone: false });
     expect(deleteMaterialOffersForDetail).toHaveBeenCalledWith(DETAIL);
-    expect(deleteBlobs).toHaveBeenCalledWith(["https://blob/offer-a.pdf", "https://blob/offer-b.xlsx"]);
+    expect(deleteBlobs).not.toHaveBeenCalled();
   });
 
   it("ANONYMIZE — eșecul curățării ofertelor de materiale e non-fatal (retragerea autorului nu e blocată)", async () => {

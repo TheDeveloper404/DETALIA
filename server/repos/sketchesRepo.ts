@@ -34,6 +34,25 @@ export async function insertDraft(input: {
   return row;
 }
 
+// Reluare numai pe aceeasi foaie: autor, detaliu, intentie si fundal. Nu modifica desenul sau nota.
+export async function getResumableDraft(input: {
+  detailId: string;
+  authorId: string;
+  disapprovesParent: boolean;
+  baseSketchIds: string[];
+}) {
+  const [row] = await db.select({ id: sketches.id }).from(sketches).where(and(
+    eq(sketches.detailId, input.detailId),
+    eq(sketches.authorId, input.authorId),
+    eq(sketches.status, "DRAFT"),
+    eq(sketches.isAnnotation, false),
+    eq(sketches.hiddenAfterRelease, false),
+    eq(sketches.disapprovesParent, input.disapprovesParent),
+    sql`coalesce(${sketches.baseSketchIds}, '[]'::jsonb) = ${JSON.stringify(input.baseSketchIds)}::jsonb`,
+  )).orderBy(desc(sketches.updatedAt)).limit(1);
+  return row ?? null;
+}
+
 // Din `ids`, care mai există ACUM ca schițe PUBLISHED pe acest detaliu — în ORDINEA cerută de apelant
 // (Postgres nu garantează ordinea unui `IN`, iar ordinea e chiar semantica stack-ului: jos → sus).
 // Folosit în două locuri: la creare (validarea rețetei primite din client) și la publicare (curățarea

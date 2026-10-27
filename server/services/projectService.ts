@@ -11,6 +11,7 @@ import { audit } from "@/lib/audit";
 import { isOwnBlobUrl } from "@/lib/blob-url";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
 import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
+import { readOwnBlob } from "@/lib/blob-store";
 import {
   canReleaseToCommunity,
   formatShareTimestamp,
@@ -195,7 +196,9 @@ export async function joinProjectByToken(input: {
     return { ok: false, error: "LIMIT_REACHED" };
   }
 
-  await upsertActiveMembership(project.id, input.userId);
+  if (!(await upsertActiveMembership(project.id, input.userId, input.token))) {
+    return { ok: false, error: "INVALID_TOKEN" };
+  }
   return { ok: true, projectId: project.id, projectName: project.name };
 }
 
@@ -219,7 +222,7 @@ export async function removeMember(input: {
   const project = await getProjectById(input.projectId);
   if (!project) return { ok: false, error: "NOT_FOUND" };
   if (project.ownerId !== input.requesterId) return { ok: false, error: "FORBIDDEN" };
-  await removeMembership(input.projectId, input.targetUserId);
+  await removeMembership(input.projectId, input.targetUserId, generateInviteToken());
   return { ok: true };
 }
 
@@ -427,9 +430,9 @@ export async function shareCanvasToProject(input: {
 
   let blob: Blob;
   try {
-    const res = await fetch(canvas.thumbnailUrl);
-    if (!res.ok) return { ok: false, error: "UPLOAD_FAILED" };
-    blob = await res.blob();
+    const res = await readOwnBlob(canvas.thumbnailUrl);
+    if (!res) return { ok: false, error: "UPLOAD_FAILED" };
+    blob = await new Response(res.body).blob();
   } catch {
     return { ok: false, error: "UPLOAD_FAILED" };
   }

@@ -5,6 +5,7 @@
 import { del } from "@vercel/blob";
 
 import { isOwnBlobUrl } from "@/lib/blob-url";
+import { blobStoreOptions, isPrivateBlobUrl } from "@/lib/blob-store";
 import { processAndUploadImage } from "@/lib/image-processing";
 // Limitele de upload trăiesc în `lib/upload-limits.ts` (partajate client+server, fără SDK Blob).
 import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
@@ -12,10 +13,8 @@ import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 type ImageValidationError = "EMPTY" | "INVALID_TYPE" | "TOO_LARGE" | "UPLOAD_FAILED";
 export type UploadImageResult = { ok: true; url: string } | { ok: false; error: ImageValidationError };
 
-// NOTĂ: upload-urile de imagini (avatar, cover, imagine detaliu) se fac acum CLIENT direct în Blob
-// (`@vercel/blob/client` → /api/blob/upload), ca să ocolească limita de body a server actions (1MB)
-// și a funcțiilor Vercel (~4.5MB). Aici a rămas doar upload-ul thumbnail-ului de schiță, care e un
-// Blob mic randat client-side și trimis printr-un server action (sub limită).
+// Upload-urile client (inclusiv thumbnail-urile) merg direct in Blob. Aici raman imaginile deja
+// pe server: copiile partajate in proiect si fixture-urile care genereaza thumbnail-uri in E2E.
 
 // Validare comună (EMPTY/TOO_LARGE) + re-encodare SEC-02 (sharp: magic bytes, strip metadata, plafon
 // dimensiuni) — un Blob generat de NOI (canvas/export), dar câmpul de fișier al unui server action e
@@ -27,11 +26,6 @@ async function uploadImage(blob: Blob, folder: string, userId: string): Promise<
   const processed = await processAndUploadImage(blob, folder, userId);
   if (!processed.ok) return { ok: false, error: "INVALID_TYPE" };
   return { ok: true, url: processed.url };
-}
-
-// Thumbnail al unei schițe (randat client-side la SEND).
-export async function uploadSketchThumbnail(blob: Blob, userId: string): Promise<UploadImageResult> {
-  return uploadImage(blob, "sketches", userId);
 }
 
 // Thumbnail al unei planșe (compus client-side la salvare — imagini + strokes pe canvas offscreen).
@@ -58,7 +52,10 @@ export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<
   const valid = urls.filter((u): u is string => !!u && isOwnBlobUrl(u));
   if (valid.length === 0) return;
   try {
-    await del(valid);
+    const publicUrls = valid.filter((url) => !isPrivateBlobUrl(url));
+    const privateUrls = valid.filter(isPrivateBlobUrl);
+    if (publicUrls.length) await del(publicUrls, blobStoreOptions("public"));
+    if (privateUrls.length) await del(privateUrls, blobStoreOptions("private"));
   } catch (err) {
     // Găsit la /code-review QODO (2026-08-11): logam array-ul complet de URL-uri pe eroare — util la
     // debug, dar inutil de expansiv în Vercel Logs (URL-urile Blob sunt long-lived). Doar count + host.

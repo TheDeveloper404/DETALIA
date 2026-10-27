@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import posthog from "posthog-js";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+import { SupportDialog } from "@/components/support/support-dialog";
 
 // Error boundary la nivel de aplicație (sub AppHeader). Prinde excepțiile din Server/Client Components
-// și oferă o ieșire: reîncearcă (re-randează segmentul) sau mergi în feed. Fără detalii tehnice către user.
+// și oferă o ieșire: reîncearcă (re-randează segmentul), mergi în feed sau raportează problema (formular de
+// suport, cu digest-ul atașat). Fără detalii tehnice către user.
 export default function Error({
   error,
   reset,
@@ -13,6 +16,8 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [helpOpen, setHelpOpen] = useState(false);
+
   useEffect(() => {
     // Logăm doar mesajul/digest-ul — fără PII. Detaliile reale sunt în logul de server.
     console.error("Eroare neașteptată:", error.digest ?? error.message);
@@ -44,6 +49,20 @@ export default function Error({
             Mergi la feed
           </Link>
         </div>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          className="mt-[18px] text-sm font-semibold text-primary hover:underline"
+        >
+          Raportează problema
+        </button>
+        {helpOpen && (
+          <SupportDialog
+            flow="general"
+            errorMessage={error.digest ? `digest ${error.digest}` : undefined}
+            onClose={() => setHelpOpen(false)}
+          />
+        )}
       </div>
     </main>
   );

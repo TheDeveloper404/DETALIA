@@ -73,14 +73,14 @@ export function withTestHeadroom(prodMax: number, testMax: number, isProduction 
 // Limitele FAZA 1 — centralizate, ușor de ajustat. Generoase pentru uz real, dar opresc flood-ul/abuzul.
 export const limiters = {
   // Magic link: poartă publică → cea mai strictă. Pe email (hash) ȘI pe IP.
-  authPerEmail: make(5, "1 h", "auth:email"),
+  authPerEmail: make(10, "1 h", "auth:email"),
   authPerIp: make(20, "1 h", "auth:ip"),
   // Mutații post-auth (validare, comentariu, save/send schiță) per user.
   mutation: make(40, "1 m", "mutation"),
   // Publicare detaliu per user (mai costisitoare: imagine + scrieri DB).
   createDetail: make(withTestHeadroom(10, 100), "1 h", "create-detail"),
   // Cotă de upload (emitere token Blob) per user.
-  upload: make(30, "1 h", "upload"),
+  upload: make(withTestHeadroom(30, 300), "1 h", "upload"),
   // Admin-login (anti-brute-force) — pe username ȘI pe IP. Strict (poartă privilegiată).
   adminLoginPerUser: make(10, "15 m", "admin:login:user"),
   adminLoginPerIp: make(30, "15 m", "admin:login:ip"),
@@ -94,6 +94,8 @@ export const limiters = {
   // un SELECT în DB per request, fără sesiune — pe IP, ca să nu limiteze mai mulți invitați legitimi
   // de pe aceeași rețea folosind ACELAȘI token.
   projectInvitePreviewPerIp: make(30, "1 m", "project-invite-preview:ip"),
+  // Cereri de ajutor (formular → Slack) per user — rare la uz real, cota oprește spam-ul în canal.
+  support: make(withTestHeadroom(3, 50), "1 h", "support"),
 } as const;
 
 // SEC-14: hartă inversă limiter→nume, ca să etichetăm evenimentul de audit FĂRĂ a schimba call-site-urile.

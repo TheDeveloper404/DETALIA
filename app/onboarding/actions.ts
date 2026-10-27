@@ -40,10 +40,8 @@ export async function onboardingAction(
   _prev: OnboardingState,
   formData: FormData,
 ): Promise<OnboardingState> {
-  // SEC-04: onboarding SCRIE PII (nume, headline etc.) în rândul user ÎNAINTE de declareRole. Cu doar
-  // `auth()` (JWT stale), un cont DELETED (anonimizat) sau SUSPENDED cu token încă viu (≤7 zile) putea
-  // re-POSTa acest formular și rescrie PII real peste rândul anonimizat — anulând ștergerea GDPR (declareRole
-  // ar fi picat cu ALREADY_HAS_ROLE, dar DUPĂ scrieri). Re-check status proaspăt din DB → DELETED/SUSPENDED = signOut.
+  // SEC-04: onboarding scrie PII si rol. Statusul proaspat impiedica un cont DELETED/SUSPENDED
+  // sa reia formularul dintr-un tab vechi si sa rescrie profilul.
   const userId = await requireActiveUserId();
 
   // ── Câmpuri text ────────────────────────────────────────────────

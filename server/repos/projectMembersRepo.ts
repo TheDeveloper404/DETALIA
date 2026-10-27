@@ -3,7 +3,7 @@
 import { and, count, eq, isNull, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { projectMembers, roles, users } from "@/db/schema";
+import { projectMembers, projects, roles, users } from "@/db/schema";
 
 import { verifiedCondition } from "@/server/repos/repoHelpers";
 
@@ -36,20 +36,40 @@ export async function countActiveMembers(projectId: string): Promise<number> {
 // null`, `joinedAt` reîmprospătat) pentru re-alăturare. Un singur rând per (proiect, user) — vezi
 // comentariul din db/schema.ts la `projectMembers` pentru de ce (afișarea „Autor eliminat" e o
 // verificare LIVE pe acest rând, nu pe istoric).
-export async function upsertActiveMembership(projectId: string, userId: string) {
-  const [row] = await db
-    .insert(projectMembers)
-    .values({ projectId, userId })
-    .onConflictDoUpdate({
-      target: [projectMembers.projectId, projectMembers.userId],
-      set: { removedAt: null, joinedAt: new Date() },
-    })
-    .returning();
-  return row;
+export async function upsertActiveMembership(projectId: string, userId: string, inviteToken: string) {
+  // Aceeasi blocare de proiect ca la eliminare: tokenul se reverifica DUPA orice rotire concurenta.
+  const result = await db.execute(sql`
+    with locked_project as (
+      select ${projects.id} as id from ${projects}
+      where ${projects.id} = ${projectId} and ${projects.inviteToken} = ${inviteToken}
+      for update
+    )
+    insert into ${projectMembers} (project_id, user_id)
+    select id, ${userId}::uuid from locked_project where true
+    on conflict (project_id, user_id) do update set removed_at = null, joined_at = now()
+    returning id
+  `);
+  return result.rows.length > 0;
 }
 
 // Eliminare membru (doar owner, verificat în service). No-op dacă userul nu era membru activ (idempotent).
-export async function removeMembership(projectId: string, userId: string) {
+export async function removeMembership(projectId: string, userId: string, newInviteToken?: string) {
+  if (newInviteToken) {
+    // Tranzactie READ COMMITTED: lock-ul proiectului precede un snapshot nou al membrilor.
+    // Un singur CTE nu vede membership-ul inserat/reactivat cat timp rotirea asteapta lock-ul.
+    await db.batch([
+      db.execute(sql`
+        update ${projects} set invite_token = ${newInviteToken}, invite_token_created_at = now()
+        where ${projects.id} = ${projectId}
+      `),
+      db.execute(sql`
+        update ${projectMembers} set removed_at = now()
+        where ${projectMembers.projectId} = ${projectId}
+          and ${projectMembers.userId} = ${userId} and ${projectMembers.removedAt} is null
+      `),
+    ]);
+    return;
+  }
   await db
     .update(projectMembers)
     .set({ removedAt: new Date() })

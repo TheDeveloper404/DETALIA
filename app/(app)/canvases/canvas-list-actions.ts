@@ -1,9 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import {
@@ -28,9 +26,8 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 // READ (lazy) pentru popover-ul „Trimite în Planșă": lista planșelor mele (id + nume). Nu mută nimic.
 export async function getMyCanvasesForPicker(): Promise<{ id: string; name: string }[]> {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
-  const list = await listMyCanvases(session.user.id);
+  const userId = await requireActiveUserId();
+  const list = await listMyCanvases(userId);
   return list.map((c) => ({ id: c.id, name: c.name }));
 }
 

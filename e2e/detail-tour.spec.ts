@@ -22,6 +22,28 @@ function detailUrl(): string {
 }
 
 test.describe.serial("Tur ghidat — pagina de detaliu", () => {
+  // Regula aprobata: "pe telefon trebuie eliminat"; telefonul nu consuma tutorialul disponibil pe web/tableta.
+  test("telefonul nu porneste turul si nu il marcheaza vazut; tableta il poate porni", async ({ page }) => {
+    const { testerUserId } = getSeed();
+    await db.update(users).set({ seenDetailTour: false }).where(eq(users.id, testerUserId));
+    try {
+      await page.setViewportSize({ width: 375, height: 812 });
+      await page.goto(detailUrl());
+      await expect(page.locator('[data-tour="detail-tabs"]')).toBeVisible();
+      await page.waitForTimeout(1000); // Permite hidratarea inainte de a verifica absenta overlay-ului.
+      await expect(page.locator(".detalia-tour-popover")).toHaveCount(0);
+      const [unseen] = await db.select({ seen: users.seenDetailTour }).from(users).where(eq(users.id, testerUserId));
+      expect(unseen.seen).toBe(false);
+      await page.setViewportSize({ width: 768, height: 1024 });
+      await page.reload();
+      const popover = page.locator(".detalia-tour-popover");
+      await expect(popover).toBeVisible();
+      await expect(popover.locator(".driver-popover-title")).toHaveText("Tab-uri");
+    } finally {
+      await db.update(users).set({ seenDetailTour: true }).where(eq(users.id, testerUserId));
+    }
+  });
+
   test("prima vizită (flag nevăzut) → turul pornește, rămâne vizibil, marchează văzut", async ({ page }) => {
     const { testerUserId } = getSeed();
     await db.update(users).set({ seenDetailTour: false }).where(eq(users.id, testerUserId));

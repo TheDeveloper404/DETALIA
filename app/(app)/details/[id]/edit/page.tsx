@@ -66,7 +66,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
     windLoad: detail.windLoad,
     resources: detail.resources
       .filter((r) => EDITABLE_RESOURCE_TYPES.has(r.type) && !!r.url)
-      .map((r) => ({ type: r.type as "IMAGE" | "LINK" | "PDF" | "CAD", value: r.url as string })),
+      .map((r) => ({ id: r.id, type: r.type as "IMAGE" | "LINK" | "PDF" | "CAD", value: r.url as string })),
     annotation,
   };
 

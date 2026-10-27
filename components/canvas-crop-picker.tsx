@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 // poate oricum face un screenshot, deci bariera ar fi teatru de securitate fără beneficiu real); accesul
 // la LISTA de planșe eligibile (doar ale userului) e singura gardă reală, deja impusă de `listMyCanvases`.
 
+import { blobReadUrl } from "@/lib/blob-read-url";
+
 export type CropCanvasOption = { id: string; name: string; thumbnailUrl: string | null };
 
 type Rect = { x: number; y: number; w: number; h: number }; // normalizat 0..1, față de imaginea afișată
@@ -256,7 +258,7 @@ export function CanvasCropPicker({
   if (selected?.thumbnailUrl) {
     return (
       <CropStage
-        imageUrl={selected.thumbnailUrl}
+        imageUrl={blobReadUrl(selected.thumbnailUrl, "canvas", selected.id)}
         onApply={onApply}
         onCancel={() => setSelected(null)}
       />
@@ -294,7 +296,7 @@ export function CanvasCropPicker({
           >
             <div className="aspect-[4/3] w-full overflow-hidden">
               {/* eslint-disable-next-line @next/next/no-img-element -- thumbnail dintr-un set variabil de planșe */}
-              <img src={c.thumbnailUrl!} alt="" className="size-full object-cover" />
+              <img src={blobReadUrl(c.thumbnailUrl!, "canvas", c.id)} alt="" className="size-full object-cover" />
             </div>
             <div className="truncate border-t border-[#e6ddcf] bg-card px-2.5 py-1.5 font-mono text-[11.5px] text-foreground/80">
               {c.name}

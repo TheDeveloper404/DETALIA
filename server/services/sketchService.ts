@@ -23,6 +23,7 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import {
   getSketchById,
+  getResumableDraft,
   getStrokesByIds,
   insertDraft,
   countAnnotationsByDetail,
@@ -105,6 +106,14 @@ export async function createDraft(input: {
   if (input.isAnnotation) {
     const count = await countAnnotationsByDetail(input.detailId);
     if (!canAddAnnotation(count)) return { ok: false, error: "ANNOTATION_LIMIT" };
+  } else {
+    const existing = await getResumableDraft({
+      detailId: input.detailId,
+      authorId: input.authorId,
+      disapprovesParent: input.disapprovesParent ?? false,
+      baseSketchIds,
+    });
+    if (existing) return { ok: true, value: { sketchId: existing.id } };
   }
 
   const sketch = await insertDraft({
@@ -246,19 +255,28 @@ export async function publish(input: {
   // Proiecte (gol găsit la /code-review, 2026-08-09): destinatarul e `detail.ownerId`, NU cel verificat
   // mai sus (publisher-ul schiței) — dacă owner-ul detaliului a fost între timp eliminat din proiect,
   // notificarea (email + clopoțel persistat) i-ar scurge titlul unui detaliu la care nu mai are acces.
-  const recipientHasAccess =
-    !detail.projectId || (await canAccessProjectDetail({ projectId: detail.projectId, userId: detail.ownerId }));
-  if (recipientHasAccess && !isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
-    const author = await getNotificationActor(sketch.authorId);
-    await notifySketchProposed({
-      recipientUserId: detail.ownerId,
+  // Notificarea este auxiliară: schița este deja publicată. Dezaprobarea obligatorie de mai sus
+  // rămâne în afara acestui catch, ca o eroare de business să nu fie ascunsă.
+  try {
+    const recipientHasAccess =
+      !detail.projectId || (await canAccessProjectDetail({ projectId: detail.projectId, userId: detail.ownerId }));
+    if (recipientHasAccess && !isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
+      const author = await getNotificationActor(sketch.authorId);
+      await notifySketchProposed({
+        recipientUserId: detail.ownerId,
+        sketchId: sketch.id,
+        detailId: sketch.detailId,
+        detailTitle: detail.title,
+        sketchAuthorName: author?.name ?? null,
+        sketchAuthorRole: author?.roleMain ?? null,
+        sketchAuthorSubRole: author?.subRole ?? null,
+        sketchAuthorVerified: author?.verification === "VERIFIED",
+      });
+    }
+  } catch {
+    console.error("[sketchService] notificare eșuată (non-fatal)", {
       sketchId: sketch.id,
       detailId: sketch.detailId,
-      detailTitle: detail.title,
-      sketchAuthorName: author?.name ?? null,
-      sketchAuthorRole: author?.roleMain ?? null,
-      sketchAuthorSubRole: author?.subRole ?? null,
-      sketchAuthorVerified: author?.verification === "VERIFIED",
     });
   }
   return { ok: true };

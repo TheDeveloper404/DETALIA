@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // E2E — ciclul complet de schiță: pornire → desen → publicare (intră direct în teanc) → apare ca tab nou
 // pe detaliu → autorul schiței o șterge. Serial: fiecare pas depinde de starea lăsată de precedentul.
@@ -38,9 +39,22 @@ async function deleteSketchById(): Promise<void> {
 }
 
 test.describe.serial("Schiță — publish & delete", () => {
+  test.beforeEach(async ({ page }) => { await stripBypassHeadersForBlobUploads(page); });
   test.afterAll(deleteSketchById);
 
+  // Regula aprobata: "direct thumbnail upload ... Preserve ... redirect success behavior".
   test("Schițează → editor + desen → Publică → intră în teanc", async ({ page }) => {
+    // JPEG real produs de canvas, cu padding valid: peste plafonul de 4.5 MB al functiei.
+    await page.addInitScript(() => {
+      const original = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (callback, type, quality) {
+        original.call(this, (blob) => {
+          if (blob && type === "image/jpeg") {
+            callback(new Blob([blob, new Uint8Array(Math.max(0, 5_000_000 - blob.size))], { type: blob.type }));
+          } else callback(blob);
+        }, type, quality);
+      };
+    });
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Schițează" }).click();
     await expect(page).toHaveURL(/\/sketches\/.+\/edit/);
@@ -61,6 +75,13 @@ test.describe.serial("Schiță — publish & delete", () => {
 
     const publishBtn = page.getByRole("button", { name: /Publică schița/ });
     await expect(publishBtn).toBeEnabled();
+
+    const actionBodies: number[] = [];
+    page.on("request", (request) => {
+      if (request.headers()["next-action"] && new URL(request.url()).pathname === `/sketches/${sketchId}/edit`) {
+        actionBodies.push(request.postDataBuffer()?.length ?? 0);
+      }
+    });
     await publishBtn.click();
 
     // Publicarea redirecționează la detaliu; noul tab (avatar autor sesiune) apare în strip.
@@ -69,6 +90,10 @@ test.describe.serial("Schiță — publish & delete", () => {
     // tab-ul acestei schițe, după ID (data-testid stabil, vezi detail-workspace.tsx).
     await expect(page).toHaveURL(new RegExp(`${detailUrl()}$`));
     await expect(page.getByTestId(`sketch-tab-${sketchId}`)).toBeVisible();
+    expect(actionBodies.length).toBeGreaterThan(0);
+    expect(actionBodies.every((bytes) => bytes > 0 && bytes < 4_500_000)).toBe(true);
+    const [published] = await db.select({ thumbnailUrl: sketches.thumbnailUrl }).from(sketches).where(eq(sketches.id, sketchId!));
+    expect(published.thumbnailUrl).toMatch(/\/sketches\/[^/]+\.jpg$/);
   });
 
   test("Tab-ul schiței → badge de teanc + ștergere de către autor", async ({ page }) => {

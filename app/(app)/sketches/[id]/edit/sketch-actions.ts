@@ -6,7 +6,9 @@ import { auth } from "@/lib/auth";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { deleteBlobs, uploadSketchThumbnail } from "@/lib/storage";
+import { isUsersBlobUrl } from "@/lib/blob-url";
+import { reprocessBlobImage } from "@/lib/image-processing";
+import { deleteBlobs } from "@/lib/storage";
 import { publish, saveStrokes } from "@/server/services/sketchService";
 
 export type SketchActionResult = { ok: boolean; error?: string };
@@ -59,7 +61,7 @@ export async function saveStrokesAction(
   return { ok: true };
 }
 
-// Publică schița (DRAFT → PUBLISHED, direct în teanc) + thumbnail PNG. Pe succes → redirect la detaliu.
+// Publica schita + thumbnail incarcat direct, fara bytes de imagine in Server Action.
 export async function sendSketchAction(formData: FormData): Promise<SketchActionResult> {
   // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate publica schițe.
   const userId = await requireActiveUserId();
@@ -74,11 +76,16 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
   const strokes = parseStrokes(String(formData.get("strokes") ?? ""));
   const note = formData.get("note");
 
-  // Thumbnail-ul e best-effort: dacă lipsește sau uploadul eșuează, publicăm fără el.
   let thumbnailUrl: string | null = null;
-  const thumb = formData.get("thumbnail");
-  if (thumb instanceof File && thumb.size > 0) {
-    const upload = await uploadSketchThumbnail(thumb, userId);
+  const rawThumbnailUrl = String(formData.get("thumbnailUrl") ?? "");
+  if (rawThumbnailUrl) {
+    // Doar upload-uri temporare ale userului; transformarea sterge sursa, niciodata un thumbnail final.
+    if (!isUsersBlobUrl(rawThumbnailUrl, userId) ||
+        !new URL(rawThumbnailUrl).pathname.startsWith(`/u/${userId}/sketches/uploads/`)) {
+      return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
+    }
+    // Thumbnail-ul e auxiliar: daca reprocesarea esueaza, schita se publica fara el.
+    const upload = await reprocessBlobImage(rawThumbnailUrl, "sketches", userId);
     if (upload.ok) thumbnailUrl = upload.url;
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { LayoutDashboard, Pencil, PencilLine, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -66,7 +67,7 @@ export function DraftsList({ drafts }: { drafts: UnifiedDraft[] }) {
             <div className="relative aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r">
               <Link href={editHref(d)} className="block size-full">
                 {d.imageUrl ? (
-                  <Image src={d.imageUrl} alt="" fill sizes="(max-width: 640px) 100vw, 260px" className="object-cover" />
+                  <Image src={blobReadUrl(d.imageUrl, "detail", d.kind === "sketch" ? d.detailId : d.id)} unoptimized={d.imageUrl.includes(".private.blob.")} alt="" fill sizes="(max-width: 640px) 100vw, 260px" className="object-cover" />
                 ) : (
                   <span className="flex size-full items-center justify-center">
                     {d.kind === "sketch" ? (

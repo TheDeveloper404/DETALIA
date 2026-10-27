@@ -38,11 +38,11 @@ describe("getTourSteps", () => {
     expect(targets).toEqual(REAL_TOUR_TARGETS);
   });
 
-  it("non-desktop → sare pasul din sidebar (my-content), restul intact", () => {
+  it("tableta → sare cei trei pasi din sidebar-ul ascuns", () => {
     const targets = targetsOf(getTourSteps({ isDesktop: false, hasFeedItems: true }));
     expect(targets).not.toContain("my-content");
     expect(targets).toContain("feed-first-card");
-    expect(targets).toEqual(REAL_TOUR_TARGETS.filter((t) => t !== "my-content"));
+    expect(targets).toEqual(["feed-first-card", "add", "menu"]);
   });
 
   it("feed gol → sare pasul de card (feed-first-card), restul intact", () => {
@@ -52,8 +52,8 @@ describe("getTourSteps", () => {
     expect(targets).toEqual(REAL_TOUR_TARGETS.filter((t) => t !== "feed-first-card"));
   });
 
-  it("non-desktop + feed gol → sare ambii pași condiționați", () => {
+  it("tableta + feed gol → ramane turul elementelor vizibile", () => {
     const targets = targetsOf(getTourSteps({ isDesktop: false, hasFeedItems: false }));
-    expect(targets).toEqual(REAL_TOUR_TARGETS.filter((t) => t !== "my-content" && t !== "feed-first-card"));
+    expect(targets).toEqual(["add", "menu"]);
   });
 });

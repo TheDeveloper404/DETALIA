@@ -109,6 +109,9 @@ din heatmap, referral, + combinații derivate: `combinedContribution` (min publi
 în `badges.ts`, testat de `badges.test.ts`.
 
 ## Tur ghidat (`ProductTour` / `DetailProductTour`)
+
+Disponibil de la 768px (tableta/desktop); sub acest prag nu porneste. Pe telefon, vizita la detaliu
+nu marcheaza tutorialul drept vazut. Popup-ul „Ce e nou” a fost eliminat (2026-10-27).
 Pattern comun (driver.js, restilizat pe paletă — `.detalia-tour-popover` în `globals.css`), DOUĂ
 instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al paginii:
 - **Feed** (`components/product-tour.tsx`) — declanșat o singură dată, prin `?tour=1` în URL (NU un
@@ -123,8 +126,8 @@ instanțe cu declanșare DIFERITĂ după cum arată punctul de intrare al pagini
   noi) — adaugă un pas nou punând `data-tour` pe elementul existent + o intrare în `TOUR_STEPS`
   (feed) / `DETAIL_TOUR_STEPS` (`lib/detail-tour-steps.ts`), verificate de `product-tour.test.ts` /
   `lib/detail-tour-steps.test.ts` (selectori reali, fără duplicate).
-- **Feed — pași care pot lipsi legitim din DOM** (2026-08-27): `my-content` e în sidebar
-  (`hidden lg:flex`, absent pe mobil), `feed-first-card` există doar când feed-ul are ≥1 detaliu.
+- **Feed — pași care pot lipsi legitim din DOM**: `categories`, `profile`, `my-content` sunt in sidebar
+  (`hidden lg:flex`, ascuns sub 1024px), `feed-first-card` există doar când feed-ul are ≥1 detaliu.
   `getTourSteps({ isDesktop, hasFeedItems })` îi filtrează EXPLICIT înainte de `driver()` — nu te baza
   pe skip-ul silențios, strică numărătoarea „X din N". Orice pas nou pe o țintă condiționată trece
   prin același filtru.
@@ -224,6 +227,20 @@ a elementelor formularului și hover/focus pe email rămân, dezactivate pentru 
 Antet profil (`ProfileView`): sub `sm`, linkul „Editează profil” este în dreapta avatarului,
 în zona albă de sub cover, cu target 44 px. La ≥640 px păstrează poziția din rândul numelui.
 Este randat în continuare doar pentru proprietarul profilului.
+
+## Suport în aplicație (`components/support/`)
+
+- `SupportDialog` — formularul „Ai nevoie de ajutor?" (pe `DialogOverlay`, portal în `body`, strat
+  `z-[70]` ca să apară și peste editoarele full-screen). Trimite prin `submitSupportRequestAction`
+  (`app/support-actions.ts`) în Slack; fără sesiune arată emailul de suport.
+- `SupportHint` — rândul pus SUB un mesaj de eroare existent: nimic la primul eșec, „Raportează
+  problema" de la al doilea, + WhatsApp de la al treilea (`supportLevel`, `lib/support-contact.ts`).
+  Randat ca `<span>`, încape într-un `<p role="alert">`. Contorul: `useFailureCount(stareaEșuată)` pentru
+  formulare cu `useActionState`/mesaj resetat la null; contor explicit unde eroarea nu se resetează
+  (autosave planșă).
+- `LoginSupportHint` — doar pe `/login?error=Verification`: TTL-ul linkului + caseta WhatsApp/email de la
+  al doilea link eșuat în 24h (localStorage).
+- WhatsApp NU apare în meniu; contactele stau în `lib/support-contact.ts` (sursă unică).
 
 ## Neacoperit încă (adaugă pe măsură ce apare)
 

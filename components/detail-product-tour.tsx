@@ -20,7 +20,7 @@ export function DetailProductTour({ seen }: { seen: boolean }) {
   const [shouldRun] = useState(!seen);
 
   useEffect(() => {
-    if (!shouldRun) return;
+    if (!shouldRun || !window.matchMedia("(min-width: 768px)").matches) return;
     // Fire-and-forget: e o simplă bifă „văzut", nu blochează turul dacă rețeaua e lentă.
     void confirmDetailTourSeenAction();
 

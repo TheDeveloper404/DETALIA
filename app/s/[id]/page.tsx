@@ -1,3 +1,4 @@
+import { blobReadUrl } from "@/lib/blob-read-url";
 import { ImageOff } from "lucide-react";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -31,7 +32,7 @@ export async function generateMetadata({
     description: `O schiță de ${sketch.authorRemoved ? "un autor retras" : (sketch.authorName ?? "un membru al comunității")} peste „${sketch.detailTitle}”, pe DETALIA.`,
     // Preview-ul de share arată schița însăși (aceeași imagine randată public pe pagină); fără thumbnail
     // rămâne imaginea implicită din app/opengraph-image.tsx.
-    ...(sketch.thumbnailUrl && { openGraph: { ...SITE_OPEN_GRAPH, images: [sketch.thumbnailUrl] } }),
+    ...(sketch.thumbnailUrl && { openGraph: { ...SITE_OPEN_GRAPH, images: [blobReadUrl(sketch.thumbnailUrl, "sketch", id)] } }),
   };
 }
 
@@ -94,7 +95,8 @@ export default async function PublicSketchPage({
         <div className="relative mb-8 aspect-[4/3] w-full overflow-hidden rounded-lg border border-border bg-secondary">
           {sketch.thumbnailUrl ? (
             <Image
-              src={sketch.thumbnailUrl}
+              src={blobReadUrl(sketch.thumbnailUrl, "sketch", id)}
+              unoptimized={sketch.thumbnailUrl.includes(".private.blob.")}
               alt={`Schiță peste „${sketch.detailTitle}”`}
               fill
               sizes="720px"

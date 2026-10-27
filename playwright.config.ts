@@ -78,6 +78,7 @@ export default defineConfig({
         /authed\.spec\.ts/,
         /sketch\.spec\.ts/,
         /detail-upload\.spec\.ts/,
+        /private-files\.spec\.ts/,
         /detail-annotation\.spec\.ts/,
         /sketch-draft\.spec\.ts/,
         /canvas\.spec\.ts/,
@@ -104,6 +105,7 @@ export default defineConfig({
         /detail-resource-upload\.spec\.ts/,
         /detail-tour\.spec\.ts/,
         /feed-tour\.spec\.ts/,
+        /support\.spec\.ts/,
       ],
       dependencies: ["setup"],
       use: {
@@ -116,6 +118,7 @@ export default defineConfig({
     {
       name: "security",
       testMatch: [
+        /access-revocation\.spec\.ts/,
         /security\.spec\.ts/,
         /integration\.spec\.ts/,
         /admin-auth\.spec\.ts/,

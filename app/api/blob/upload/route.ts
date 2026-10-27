@@ -5,8 +5,10 @@ import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { blobStoreOptions } from "@/lib/blob-store";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import {
+  blobAccessForFolder,
   ALLOWED_CAD_EXTENSIONS,
   ALLOWED_CAD_TYPES,
   ALLOWED_DOC_TYPES,
@@ -44,12 +46,18 @@ function resolveKind(clientPayload: string | null): UploadKind {
 // Persistarea URL-ului în DB NU se face aici: `onUploadCompleted` (callback Vercel) nu rulează pe
 // localhost, așa că URL-ul întors de upload se salvează printr-un server action separat (vezi profile/actions.ts).
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
-
   try {
+    const body = (await request.json()) as HandleUploadBody;
+    // La callback, SDK-ul verifica semnatura folosind store-ul care a emis tokenul.
+    const pathname = body.type === "blob.generate-client-token" ? body.payload.pathname : body.payload.blob.pathname;
+    const folder = pathname.split("/")[2];
+    const access = blobAccessForFolder(folder);
+    const options = blobStoreOptions(access);
+    if (access === "private" && !options.token) throw new Error("PRIVATE_BLOB_NOT_CONFIGURED");
     const json = await handleUpload({
       body,
       request,
+      token: options.token,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user?.id) {
@@ -66,8 +74,10 @@ export async function POST(request: Request): Promise<NextResponse> {
         if (!row || row.status !== "ACTIVE") {
           throw new Error("UNAUTHORIZED");
         }
-        // SEC-01: cotă de upload per user (emiterea tokenului = poarta).
-        if (!(await checkLimit(limiters.upload, session.user.id)).ok) {
+        // Thumbnail-urile autosalvate folosesc cota de mutatii, ca salvarea lor prin action.
+        // Cota de 30 upload-uri/ora ar bloca o plansa editata continuu dupa circa 10 minute.
+        const thumbnailUpload = folder === "sketches" || folder === "canvases";
+        if (!(await checkLimit(thumbnailUpload ? limiters.mutation : limiters.upload, session.user.id)).ok) {
           throw new Error("RATE_LIMITED");
         }
 
@@ -78,7 +88,14 @@ export async function POST(request: Request): Promise<NextResponse> {
           throw new Error("INVALID_PATH");
         }
 
+        if (!["avatars", "covers", "comments", "details", "resources", "materials", "sketches", "canvases"].includes(folder)) {
+          throw new Error("INVALID_PATH");
+        }
+
         const kind = resolveKind(clientPayload);
+        if (thumbnailUpload && (!pathname.startsWith(`u/${session.user.id}/${folder}/uploads/`) || kind !== "image")) {
+          throw new Error("INVALID_PATH");
+        }
         if (kind === "pdf") {
           return {
             allowedContentTypes: [...ALLOWED_DOC_TYPES],

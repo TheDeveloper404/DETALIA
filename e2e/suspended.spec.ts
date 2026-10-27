@@ -3,7 +3,8 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { roles, users } from "../db/schema";
+import { roles, users, sessions } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 import { getSeed } from "./seed";
 
 // SEC-04 / SEC-002 (docs/SECURITATE.md, decizie de produs 2026-08-09): un cont SUSPENDAT cu sesiune JWT
@@ -55,15 +56,17 @@ test("cont SUSPENDAT cu token JWT viu → acces blocat din prima vizită + delog
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
 
   // Token construit ca la login real, dar cu `status: "ACTIVE"` (STALE) — exact scenariul SEC-04:
   // JWT-ul nu știe încă de suspendare, doar DB-ul o știe. Verificarea proaspătă trebuie s-o prindă.
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name: SUSPENDED_NAME, email: SUSPENDED_EMAIL },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name: SUSPENDED_NAME, email: SUSPENDED_EMAIL },
   });
 
   const context = await browser.newContext({
@@ -99,6 +102,69 @@ test("cont SUSPENDAT cu token JWT viu → acces blocat din prima vizită + delog
     await expect(page).toHaveURL(/\/login/);
   } finally {
     await context.close();
+    await db.delete(users).where(eq(users.id, userId));
+  }
+});
+
+// Regula: "Stergerea unui sid afecteaza numai acea sesiune, inclusiv copiile cookie-ului ei; celelalte dispozitive raman conectate."
+test("logout revoca si copia cookie-ului, dar pastreaza al doilea dispozitiv", async ({ browser, context, page, baseURL }) => {
+  const url = new URL(baseURL!);
+  const userId = crypto.randomUUID();
+  const firstSid = crypto.randomUUID(), otherSid = crypto.randomUUID();
+  const expires = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+  const secure = url.protocol === "https:";
+  const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
+  await db.insert(users).values({ id: userId, email: `e2e-session-${userId}@detalia.test`, status: "ACTIVE" });
+  await db.insert(sessions).values([
+    { sessionToken: firstSid, userId, expires }, { sessionToken: otherSid, userId, expires },
+  ]);
+  const value = await encode({ secret: process.env.AUTH_SECRET!, salt: cookieName, maxAge: SESSION_MAX_AGE_SECONDS, token: { sub: userId, id: userId, sid: firstSid, status: "ACTIVE" } });
+  await context.addCookies([{ name: cookieName, value, domain: url.hostname, path: "/", expires: expires.valueOf() / 1000, httpOnly: true, secure, sameSite: "Lax" }]);
+  await page.goto("/onboarding");
+  await expect(page).toHaveURL(/\/onboarding/);
+  const copiedState = await context.storageState();
+  const copied = await browser.newContext({ baseURL, storageState: copiedState });
+  const other = await browser.newContext({ baseURL, storageState: copiedState });
+  await other.addCookies([{ name: cookieName, value: await encode({ secret: process.env.AUTH_SECRET!, salt: cookieName, maxAge: SESSION_MAX_AGE_SECONDS, token: { sub: userId, id: userId, sid: otherSid, status: "ACTIVE" } }), domain: url.hostname, path: "/", expires: expires.valueOf() / 1000, httpOnly: true, secure, sameSite: "Lax" }]);
+  try {
+    const { csrfToken } = await (await context.request.get("/api/auth/csrf")).json();
+    const response = await context.request.post("/api/auth/signout", { form: { csrfToken, callbackUrl: url.origin }, maxRedirects: 0 });
+    expect(response.status()).toBe(302);
+    expect(await (await copied.request.get("/api/auth/session")).json()).toBeNull();
+    expect((await (await other.request.get("/api/auth/session")).json()).user.id).toBe(userId);
+    const copiedPage = await copied.newPage();
+    await copiedPage.goto("/onboarding");
+    await expect(copiedPage).toHaveURL(/\/login/);
+  } finally {
+    await copied.close();
+    await other.close();
+    await db.delete(users).where(eq(users.id, userId));
+  }
+});
+
+// Regula: "Data din DB se stabileste o singura data si nu se prelungeste."
+test("refresh-ul sesiunii nu prelungeste expirarea absoluta din registru", async ({ context, page, baseURL }) => {
+  const url = new URL(baseURL!);
+  const userId = crypto.randomUUID(), sid = crypto.randomUUID();
+  const expires = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
+  const secure = url.protocol === "https:";
+  const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
+  await db.insert(users).values({ id: userId, email: `e2e-expiry-${userId}@detalia.test`, status: "ACTIVE" });
+  await db.insert(sessions).values({ sessionToken: sid, userId, expires });
+  const value = await encode({ secret: process.env.AUTH_SECRET!, salt: cookieName, maxAge: SESSION_MAX_AGE_SECONDS, token: { sub: userId, id: userId, sid, status: "ACTIVE" } });
+  await context.addCookies([{ name: cookieName, value, domain: url.hostname, path: "/", expires: Date.now() / 1000 + SESSION_MAX_AGE_SECONDS, httpOnly: true, secure, sameSite: "Lax" }]);
+  try {
+    await page.goto("/onboarding");
+    await expect(page).toHaveURL(/\/onboarding/);
+    expect((await (await context.request.get("/api/auth/session")).json()).user.id).toBe(userId);
+    const [row] = await db.select({ expires: sessions.expires }).from(sessions).where(eq(sessions.sessionToken, sid));
+    expect(row.expires.valueOf()).toBe(expires.valueOf());
+    // Un timestamp fix in trecut nu depinde de diferenta dintre ceasul runner-ului si Vercel.
+    await db.update(sessions).set({ expires: new Date("2000-01-01T00:00:00Z") }).where(eq(sessions.sessionToken, sid));
+    expect(await (await context.request.get("/api/auth/session")).json()).toBeNull();
+    await page.goto("/onboarding");
+    await expect(page).toHaveURL(/\/login/);
+  } finally {
     await db.delete(users).where(eq(users.id, userId));
   }
 });

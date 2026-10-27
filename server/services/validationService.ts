@@ -12,7 +12,6 @@ import {
   type TargetType,
   validateJustification,
 } from "@/server/domain/validation";
-import { insertComment } from "@/server/repos/commentsRepo";
 import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
@@ -21,7 +20,7 @@ import {
   deletePosition,
   listPositionsForTarget,
   listPositionsForTargets,
-  upsertDisapprovalIfTransition,
+  upsertDisapprovalWithComment,
   upsertPosition,
 } from "@/server/repos/validationsRepo";
 
@@ -53,7 +52,7 @@ export async function targetExists(
   }
   // SKETCH: poziții/comentarii doar pe schițe PUBLISHED (dezbaterea per schiță vine gratis, polimorfic).
   const sketch = await getSketchById(targetId);
-  if (!sketch || sketch.status !== "PUBLISHED") return false;
+  if (!sketch || sketch.status !== "PUBLISHED" || sketch.hiddenAfterRelease) return false;
   const parentDetail = await getDetailById(sketch.detailId);
   if (!parentDetail) return false;
   if (parentDetail.projectId) return canAccessProjectDetail({ projectId: parentDetail.projectId, userId });
@@ -84,7 +83,7 @@ async function getTargetAuthorId(
     return detail.ownerId;
   }
   const sketch = await getSketchById(targetId);
-  if (!sketch || sketch.status !== "PUBLISHED") return null;
+  if (!sketch || sketch.status !== "PUBLISHED" || sketch.hiddenAfterRelease) return null;
   const parentDetail = await getDetailById(sketch.detailId);
   if (!parentDetail) return null;
   if (parentDetail.projectId && !(await canAccessProjectDetail({ projectId: parentDetail.projectId, userId }))) {
@@ -158,11 +157,14 @@ export async function disapprove(input: {
 
   // O poziție DISAPPROVE deja existentă → un singur comentariu-justificare. Tranziția se decide ATOMIC în DB
   // (nu read-then-write) — altfel dublu-submit-ul paralel ar crea comentarii duplicate.
-  const transition = await upsertDisapprovalIfTransition({
+  const transition = await upsertDisapprovalWithComment({
     userId: input.userId,
     targetType: input.targetType,
     targetId: input.targetId,
     roleSnapshot: snapshotFromRole(role),
+    detailId: realDetailId,
+    body: j.value,
+    sketchContextId: input.targetType === "SKETCH" ? input.targetId : null,
   });
 
   // transition null = era deja DISAPPROVE — nu s-a creat alt comentariu-justificare (evită duplicate).
@@ -171,17 +173,6 @@ export async function disapprove(input: {
   if (!transition) {
     return { ok: false, error: "ALREADY_DISAPPROVED" };
   }
-
-  await insertComment({
-    targetType: "DETAIL",
-    targetId: realDetailId,
-    authorId: input.userId,
-    body: j.value,
-    originValidationId: transition.id,
-    // Justificarea unei dezaprobări pe SCHIȚĂ păstrează referința spre schița de origine — UI-ul
-    // etichetează comentariul „pe schița N" (vezi comments-section.tsx) deși stă pe targetType DETAIL.
-    sketchContextId: input.targetType === "SKETCH" ? input.targetId : null,
-  });
 
   return { ok: true };
 }
@@ -207,21 +198,14 @@ export async function recordSketchDisapproval(input: {
   if (!authorId || authorId === input.userId) return; // țintă inexistentă sau propriul detaliu
 
   // Aceeași fereastră de race ca la disapprove (dublu-publish) → aceeași tranziție atomică în DB.
-  const transition = await upsertDisapprovalIfTransition({
+  await upsertDisapprovalWithComment({
     userId: input.userId,
     targetType: "DETAIL",
     targetId: input.detailId,
     roleSnapshot: snapshotFromRole(role),
+    detailId: input.detailId,
+    body: "Am propus o schiță alternativă ca dezaprobare — vezi teancul de schițe.",
   });
-  if (transition) {
-    await insertComment({
-      targetType: "DETAIL",
-      targetId: input.detailId,
-      authorId: input.userId,
-      body: "Am propus o schiță alternativă ca dezaprobare — vezi teancul de schițe.",
-      originValidationId: transition.id,
-    });
-  }
 }
 
 // Retragerea propriei poziții (reversibilitate). Comentariul-justificare rămâne în dezbatere

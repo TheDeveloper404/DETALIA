@@ -249,7 +249,7 @@ export type PlansaItemSource = { detailId: string; sketchId?: string | null; ima
 
 export type PlansaCanvasHandle = {
   getDocument: () => CanvasDocument;
-  exportThumbnail: () => Promise<Blob | null>;
+  exportThumbnail: (type?: "image/png" | "image/jpeg") => Promise<Blob | null>;
 };
 
 // Cheia de identitate a unui item/sursă — un detaliu poate apărea de mai multe ori pe aceeași planșă
@@ -373,7 +373,7 @@ export const PlansaCanvas = forwardRef<
     ref,
     () => ({
       getDocument: () => toDocument(present),
-      exportThumbnail: async () => {
+      exportThumbnail: async (type = "image/png") => {
         const off = document.createElement("canvas");
         off.width = THUMB_W;
         off.height = THUMB_H;
@@ -385,7 +385,7 @@ export const PlansaCanvas = forwardRef<
         renderStrokes(ctx, present.strokes, THUMB_W, THUMB_H);
         return new Promise((resolve) => {
           try {
-            off.toBlob((b) => resolve(b), "image/png");
+            off.toBlob((b) => resolve(b), type, 0.9);
           } catch {
             resolve(null);
           }

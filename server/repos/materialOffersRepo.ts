@@ -36,53 +36,26 @@ export async function upsertMaterialOffer(input: {
 }
 
 // Înlocuiește TOATE fișierele ofertei cu lista nouă — clientul trimite lista completă dorită (cele
-// păstrate de la editarea anterioară + cele noi), nu un diff. Întoarce URL-urile VECHI (apelantul le
-// șterge din Blob dacă nu mai apar în lista nouă — orfanele plătite la nesfârșit altfel).
+// păstrate de la editarea anterioară + cele noi), nu un diff. Editarea nu șterge fizic Blob-uri:
+// un alt tab poate încă păstra un URL eliminat de această cerere (decizie 2026-10-27).
 export async function replaceMaterialOfferFiles(
   offerId: string,
   files: MaterialOfferFileInput[],
-): Promise<string[]> {
-  const oldRows = await db
-    .select({ url: materialOfferFiles.url })
-    .from(materialOfferFiles)
-    .where(eq(materialOfferFiles.offerId, offerId));
-
+): Promise<void> {
   await db.batch([
     db.delete(materialOfferFiles).where(eq(materialOfferFiles.offerId, offerId)),
     db.insert(materialOfferFiles).values(files.map((f) => ({ offerId, ...f }))),
   ]);
-
-  return oldRows.map((r) => r.url);
 }
 
-// Ștergere completă (retragere explicită SAU cascadă la anonimizarea autorului) — întoarce URL-urile
-// fișierelor, pentru curățarea din Blob.
-export async function deleteMaterialOffer(offerId: string): Promise<string[]> {
-  const fileRows = await db
-    .select({ url: materialOfferFiles.url })
-    .from(materialOfferFiles)
-    .where(eq(materialOfferFiles.offerId, offerId));
+// Retragere: elimina oferta si referintele; fisierele fizice asteapta curatenia separata.
+export async function deleteMaterialOffer(offerId: string): Promise<void> {
   await db.delete(materialOffers).where(eq(materialOffers.id, offerId)); // cascade → material_offer_files
-  return fileRows.map((r) => r.url);
 }
 
-// Toate ofertele unui detaliu (mai multe pot exista — un furnizor per ofertă) — pentru anonimizare:
-// „oferta se șterge" indiferent de câți furnizori au ofertat. Întoarce URL-urile fișierelor pt Blob.
-export async function deleteMaterialOffersForDetail(detailId: string): Promise<string[]> {
-  const offerRows = await db
-    .select({ id: materialOffers.id })
-    .from(materialOffers)
-    .where(eq(materialOffers.detailId, detailId));
-  if (offerRows.length === 0) return [];
-  const offerIds = offerRows.map((o) => o.id);
-
-  const fileRows = await db
-    .select({ url: materialOfferFiles.url })
-    .from(materialOfferFiles)
-    .where(inArray(materialOfferFiles.offerId, offerIds));
-
-  await db.delete(materialOffers).where(inArray(materialOffers.id, offerIds)); // cascade → files
-  return fileRows.map((r) => r.url);
+// Anonimizare: elimina ofertele si referintele lor; retentia fisierelor este aceeasi ca la retragere.
+export async function deleteMaterialOffersForDetail(detailId: string): Promise<void> {
+  await db.delete(materialOffers).where(eq(materialOffers.detailId, detailId)); // cascade → files
 }
 
 export type MaterialOfferForDetail = {

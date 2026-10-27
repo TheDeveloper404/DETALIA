@@ -45,3 +45,23 @@ test("tur feed: ?tour=1 → parcurge toți cei 6 pași, în ordine, fără eroar
   // `?tour=1` a fost curățat din URL la pornire — refresh nu reporneste turul.
   await expect(page).toHaveURL(/\/feed$/);
 });
+
+// Regula aprobata: "trebuie sa ramana doar pe web si poate pe tableta (pe telefon trebuie eliminat)".
+test("telefon: fara tutorial sau popup; tableta: numai pasii vizibili", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/feed?tour=1");
+  await expect(page).toHaveURL(/\/feed$/);
+  await expect(page.locator(".detalia-tour-popover")).toHaveCount(0);
+  await expect(page.getByRole("dialog", { name: "Ce e nou pe DETALIA" })).toHaveCount(0);
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("/feed?tour=1");
+  const popover = page.locator(".detalia-tour-popover");
+  await expect(popover.locator(".driver-popover-title")).toHaveText("Un detaliu în feed");
+  await popover.locator(".driver-popover-next-btn").click();
+  await expect(popover.locator(".driver-popover-title")).toHaveText("Adaugă");
+  await popover.locator(".driver-popover-next-btn").click();
+  await expect(popover.locator(".driver-popover-title")).toHaveText("Meniul tău");
+  await popover.locator(".driver-popover-done-btn").click();
+  await expect(popover).toHaveCount(0);
+});

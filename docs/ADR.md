@@ -151,4 +151,102 @@ disponibil după autentificare (azi: onboarding). _(CHANGELOG 2026-08-25, SCHEMA
 
 ---
 
+## ADR-017 — Fisiere de continut in Blob privat, citire autorizata prin aplicatie
+**Decizie aprobata de Liviu (2026-10-26):** doua store-uri. Avatarele, cover-urile si imaginile din
+comentarii pastreaza storage public. Imaginile/resursele de detaliu, thumbnail-urile schitelor,
+plansele personale/partajate si atasamentele ofertelor folosesc storage privat, inclusiv dupa release.
+Regulile de vizibilitate existente decid citirea; publicarea nu copiaza fisiere intre store-uri.
+**Alternative:** proxy peste public nu protejeaza URL-ul brut; promovarea fizica public/private adauga
+operatii Blob/DB fara tranzactie comuna. Varianta privata permanenta elimina aceasta sincronizare.
+**Contract:** GET `/api/files/[kind]/[id]`, identificator UUID si tip explicit; URL-ul se citeste numai
+din DB. Service-ul verifica owner/proiect/status/hiddenAfterRelease. Ofertele: autorul real al detaliului
+sau furnizorul propriei oferte. Drafturile si plansele personale nu devin publice. Stream fara cache
+public; Next Image foloseste `unoptimized` pentru aceste rute. Cheile raman exclusiv server-side.
+**STRIDE:** IDOR si acces dupa revocare → verificare pe entitate la fiecare cerere; SSRF → store-uri
+configurate strict; furt de token → niciun token in client/loguri; divulgare prin cache → no-store;
+pierdere la migrare → copie verificata, manifest, actualizare conditionata a referintelor, retragere
+publica doar dupa verificarea tuturor bazelor care folosesc store-ul comun si oprirea scrierilor vechi.
+**Consecinte:** citirile trec prin server (cost/latenta suplimentare); fara schema noua sau dependente.
+Migrarea necesita cutover coordonat si backup privat; revenirea la codul vechi dupa cutover nu e sigura.
+Nu putem retrage fisiere deja descarcate. DET-01/02 si imaginile comentariilor raman in afara acestui task.
+
 > Deciziile noi sau schimbările se consemnează aici (formă scurtă) + în `CHANGELOG.md` (cronologic, cu dată).
+
+## ADR-018 — JWT revocabil pe sesiune si expirare absoluta (2026-10-27)
+
+**Decizie aprobata:** pastram Auth.js JWT si adaugam un sid stabil, aleator, inregistrat in tabelul
+existent sessions. Expirarea din DB se seteaza o singura data la login (+7 zile), fara prelungire.
+**Alternative:** sesiuni database native schimba decoderul proxy si mai multe contracte existente;
+sessionVersion pe user ar deloga toate dispozitivele, comportament necerut.
+**Flux:** login → sid + rand sessions → auth()/proxy verifica registrul → autorizare existenta.
+Proxy combina sesiune/status/rol in query-ul existent; auth() face verificarea proaspata necesara.
+Revocarea server-action este asteptata explicit inainte de signOut. La POST HTTP, Auth.js valideaza
+intai CSRF, apoi revocarea trebuie sa reuseasca inaintea livrarii raspunsului care sterge cookie-ul.
+**STRIDE:** replay cookie → rand revocat; prelungire JWT → expirare DB fixa; CSRF logout → validare
+Auth.js inainte de revocare; substituire user/sid → asociere verificata; DB indisponibila → acces
+refuzat / logout nereportat ca succes. Nu logam sid/cookie/email.
+**Consecinte:** o reconectare pentru cookie-urile vechi fara sid; celelalte dispozitive raman
+conectate la logout. Nu expunem sid in sesiunea publica. Requesturile deja autorizate pot termina,
+dar un cookie reemis concurent nu poate reactiva randul sters. Fara schema, dependinte sau env noi.
+
+## ADR-019 — Retentia fizica a atasamentelor ofertelor (2026-10-27)
+
+**Decizie aprobata:** editarea/retragerea ofertei, retragerea/stergerea detaliului si stergerea
+proiectului elimina referintele ofertei din DB, fara stergerea fizica a atasamentelor.
+**Motiv:** acelasi furnizor poate reutiliza un URL in mai multe oferte; o stergere imediata poate
+elimina fisierul altei oferte. Un pre-check de referinte singur nu inchide cursa cu reutilizarea.
+**Alternative:** stergere imediata (risc de pierdere), GC automat coordonat cu writer-ii (complexitate
+neceruta acum). Alegem retentie si curatenie separata, fara schema/registru/cron nou.
+**Consecinte:** fisierele fara referinte continua sa ocupe storage; curatenia initiala recomandata
+necesita inventar/dry-run, backup, toate bazele care impart store-ul si o fereastra fara scrieri.
+Se poate executa pe infrastructura curenta; VPS-ul nu este o dependenta tehnica. Nu se schimba
+stergerea imaginilor/resurselor detaliilor, schitelor sau planselor.
+
+## ADR-020 — Invariantele dezaprobarii si onboarding-ului intr-un singur statement (2026-10-27)
+
+**Scop aprobat:** pozitie + justificare fara scriere partiala; onboarding respins fara profil modificat.
+**Decizie:** SQL parametrizat cu CTE modificator, fara schema noua. validationsRepo decide tranzitia
+DISAPPROVE prin upsert conditionat si insereaza comentariul din RETURNING; un esec anuleaza statement-ul.
+Onboarding valideaza rolul in domain si verifica rolul existent inaintea procesarii imaginilor.
+usersRepo insereaza rolul cu ON CONFLICT DO NOTHING si actualizeaza profilul numai din claim-ul obtinut.
+Rolul si profilul devin vizibile impreuna la commit; o cerere concurenta pierzatoare nu modifica profilul.
+**Alternative:** preflight singur lasa cursa intre verificare si scriere; tranzactiile interactive nu
+sunt suportate de driverul neon-http instalat. batch atomic este posibil, dar CTE-ul exprima direct
+dependenta dintre rezultate fara exceptii de conflict folosite ca flux de control.
+**Consecinte:** erorile/codurile publice si gardurile actorului raman existente. Imaginile omise se
+pastreaza. Fisierele reprocesate se curata la conflict explicit sau esec cunoscut inainte de DB;
+la eroare de retea cu rezultat de commit incert nu se sterg, pentru a nu pierde o imagine deja referita.
+SQL PGlite verifica rollback real de statement; concurenta intre conexiuni si HTTP real necesita Preview.
+
+## ADR-021 — Eliminarea membrului dupa obtinerea lock-ului de proiect (2026-10-27)
+
+**Scop aprobat:** eliminarea ramane efectiva cand membrul reintra simultan, inclusiv prima intrare.
+**Decizie:** doua instructiuni SQL parametrizate in acelasi `db.batch` Neon HTTP: rotire invitatie,
+apoi UPDATE membership. La READ COMMITTED, a doua instructiune vede commit-ul reintrarii care
+tinea lock-ul proiectului. Ambele scrieri se confirma sau se anuleaza impreuna.
+**Alternativa respinsa:** CTE-ul modificator are un singur snapshot si poate rata randul
+nou/reactivat. Eliminarea filtrului removed_at singura nu rezolva randul inca inexistent.
+**STRIDE:** reintrare cu token vechi → serializare pe proiect si reverificare la join;
+acces pastrat dupa eliminare → snapshot nou inaintea UPDATE-ului; eroare la eliminare → rollback
+al rotirii. Gardul de owner si ramura fara token nou raman existente, fara schimbare de API/schema.
+**Consecinte:** un singur round-trip HTTP, doua instructiuni in tranzactie; READ COMMITTED este
+preconditie verificata pe preview/dev si production. Testele locale cu conexiuni independente
+controleaza ambele ordini ale lock-ului, inclusiv membru nou, si esecul celei de-a doua scrieri.
+
+## ADR-022 — Miniatura plansei in afara cozii de Server Actions (2026-10-27)
+
+**Scop aprobat:** miniatura optionala nu blocheaza urmatorul document sau iesirea din editor.
+**Decizie:** task-ul client separat incarca Blob-ul si foloseste fetch POST
+`/api/canvases/[id]/thumbnail`, JSON `{ thumbnailUrl: string }`. Salvarea documentului ramane
+Server Action. Serviciul existent `saveCanvasThumbnail` primeste acum URL staging, verifica owner-ul,
+valideaza namespace-ul canonic si reproceseaza imaginea inainte de persistare; actiunea veche dispare.
+**Alternativa respinsa:** un Promise detasat pentru thumbnail Server Action intra tot in dispatcher-ul
+FIFO Next.js. Nu activam optiuni experimentale globale si nu adaugam o abstractie de service.
+**Contract:** Origin identic obligatoriu (403); sesiune/status ACTIVE (401); mutation limiter (429);
+JSON/tip URL invalid sau imagine invalida (400); plansa lipsa/nedetinuta (404, contractul privat existent);
+eroare neasteptata (500 generic); succes 200 `{ ok: true }`. Identitatea vine numai din sesiune.
+**STRIDE:** CSRF → Origin; IDOR → ownership in service; stergere cross-user/SSRF → staging propriu
+canonic si pipeline existent; abuz → cota existenta si cel mult o miniatura client in curs.
+Un UPDATE explicit respins curata numai fisierul nou; o exceptie DB cu commit incert nu-l sterge.
+**Verificare:** integrare prin ruta/gard/service reale cu DB/Blob simulate; E2E Preview tine POST-ul
+miniaturii in asteptare si verifica o noua salvare document plus navigarea. Fara schema/dependinte/env noi.

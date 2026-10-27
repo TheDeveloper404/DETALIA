@@ -7,6 +7,9 @@ import { eq, inArray } from "drizzle-orm";
 import { db } from "../db";
 import { sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
+import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
+
+test.beforeEach(async ({ page }) => { await stripBypassHeadersForBlobUploads(page); });
 
 // E2E — STACK DE FOI (2026-08-08, Faza A): „Schițează peste" nu mai pornește mereu de la detaliul gol.
 // Apăsat dintr-un tab de schiță, îngheață ce e aprins pe ecran (bază + foile bifate + schița activă) și

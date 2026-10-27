@@ -7,7 +7,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs } from "@/lib/storage";
-import { isUsersBlobUrl } from "@/lib/blob-url";
+import { canUseBlobUrls } from "@/server/services/blobFileService";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { publishDetailDraft, saveDetailDraft, updateDetail } from "@/server/services/detailService";
 import { parseAnnotationStrokes } from "@/lib/annotation-form";
@@ -90,7 +90,7 @@ export async function updateDetailAction(
   if (location.trim().length === 0) return { error: ERROR_MESSAGES.LOCATION_REQUIRED };
 
   const imageUrl = String(formData.get("imageUrl") ?? "");
-  if (!isUsersBlobUrl(imageUrl, userId)) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+  if (!(await canUseBlobUrls([imageUrl], userId))) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   // Imaginea se reprocesează (validare + re-encodare fără metadata) DOAR dacă userul a schimbat-o.
   // Dacă a rămas cea existentă, e deja procesată → o trimitem ca atare (fără blob nou/orfan).
@@ -188,7 +188,7 @@ async function resolveDraftImageUrl(formData: FormData, userId: string): Promise
 > {
   const rawImageUrl = String(formData.get("imageUrl") ?? "");
   if (rawImageUrl.length === 0) return { ok: true, imageUrl: null };
-  if (!isUsersBlobUrl(rawImageUrl, userId)) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
+  if (!(await canUseBlobUrls([rawImageUrl], userId))) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
 
   const imageChanged = String(formData.get("imageChanged") ?? "") === "1";
   if (!imageChanged) return { ok: true, imageUrl: rawImageUrl };

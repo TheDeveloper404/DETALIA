@@ -1,11 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.stubEnv("BLOB_PRIVATE_STORE_ID", "testprivate");
+});
+afterEach(() => vi.unstubAllEnvs());
 
 const { put, del } = vi.hoisted(() => ({ put: vi.fn(), del: vi.fn() }));
 vi.mock("@vercel/blob", () => ({ put, del }));
 
 import sharp from "sharp";
 
-import { processAndUploadImage } from "@/lib/image-processing";
+import { processAndUploadImage, reprocessBlobImage } from "@/lib/image-processing";
+import * as blobStore from "@/lib/blob-store";
 
 // PNG 1x1 real, generat cu sharp (nu hardcodat) — garantat decodabil, ca `cleanImageBuffer` să treacă.
 async function tinyPngBlob(): Promise<Blob> {
@@ -30,6 +37,7 @@ describe("processAndUploadImage — namespace u/<userId>/ (SEC-N04)", () => {
     expect(put).toHaveBeenCalledTimes(1);
     const [path] = put.mock.calls[0] as [string, unknown, unknown];
     expect(path).toMatch(/^u\/user-123\/sketches\//);
+    expect(put.mock.calls[0][2]).toMatchObject({ access: "private", storeId: "testprivate" });
   });
 
   it("respectă folder-ul dat pentru fiecare tip de conținut (canvases, project-shares)", async () => {
@@ -46,4 +54,26 @@ describe("processAndUploadImage — namespace u/<userId>/ (SEC-N04)", () => {
     const [sharePath] = put.mock.calls[1] as [string, unknown, unknown];
     expect(sharePath).toMatch(/^u\/user-9\/project-shares\//);
   });
+});
+
+// Regula aprobata: "fisierele mari se incarca direct; serverul ... reprocesseaza imaginea".
+it("reencodeaza din storage un JPEG valid peste 4.5 MB si elimina sursa staging", async () => {
+  const jpeg = await sharp({ create: { width: 32, height: 32, channels: 3, background: "white" } }).jpeg().toBuffer();
+  const bytes = Buffer.concat([jpeg, Buffer.alloc(5_000_000 - jpeg.length)]);
+  const source = "https://testprivate.private.blob.vercel-storage.com/u/user-123/sketches/uploads/raw.jpg";
+  const read = vi.spyOn(blobStore, "readOwnBlob").mockResolvedValue({ body: new Blob([bytes]).stream(), contentType: "image/jpeg" });
+  const remove = vi.spyOn(blobStore, "deleteOwnBlob").mockResolvedValue(undefined);
+  put.mockResolvedValue({ url: "https://testprivate.private.blob.vercel-storage.com/u/user-123/sketches/clean.jpg" });
+  try {
+    const result = await reprocessBlobImage(source, "sketches", "user-123");
+    expect(result.ok).toBe(true);
+    const processed = put.mock.calls[0][1] as Buffer;
+    expect((await sharp(processed).metadata()).format).toBe("jpeg");
+    expect(processed.length).toBeLessThan(bytes.length);
+    expect(remove).toHaveBeenCalledWith(source);
+    expect(put.mock.calls[0][0]).toMatch(/^u\/user-123\/sketches\/[^/]+\.jpg$/);
+  } finally {
+    read.mockRestore();
+    remove.mockRestore();
+  }
 });

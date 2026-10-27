@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { CityAutocomplete } from "@/components/city-autocomplete";
+import { SupportHint } from "@/components/support/support-hint";
+import { useFailureCount } from "@/components/support/use-failure-count";
 import { HEIC_ERROR_MESSAGE, HeicUnsupportedError, isHeicFile, uploadImageToBlob } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
 import {
@@ -40,6 +42,8 @@ const inputStyle: React.CSSProperties = {
 
 export function OnboardingForm() {
   const [state, formAction, pending] = useActionState(onboardingAction, initialState);
+  // Fiecare submit eșuat întoarce un obiect de stare nou → un eșec în plus (vezi SupportHint).
+  const failures = useFailureCount(state.error ? state : null);
 
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -286,6 +290,9 @@ export function OnboardingForm() {
               }}
             >
               {clientErr ?? state.error}
+              {!clientErr && state.error && (
+                <SupportHint failures={failures} flow="onboarding" errorMessage={state.error} />
+              )}
             </p>
           )}
 

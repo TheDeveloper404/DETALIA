@@ -2,6 +2,7 @@
 // body ale server actions (1MB) / funcțiilor Vercel (~4.5MB). Tokenul + validarea (tip/mărime/auth)
 // le dă /api/blob/upload pe server (pe baza `clientPayload` = kind). Întoarce URL-ul public al blob-ului.
 import { upload } from "@vercel/blob/client";
+import { blobAccessForFolder } from "@/lib/upload-limits";
 
 // HEIC/HEIF (default pe camera iPhone) nu e suportat de sharp pe server — binarele precompilate NU includ
 // libheif (codecul HEVC e sub restricții de brevet), imposibil de compilat manual pe funcțiile serverless
@@ -65,7 +66,7 @@ export async function uploadImageToBlob(
   const userId = await requireCurrentUserId();
   const ext = file.type.split("/")[1] ?? "bin";
   const blob = await upload(`u/${userId}/${folder}/${crypto.randomUUID()}.${ext}`, file, {
-    access: "public",
+    access: blobAccessForFolder(folder),
     handleUploadUrl: "/api/blob/upload",
     contentType: file.type,
     clientPayload: kind,
@@ -85,7 +86,7 @@ export async function uploadDocToBlob(
   const nameExt = file.name.split(".").pop()?.toLowerCase();
   const ext = nameExt || (kind === "pdf" ? "pdf" : "bin");
   const blob = await upload(`u/${userId}/${folder}/${crypto.randomUUID()}.${ext}`, file, {
-    access: "public",
+    access: "private",
     handleUploadUrl: "/api/blob/upload",
     contentType: file.type || "application/octet-stream",
     clientPayload: kind,

@@ -12,7 +12,8 @@ vi.mock("@/db", async () => {
 
 const { db } = await import("@/db");
 const { users, details, comments } = await import("@/db/schema");
-const { getThreadCommentForTarget, listCommentsForTarget, insertComment } = await import("./commentsRepo");
+const { getThreadCommentForTarget, getCommentTarget, listCommentsForTarget, insertComment } = await import("./commentsRepo");
+const { eq } = await import("drizzle-orm");
 
 let u1: string;
 let u2: string;
@@ -85,4 +86,30 @@ describe("listCommentsForTarget — eticheta catre <Nume>", () => {
     expect(replyToRoot?.replyToCommentId).toBeNull();
     expect(replyToRoot?.replyToAuthorName).toBeNull();
   });
+});
+
+// Regula: "comentariile ALTOR membri decât autorul detaliului nu trebuie să devină publice" (db/schema.ts, hiddenAfterRelease).
+it("DET-04: un reply ascuns nu accepta raspuns/vot si nu isi expune autorul printr-un reply vizibil", async () => {
+  await db.update(comments).set({ hiddenAfterRelease: true }).where(eq(comments.id, replyId));
+  try {
+    expect(await getThreadCommentForTarget(replyId, "DETAIL", detailId)).toBeNull();
+    expect(await getCommentTarget(replyId)).toBeNull();
+    const rows = await listCommentsForTarget("DETAIL", detailId);
+    expect(rows.some((r) => r.id === replyId)).toBe(false);
+    expect(rows.find((r) => r.body === "reply la reply")?.replyToAuthorName).toBeNull();
+  } finally {
+    await db.update(comments).set({ hiddenAfterRelease: false }).where(eq(comments.id, replyId));
+  }
+});
+
+// Regula: "comentariile ALTOR membri decât autorul detaliului nu trebuie să devină publice" (db/schema.ts, hiddenAfterRelease).
+it("DET-04: ascunderea radacinii inchide tot firul pentru citire si interactiuni", async () => {
+  await db.update(comments).set({ hiddenAfterRelease: true }).where(eq(comments.id, rootId));
+  try {
+    expect(await getThreadCommentForTarget(replyId, "DETAIL", detailId)).toBeNull();
+    expect(await getCommentTarget(replyId)).toBeNull();
+    expect(await listCommentsForTarget("DETAIL", detailId)).toEqual([]);
+  } finally {
+    await db.update(comments).set({ hiddenAfterRelease: false }).where(eq(comments.id, rootId));
+  }
 });

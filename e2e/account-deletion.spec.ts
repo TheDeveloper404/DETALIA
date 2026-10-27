@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "../db";
 import { accounts, details, roles, sessions, users } from "../db/schema";
+import { SESSION_MAX_AGE_SECONDS } from "../lib/session-config";
 
 // E2E — ștergere de cont (GDPR, `deleteAccountAction` → `accountService.deleteAccount`), CRITICAL
 // (date sensibile, ireversibil) și PÂNĂ ACUM fără nicio acoperire e2e — doar unitar
@@ -56,13 +57,15 @@ test("ștergere cont: anonimizare, delogare reală, conținutul rămâne, acces 
   const url = new URL(baseURL ?? "http://localhost:3000");
   const secure = url.protocol === "https:";
   const cookieName = secure ? "__Secure-authjs.session-token" : "authjs.session-token";
-  const maxAgeSeconds = 30 * 86_400;
+  const maxAgeSeconds = SESSION_MAX_AGE_SECONDS;
 
+  const sid = crypto.randomUUID();
+  await db.insert(sessions).values({ sessionToken: sid, userId: userId, expires: new Date(Date.now() + maxAgeSeconds * 1000) });
   const sessionToken = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: cookieName,
     maxAge: maxAgeSeconds,
-    token: { sub: userId, id: userId, status: "ACTIVE", name: TARGET_NAME, email: TARGET_EMAIL },
+    token: { sid, sub: userId, id: userId, status: "ACTIVE", name: TARGET_NAME, email: TARGET_EMAIL },
   });
 
   const context = await browser.newContext({

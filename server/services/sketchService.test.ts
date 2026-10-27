@@ -6,6 +6,7 @@ vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({
   getSketchById: vi.fn(),
+  getResumableDraft: vi.fn(),
   getStrokesByIds: vi.fn(),
   insertDraft: vi.fn(),
   deleteDraftByAuthor: vi.fn(),
@@ -461,6 +462,36 @@ describe("PUBLISH — DRAFT → PUBLISHED, atomic + notificare o singură dată"
     expect(notifySketchProposed).toHaveBeenCalledTimes(1);
     expect(vi.mocked(notifySketchProposed).mock.calls[0][0]).toMatchObject({ recipientUserId: OWNER });
     expect(recordSketchDisapproval).not.toHaveBeenCalled();
+  });
+
+  // "Notificarea e auxiliară — un eșec aici nu trebuie să facă oferta (deja salvată) să pară eșuată."
+  // Același contract pentru publicarea deja persistată a unei schițe.
+  it("notificarea eșuată nu transformă publicarea persistată într-un eșec", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft() as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    vi.mocked(notifySketchProposed).mockRejectedValueOnce(new Error("notification unavailable"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      await expect(publish({ sketchId: SID, authorId: SKETCH_AUTHOR })).resolves.toEqual({ ok: true });
+      expect(publishFromDraft).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledWith(
+        "[sketchService] notificare eșuată (non-fatal)",
+        { sketchId: SID, detailId: DID },
+      );
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  // "Dezaprobare-prin-schiță: acum (la publicare) materializăm poziția + justificarea pe detaliul-mamă."
+  it("nu ascunde eșecul materializării dezaprobării obligatorii", async () => {
+    vi.mocked(getSketchById).mockResolvedValue(draft({ disapprovesParent: true }) as never);
+    vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+    vi.mocked(recordSketchDisapproval).mockRejectedValueOnce(new Error("disapproval unavailable"));
+
+    await expect(publish({ sketchId: SID, authorId: SKETCH_AUTHOR })).rejects.toThrow("disapproval unavailable");
+    expect(notifySketchProposed).not.toHaveBeenCalled();
   });
 
   // ADNOTARE (2026-07-31): autorul schițează pe PROPRIUL detaliu → destinatarul notificării ar fi chiar

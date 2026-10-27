@@ -108,12 +108,6 @@ export async function consumeBackupCode(email: string, codeHash: string): Promis
   return rows.length > 0;
 }
 
-// Numărul de coduri de rezervă rămase — afișat în panou ca adminul să știe când să regenereze.
-export async function countRemainingBackupCodes(email: string): Promise<number> {
-  const row = await getAdminTotp(email);
-  return row?.backupCodesHash.length ?? 0;
-}
-
 // Resetează complet al doilea factor (dispozitiv pierdut, rotire). Apelabil DOAR dintr-o sesiune de admin
 // completă — următorul login intră din nou pe fluxul de înrolare.
 export async function deleteAdminTotp(email: string): Promise<void> {

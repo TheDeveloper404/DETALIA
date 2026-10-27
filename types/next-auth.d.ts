@@ -14,6 +14,7 @@ declare module "next-auth" {
 // Strategie JWT: id + status trăiesc în token (cookie semnat), citite în callback-ul session.
 declare module "next-auth/jwt" {
   interface JWT {
+    sid?: string;
     id?: string;
     status?: "ACTIVE" | "SUSPENDED" | "DELETED";
   }
