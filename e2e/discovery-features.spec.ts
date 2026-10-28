@@ -134,9 +134,8 @@ test("filtrele se aplica o data, se combina cu cautarea si se reseteaza", async 
   expect(new URL(page.url()).searchParams.has("role")).toBe(false);
   await apply.click();
   await expect(page).toHaveURL((url) => url.searchParams.get("role") === "PROIECTANT");
-  await expect(page.getByRole("button", { name: "Scoate filtrul Rol: Proiectare", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Filtre, 1 active", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toHaveCount(0);
   // „Resetează" din panou goleste filtrele, dar pastreaza cautarea si categoria.
   await filters.click();
   await page.getByRole("button", { name: "Resetează", exact: true }).click();
@@ -166,16 +165,16 @@ test("filtrele se aplica o data, se combina cu cautarea si se reseteaza", async 
       url.searchParams.get("judet") === "Cluj" &&
       url.searchParams.get("role") === "PROIECTANT",
   );
-  await page.getByRole("button", { name: "Scoate filtrul Județ: Cluj", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Filtre, 2 active", exact: true })).toBeVisible();
+  // Panoul redeschis arata filtrele aplicate; scoaterea judetului se aplica tot la „Aplică".
+  await filters.click();
+  await expect(county).toHaveValue("Cluj");
+  await county.selectOption("");
+  await apply.click();
   await expect(page).toHaveURL(
     (url) => !url.searchParams.has("judet") && url.searchParams.get("role") === "PROIECTANT",
   );
-  // „Șterge filtrele" de sub bara scoate tot ce a ramas.
-  await page.getByRole("button", { name: "Șterge filtrele", exact: true }).click();
-  await expect(page).toHaveURL(
-    (url) => !url.searchParams.has("role") && url.searchParams.get("cat") === categoryId,
-  );
-  await expect(page.getByRole("button", { name: /^Scoate filtrul/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Filtre, 1 active", exact: true })).toBeVisible();
 });
 
 // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.

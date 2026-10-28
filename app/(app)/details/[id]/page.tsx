@@ -327,6 +327,7 @@ export default async function DetailPage({
               createdAt: detail.createdAt,
               categories: detail.categories,
               location: detail.location,
+              county: detail.county,
               climateZone: detail.climateZone,
               seismicAg: detail.seismicAg,
               seismicTc: detail.seismicTc,

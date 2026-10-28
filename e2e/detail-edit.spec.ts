@@ -138,6 +138,7 @@ test.describe.serial("Editare detaliu — locație / context tehnic", () => {
     await county.selectOption("Cluj");
     await page.getByRole("button", { name: "Salvează modificările" }).click();
     await expect(page).toHaveURL(`/details/${detailId}`, { timeout: 15_000 });
+    await expect(page.getByText("Cluj, România", { exact: true })).toBeVisible();
     const [row] = await db.select({ county: details.county }).from(details).where(eq(details.id, detailId!));
     expect(row.county).toBe("Cluj");
     await page.goto(`/details/${detailId}/edit`);

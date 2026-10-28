@@ -1,5 +1,5 @@
 "use client";
-import { ListFilter, X } from "lucide-react";
+import { ListFilter } from "lucide-react";
 import { startTransition, useId, useOptimistic, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearFeedFilters, feedFilterChips, type FeedFilterKey } from "@/lib/feed-filters";
@@ -32,7 +32,7 @@ export function FeedFilters({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Chip-ul scos dispare imediat; URL-ul real se actualizeaza abia dupa randarea pe server.
+  // Numarul de pe „Filtre" se schimba imediat; URL-ul real se actualizeaza dupa randarea pe server.
   const [params, setParams] = useOptimistic<URLSearchParams>(searchParams);
   const [draft, setDraft] = useState<URLSearchParams | null>(null);
   const id = useId();
@@ -43,12 +43,6 @@ export function FeedFilters({
       setParams(next);
       router.push("/feed?" + next.toString(), { scroll: false });
     });
-  }
-  function removeFilter(key: string) {
-    const next = new URLSearchParams(params);
-    next.delete("page");
-    next.delete(key);
-    navigate(next);
   }
   function setDraftValue(key: string, value: string) {
     setDraft((d) => {
@@ -190,30 +184,6 @@ export function FeedFilters({
           {categoryFilter}
         </div>
       </div>
-
-      {chips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          {chips.map((c) => (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => removeFilter(c.key)}
-              aria-label={`Scoate filtrul ${c.label}`}
-              className="inline-flex h-[34px] items-center gap-1.5 rounded-full border border-border bg-card pl-3 pr-2 text-[13.5px] transition-colors hover:border-primary hover:text-primary"
-            >
-              {c.label}
-              <X className="size-3.5" strokeWidth={2.2} aria-hidden />
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => navigate(clearFeedFilters(params))}
-            className="h-[34px] rounded-lg px-2.5 text-[13.5px] text-muted-foreground underline hover:bg-secondary"
-          >
-            Șterge filtrele
-          </button>
-        </div>
-      )}
     </div>
   );
 }
