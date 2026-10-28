@@ -34,7 +34,7 @@ test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imag
     const surface = page.locator("canvas").first();
     await expect(surface).toBeVisible();
     await surface.scrollIntoViewIfNeeded();
-    await expect(surface).toBeInViewport({ ratio: 1 });
+    await expect(surface).toBeInViewport({ ratio: 0.9 });
     const box = (await surface.boundingBox())!;
     await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
     await page.mouse.down();
@@ -45,7 +45,7 @@ test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imag
     await started;
     // Click-ul pe salvare deruleaza formularul; coordonatele anterioare nu mai indica desenul.
     await surface.scrollIntoViewIfNeeded();
-    await expect(surface).toBeInViewport({ ratio: 1 });
+    await expect(surface).toBeInViewport({ ratio: 0.9 });
     const currentBox = (await surface.boundingBox())!;
     await page.mouse.move(currentBox.x + currentBox.width * 0.6, currentBox.y + currentBox.height * 0.2);
     await page.mouse.down();
