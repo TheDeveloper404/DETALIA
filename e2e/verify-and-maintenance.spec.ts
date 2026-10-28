@@ -28,7 +28,7 @@ test.describe("/verify", () => {
         json = Buffer.from(new URLSearchParams(json).get("data")!, "base64").toString("utf8");
       }
       const payload = JSON.parse(json);
-      captured.push(...(Array.isArray(payload) ? payload : [payload]));
+      captured.push(...(Array.isArray(payload) ? payload : (payload.batch ?? [payload])));
       // Nu trimitem evenimentele sintetice in PostHog.
       await route.fulfill({ json: { status: 1 } });
     });
