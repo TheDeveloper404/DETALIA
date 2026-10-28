@@ -33,6 +33,8 @@ test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imag
     await page.getByRole("button", { name: "Desenează", exact: true }).click();
     const surface = page.locator("canvas").first();
     await expect(surface).toBeVisible();
+    await surface.scrollIntoViewIfNeeded();
+    await expect(surface).toBeInViewport({ ratio: 1 });
     const box = (await surface.boundingBox())!;
     await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
     await page.mouse.down();
@@ -41,9 +43,13 @@ test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imag
     const started = page.waitForRequest("**/api/blob/upload");
     await page.getByRole("button", { name: "Salvează ciornă", exact: true }).click();
     await started;
-    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.2);
+    // Click-ul pe salvare deruleaza formularul; coordonatele anterioare nu mai indica desenul.
+    await surface.scrollIntoViewIfNeeded();
+    await expect(surface).toBeInViewport({ ratio: 1 });
+    const currentBox = (await surface.boundingBox())!;
+    await page.mouse.move(currentBox.x + currentBox.width * 0.6, currentBox.y + currentBox.height * 0.2);
     await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.4, { steps: 5 });
+    await page.mouse.move(currentBox.x + currentBox.width * 0.8, currentBox.y + currentBox.height * 0.4, { steps: 5 });
     await page.mouse.up();
     resumeUpload();
     await expect(page.locator('p[role="alert"]')).toContainText("Desenul s-a modificat");
