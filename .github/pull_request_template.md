@@ -19,6 +19,7 @@
 - [ ] **Securitate** — fără secrete în cod; PII neloggat; validare pe server; deny-by-default.
 - [ ] **Reguli de business enforce pe SERVER** (nu doar pe frontend).
 - [ ] Branch = `dev` (niciodată push direct pe `main`).
+- [ ] PR spre `main`: a doua zi după merge rulează `npm run health` (login, schițe, onboarding).
 
 ## Cum se testează
 
