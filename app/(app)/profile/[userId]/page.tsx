@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 
-import { FollowButton } from "@/components/follow-button";
 import { getFollowState } from "@/server/services/followService";
 import { ProfileView } from "@/components/profile-view";
 import { auth } from "@/lib/auth";
@@ -42,8 +41,7 @@ export default async function PublicProfilePage({
   const followed = await getFollowState(session.user.id, "USER", userId);
   return (
     <main className="flex-1 pt-2">
-      <div className="mx-auto flex max-w-[1080px] justify-end px-6 py-2"><FollowButton kind="USER" targetId={userId} followed={followed} label={data.name ?? "utilizatorul"} /></div>
-      <ProfileView data={data} />
+      <ProfileView data={data} follow={{ targetId: userId, followed }} />
     </main>
   );
 }

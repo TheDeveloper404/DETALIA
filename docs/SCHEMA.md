@@ -101,6 +101,7 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED | M
 | `description` | text | nullable; text liber „deasupra" imaginii (stil post) |
 | `author_id` | uuid FK→users.id | **index** |
 | `location` | text | not null, default `'România'` — orice altă valoare (text liber) = context tehnic RO invalid pt acel detaliu (enforce în service, nu doar DB) |
+| `county` | text | nullable — județul (listă fixă `COUNTIES`), doar pt `location = 'România'`; filtrul „Locație" din feed |
 | `climate_zone` | text | nullable, fără default (Zona I..IV — n-are variantă neutră) |
 | `seismic_ag` | text | default `'General'` (listă fixă) |
 | `seismic_tc` | text | default `'General'` (listă fixă) |

@@ -59,6 +59,7 @@ export default async function EditDetailPage({ params }: { params: Promise<{ id:
     categoryIds: detail.categories.map((c) => c.id),
     imageUrl: detail.imageUrl,
     location: detail.location,
+    county: detail.county,
     climateZone: detail.climateZone,
     seismicAg: detail.seismicAg,
     seismicTc: detail.seismicTc,

@@ -29,6 +29,7 @@ export async function insertDetailWithRelations(input: {
   authorId: string;
   imageUrl: string | null;
   location: string;
+  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -53,6 +54,7 @@ export async function insertDetailWithRelations(input: {
       authorId: input.authorId,
       imageUrl: input.imageUrl,
       location: input.location,
+      county: input.county,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -115,6 +117,7 @@ export async function updateDetailRow(
     description: string | null;
     imageUrl: string | null;
     location: string;
+    county: string | null;
     climateZone: string | null;
     seismicAg: string;
     seismicTc: string;
@@ -129,6 +132,7 @@ export async function updateDetailRow(
       description: input.description,
       imageUrl: input.imageUrl,
       location: input.location,
+      county: input.county,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -201,6 +205,7 @@ const detailWithAuthorColumns = {
   description: details.description,
   imageUrl: details.imageUrl,
   location: details.location,
+  county: details.county,
   climateZone: details.climateZone,
   seismicAg: details.seismicAg,
   seismicTc: details.seismicTc,
@@ -745,50 +750,50 @@ function feedFilterConditions(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
-  verified?: boolean;
-  withSketches?: boolean;
+  county?: string | null;
 }) {
   const conds = [];
-  if (input.followingUserId)
-    conds.push(
-      or(
-        and(
-          isNull(details.anonymizedAt),
-          exists(
-            db
-              .select({ id: userFollows.followedUserId })
-              .from(userFollows)
-              .where(
-                and(
-                  eq(userFollows.followerUserId, input.followingUserId),
-                  eq(userFollows.followedUserId, details.authorId),
-                ),
-              ),
-          ),
-        ),
+  // „Oameni urmăriți" si „Categorii urmărite": fiecare separat, ambele = oricare dintre ele.
+  const followed = [];
+  if (input.followedPeopleOf)
+    followed.push(
+      and(
+        isNull(details.anonymizedAt),
         exists(
           db
-            .select({ id: categoryFollows.categoryId })
-            .from(categoryFollows)
-            .innerJoin(
-              detailCategories,
-              eq(detailCategories.categoryId, categoryFollows.categoryId),
-            )
+            .select({ id: userFollows.followedUserId })
+            .from(userFollows)
             .where(
               and(
-                eq(categoryFollows.userId, input.followingUserId),
-                eq(detailCategories.detailId, details.id),
+                eq(userFollows.followerUserId, input.followedPeopleOf),
+                eq(userFollows.followedUserId, details.authorId),
               ),
             ),
         ),
       )!,
     );
+  if (input.followedCategoriesOf)
+    followed.push(
+      exists(
+        db
+          .select({ id: categoryFollows.categoryId })
+          .from(categoryFollows)
+          .innerJoin(detailCategories, eq(detailCategories.categoryId, categoryFollows.categoryId))
+          .where(
+            and(
+              eq(categoryFollows.userId, input.followedCategoriesOf),
+              eq(detailCategories.detailId, details.id),
+            ),
+          ),
+      ),
+    );
+  if (followed.length) conds.push(or(...followed)!);
   if (input.authorRole)
     conds.push(sql`${detailWithAuthorColumns.authorRoleMain} = ${input.authorRole}`);
-  if (input.verified) conds.push(sql`${detailWithAuthorColumns.authorVerification} = 'VERIFIED'`);
-  if (input.withSketches) conds.push(sql`${sketchCount} > 0`);
+  if (input.county) conds.push(eq(details.county, input.county));
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
   // „Fără răspuns" (2026-09-01): detaliu la care NIMENI nu s-a implicat cu o soluție SAU o poziție —
   // 0 schițe în teanc ȘI 0 validări (aprob/dezaprob). Comentariile NU contează (decizie de produs
@@ -821,10 +826,10 @@ export async function listFeed(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
-  verified?: boolean;
-  withSketches?: boolean;
+  county?: string | null;
   limit: number;
   offset?: number;
 }) {
@@ -871,10 +876,10 @@ export async function listFeedWithTotal(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
-  verified?: boolean;
-  withSketches?: boolean;
+  county?: string | null;
   limit: number;
   offset?: number;
 }): Promise<{ rows: Awaited<ReturnType<typeof listFeed>>; total: number }> {

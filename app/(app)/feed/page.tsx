@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DetailCard } from "@/components/detail-card";
@@ -13,7 +12,7 @@ import { MobileCategoryFilter } from "@/components/mobile-category-filter";
 import { ProductTour } from "@/components/product-tour";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
-import { resolveFeedPage } from "@/server/domain/detail";
+import { COUNTIES, resolveFeedPage } from "@/server/domain/detail";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import {
@@ -47,9 +46,9 @@ export default async function FeedPage({
     tour?: string;
     page?: string;
     following?: string;
+    followcat?: string;
     role?: string;
-    verified?: string;
-    sketches?: string;
+    judet?: string;
   }>;
 }) {
   const session = await auth();
@@ -65,19 +64,20 @@ export default async function FeedPage({
     tour,
     page: rawPage,
     following: rawFollowing,
+    followcat: rawFollowCat,
     role: rawRole,
-    verified: rawVerified,
-    sketches: rawSketches,
+    judet: rawCounty,
   } = await searchParams;
   const following = rawFollowing === "1";
+  const followingCategories = rawFollowCat === "1";
   const authorRole = rawRole && Object.hasOwn(ROLE_MAIN_LABELS, rawRole) ? rawRole : null;
-  const verified = rawVerified === "1";
-  const withSketches = rawSketches === "1";
+  const county =
+    rawCounty && (COUNTIES as readonly string[]).includes(rawCounty) ? rawCounty : null;
   const filters = new URLSearchParams();
   if (following) filters.set("following", "1");
+  if (followingCategories) filters.set("followcat", "1");
   if (authorRole) filters.set("role", authorRole);
-  if (verified) filters.set("verified", "1");
-  if (withSketches) filters.set("sketches", "1");
+  if (county) filters.set("judet", county);
   const filterQuery = filters.toString();
   const q = rawQ?.trim() || null;
   const unanswered = rawUnanswered === "1";
@@ -110,25 +110,15 @@ export default async function FeedPage({
     q,
     unanswered,
     page,
-    followingUserId: following ? session.user.id : null,
+    followedPeopleOf: following ? session.user.id : null,
+    followedCategoriesOf: followingCategories ? session.user.id : null,
     authorRole,
-    verified,
-    withSketches,
+    county,
   });
   const activeCategory = categories.find((c) => c.id === activeId && !c.isGroup);
   const categoryFollowed = activeCategory
     ? await getFollowState(session.user.id, "CATEGORY", activeCategory.id)
     : false;
-
-  // Href-ul care comută filtrul „Așteaptă ajutor", păstrând categoria + căutarea (dar resetând pagina).
-  const buildToggleHref = (next: boolean) => {
-    const params = new URLSearchParams(filterQuery);
-    if (activeId) params.set("cat", activeId);
-    if (q) params.set("q", q);
-    if (next) params.set("unanswered", "1");
-    const qs = params.toString();
-    return qs ? `/feed?${qs}` : "/feed";
-  };
 
   // `?page=` peste ultima pagină reală (filtru schimbat între timp, link vechi/manipulat) → redirect la
   // ultima pagină validă, NU „Niciun rezultat" fals pentru un filtru care chiar are rezultate.
@@ -190,28 +180,12 @@ export default async function FeedPage({
             {/* Bară de control feed — căutare (lată, ocupă spațiul liber) + filtre în dreapta. Titlul e
             mereu `sr-only`: rămâne în DOM pt accesibilitate/outline, dar nu mai e text vizibil care
             să împingă bara de căutare pe un rând nou pe măsură ce crește query-ul (2026-09-02). */}
-            <div className="mb-5 mt-2 flex flex-wrap items-center gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
-              <h1 className="sr-only">{q ? `Rezultate pentru „${q}”` : "Detalii în dezbatere"}</h1>
-              {/* Căutare — mutată aici din header-ul global (2026-07-06). As-you-type cu debounce,
-              fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
-              <div className="min-w-0 flex-1 basis-64">
-                <FeedSearch initialQuery={q ?? ""} />
-              </div>
-              <div className="flex flex-none items-center gap-2">
-                {/* „Așteaptă ajutor" — detalii la care nimeni n-a schițat ȘI nimeni n-a luat poziție
-                (0 schițe + 0 validări; comentariile nu contează). Link server, păstrează cat/q,
-                resetează pagina. */}
-                <Link
-                  href={buildToggleHref(!unanswered)}
-                  aria-pressed={unanswered}
-                  className={`flex h-11 flex-none items-center gap-1.5 rounded-full px-5 text-[13.5px] font-medium no-underline ring-1 transition-colors ${
-                    unanswered
-                      ? "bg-primary text-primary-foreground ring-[#95492e]"
-                      : "bg-card text-foreground/80 ring-foreground/10 hover:text-foreground"
-                  }`}
-                >
-                  Așteaptă ajutor
-                </Link>
+            <h1 className="sr-only">{q ? `Rezultate pentru „${q}”` : "Detalii în dezbatere"}</h1>
+            {/* Căutare — mutată aici din header-ul global (2026-07-06). As-you-type cu debounce,
+            fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
+            <FeedFilters
+              search={<FeedSearch initialQuery={q ?? ""} />}
+              categoryFilter={
                 <MobileCategoryFilter
                   categories={categories}
                   activeId={activeId}
@@ -221,41 +195,14 @@ export default async function FeedPage({
                   unanswered={unanswered}
                   filterQuery={filterQuery}
                 />
+              }
+            />
+            {activeCategory && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-extrabold">{activeCategory.name}</h2>
+                <FollowButton kind="CATEGORY" targetId={activeCategory.id} followed={categoryFollowed} />
               </div>
-            </div>
-
-            <div className="mb-4 flex flex-col gap-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Link
-                  href={(() => {
-                    const params = new URLSearchParams(filterQuery);
-                    if (following) params.delete("following");
-                    else params.set("following", "1");
-                    if (activeId) params.set("cat", activeId);
-                    if (q) params.set("q", q);
-                    if (unanswered) params.set("unanswered", "1");
-                    return "/feed?" + params.toString();
-                  })()}
-                  aria-current={following ? "page" : undefined}
-                  className={
-                    following
-                      ? "min-h-11 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground"
-                      : "min-h-11 rounded-lg border border-border px-4 py-3 text-sm hover:bg-secondary"
-                  }
-                >
-                  Urmăriți
-                </Link>
-                {activeCategory && (
-                  <FollowButton
-                    kind="CATEGORY"
-                    targetId={activeCategory.id}
-                    followed={categoryFollowed}
-                    label={activeCategory.name}
-                  />
-                )}
-              </div>
-              <FeedFilters />
-            </div>
+            )}
             {details.length === 0 ? (
               <FeedEmpty
                 filtered={
@@ -263,13 +210,13 @@ export default async function FeedPage({
                   !!q ||
                   unanswered ||
                   following ||
+                  followingCategories ||
                   !!authorRole ||
-                  verified ||
-                  withSketches
+                  !!county
                 }
                 search={!!q}
                 unanswered={unanswered}
-                noMatch={following || !!authorRole || verified || withSketches}
+                noMatch={following || followingCategories || !!authorRole || !!county}
               />
             ) : (
               <>

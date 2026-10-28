@@ -54,6 +54,7 @@ import {
 import { cn } from "@/lib/utils";
 import {
   CLIMATE_ZONES,
+  COUNTIES,
   DEFAULT_LOCATION,
   DESCRIPTION_MAX_LENGTH,
   LOCATION_MAX_LENGTH,
@@ -102,6 +103,7 @@ export type DetailFormInitial = {
   // null = ciornă fără imagine încă (înainte de upload).
   imageUrl: string | null;
   location: string;
+  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -856,6 +858,18 @@ export function DetailForm({
             ))}
           </div>
 
+          {isRomania && (
+            <div className="mb-3">
+              <Select name="county" aria-label="Județ (opțional)" defaultValue={initial?.county ?? ""}>
+                <option value="">Județ — nespecificat (opțional)</option>
+                {COUNTIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           {!isRomania && (
             <input
               type="text"

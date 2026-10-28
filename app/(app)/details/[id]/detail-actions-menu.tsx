@@ -1,9 +1,10 @@
 "use client";
 
-import { Bookmark, BookmarkCheck, Check, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, FileDown, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
+import { useDismiss } from "@/components/use-dismiss";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { SendToCanvasModal } from "@/components/send-to-canvas-modal";
@@ -57,6 +58,8 @@ export function DetailActionsMenu({
   sketchDeletionMode?: "HARD" | "PARTIAL" | "FORBIDDEN";
 }) {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useDismiss(menuRef, open, () => setOpen(false));
   const [sketchLinkCopied, setSketchLinkCopied] = useState(false);
   const [sendToCanvasOpen, setSendToCanvasOpen] = useState(false);
   const pathname = usePathname();
@@ -89,7 +92,7 @@ export function DetailActionsMenu({
     "flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-foreground no-underline transition-colors hover:bg-muted";
 
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -119,8 +122,6 @@ export function DetailActionsMenu({
 
       {open && (
         <>
-          {/* Backdrop transparent — închide la click în afară. */}
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="menu"
             className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"
@@ -143,7 +144,10 @@ export function DetailActionsMenu({
               </button>
             </form>
 
-            <Link href={`/details/${detailId}/pdf`} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>Export PDF</Link>
+            <Link href={`/details/${detailId}/pdf`} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
+              <FileDown className="size-4 text-muted-foreground" strokeWidth={2} />
+              Export PDF
+            </Link>
 
             {/* Trimite în Planșă — doar dacă modelul poate reprezenta corect ce vede userul (tab de bază). */}
             {canSendToCanvas && (

@@ -86,47 +86,90 @@ test.afterEach(async () => {
   detailIds = [];
 });
 
-// **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. Filtrul „Urmariti” include detaliile unui autor urmarit SAU ale unei categorii urmarite, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de user urmarit.
+// **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. In „Filtre”, „Oameni urmăriți” arata detaliile autorilor urmariti, „Categorii urmărite” pe cele din categoriile urmarite; ambele bifate = oricare dintre ele, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de oameni urmariti.
 test("follow/unfollow user si categorie controleaza feed-ul Urmariti", async ({ page }) => {
+  const follow = page.getByRole("button", { name: "Urmărește", exact: true });
+  const unfollow = page.getByRole("button", { name: "Anulează urmărirea", exact: true });
   await page.goto("/profile/" + authorId);
-  await page.getByRole("button", { name: "Urmărește " + authorName, exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Nu mai urmări " + authorName, exact: true }),
-  ).toBeVisible();
+  await follow.click();
+  await expect(unfollow).toBeVisible();
   await page.goto("/feed?following=1&q=" + encodeURIComponent(title));
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toHaveCount(0);
   await page.goto("/profile/" + authorId);
-  await page.getByRole("button", { name: "Nu mai urmări " + authorName, exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Urmărește " + authorName, exact: true }),
-  ).toBeVisible();
+  await unfollow.click();
+  await expect(follow).toBeVisible();
   await page.goto("/feed?following=1&q=" + encodeURIComponent(title));
   await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
   await page.goto("/feed?cat=" + categoryId + "&q=" + encodeURIComponent(title));
-  await page.getByRole("button", { name: "Urmărește " + categoryName, exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Nu mai urmări " + categoryName, exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Urmăriți", exact: true }).click();
-  await expect(page).toHaveURL((url) => url.searchParams.get("following") === "1");
+  await expect(page.getByRole("heading", { name: categoryName, exact: true })).toBeVisible();
+  await follow.click();
+  await expect(unfollow).toBeVisible();
+  const filters = page.getByRole("button", { name: /^Filtre/ });
+  const people = page.getByRole("checkbox", { name: "Oameni urmăriți", exact: true });
+  const categories = page.getByRole("checkbox", { name: "Categorii urmărite", exact: true });
+  const apply = page.getByRole("button", { name: "Aplică", exact: true });
+  await filters.click();
+  await categories.check();
+  await apply.click();
+  await expect(page).toHaveURL((url) => url.searchParams.get("followcat") === "1");
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Nu mai urmări " + categoryName, exact: true }).click();
+  // Categoria urmarita nu apare la „Oameni urmăriți" (autorul nu mai e urmarit).
+  await filters.click();
+  await categories.uncheck();
+  await people.check();
+  await apply.click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("following") === "1" && !url.searchParams.has("followcat"),
+  );
+  await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+  await page.goto("/feed?followcat=1&cat=" + categoryId + "&q=" + encodeURIComponent(title));
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await unfollow.click();
   await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
 });
 
-// **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
-test("cautarea avansata combina filtrele si le pastreaza la toggle/cautare", async ({ page }) => {
+// **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+test("filtrele se aplica o data, se combina cu cautarea si se reseteaza", async ({ page }) => {
   await page.goto("/feed?cat=" + categoryId + "&q=" + encodeURIComponent(title));
-  await page.getByRole("combobox", { name: "Rol autor", exact: true }).selectOption("PROIECTANT");
+  const filters = page.getByRole("button", { name: /^Filtre/ });
+  const role = page.getByRole("combobox", { name: "Rol autor", exact: true });
+  const county = page.getByRole("combobox", { name: "Județ", exact: true });
+  const apply = page.getByRole("button", { name: "Aplică", exact: true });
+  // Focusul intra in panou si revine pe „Filtre" la inchidere.
+  await filters.click();
+  await expect(page.getByRole("dialog", { name: "Filtre" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(filters).toBeFocused();
+  // Nimic nu se schimba pana la „Aplică".
+  await filters.click();
+  await role.selectOption("PROIECTANT");
+  await expect(role).toHaveValue("PROIECTANT");
+  expect(new URL(page.url()).searchParams.has("role")).toBe(false);
+  await apply.click();
   await expect(page).toHaveURL((url) => url.searchParams.get("role") === "PROIECTANT");
-  await page.getByRole("checkbox", { name: "Autor verificat", exact: true }).check();
-  await expect(page).toHaveURL((url) => url.searchParams.get("verified") === "1");
-  await page.getByRole("checkbox", { name: "Cu schițe", exact: true }).check();
-  await expect(page).toHaveURL((url) => url.searchParams.get("sketches") === "1");
+  await expect(page.getByRole("button", { name: "Filtre, 1 active", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toHaveCount(0);
+  // „Resetează" din panou goleste filtrele, dar pastreaza cautarea si categoria.
+  await filters.click();
+  await page.getByRole("button", { name: "Resetează", exact: true }).click();
+  await apply.click();
+  await expect(page).toHaveURL(
+    (url) =>
+      !url.searchParams.has("role") &&
+      url.searchParams.get("cat") === categoryId &&
+      url.searchParams.get("q") === title,
+  );
+  // Judetul: detaliul fara judet dispare la un judet ales.
+  await filters.click();
+  await role.selectOption("PROIECTANT");
+  await county.selectOption("Cluj");
+  await apply.click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("role") === "PROIECTANT" && url.searchParams.get("judet") === "Cluj",
+  );
+  await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
   await page
     .getByRole("searchbox", { name: "Caută detalii", exact: true })
     .fill(title + " inexistent");
@@ -134,14 +177,22 @@ test("cautarea avansata combina filtrele si le pastreaza la toggle/cautare", asy
     (url) =>
       url.searchParams.get("q") === title + " inexistent" &&
       url.searchParams.get("cat") === categoryId &&
-      url.searchParams.get("verified") === "1" &&
-      url.searchParams.get("sketches") === "1" &&
+      url.searchParams.get("judet") === "Cluj" &&
       url.searchParams.get("role") === "PROIECTANT",
   );
-  await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Filtre, 2 active", exact: true })).toBeVisible();
+  // Panoul redeschis arata filtrele aplicate; scoaterea judetului se aplica tot la „Aplică".
+  await filters.click();
+  await expect(county).toHaveValue("Cluj");
+  await county.selectOption("");
+  await apply.click();
+  await expect(page).toHaveURL(
+    (url) => !url.searchParams.has("judet") && url.searchParams.get("role") === "PROIECTANT",
+  );
+  await expect(page.getByRole("button", { name: "Filtre, 1 active", exact: true })).toBeVisible();
 });
 
-// **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
+// **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
 test("filtrele fara rezultate spun ca nimic nu corespunde filtrelor", async ({ page }) => {
   await page.goto("/feed?cat=" + categoryId + "&role=BENEFICIAR");
   await expect(
@@ -276,8 +327,8 @@ test("manifest si worker instalabil fara Cache Storage", async ({ page }) => {
   expect(await page.evaluate(() => caches.keys())).toEqual([]);
 });
 
-// **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
-test("paginarea pastreaza follow, categorie, rol, verificat si cu schite", async ({ page }) => {
+// **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+test("paginarea pastreaza follow, categorie, rol si judet", async ({ page }) => {
   const term = "Pagination " + crypto.randomUUID();
   const rows = await db
     .insert(details)
@@ -286,19 +337,13 @@ test("paginarea pastreaza follow, categorie, rol, verificat si cu schite", async
         authorId,
         title: term + " " + i,
         imageUrl: "/pwa-192.png",
+        county: "Cluj",
       })),
     )
     .returning();
   const ids = rows.map((r) => r.id);
   detailIds.push(...ids);
   await db.insert(detailCategories).values(ids.map((detailId) => ({ detailId, categoryId })));
-  await db.insert(sketches).values(
-    ids.map((detailId) => ({
-      detailId,
-      authorId: getSeed().testerUserId,
-      status: "PUBLISHED" as const,
-    })),
-  );
   await db
     .insert(userFollows)
     .values({ followerUserId: getSeed().testerUserId, followedUserId: authorId });
@@ -306,8 +351,7 @@ test("paginarea pastreaza follow, categorie, rol, verificat si cu schite", async
     q: term,
     cat: categoryId,
     role: "PROIECTANT",
-    verified: "1",
-    sketches: "1",
+    judet: "Cluj",
     following: "1",
   });
   await page.goto("/feed?" + params.toString());

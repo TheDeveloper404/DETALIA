@@ -4,6 +4,7 @@ import { MoreVertical, Trash2, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { useActionState, useRef, useState, useSyncExternalStore } from "react";
+import { useDismiss } from "@/components/use-dismiss";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -110,12 +111,14 @@ export function RemoveMemberButton({
 // „Acțiuni detaliu" pe pagina de detaliu: ștergerea ireversibilă stă într-un meniu, nu la vedere directă.
 export function ProjectMenu({ projectId }: { projectId: string }) {
   const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useDismiss(menuRef, open, () => setOpen(false));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [state, formAction, pending] = useActionState(deleteProjectAction, INITIAL);
   const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <div className="relative">
+    <div ref={menuRef} className="relative">
       <form action={formAction} ref={formRef} className="hidden" aria-hidden>
         <input type="hidden" name="projectId" value={projectId} />
       </form>
@@ -133,7 +136,6 @@ export function ProjectMenu({ projectId }: { projectId: string }) {
 
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
           <div
             role="menu"
             className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg"

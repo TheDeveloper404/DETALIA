@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useActionState, useRef, useState, useTransition } from "react";
+import { useDismiss } from "@/components/use-dismiss";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,8 @@ export function CanvasesList({ canvases }: { canvases: CanvasItem[] }) {
 
 function CanvasCard({ canvas }: { canvas: CanvasItem }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useDismiss(menuRef, menuOpen, () => setMenuOpen(false));
   const [renaming, setRenaming] = useState(false);
   const [duplicating, startDuplicate] = useTransition();
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
@@ -196,7 +199,7 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
         </div>
 
         {/* Meniu (redenumește / șterge) */}
-        <div className="relative">
+        <div ref={menuRef} className="relative">
           <button
             type="button"
             aria-haspopup="menu"
@@ -208,7 +211,6 @@ function CanvasCard({ canvas }: { canvas: CanvasItem }) {
           </button>
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} aria-hidden />
               <div className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg">
                 <button
                   type="button"

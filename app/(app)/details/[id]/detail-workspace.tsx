@@ -45,6 +45,7 @@ export type DetailHeader = {
   createdAt: Date;
   categories: { id: string; name: string }[];
   location: string;
+  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -434,12 +435,12 @@ export function DetailWorkspace({
             </span>
           </div>
 
-          {/* Locație — doar dacă NU e România (implicit, nu adăugăm zgomot pt cazul normal). */}
-          {header.location !== DEFAULT_LOCATION && (
+          {/* Locație — doar dacă NU e România sau are județ (implicit, nu adăugăm zgomot pt cazul normal). */}
+          {(header.location !== DEFAULT_LOCATION || header.county) && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
                 <MapPin className="size-3 text-[#5e6f8a]" strokeWidth={2} />
-                {header.location}
+                {header.county ? `${header.county}, ${header.location}` : header.location}
               </span>
             </div>
           )}

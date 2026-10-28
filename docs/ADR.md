@@ -213,3 +213,8 @@ disponibil după autentificare (azi: onboarding). _(CHANGELOG 2026-08-25, SCHEMA
 **Context:** instalarea pe telefon trebuie sa pastreze regulile de acces dupa logout sau suspendare.
 **Decizie:** manifest si service worker minimal, fara cache de continut, acces offline sau push.
 **Consecinte:** aplicatia necesita internet; fara librarie PWA noua.
+
+## ADR-031 — Judet optional pe detaliu, filtru „Locație" in feed (2026-10-28)
+**Context:** locatia unui detaliu din Romania era doar „România", deci filtrul pe locatie n-avea pe ce sa se bazeze.
+**Decizie:** coloana `details.county` (nullable, lista fixa de 42), aleasa optional la publicare doar pentru Romania; filtrul `judet` in feed.
+**Consecinte:** detaliile vechi raman fara judet si apar doar fara filtru de judet; „Autor verificat" si „Cu schițe" scoase din filtre.

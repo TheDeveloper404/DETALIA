@@ -11,6 +11,7 @@ import { blobReadUrl } from "@/lib/blob-read-url";
 import { PersonSilhouette } from "./avatar-initials";
 import { BadgeEarnedPopup } from "./badge-earned-popup";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
+import { FollowButton } from "./follow-button";
 import { ReferralLinkCard } from "./referral-link-card";
 import { ShowMoreButton } from "./show-more-button";
 
@@ -101,7 +102,13 @@ export type ProfileViewData = {
 
 type Tab = "detalii" | "schite" | "activitate" | "oferte";
 
-export function ProfileView({ data }: { data: ProfileViewData }) {
+export function ProfileView({
+  data,
+  follow,
+}: {
+  data: ProfileViewData;
+  follow?: { targetId: string; followed: boolean };
+}) {
   const [tab, setTab] = useState<Tab>("detalii");
   const [contactOpen, setContactOpen] = useState(false);
   const hasContactInfo = !!(data.location || data.company || data.website || data.phone || data.email);
@@ -197,6 +204,11 @@ export function ProfileView({ data }: { data: ProfileViewData }) {
             <div className="mt-1.5 font-mono text-[13.5px] text-muted-foreground">
               Membru din {data.memberSince}
             </div>
+            {follow && (
+              <div className="mt-3.5">
+                <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />
+              </div>
+            )}
           </div>
 
           {data.viewerIsOwner && (

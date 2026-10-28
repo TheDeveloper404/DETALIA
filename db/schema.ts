@@ -234,6 +234,8 @@ export const details = pgTable(
     // context tehnic RO INVALID pt acel detaliu (enforce în validateDetailInput, nu doar UI) — nu
     // afișăm/acceptăm clasificări românești pe un detaliu din afara României.
     location: text().notNull().default("România"),
+    // Județul (opțional), doar pentru România — filtrul „Locație" din feed.
+    county: text(),
     // Zona climatică n-are variantă neutră în listă (Zona I..IV) → nullable, fără default.
     climateZone: text(),
     // Ceilalți parametri tehnici au „General" ca variantă neutră în listă (lista_categorii.md).
