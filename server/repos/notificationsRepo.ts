@@ -1,8 +1,10 @@
 // Repo notificări — singurul loc cu acces Drizzle pentru tabelul `notifications` (in-app).
-import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, exists, isNotNull, isNull, lt, notInArray, or, sql } from "drizzle-orm";
+
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { notifications } from "@/db/schema";
+import { comments, details, notifications, projectMembers, projects } from "@/db/schema";
 
 export type NotificationType =
   | "SKETCH_PROPOSED"
@@ -12,7 +14,9 @@ export type NotificationType =
   | "SUPPLIER_OFFERED"
   | "MATERIAL_OFFER_SENT"
   | "MATERIAL_OFFER_EDITED"
-  | "REFERRAL_JOINED";
+  | "REFERRAL_JOINED"
+  | "COMMENT_ADDED"
+  | "COMMENT_REPLIED";
 
 export async function insertNotification(input: {
   recipientUserId: string;
@@ -31,10 +35,61 @@ export async function insertNotification(input: {
 }
 
 export async function listByRecipient(userId: string, limit = 30) {
+  const root = alias(comments, "notification_root");
+  const visibleComment = db
+    .select({ id: comments.id })
+    .from(comments)
+    .leftJoin(root, eq(root.id, comments.parentCommentId))
+    .innerJoin(details, and(eq(comments.targetType, "DETAIL"), eq(details.id, comments.targetId)))
+    .where(
+      and(
+        eq(comments.id, sql`(${notifications.payloadJson}->>'commentId')::uuid`),
+        eq(details.id, sql`(${notifications.payloadJson}->>'detailId')::uuid`),
+        eq(comments.hiddenAfterRelease, false),
+        or(isNull(comments.parentCommentId), eq(root.hiddenAfterRelease, false)),
+        eq(details.status, "PUBLISHED"),
+        or(
+          isNull(details.projectId),
+          exists(
+            db
+              .select({ id: projects.id })
+              .from(projects)
+              .where(
+                and(
+                  eq(projects.id, details.projectId),
+                  or(
+                    eq(projects.ownerId, userId),
+                    exists(
+                      db
+                        .select({ id: projectMembers.id })
+                        .from(projectMembers)
+                        .where(
+                          and(
+                            eq(projectMembers.projectId, projects.id),
+                            eq(projectMembers.userId, userId),
+                            isNull(projectMembers.removedAt),
+                          ),
+                        ),
+                    ),
+                  ),
+                ),
+              ),
+          ),
+        ),
+      ),
+    );
   return db
     .select()
     .from(notifications)
-    .where(eq(notifications.recipientUserId, userId))
+    .where(
+      and(
+        eq(notifications.recipientUserId, userId),
+        or(
+          notInArray(notifications.type, ["COMMENT_ADDED", "COMMENT_REPLIED"]),
+          exists(visibleComment),
+        ),
+      ),
+    )
     .orderBy(desc(notifications.createdAt))
     .limit(limit);
 }

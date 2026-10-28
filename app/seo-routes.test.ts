@@ -35,6 +35,6 @@ describe("rute SEO (robots / sitemap / manifest)", () => {
   it("manifest: pornește din landing și include iconița PNG pentru iOS", () => {
     const m = manifest();
     expect(m.start_url).toBe("/");
-    expect(m.icons?.map((i) => i.src)).toEqual(["/icon.svg", "/apple-icon"]);
+    expect(m.icons?.map((i) => i.src)).toEqual(expect.arrayContaining(["/icon.svg", "/apple-icon", "/pwa-192.png", "/pwa-512.png"]));
   });
 });

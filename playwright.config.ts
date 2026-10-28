@@ -90,6 +90,7 @@ export default defineConfig({
         /sketch-numbering\.spec\.ts/,
         /sketch-stack\.spec\.ts/,
         /feed-search\.spec\.ts/,
+        /discovery-features\.spec\.ts/,
         /feed-validation\.spec\.ts/,
         /profile-edit\.spec\.ts/,
         /profile-public\.spec\.ts/,

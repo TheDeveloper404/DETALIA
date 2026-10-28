@@ -3,6 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { DetailCard } from "@/components/detail-card";
+import { FeedFilters } from "@/components/feed-filters";
+import { FollowButton } from "@/components/follow-button";
+import { getFollowState } from "@/server/services/followService";
 import { FeedRail } from "@/components/feed-rail";
 import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
@@ -43,6 +46,10 @@ export default async function FeedPage({
     welcome?: string;
     tour?: string;
     page?: string;
+    following?: string;
+    role?: string;
+    verified?: string;
+    sketches?: string;
   }>;
 }) {
   const session = await auth();
@@ -50,7 +57,28 @@ export default async function FeedPage({
     redirect("/login");
   }
 
-  const { cat, q: rawQ, unanswered: rawUnanswered, welcome, tour, page: rawPage } = await searchParams;
+  const {
+    cat,
+    q: rawQ,
+    unanswered: rawUnanswered,
+    welcome,
+    tour,
+    page: rawPage,
+    following: rawFollowing,
+    role: rawRole,
+    verified: rawVerified,
+    sketches: rawSketches,
+  } = await searchParams;
+  const following = rawFollowing === "1";
+  const authorRole = rawRole && Object.hasOwn(ROLE_MAIN_LABELS, rawRole) ? rawRole : null;
+  const verified = rawVerified === "1";
+  const withSketches = rawSketches === "1";
+  const filters = new URLSearchParams();
+  if (following) filters.set("following", "1");
+  if (authorRole) filters.set("role", authorRole);
+  if (verified) filters.set("verified", "1");
+  if (withSketches) filters.set("sketches", "1");
+  const filterQuery = filters.toString();
   const q = rawQ?.trim() || null;
   const unanswered = rawUnanswered === "1";
   const page = resolveFeedPage(rawPage);
@@ -70,18 +98,31 @@ export default async function FeedPage({
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
   const announcement = platform.announcement;
   const maintenanceText = announcement.enabled
-    ? announcement.message ??
+    ? (announcement.message ??
       (announcement.date
         ? `În data ${new Date(announcement.date).toLocaleDateString("ro-RO", { day: "2-digit", month: "2-digit", year: "numeric" })} platforma va fi în mentenanță.`
-        : "Platforma va intra în curând în mentenanță.")
+        : "Platforma va intra în curând în mentenanță."))
     : null;
 
   const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
-  const { details, totalPages } = await getFeed({ categoryId: activeId, q, unanswered, page });
+  const { details, totalPages } = await getFeed({
+    categoryId: activeId,
+    q,
+    unanswered,
+    page,
+    followingUserId: following ? session.user.id : null,
+    authorRole,
+    verified,
+    withSketches,
+  });
+  const activeCategory = categories.find((c) => c.id === activeId && !c.isGroup);
+  const categoryFollowed = activeCategory
+    ? await getFollowState(session.user.id, "CATEGORY", activeCategory.id)
+    : false;
 
   // Href-ul care comută filtrul „Așteaptă ajutor", păstrând categoria + căutarea (dar resetând pagina).
   const buildToggleHref = (next: boolean) => {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(filterQuery);
     if (activeId) params.set("cat", activeId);
     if (q) params.set("q", q);
     if (next) params.set("unanswered", "1");
@@ -92,7 +133,7 @@ export default async function FeedPage({
   // `?page=` peste ultima pagină reală (filtru schimbat între timp, link vechi/manipulat) → redirect la
   // ultima pagină validă, NU „Niciun rezultat" fals pentru un filtru care chiar are rezultate.
   if (page > totalPages) {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(filterQuery);
     if (activeId) params.set("cat", activeId);
     if (q) params.set("q", q);
     if (unanswered) params.set("unanswered", "1");
@@ -111,94 +152,153 @@ export default async function FeedPage({
     ? (role.subRole ?? ROLE_MAIN_LABELS[role.roleMain as RoleMain] ?? role.roleMain)
     : null;
 
-
   return (
     <>
-    <ProductTour active={tour === "1"} hasFeedItems={details.length > 0} />
-    <FeedEntrance welcome={welcome === "1"}>
-    <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
-      <FeedSidebar
-        profile={{
-          name: media?.name ?? session.user.name ?? null,
-          image: media?.image ?? session.user.image ?? null,
-          coverImage: media?.coverImage ?? null,
-          coverPosition: media?.coverPosition ?? null,
-          location: media?.location ?? null,
-          roleLabel,
-          verified: role?.verificationStatus === "VERIFIED",
-          about: media?.about ?? null,
-        }}
-        categories={categories}
-        activeId={activeId}
-        total={totalPublished}
-        savedCount={savedCount}
-        q={q}
-        unanswered={unanswered}
-      />
+      <ProductTour active={tour === "1"} hasFeedItems={details.length > 0} />
+      <FeedEntrance welcome={welcome === "1"}>
+        <div className="mx-auto grid w-full max-w-[var(--container-max)] grid-cols-1 items-start gap-6 px-6 pb-16 pt-7 lg:grid-cols-[248px_1fr] xl:grid-cols-[248px_1fr_280px]">
+          <FeedSidebar
+            profile={{
+              name: media?.name ?? session.user.name ?? null,
+              image: media?.image ?? session.user.image ?? null,
+              coverImage: media?.coverImage ?? null,
+              coverPosition: media?.coverPosition ?? null,
+              location: media?.location ?? null,
+              roleLabel,
+              verified: role?.verificationStatus === "VERIFIED",
+              about: media?.about ?? null,
+            }}
+            categories={categories}
+            activeId={activeId}
+            total={totalPublished}
+            savedCount={savedCount}
+            q={q}
+            unanswered={unanswered}
+            filterQuery={filterQuery}
+          />
 
-      <main className="min-w-0">
-        {maintenanceText && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-          >
-            <span className="font-semibold">Mentenanță programată — </span>
-            {maintenanceText}
-          </div>
-        )}
-        {/* Bară de control feed — căutare (lată, ocupă spațiul liber) + filtre în dreapta. Titlul e
+          <main className="min-w-0">
+            {maintenanceText && (
+              <div
+                role="status"
+                className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+              >
+                <span className="font-semibold">Mentenanță programată — </span>
+                {maintenanceText}
+              </div>
+            )}
+            {/* Bară de control feed — căutare (lată, ocupă spațiul liber) + filtre în dreapta. Titlul e
             mereu `sr-only`: rămâne în DOM pt accesibilitate/outline, dar nu mai e text vizibil care
             să împingă bara de căutare pe un rând nou pe măsură ce crește query-ul (2026-09-02). */}
-        <div className="mb-5 mt-2 flex flex-wrap items-center gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
-          <h1 className="sr-only">{q ? `Rezultate pentru „${q}”` : "Detalii în dezbatere"}</h1>
-          {/* Căutare — mutată aici din header-ul global (2026-07-06). As-you-type cu debounce,
+            <div className="mb-5 mt-2 flex flex-wrap items-center gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
+              <h1 className="sr-only">{q ? `Rezultate pentru „${q}”` : "Detalii în dezbatere"}</h1>
+              {/* Căutare — mutată aici din header-ul global (2026-07-06). As-you-type cu debounce,
               fără submit/Enter (2026-08-07) — vezi components/feed-search.tsx. */}
-          <div className="min-w-0 flex-1 basis-64">
-            <FeedSearch initialQuery={q ?? ""} />
-          </div>
-          <div className="flex flex-none items-center gap-2">
-            {/* „Așteaptă ajutor" — detalii la care nimeni n-a schițat ȘI nimeni n-a luat poziție
+              <div className="min-w-0 flex-1 basis-64">
+                <FeedSearch initialQuery={q ?? ""} />
+              </div>
+              <div className="flex flex-none items-center gap-2">
+                {/* „Așteaptă ajutor" — detalii la care nimeni n-a schițat ȘI nimeni n-a luat poziție
                 (0 schițe + 0 validări; comentariile nu contează). Link server, păstrează cat/q,
                 resetează pagina. */}
-            <Link
-              href={buildToggleHref(!unanswered)}
-              aria-pressed={unanswered}
-              className={`flex h-11 flex-none items-center gap-1.5 rounded-full px-5 text-[13.5px] font-medium no-underline ring-1 transition-colors ${
-                unanswered
-                  ? "bg-primary text-primary-foreground ring-[#95492e]"
-                  : "bg-card text-foreground/80 ring-foreground/10 hover:text-foreground"
-              }`}
-            >
-              Așteaptă ajutor
-            </Link>
-            <MobileCategoryFilter categories={categories} activeId={activeId} basePath="/feed" total={totalPublished} q={q} unanswered={unanswered} />
-          </div>
-        </div>
-
-        {details.length === 0 ? (
-          <FeedEmpty filtered={!!activeId || !!q || unanswered} search={!!q} unanswered={unanswered} />
-        ) : (
-          <>
-            <div className="flex flex-col gap-4">
-              {details.map((d, i) => (
-                <DetailCard
-                  key={d.id}
-                  detail={d}
-                  currentUserId={session.user.id}
-                  isSaved={mySavedIds.has(d.id)}
-                  searchQuery={q}
-                  tourAnchor={i === 0}
+                <Link
+                  href={buildToggleHref(!unanswered)}
+                  aria-pressed={unanswered}
+                  className={`flex h-11 flex-none items-center gap-1.5 rounded-full px-5 text-[13.5px] font-medium no-underline ring-1 transition-colors ${
+                    unanswered
+                      ? "bg-primary text-primary-foreground ring-[#95492e]"
+                      : "bg-card text-foreground/80 ring-foreground/10 hover:text-foreground"
+                  }`}
+                >
+                  Așteaptă ajutor
+                </Link>
+                <MobileCategoryFilter
+                  categories={categories}
+                  activeId={activeId}
+                  basePath="/feed"
+                  total={totalPublished}
+                  q={q}
+                  unanswered={unanswered}
+                  filterQuery={filterQuery}
                 />
-              ))}
+              </div>
             </div>
-            <FeedPagination page={page} totalPages={totalPages} categoryId={activeId} q={q} unanswered={unanswered} />
-          </>
-        )}
-      </main>
 
-      <FeedRail authors={authors} debated={debated} />
-    </div>
-    </FeedEntrance>
+            <div className="mb-4 flex flex-col gap-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={(() => {
+                    const params = new URLSearchParams(filterQuery);
+                    if (following) params.delete("following");
+                    else params.set("following", "1");
+                    if (activeId) params.set("cat", activeId);
+                    if (q) params.set("q", q);
+                    if (unanswered) params.set("unanswered", "1");
+                    return "/feed?" + params.toString();
+                  })()}
+                  aria-current={following ? "page" : undefined}
+                  className={
+                    following
+                      ? "min-h-11 rounded-lg bg-primary px-4 py-3 text-sm text-primary-foreground"
+                      : "min-h-11 rounded-lg border border-border px-4 py-3 text-sm hover:bg-secondary"
+                  }
+                >
+                  Urmăriți
+                </Link>
+                {activeCategory && (
+                  <FollowButton
+                    kind="CATEGORY"
+                    targetId={activeCategory.id}
+                    followed={categoryFollowed}
+                    label={activeCategory.name}
+                  />
+                )}
+              </div>
+              <FeedFilters />
+            </div>
+            {details.length === 0 ? (
+              <FeedEmpty
+                filtered={
+                  !!activeId ||
+                  !!q ||
+                  unanswered ||
+                  following ||
+                  !!authorRole ||
+                  verified ||
+                  withSketches
+                }
+                search={!!q}
+                unanswered={unanswered}
+              />
+            ) : (
+              <>
+                <div className="flex flex-col gap-4">
+                  {details.map((d, i) => (
+                    <DetailCard
+                      key={d.id}
+                      detail={d}
+                      currentUserId={session.user.id}
+                      isSaved={mySavedIds.has(d.id)}
+                      searchQuery={q}
+                      tourAnchor={i === 0}
+                    />
+                  ))}
+                </div>
+                <FeedPagination
+                  page={page}
+                  totalPages={totalPages}
+                  categoryId={activeId}
+                  q={q}
+                  unanswered={unanswered}
+                  filterQuery={filterQuery}
+                />
+              </>
+            )}
+          </main>
+
+          <FeedRail authors={authors} debated={debated} />
+        </div>
+      </FeedEntrance>
     </>
   );
 }

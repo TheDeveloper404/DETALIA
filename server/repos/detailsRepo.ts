@@ -1,10 +1,11 @@
-
 import { and, count, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { type PgColumn } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import {
   categories,
+  categoryFollows,
+  userFollows,
   comments,
   detailCategories,
   detailResources,
@@ -97,7 +98,10 @@ function hasAnyCategory(categoryIds: string[]) {
       .select({ one: sql`1` })
       .from(detailCategories)
       .where(
-        and(eq(detailCategories.detailId, details.id), inArray(detailCategories.categoryId, categoryIds)),
+        and(
+          eq(detailCategories.detailId, details.id),
+          inArray(detailCategories.categoryId, categoryIds),
+        ),
       ),
   );
 }
@@ -170,7 +174,12 @@ export async function replaceDetailResources(detailId: string, resources: Detail
 // Ciornele de DETALIU ale unui user (pt „Ciornele mele", unificat cu ciornele de schiță).
 export function listDetailDraftsByAuthor(authorId: string) {
   return db
-    .select({ id: details.id, title: details.title, imageUrl: details.imageUrl, createdAt: details.createdAt })
+    .select({
+      id: details.id,
+      title: details.title,
+      imageUrl: details.imageUrl,
+      createdAt: details.createdAt,
+    })
     .from(details)
     .where(and(eq(details.authorId, authorId), eq(details.status, DETAIL_STATUS.DRAFT)))
     .orderBy(desc(details.createdAt));
@@ -215,22 +224,34 @@ const detailWithAuthorColumns = {
   isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
   // `authorId` = identitatea AFIȘABILĂ: null după retragere, ca UUID-ul autorului să nu ajungă la client
   // (din el s-ar deschide direct /profile/<id> — anonimizarea ar fi fost decorativă).
-  authorId: sql<string | null>`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
+  authorId: sql<
+    string | null
+  >`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
   // `ownerId` = proprietarul REAL, needitat de anonimizare. STRICT pentru logica de server (autorizare,
   // notificări, „e adnotarea propriului autor?"). NU se trimite spre client — componentele de afișare
   // citesc `authorId`/`isAnonymized`, niciodată asta.
   ownerId: details.authorId,
   authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
-  authorImage: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.image} end`,
-  authorLocation: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.location} end`,
-  authorHeadline: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.headline} end`,
+  authorImage: sql<
+    string | null
+  >`case when ${details.anonymizedAt} is null then ${users.image} end`,
+  authorLocation: sql<
+    string | null
+  >`case when ${details.anonymizedAt} is null then ${users.location} end`,
+  authorHeadline: sql<
+    string | null
+  >`case when ${details.anonymizedAt} is null then ${users.headline} end`,
   // Rolul SUPRAVIEȚUIEȘTE retragerii (cerința: „Autor șters · rol") — după anonimizare nu-l mai putem
   // citi din contul userului, deci vine din snapshot-ul înghețat la momentul retragerii.
-  authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
+  authorRoleMain: sql<
+    string | null
+  >`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
     else ${details.authorRoleSnapshot}->>'roleMain' end`,
   authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
     else ${details.authorRoleSnapshot}->>'subRole' end`,
-  authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
+  authorVerification: sql<
+    string | null
+  >`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
     else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
 } as const;
 
@@ -316,7 +337,9 @@ export async function publishDetailRow(detailId: string) {
 // SEC-011 (audit securitate 2026-08-11): batch — pentru scrub-ul notificărilor la citire (userul care
 // a pierdut accesul la un proiect nu mai trebuie să vadă titlul detaliului în clopoțel). Doar id+projectId,
 // fără join-uri suplimentare.
-export async function listProjectIdForDetails(detailIds: string[]): Promise<Map<string, string | null>> {
+export async function listProjectIdForDetails(
+  detailIds: string[],
+): Promise<Map<string, string | null>> {
   if (detailIds.length === 0) return new Map();
   const rows = await db
     .select({ id: details.id, projectId: details.projectId })
@@ -403,8 +426,14 @@ export async function releaseDetailToCommunity(
   // detaliu direct, fie pe oricare din schițele lui, se ascund în ACELAȘI batch atomic — altfel ar
   // exista o fereastră (sau, la eroare pe jumătate, o stare permanentă) cu detaliul deja public și
   // conținutul altora încă vizibil nefiltrat. Subquery pe schițele detaliului, nu doar targetId=detailId.
-  const sketchIdsOfDetail = db.select({ id: sketches.id }).from(sketches).where(eq(sketches.detailId, detailId));
-  const onThisDetailOrItsSketches = (targetType: typeof comments.targetType | typeof validations.targetType, targetId: typeof comments.targetId | typeof validations.targetId) =>
+  const sketchIdsOfDetail = db
+    .select({ id: sketches.id })
+    .from(sketches)
+    .where(eq(sketches.detailId, detailId));
+  const onThisDetailOrItsSketches = (
+    targetType: typeof comments.targetType | typeof validations.targetType,
+    targetId: typeof comments.targetId | typeof validations.targetId,
+  ) =>
     or(
       and(eq(targetType, "DETAIL"), eq(targetId, detailId)),
       and(eq(targetType, "SKETCH"), inArray(targetId, sketchIdsOfDetail)),
@@ -512,11 +541,7 @@ export async function anonymizeDetailAuthor(
     .update(details)
     .set({ anonymizedAt: new Date(), authorRoleSnapshot: roleSnapshot })
     .where(
-      and(
-        eq(details.id, detailId),
-        eq(details.authorId, authorId),
-        isNull(details.anonymizedAt),
-      ),
+      and(eq(details.id, detailId), eq(details.authorId, authorId), isNull(details.anonymizedAt)),
     )
     .returning({ id: details.id });
   return rows.length > 0;
@@ -720,8 +745,50 @@ function feedFilterConditions(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
+  followingUserId?: string | null;
+  authorRole?: string | null;
+  verified?: boolean;
+  withSketches?: boolean;
 }) {
   const conds = [];
+  if (input.followingUserId)
+    conds.push(
+      or(
+        and(
+          isNull(details.anonymizedAt),
+          exists(
+            db
+              .select({ id: userFollows.followedUserId })
+              .from(userFollows)
+              .where(
+                and(
+                  eq(userFollows.followerUserId, input.followingUserId),
+                  eq(userFollows.followedUserId, details.authorId),
+                ),
+              ),
+          ),
+        ),
+        exists(
+          db
+            .select({ id: categoryFollows.categoryId })
+            .from(categoryFollows)
+            .innerJoin(
+              detailCategories,
+              eq(detailCategories.categoryId, categoryFollows.categoryId),
+            )
+            .where(
+              and(
+                eq(categoryFollows.userId, input.followingUserId),
+                eq(detailCategories.detailId, details.id),
+              ),
+            ),
+        ),
+      )!,
+    );
+  if (input.authorRole)
+    conds.push(sql`${detailWithAuthorColumns.authorRoleMain} = ${input.authorRole}`);
+  if (input.verified) conds.push(sql`${detailWithAuthorColumns.authorVerification} = 'VERIFIED'`);
+  if (input.withSketches) conds.push(sql`${sketchCount} > 0`);
   if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
   // „Fără răspuns" (2026-09-01): detaliu la care NIMENI nu s-a implicat cu o soluție SAU o poziție —
   // 0 schițe în teanc ȘI 0 validări (aprob/dezaprob). Comentariile NU contează (decizie de produs
@@ -754,6 +821,10 @@ export async function listFeed(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
+  followingUserId?: string | null;
+  authorRole?: string | null;
+  verified?: boolean;
+  withSketches?: boolean;
   limit: number;
   offset?: number;
 }) {
@@ -766,26 +837,28 @@ export async function listFeed(input: {
     isNull(details.projectId),
     ...feedFilterConditions(input),
   );
-  return db
-    .select({
-      ...detailWithAuthorColumns,
-      validationCount,
-      commentCount,
-      sketchCount,
-      interactorAvatars,
-      interactorCount,
-      interactionCount: interactionScore,
-    })
-    .from(details)
-    .leftJoin(users, eq(users.id, details.authorId))
-    .leftJoin(roles, eq(roles.userId, details.authorId))
-    .where(where)
-    // details.id ca tiebreaker: createdAt NU e unique — fără el, rânduri cu același timestamp nu au
-    // ordine garantată între cereri LIMIT/OFFSET diferite (pot apărea duplicate sau sărite la limita
-    // de pagină).
-    .orderBy(desc(details.createdAt), desc(details.id))
-    .limit(input.limit)
-    .offset(input.offset ?? 0);
+  return (
+    db
+      .select({
+        ...detailWithAuthorColumns,
+        validationCount,
+        commentCount,
+        sketchCount,
+        interactorAvatars,
+        interactorCount,
+        interactionCount: interactionScore,
+      })
+      .from(details)
+      .leftJoin(users, eq(users.id, details.authorId))
+      .leftJoin(roles, eq(roles.userId, details.authorId))
+      .where(where)
+      // details.id ca tiebreaker: createdAt NU e unique — fără el, rânduri cu același timestamp nu au
+      // ordine garantată între cereri LIMIT/OFFSET diferite (pot apărea duplicate sau sărite la limita
+      // de pagină).
+      .orderBy(desc(details.createdAt), desc(details.id))
+      .limit(input.limit)
+      .offset(input.offset ?? 0)
+  );
 }
 
 // Rândurile paginate + totalul, într-un SINGUR `db.batch` (atomic — o rundă HTTP, vezi comentariul de
@@ -798,6 +871,10 @@ export async function listFeedWithTotal(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
+  followingUserId?: string | null;
+  authorRole?: string | null;
+  verified?: boolean;
+  withSketches?: boolean;
   limit: number;
   offset?: number;
 }): Promise<{ rows: Awaited<ReturnType<typeof listFeed>>; total: number }> {
@@ -828,6 +905,7 @@ export async function listFeedWithTotal(input: {
   const totalQuery = db
     .select({ count: sql<number>`count(*)::int` })
     .from(details)
+    .leftJoin(roles, eq(roles.userId, details.authorId))
     .where(where);
 
   const [rows, totalRows] = await db.batch([rowsQuery, totalQuery]);
@@ -838,36 +916,50 @@ export async function listFeedWithTotal(input: {
 // schițe), independent de filtrele/paginarea feed-ului principal (altfel rail-ul ar reflecta doar un
 // subset, nu adevăratul top). Feed-ul principal e strict cronologic — vezi `listFeed`.
 export async function listTopDebated(limit: number) {
-  return db
-    .select({
-      id: details.id,
-      title: details.title,
-      categories: detailCategoriesJson,
-      // Aceeași mască de anonimizare ca în `detailWithAuthorColumns` — altfel rail-ul „cele mai
-      // dezbătute" ar fi continuat să afișeze numele unui autor care s-a retras.
-      isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
-      // Mascat identic cu `detailWithAuthorColumns` (vezi comentariul de-acolo) — un autor retras nu
-      // trebuie să poarte un id deschidabil ca /profile/<id> nici în rail-ul public.
-      authorId: sql<string | null>`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
-      authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
-      authorImage: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.image} end`,
-      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
+  return (
+    db
+      .select({
+        id: details.id,
+        title: details.title,
+        categories: detailCategoriesJson,
+        // Aceeași mască de anonimizare ca în `detailWithAuthorColumns` — altfel rail-ul „cele mai
+        // dezbătute" ar fi continuat să afișeze numele unui autor care s-a retras.
+        isAnonymized: sql<boolean>`${details.anonymizedAt} is not null`,
+        // Mascat identic cu `detailWithAuthorColumns` (vezi comentariul de-acolo) — un autor retras nu
+        // trebuie să poarte un id deschidabil ca /profile/<id> nici în rail-ul public.
+        authorId: sql<
+          string | null
+        >`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
+        authorName: sql<
+          string | null
+        >`case when ${details.anonymizedAt} is null then ${users.name} end`,
+        authorImage: sql<
+          string | null
+        >`case when ${details.anonymizedAt} is null then ${users.image} end`,
+        authorRoleMain: sql<
+          string | null
+        >`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
         else ${details.authorRoleSnapshot}->>'roleMain' end`,
-      authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
+        authorSubRole: sql<
+          string | null
+        >`case when ${details.anonymizedAt} is null then ${roles.subRole}
         else ${details.authorRoleSnapshot}->>'subRole' end`,
-      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
+        authorVerification: sql<
+          string | null
+        >`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
         else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
-      validationCount,
-      commentCount,
-      sketchCount,
-    })
-    .from(details)
-    .leftJoin(users, eq(users.id, details.authorId))
-    .leftJoin(roles, eq(roles.userId, details.authorId))
-    // Proiecte (2026-08-09): rail public, exclude detaliile de proiect — vezi nota de la listFeed.
-    .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)))
-    .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
-    .limit(limit);
+        validationCount,
+        commentCount,
+        sketchCount,
+      })
+      .from(details)
+      .leftJoin(users, eq(users.id, details.authorId))
+      .leftJoin(roles, eq(roles.userId, details.authorId))
+      // Proiecte (2026-08-09): rail public, exclude detaliile de proiect — vezi nota de la listFeed.
+      .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)))
+      .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
+      .limit(limit)
+  );
 }
 
 // Detalii înrudite = cel puțin o categorie comună (regula e „bifezi oricâte"), PUBLISHED, exclus self.
@@ -883,13 +975,23 @@ export async function listRelatedDetails(input: {
       id: details.id,
       title: details.title,
       // Vezi nota de la `listTopDebated`: masca de anonimizare se aplică pe FIECARE cale de citire.
-      authorId: sql<string | null>`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
-      authorName: sql<string | null>`case when ${details.anonymizedAt} is null then ${users.name} end`,
-      authorRoleMain: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
+      authorId: sql<
+        string | null
+      >`case when ${details.anonymizedAt} is null then ${details.authorId} end`,
+      authorName: sql<
+        string | null
+      >`case when ${details.anonymizedAt} is null then ${users.name} end`,
+      authorRoleMain: sql<
+        string | null
+      >`case when ${details.anonymizedAt} is null then ${roles.roleMain}::text
         else ${details.authorRoleSnapshot}->>'roleMain' end`,
-      authorSubRole: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.subRole}
+      authorSubRole: sql<
+        string | null
+      >`case when ${details.anonymizedAt} is null then ${roles.subRole}
         else ${details.authorRoleSnapshot}->>'subRole' end`,
-      authorVerification: sql<string | null>`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
+      authorVerification: sql<
+        string | null
+      >`case when ${details.anonymizedAt} is null then ${roles.verificationStatus}::text
         else ${details.authorRoleSnapshot}->>'verificationStatus' end`,
       commentCount,
       sketchCount,

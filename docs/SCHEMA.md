@@ -355,3 +355,10 @@ plus câte o dată per schiță trimisă separat).
 - **`role_snapshot` pe validare** → rolul afișat lângă o poziție rămâne corect chiar dacă userul își schimbă
   subrolul ulterior (istoric onest).
 - **Toate FK indexate** + indici compuși pe țintele polimorfice — citirile feed/detaliu sunt ieftine.
+
+
+## Urmarire si notificari comentarii (0026, 2026-10-28)
+- `user_follows(follower_user_id, followed_user_id)`: PK compus, ambele FK spre users cu ON DELETE CASCADE; index suplimentar pe followed_user_id.
+- `category_follows(user_id, category_id)`: PK compus, FK users/categories cu ON DELETE CASCADE; index suplimentar pe category_id.
+- Enum `notification_type`: COMMENT_ADDED / COMMENT_REPLIED pentru dezbaterea unificata pe detaliu. Payload server: detailId, detailTitle, commentId; fara corp/nume actor. Vizibilitatea se filtreaza in SQL inainte de LIMIT 30.
+- Migrarea se aplica manual pe ambele baze; modelul local/migrarile sunt sincronizate prin db:generate.

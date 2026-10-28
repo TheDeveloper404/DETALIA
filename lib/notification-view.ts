@@ -4,6 +4,7 @@
 import type { NotificationView } from "@/components/notification-bell";
 
 type NotificationPayload = {
+  commentId?: string;
   detailId?: string;
   sketchId?: string;
   detailTitle?: string;
@@ -37,7 +38,7 @@ export function mapNotificationRows(rows: NotificationRow[]): NotificationView[]
       detailTitle: p.detailTitle ?? "un detaliu",
       // Referral: link spre profilul celui înscris (notificările mai vechi n-au joinedUserId → fără link).
       href: p.detailId
-        ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}`
+        ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}${p.commentId ? `#comment-${p.commentId}` : ""}`
         : p.joinedUserId
           ? `/profile/${p.joinedUserId}`
           : null,

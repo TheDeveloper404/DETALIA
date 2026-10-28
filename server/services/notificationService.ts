@@ -24,7 +24,10 @@ import {
   markOneRead,
   type NotificationType,
 } from "@/server/repos/notificationsRepo";
-import { listProjectIdForDetails } from "@/server/repos/detailsRepo";
+import { getThreadCommentForTarget } from "@/server/repos/commentsRepo";
+import { targetExists } from "@/server/services/validationService";
+import type { TargetType } from "@/server/domain/validation";
+import { getDetailById, listProjectIdForDetails } from "@/server/repos/detailsRepo";
 import { getUserContact } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
 import { getProjectAccess } from "@/server/services/projectService";
@@ -76,7 +79,10 @@ const HIDDEN_TITLE = "un detaliu la care nu mai ai acces";
 // clopoțel (linkul dădea deja 404, dar titlul rămânea). Scrub la CITIRE, nu la eliminare (accesul se
 // poate pierde/recâștiga oricând, nu doar la removeMember — mai simplu și mai robust decât un hook
 // separat pe fiecare cale care poate revoca accesul).
-async function scrubDetailTitles(userId: string, rows: Awaited<ReturnType<typeof listByRecipient>>) {
+async function scrubDetailTitles(
+  userId: string,
+  rows: Awaited<ReturnType<typeof listByRecipient>>,
+) {
   const detailIds = [
     ...new Set(
       rows
@@ -93,7 +99,8 @@ async function scrubDetailTitles(userId: string, rows: Awaited<ReturnType<typeof
   const accessByProject = new Map(
     await Promise.all(
       projectIds.map(
-        async (projectId) => [projectId, (await getProjectAccess({ projectId, userId })).hasAccess] as const,
+        async (projectId) =>
+          [projectId, (await getProjectAccess({ projectId, userId })).hasAccess] as const,
       ),
     ),
   );
@@ -186,8 +193,14 @@ export async function notifyMaterialOfferSent(input: {
   await notify({
     recipientUserId: input.recipientUserId,
     type: "MATERIAL_OFFER_SENT",
-    payloadJson: { detailId: input.detailId, detailTitle: input.detailTitle, supplierName: input.supplierName },
-    emailSubject: plainSubject(`${who} ți-a trimis o ofertă de materiale pentru „${input.detailTitle}"`),
+    payloadJson: {
+      detailId: input.detailId,
+      detailTitle: input.detailTitle,
+      supplierName: input.supplierName,
+    },
+    emailSubject: plainSubject(
+      `${who} ți-a trimis o ofertă de materiale pentru „${input.detailTitle}"`,
+    ),
     emailHtml: materialOfferSentEmailHtml(who, input.detailTitle, url),
     emailText: materialOfferSentEmailText(who, input.detailTitle, url),
   });
@@ -204,8 +217,14 @@ export async function notifyMaterialOfferEdited(input: {
   await notify({
     recipientUserId: input.recipientUserId,
     type: "MATERIAL_OFFER_EDITED",
-    payloadJson: { detailId: input.detailId, detailTitle: input.detailTitle, supplierName: input.supplierName },
-    emailSubject: plainSubject(`${who} a actualizat oferta de materiale pentru „${input.detailTitle}"`),
+    payloadJson: {
+      detailId: input.detailId,
+      detailTitle: input.detailTitle,
+      supplierName: input.supplierName,
+    },
+    emailSubject: plainSubject(
+      `${who} a actualizat oferta de materiale pentru „${input.detailTitle}"`,
+    ),
     emailHtml: materialOfferEditedEmailHtml(who, input.detailTitle, url),
     emailText: materialOfferEditedEmailText(who, input.detailTitle, url),
   });
@@ -232,4 +251,36 @@ export async function notifyReferralJoined(input: {
 // `retentionDays` — cele necitite rămân (userul trebuie să le vadă măcar o dată).
 export async function cleanupOldNotifications(retentionDays: number): Promise<number> {
   return deleteReadNotificationsOlderThan(retentionDays);
+}
+
+export async function notifyCommentAdded(input: {
+  actorId: string;
+  targetType: TargetType;
+  targetId: string;
+  commentId: string;
+  parentCommentId: string | null;
+  replyToCommentId: string | null;
+}) {
+  if (input.targetType !== "DETAIL") return;
+  const detail = await getDetailById(input.targetId);
+  if (!detail) return;
+  const recipients = new Set([detail.ownerId]);
+  for (const id of new Set([input.parentCommentId, input.replyToCommentId])) {
+    if (!id) continue;
+    const comment = await getThreadCommentForTarget(id, input.targetType, input.targetId);
+    if (comment) recipients.add(comment.authorId);
+  }
+  recipients.delete(input.actorId);
+  for (const recipientUserId of recipients) {
+    if (!(await targetExists(input.targetType, input.targetId, recipientUserId))) continue;
+    await insertNotification({
+      recipientUserId,
+      type: input.parentCommentId ? "COMMENT_REPLIED" : "COMMENT_ADDED",
+      payloadJson: {
+        detailId: detail.id,
+        detailTitle: detail.title,
+        commentId: input.commentId,
+      },
+    });
+  }
 }

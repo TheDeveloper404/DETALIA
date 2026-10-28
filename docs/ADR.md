@@ -1,14 +1,7 @@
-# DETALIA — Decizii de arhitectură (ADR — formă scurtă)
+# DETALIA — Decizii de arhitectura (ADR — forma scurta)
 
-> **Actualizat 2026-08-07: proiectul a trecut din faza MVP în v1 — 100% funcțională, 26 useri activi
-> (2026-08-25).**
-> Deciziile de mai jos rămân valabile ca înregistrare istorică (context → decizie de la momentul
-> respectiv) — referințele la „MVP" din corpul lor nu sunt retro-editate.
->
-> Registru compact al deciziilor structurante și **de ce** au fost luate (context → decizie → consecințe).
-> Forma e deliberat **ușoară** (nu ceremonie enterprise): la scara unui MVP de validare, `CHANGELOG.md` ține
-> jurnalul cronologic, iar acest fișier fixează deciziile *durabile* într-un singur loc, ușor de revizitat.
-> O decizie marcată **ÎN HOLD** rămâne reversibilă până la confirmare.
+Doar decizii de design (stack, model de date, auth, acces, storage), fiecare in 3–4 randuri: context → decizie → consecinte.
+Fix-urile si detaliile de implementare stau in `CHANGELOG.md`, nu aici.
 
 ---
 
@@ -151,157 +144,72 @@ disponibil după autentificare (azi: onboarding). _(CHANGELOG 2026-08-25, SCHEMA
 
 ---
 
-## ADR-017 — Fisiere de continut in Blob privat, citire autorizata prin aplicatie
-**Decizie aprobata de Liviu (2026-10-26):** doua store-uri. Avatarele, cover-urile si imaginile din
-comentarii pastreaza storage public. Imaginile/resursele de detaliu, thumbnail-urile schitelor,
-plansele personale/partajate si atasamentele ofertelor folosesc storage privat, inclusiv dupa release.
-Regulile de vizibilitate existente decid citirea; publicarea nu copiaza fisiere intre store-uri.
-**Alternative:** proxy peste public nu protejeaza URL-ul brut; promovarea fizica public/private adauga
-operatii Blob/DB fara tranzactie comuna. Varianta privata permanenta elimina aceasta sincronizare.
-**Contract:** GET `/api/files/[kind]/[id]`, identificator UUID si tip explicit; URL-ul se citeste numai
-din DB. Service-ul verifica owner/proiect/status/hiddenAfterRelease. Ofertele: autorul real al detaliului
-sau furnizorul propriei oferte. Drafturile si plansele personale nu devin publice. Stream fara cache
-public; Next Image foloseste `unoptimized` pentru aceste rute. Cheile raman exclusiv server-side.
-**STRIDE:** IDOR si acces dupa revocare → verificare pe entitate la fiecare cerere; SSRF → store-uri
-configurate strict; furt de token → niciun token in client/loguri; divulgare prin cache → no-store;
-pierdere la migrare → copie verificata, manifest, actualizare conditionata a referintelor, retragere
-publica doar dupa verificarea tuturor bazelor care folosesc store-ul comun si oprirea scrierilor vechi.
-**Consecinte:** citirile trec prin server (cost/latenta suplimentare); fara schema noua sau dependente.
-Migrarea necesita cutover coordonat si backup privat; revenirea la codul vechi dupa cutover nu e sigura.
-Nu putem retrage fisiere deja descarcate. DET-01/02 si imaginile comentariilor raman in afara acestui task.
+## ADR-017 — Fisiere de continut in Blob privat, citite prin aplicatie (2026-10-26)
+**Context:** imaginile detaliilor, schitele, plansele si atasamentele ofertelor erau pe URL-uri publice, accesibile si dupa revocare.
+**Decizie:** doua store-uri: avatar/cover/imagini din comentarii raman publice; restul in Blob privat, citit prin `GET /api/files/[kind]/[id]` cu verificare de acces la fiecare cerere, fara cache public.
+**Consecinte:** citirile trec prin server (cost/latenta); migrarea cere cutover coordonat si backup; ce s-a descarcat deja nu se poate retrage.
 
-> Deciziile noi sau schimbările se consemnează aici (formă scurtă) + în `CHANGELOG.md` (cronologic, cu dată).
+## ADR-018 — JWT revocabil pe sesiune, expirare absoluta (2026-10-27)
+**Context:** logout/suspendare trebuiau sa aiba efect imediat, iar JWT-ul nu se putea revoca.
+**Decizie:** pastram Auth.js JWT + un `sid` aleator in tabelul `sessions`; expirarea (+7 zile) se fixeaza la login; `auth()`/proxy verifica randul la fiecare cerere.
+**Consecinte:** logout-ul deconecteaza doar dispozitivul curent; cookie-urile vechi fara `sid` cer o reconectare.
 
-## ADR-018 — JWT revocabil pe sesiune si expirare absoluta (2026-10-27)
+## ADR-019 — Atasamentele ofertelor nu se sterg fizic la editare/retragere (2026-10-27)
+**Context:** acelasi furnizor poate refolosi un fisier in mai multe oferte; stergerea imediata putea lua fisierul altei oferte.
+**Decizie:** se sterg doar referintele din DB; fisierele raman.
+**Consecinte:** fisierele fara referinte ocupa storage; curatenia se face separat, cu inventar, dry-run si backup.
 
-**Decizie aprobata:** pastram Auth.js JWT si adaugam un sid stabil, aleator, inregistrat in tabelul
-existent sessions. Expirarea din DB se seteaza o singura data la login (+7 zile), fara prelungire.
-**Alternative:** sesiuni database native schimba decoderul proxy si mai multe contracte existente;
-sessionVersion pe user ar deloga toate dispozitivele, comportament necerut.
-**Flux:** login → sid + rand sessions → auth()/proxy verifica registrul → autorizare existenta.
-Proxy combina sesiune/status/rol in query-ul existent; auth() face verificarea proaspata necesara.
-Revocarea server-action este asteptata explicit inainte de signOut. La POST HTTP, Auth.js valideaza
-intai CSRF, apoi revocarea trebuie sa reuseasca inaintea livrarii raspunsului care sterge cookie-ul.
-**STRIDE:** replay cookie → rand revocat; prelungire JWT → expirare DB fixa; CSRF logout → validare
-Auth.js inainte de revocare; substituire user/sid → asociere verificata; DB indisponibila → acces
-refuzat / logout nereportat ca succes. Nu logam sid/cookie/email.
-**Consecinte:** o reconectare pentru cookie-urile vechi fara sid; celelalte dispozitive raman
-conectate la logout. Nu expunem sid in sesiunea publica. Requesturile deja autorizate pot termina,
-dar un cookie reemis concurent nu poate reactiva randul sters. Fara schema, dependinte sau env noi.
+## ADR-020 — Dezaprobare + justificare si onboarding intr-un singur statement SQL (2026-10-27)
+**Context:** driverul `neon-http` nu suporta tranzactii interactive, iar scrierile partiale lasau date inconsistente.
+**Decizie:** CTE modificator (pozitie + comentariu) si `ON CONFLICT DO NOTHING` pentru rol; un esec anuleaza tot statement-ul.
+**Consecinte:** fara schema noua; concurenta reala se verifica doar pe Preview.
 
-## ADR-019 — Retentia fizica a atasamentelor ofertelor (2026-10-27)
+## ADR-021 — Eliminarea membrului din proiect dupa lock (2026-10-27)
+**Context:** un membru eliminat in timp ce reintra pe link ramanea in proiect.
+**Decizie:** `db.batch` cu doua instructiuni (rotire invitatie, apoi UPDATE membership), sub READ COMMITTED.
+**Consecinte:** un round-trip; READ COMMITTED e preconditie, verificata pe ambele baze.
 
-**Decizie aprobata:** editarea/retragerea ofertei, retragerea/stergerea detaliului si stergerea
-proiectului elimina referintele ofertei din DB, fara stergerea fizica a atasamentelor.
-**Motiv:** acelasi furnizor poate reutiliza un URL in mai multe oferte; o stergere imediata poate
-elimina fisierul altei oferte. Un pre-check de referinte singur nu inchide cursa cu reutilizarea.
-**Alternative:** stergere imediata (risc de pierdere), GC automat coordonat cu writer-ii (complexitate
-neceruta acum). Alegem retentie si curatenie separata, fara schema/registru/cron nou.
-**Consecinte:** fisierele fara referinte continua sa ocupe storage; curatenia initiala recomandata
-necesita inventar/dry-run, backup, toate bazele care impart store-ul si o fereastra fara scrieri.
-Se poate executa pe infrastructura curenta; VPS-ul nu este o dependenta tehnica. Nu se schimba
-stergerea imaginilor/resurselor detaliilor, schitelor sau planselor.
+## ADR-022 — Miniatura plansei pe ruta separata, nu Server Action (2026-10-27)
+**Context:** Server Actions ruleaza in coada (FIFO); miniatura bloca salvarea urmatoare si iesirea din editor.
+**Decizie:** upload Blob din client + `POST /api/canvases/[id]/thumbnail`; documentul ramane pe Server Action.
+**Consecinte:** o ruta noua, cu Origin, sesiune, rate limit si ownership in service.
 
-## ADR-020 — Invariantele dezaprobarii si onboarding-ului intr-un singur statement (2026-10-27)
+## ADR-023 — Mascarea linkului de magic link inainte de PostHog (2026-10-28)
+**Context:** referrer-ul `/verify?u=...` trimitea in PostHog emailul si tokenul de login.
+**Decizie:** `before_send` existent mascheaza `u`, `token`, `email`, `callbackUrl` in URL-uri, referrer si `$set`; `error=Verification` ramane.
+**Consecinte:** istoricul PostHog si Session Replay nu se curata retroactiv.
 
-**Scop aprobat:** pozitie + justificare fara scriere partiala; onboarding respins fara profil modificat.
-**Decizie:** SQL parametrizat cu CTE modificator, fara schema noua. validationsRepo decide tranzitia
-DISAPPROVE prin upsert conditionat si insereaza comentariul din RETURNING; un esec anuleaza statement-ul.
-Onboarding valideaza rolul in domain si verifica rolul existent inaintea procesarii imaginilor.
-usersRepo insereaza rolul cu ON CONFLICT DO NOTHING si actualizeaza profilul numai din claim-ul obtinut.
-Rolul si profilul devin vizibile impreuna la commit; o cerere concurenta pierzatoare nu modifica profilul.
-**Alternative:** preflight singur lasa cursa intre verificare si scriere; tranzactiile interactive nu
-sunt suportate de driverul neon-http instalat. batch atomic este posibil, dar CTE-ul exprima direct
-dependenta dintre rezultate fara exceptii de conflict folosite ca flux de control.
-**Consecinte:** erorile/codurile publice si gardurile actorului raman existente. Imaginile omise se
-pastreaza. Fisierele reprocesate se curata la conflict explicit sau esec cunoscut inainte de DB;
-la eroare de retea cu rezultat de commit incert nu se sterg, pentru a nu pierde o imagine deja referita.
-SQL PGlite verifica rollback real de statement; concurenta intre conexiuni si HTTP real necesita Preview.
+## ADR-024 — Retry upload detaliu cu aceeasi imagine (2026-10-28)
+**Context:** dupa o validare respinsa, retrimiterea formularului pierdea imaginea deja urcata.
+**Decizie:** `reprocessBlobImage` cu `preserveOriginal` doar pentru detalii: originalul din staging ramane pana la succes.
+**Consecinte:** originale abandonate pot ramane in staging; curatenia e separata.
 
-## ADR-021 — Eliminarea membrului dupa obtinerea lock-ului de proiect (2026-10-27)
-
-**Scop aprobat:** eliminarea ramane efectiva cand membrul reintra simultan, inclusiv prima intrare.
-**Decizie:** doua instructiuni SQL parametrizate in acelasi `db.batch` Neon HTTP: rotire invitatie,
-apoi UPDATE membership. La READ COMMITTED, a doua instructiune vede commit-ul reintrarii care
-tinea lock-ul proiectului. Ambele scrieri se confirma sau se anuleaza impreuna.
-**Alternativa respinsa:** CTE-ul modificator are un singur snapshot si poate rata randul
-nou/reactivat. Eliminarea filtrului removed_at singura nu rezolva randul inca inexistent.
-**STRIDE:** reintrare cu token vechi → serializare pe proiect si reverificare la join;
-acces pastrat dupa eliminare → snapshot nou inaintea UPDATE-ului; eroare la eliminare → rollback
-al rotirii. Gardul de owner si ramura fara token nou raman existente, fara schimbare de API/schema.
-**Consecinte:** un singur round-trip HTTP, doua instructiuni in tranzactie; READ COMMITTED este
-preconditie verificata pe preview/dev si production. Testele locale cu conexiuni independente
-controleaza ambele ordini ale lock-ului, inclusiv membru nou, si esecul celei de-a doua scrieri.
-
-## ADR-022 — Miniatura plansei in afara cozii de Server Actions (2026-10-27)
-
-**Scop aprobat:** miniatura optionala nu blocheaza urmatorul document sau iesirea din editor.
-**Decizie:** task-ul client separat incarca Blob-ul si foloseste fetch POST
-`/api/canvases/[id]/thumbnail`, JSON `{ thumbnailUrl: string }`. Salvarea documentului ramane
-Server Action. Serviciul existent `saveCanvasThumbnail` primeste acum URL staging, verifica owner-ul,
-valideaza namespace-ul canonic si reproceseaza imaginea inainte de persistare; actiunea veche dispare.
-**Alternativa respinsa:** un Promise detasat pentru thumbnail Server Action intra tot in dispatcher-ul
-FIFO Next.js. Nu activam optiuni experimentale globale si nu adaugam o abstractie de service.
-**Contract:** Origin identic obligatoriu (403); sesiune/status ACTIVE (401); mutation limiter (429);
-JSON/tip URL invalid sau imagine invalida (400); plansa lipsa/nedetinuta (404, contractul privat existent);
-eroare neasteptata (500 generic); succes 200 `{ ok: true }`. Identitatea vine numai din sesiune.
-**STRIDE:** CSRF → Origin; IDOR → ownership in service; stergere cross-user/SSRF → staging propriu
-canonic si pipeline existent; abuz → cota existenta si cel mult o miniatura client in curs.
-Un UPDATE explicit respins curata numai fisierul nou; o exceptie DB cu commit incert nu-l sterge.
-**Verificare:** integrare prin ruta/gard/service reale cu DB/Blob simulate; E2E Preview tine POST-ul
-miniaturii in asteptare si verifica o noua salvare document plus navigarea. Fara schema/dependinte/env noi.
-
-## ADR-023 — Mascarea callback-ului magic link inainte de ingestia PostHog (2026-10-28)
-
-**Scop aprobat:** URL-urile din telemetrie nu trimit emailul/tokenul de autentificare. Nu schimbam loginul.
-**Decizie:** extindem hook-ul existent `redactInviteToken`, fara modul/dependinta noua. Inspectam
-stringurile din proprietati eveniment, `$set`/`$set_once` top-level si cele doua bag-uri de profil
-din properties. URLSearchParams pe query mascheaza intregile valori `u`, `token`, `email`, `callbackUrl`,
-case-insensitive si dupa decodificarea cheilor. Un `u` mascat elimina si callback-ul codificat din el.
-URL-urile sensibile pierd fragmentul; restul URL-urilor si cheia PostHog `properties.token` raman intacte.
-**Alternativa respinsa:** mascarea SDK pentru URL-ul curent, singura, lasa referrer/profilul neacoperite;
-un parser recursiv arbitrar ar mari inutil suprafata. Nu colectam si nu modificam tokenuri reale in teste.
-**STRIDE:** disclosure URL browser → eveniment/profil → PostHog; minimizarea opereaza inaintea retelei.
-Nu se introduc redirecturi, scrieri DB, noi privilegii, requesturi, schema sau secrete.
-**Limite:** nu sterge istoricul si nu este un filtru pentru snapshot-urile separate Session Replay.
-**Verificare:** regresii unitare, dispatcher SDK real, E2E Preview scris pentru inspectia requestului.
-
-## ADR-024 — Retry upload si rezultate de adnotare fara schimbarea publicarii (2026-10-28)
-
-**Scop aprobat:** retrimiterea formularului dupa validare respinsa functioneaza cu aceeasi imagine;
-un refuz de adnotare nu este prezentat drept succes complet.
-**Decizie:** `reprocessBlobImage` are optiune preserveOriginal folosita numai de actiunile detaliului.
-Originalul staging ramane disponibil pana la succesul serviciului. Un refuz explicit curata copia noua,
-nu originalul; la exceptie cu commit incert nu stergem imaginea potential referita din DB.
-Salvarea ciornei fara navigare intoarce URL-ul procesat si URL-ul sursa; formularul il preia numai
-daca intre timp nu a fost aleasa alta imagine. Restul apelantilor reprocessorului pastreaza comportamentul.
-**Alternativa respinsa:** duplicarea tuturor validarilor de service in handlers lasa ciclul upload-ului
-fragil la urmatorul refuz de business si dubleaza regulile. Nu adaugam schema sau registru de upload.
-**Adnotare:** pastram salvarea separata/best-effort. Refuzurile folosesc bannerele existente,
-inclusiv cel pentru adnotare blocata; nu introducem atomicitate cu salvarea detaliului.
-**Securitate:** namespace-ul propriu, canonicalizarea, re-encodarea si gardurile raman obligatorii.
-Originale abandonate pot ramane temporar in staging; curatenia este separata, fara stergeri speculative.
-
-## ADR-025 — Randare reutilizata pentru snapshot actual la partajare (2026-10-28)
-
-**Scop aprobat:** Undo nu pierde sursele la redeschidere; copia inghetata partajata reflecta documentul
-salvat, fara a face miniatura optionala o dependenta pentru autosave/iesire (ADR-022 ramane valabil).
-**Decizie:** citirea surselor foloseste documentul validat plus indexul pending pentru adaugari;
-fiecare sursa ramane filtrata prin regulile existente de acces/vizibilitate. Nu reverificam toate
-sursele la fiecare autosave si nu folosim indexul incomplet ca unica sursa la redeschidere.
-La partajare, citirea autorizata furnizeaza documentul salvat, sursele permise si amprenta starii.
-Rendererul existent al plansei este reutilizat, cu incarcare dinamica la partajare, pentru snapshot.
-Serverul verifica staging propriu, permisiunile si concordanta cu starea salvata; creeaza copia
-independenta pentru proiect. Nu acceptam miniatura veche drept fallback daca snapshot-ul actual esueaza.
-**Alternative respinse:** asteptarea miniaturii la iesire reintroduce blocajul reparat; un renderer
-nou pe server ar duplica desenarea. Fara schema/dependinte noi. Contractul exact este consemnat in CHANGELOG.
+## ADR-025 — Snapshot actual la partajarea plansei (2026-10-28)
+**Context:** partajarea folosea miniatura veche, nu documentul salvat.
+**Decizie:** la partajare se randeaza snapshot-ul din documentul salvat, cu rendererul existent; serverul verifica accesul si amprenta starii.
+**Consecinte:** daca snapshot-ul esueaza, partajarea esueaza (fara fallback la miniatura veche); ADR-022 ramane valabil.
 
 ## ADR-026 — Cache de geometrie pentru trasee imuabile (2026-10-28)
+**Context:** ambele editoare recalculau acelasi traseu freehand la fiecare `pointermove`.
+**Decizie:** `renderStrokes` reutilizeaza outline/Path2D printr-un WeakMap pe obiectul Stroke.
+**Consecinte:** fara dependinte noi; castigul e masurat doar pe CPU, nu in FPS de browser.
 
-**Decizie:** `renderStrokes` reutilizeaza outline/Path2D prin WeakMap asociat obiectului Stroke,
-cu o singura rezolutie per traseu. Editorii inlocuiesc traseele confirmate la modificare; preview-ul
-produce obiecte noi. Resize/export cu alta rezolutie recalculeaza. WeakMap nu retine istoricul eliminat.
-**Motiv:** ambele editoare recalculau acelasi freehand la fiecare pointermove. Solutia comuna elimina
-calculul repetat fara a schimba pointer events, selectie, radiera, Undo/Redo, text, forme sau export.
-**Limite:** benchmark-ul CPU cu rasterizare simulata nu este dovada de FPS in browser; trasarea noua
-si rasterizarea continua sa aiba cost. Nu introducem cache global cu chei string sau dependinte noi.
+## ADR-027 — Notificari pe infrastructura existenta (2026-10-28)
+**Context:** activitatea din discutii trebuie anuntata fara divulgarea continutului privat.
+**Decizie:** notificari in-app catre autorul continutului/firului si destinatarul reply-ului, deduplicate, fara autonotificari sau extras din comentariu.
+**Consecinte:** accesul se verifica la creare si citire; discutiile disparute sau devenite inaccesibile nu mai apar in notificari.
+
+## ADR-028 — Urmarire explicita si filtre comune pentru feed (2026-10-28)
+**Context:** personalizarea feed-ului trebuie sa pastreze vizibilitatea, anonimizarea si paginarea.
+**Decizie:** doua relatii FK pentru useri/categorii, stare idempotenta; „Urmariti” include autor SAU categorie, cu aceleasi filtre pentru rezultate si total.
+**Consecinte:** urmarirea nu acorda acces si nu dezvaluie autorii anonimi; rolul/verificarea respecta snapshot-ul afisat.
+
+## ADR-029 — PDF prin tiparire autentificata (2026-10-28)
+**Context:** exportul unui detaliu trebuie sa respecte accesul si anonimizarea existente.
+**Decizie:** pagina de tiparire cu imagine, metadate si resurse; salvare PDF prin dialogul browserului.
+**Consecinte:** fara renderer server sau fisier public persistent; PDF-ul descarcat nu poate fi revocat.
+
+## ADR-030 — PWA online, fara continut privat offline (2026-10-28)
+**Context:** instalarea pe telefon trebuie sa pastreze regulile de acces dupa logout sau suspendare.
+**Decizie:** manifest si service worker minimal, fara cache de continut, acces offline sau push.
+**Consecinte:** aplicatia necesita internet; fara librarie PWA noua.

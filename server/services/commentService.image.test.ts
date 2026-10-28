@@ -1,10 +1,11 @@
+vi.mock("@/server/services/notificationService", () => ({ notifyCommentAdded: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repos/commentsRepo", () => ({
   deleteFreeCommentByAuthor: vi.fn(),
   getCommentTarget: vi.fn(),
   getThreadCommentForTarget: vi.fn(),
-  insertComment: vi.fn(),
+  insertComment: vi.fn().mockResolvedValue({ id: "55555555-5555-4555-8555-555555555555" }),
   listCommentsForTarget: vi.fn(),
   toggleCommentLike: vi.fn(),
   updateCommentByAuthor: vi.fn(),

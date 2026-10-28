@@ -616,7 +616,7 @@ function CommentItem({
     // div, NU <li> — părintele (comments-section) e cel care randează <li> (un comentariu în <ul> de rădăcini
     // SAU o replică în <ul> de replici); un <li> aici ar imbrica <li> în <li>, HTML invalid → hydration
     // mismatch real (React #418, confirmat cu dovadă 2026-07-07 — vezi CHANGELOG).
-    <div className="flex gap-3">
+    <div id={`comment-${c.id}`} className="flex gap-3">
       <Link href={`/profile/${c.authorId}`}>
         <AvatarInitials name={c.authorName} imageUrl={c.authorImage} size={38} />
       </Link>

@@ -12,17 +12,19 @@ export function FeedPagination({
   categoryId,
   q,
   unanswered = false,
+  filterQuery = "",
 }: {
   page: number;
   totalPages: number;
   categoryId: string | null;
   q: string | null;
   unanswered?: boolean;
+  filterQuery?: string;
 }) {
   if (totalPages <= 1) return null;
 
   function href(target: number) {
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(filterQuery);
     if (categoryId) params.set("cat", categoryId);
     if (q) params.set("q", q);
     if (unanswered) params.set("unanswered", "1");

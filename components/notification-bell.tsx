@@ -21,7 +21,9 @@ export type NotificationView = {
     | "SUPPLIER_OFFERED"
     | "MATERIAL_OFFER_SENT"
     | "MATERIAL_OFFER_EDITED"
-    | "REFERRAL_JOINED";
+    | "REFERRAL_JOINED"
+    | "COMMENT_ADDED"
+    | "COMMENT_REPLIED";
   actorName: string | null;
   actorRole: string | null;
   actorSubRole: string | null;
@@ -33,6 +35,8 @@ export type NotificationView = {
 };
 
 const TYPE_STYLE = {
+  COMMENT_ADDED: { sqBg: "#f6ede4", sqBorder: "#ecdcc8", icon: <FileText className="size-4 text-primary" /> },
+  COMMENT_REPLIED: { sqBg: "#f6ede4", sqBorder: "#ecdcc8", icon: <FileText className="size-4 text-primary" /> },
   SKETCH_PROPOSED: {
     sqBg: "#f6ede4",
     sqBorder: "#ecdcc8",
@@ -80,6 +84,8 @@ const TYPE_STYLE = {
 function NotificationText({ n }: { n: NotificationView }) {
   const ref = <span className="font-semibold text-primary">«{n.detailTitle}»</span>;
 
+  if (n.type === "COMMENT_ADDED") return <>Ai un comentariu nou la {ref}.</>;
+  if (n.type === "COMMENT_REPLIED") return <>Ai un răspuns nou în discuția de la {ref}.</>;
   if (n.type === "SKETCH_PROPOSED") {
     return (
       <>

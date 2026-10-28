@@ -1,3 +1,4 @@
+vi.mock("@/server/services/notificationService", () => ({ notifyCommentAdded: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Reply stil LinkedIn — fir aplatizat: `parentCommentId` din DB = MEREU rădăcina firului, iar
@@ -7,7 +8,7 @@ const repo = vi.hoisted(() => ({
   deleteFreeCommentByAuthor: vi.fn(),
   getCommentTarget: vi.fn(),
   getThreadCommentForTarget: vi.fn(),
-  insertComment: vi.fn(),
+  insertComment: vi.fn().mockResolvedValue({ id: "55555555-5555-4555-8555-555555555555" }),
   listCommentsForTarget: vi.fn(),
   toggleCommentLike: vi.fn(),
   updateCommentByAuthor: vi.fn(),

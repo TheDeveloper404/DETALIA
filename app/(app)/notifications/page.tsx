@@ -9,12 +9,24 @@ import { MarkReadOnView } from "./mark-read-on-view";
 
 export const metadata: Metadata = { title: "Notificări" };
 
-type Payload = { detailId?: string; detailTitle?: string; sketchAuthorName?: string | null };
+type Payload = {
+  sketchId?: string;
+  commentId?: string;
+  detailId?: string;
+  detailTitle?: string;
+  sketchAuthorName?: string | null;
+};
 
 function describe(type: string, p: Payload): { text: string; href: string | null } {
   const title = p.detailTitle ?? "un detaliu";
-  const href = p.detailId ? `/details/${p.detailId}` : null;
+  const href = p.detailId
+    ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}${p.commentId ? `#comment-${p.commentId}` : ""}`
+    : null;
   switch (type) {
+    case "COMMENT_ADDED":
+      return { text: `Ai un comentariu nou la „${title}”.`, href };
+    case "COMMENT_REPLIED":
+      return { text: `Ai un răspuns nou în discuția de la „${title}”.`, href };
     case "SKETCH_PROPOSED":
       return { text: `${p.sketchAuthorName ?? "Cineva"} a schițat peste „${title}”.`, href };
     case "SKETCH_DELETED":

@@ -69,16 +69,21 @@ import {
 // ștergerea acelui detaliu, `deleteDetailCascade` colectează și URL-ul, iar `deleteBlobs` (lib/storage.ts)
 // filtrează doar pe store, nu pe proprietar, deci șterge fișierul VICTIMEI din Blob. Link-uri externe
 // (non-Blob, ex. LINK spre un normativ) rămân permise — riscul e specific store-ului nostru.
-async function hasForeignBlobResource(resources: DetailResourceInput[], userId: string): Promise<boolean> {
-  const urls = resources.map((r) => r.url).filter((url): url is string => !!url && isOwnBlobUrl(url));
+async function hasForeignBlobResource(
+  resources: DetailResourceInput[],
+  userId: string,
+): Promise<boolean> {
+  const urls = resources
+    .map((r) => r.url)
+    .filter((url): url is string => !!url && isOwnBlobUrl(url));
   return !(await canUseBlobUrls(urls, userId));
 }
 
-type CreateDetailError = DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_PROJECT_MEMBER";
+type CreateDetailError =
+  DetailValidationError | "NO_ROLE" | "INVALID_CATEGORY" | "NOT_PROJECT_MEMBER";
 
 export type CreateDetailResult =
-  | { ok: true; detailId: string }
-  | { ok: false; error: CreateDetailError };
+  { ok: true; detailId: string } | { ok: false; error: CreateDetailError };
 
 export async function createDetail(input: {
   authorId: string;
@@ -342,7 +347,8 @@ export async function saveDetailDraft(
   if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
 
   const existing = await getDetailForEdit(input.detailId, input.authorId);
-  if (!existing || existing.status !== DETAIL_STATUS.DRAFT) return { ok: false, error: "NOT_FOUND" };
+  if (!existing || existing.status !== DETAIL_STATUS.DRAFT)
+    return { ok: false, error: "NOT_FOUND" };
 
   const validation = await validateDraft(input);
   if (!validation.ok) return { ok: false, error: validation.error };
@@ -370,7 +376,11 @@ export async function saveDetailDraft(
   await replaceDetailResources(input.detailId, value.resources);
 
   const imageChanged = existing.imageUrl !== value.imageUrl;
-  return { ok: true, detailId: input.detailId, oldImageUrl: imageChanged ? existing.imageUrl : null };
+  return {
+    ok: true,
+    detailId: input.detailId,
+    oldImageUrl: imageChanged ? existing.imageUrl : null,
+  };
 }
 
 // Publică o ciornă (DRAFT → PUBLISHED) — validare STRICTĂ (imagine + categorie obligatorii), la fel
@@ -382,7 +392,8 @@ export async function publishDetailDraft(
   if (!isUuid(input.detailId)) return { ok: false, error: "NOT_FOUND" };
 
   const existing = await getDetailForEdit(input.detailId, input.authorId);
-  if (!existing || existing.status !== DETAIL_STATUS.DRAFT) return { ok: false, error: "NOT_FOUND" };
+  if (!existing || existing.status !== DETAIL_STATUS.DRAFT)
+    return { ok: false, error: "NOT_FOUND" };
 
   const validation = validateDetailInput({
     title: input.title,
@@ -423,7 +434,11 @@ export async function publishDetailDraft(
   await publishDetailRow(input.detailId);
 
   const imageChanged = existing.imageUrl !== value.imageUrl;
-  return { ok: true, detailId: input.detailId, oldImageUrl: imageChanged ? existing.imageUrl : null };
+  return {
+    ok: true,
+    detailId: input.detailId,
+    oldImageUrl: imageChanged ? existing.imageUrl : null,
+  };
 }
 
 // Fetch pt pagina de editare (draft SAU published, doar owner) — vezi nota din repo.
@@ -479,7 +494,10 @@ export const getDetail = cache(async (id: string, requesterId: string) => {
   if (!detail) return null;
   let authorRemovedFromProject = false;
   if (detail.projectId) {
-    const allowed = await canAccessProjectDetail({ projectId: detail.projectId, userId: requesterId });
+    const allowed = await canAccessProjectDetail({
+      projectId: detail.projectId,
+      userId: requesterId,
+    });
     if (!allowed) return null;
     authorRemovedFromProject = await isDetailAuthorRemovedFromProject({
       projectId: detail.projectId,
@@ -601,10 +619,13 @@ export async function deleteDetail(input: {
   try {
     await deleteMaterialOffersForDetail(input.detailId);
   } catch (err) {
-    console.error("[detailService] deleteMaterialOffersForDetail eșuat la anonimizare (non-fatal)", {
-      detailId: input.detailId,
-      err: err instanceof Error ? err.message : String(err),
-    });
+    console.error(
+      "[detailService] deleteMaterialOffersForDetail eșuat la anonimizare (non-fatal)",
+      {
+        detailId: input.detailId,
+        err: err instanceof Error ? err.message : String(err),
+      },
+    );
   }
 
   // false = altcineva (altă filă/dublu-click) a anonimizat între timp — rezultatul dorit există deja.
@@ -633,6 +654,10 @@ export async function getFeed(options?: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
+  followingUserId?: string | null;
+  authorRole?: string | null;
+  verified?: boolean;
+  withSketches?: boolean;
   page?: number;
   limit?: number;
 }) {
@@ -651,6 +676,15 @@ export async function getFeed(options?: {
     categoryId,
     q,
     unanswered,
+    ...(options?.followingUserId && isUuid(options.followingUserId)
+      ? { followingUserId: options.followingUserId }
+      : {}),
+    ...(options?.authorRole &&
+    ["PROIECTANT", "EXECUTANT", "FURNIZOR", "BENEFICIAR"].includes(options.authorRole)
+      ? { authorRole: options.authorRole }
+      : {}),
+    ...(options?.verified ? { verified: true } : {}),
+    ...(options?.withSketches ? { withSketches: true } : {}),
     limit,
     offset: feedOffset(page, limit),
   });
@@ -680,7 +714,10 @@ export async function isDetailSaved(userId: string, detailId: string): Promise<b
 }
 
 // Care dintre detaliile date sunt salvate de userul curent — batch (feed), un singur query pt tot feed-ul.
-export async function getMySavedDetailIds(userId: string, detailIds: string[]): Promise<Set<string>> {
+export async function getMySavedDetailIds(
+  userId: string,
+  detailIds: string[],
+): Promise<Set<string>> {
   const ids = detailIds.filter(isUuid);
   if (ids.length === 0) return new Set();
   return new Set(await listSavedDetailIds(userId, ids));
@@ -698,7 +735,10 @@ export async function toggleSavedDetail(input: {
   // Proiecte (2026-08-09): non-membru „nu vede" detaliul deloc — nu-l poate nici salva. Fără asta,
   // titlul/imaginea lui ar ajunge pe /saved al userului, în afara graniței proiectului (vezi și
   // listSavedDetails/listOfferedDetails în detailsRepo.ts, filtrate acum la fel).
-  if (detail.projectId && !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.userId }))) {
+  if (
+    detail.projectId &&
+    !(await canAccessProjectDetail({ projectId: detail.projectId, userId: input.userId }))
+  ) {
     return { saved: false };
   }
 

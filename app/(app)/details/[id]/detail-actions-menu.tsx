@@ -143,6 +143,8 @@ export function DetailActionsMenu({
               </button>
             </form>
 
+            <Link href={`/details/${detailId}/pdf`} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>Export PDF</Link>
+
             {/* Trimite în Planșă — doar dacă modelul poate reprezenta corect ce vede userul (tab de bază). */}
             {canSendToCanvas && (
               <button
