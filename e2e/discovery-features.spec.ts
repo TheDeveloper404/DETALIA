@@ -141,6 +141,17 @@ test("cautarea avansata combina filtrele si le pastreaza la toggle/cautare", asy
   await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
 });
 
+// **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
+test("filtrele fara rezultate spun ca nimic nu corespunde filtrelor", async ({ page }) => {
+  await page.goto("/feed?cat=" + categoryId + "&role=BENEFICIAR");
+  await expect(
+    page.getByRole("heading", { name: "Niciun detaliu nu corespunde filtrelor", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Schimbă sau scoate filtrele ca să vezi mai multe detalii.", { exact: true }),
+  ).toBeVisible();
+});
+
 // **Notificari la comentarii/reply:** autorul continutului, autorul radacinii firului si autorul comentariului caruia i se raspunde primesc notificarea o singura data fiecare; actorul nu se notifica singur. Exclusiv in-app, fara extras din comentariu; accesul se verifica si pentru destinatar. La citire, notificarile noi se omit daca discutia nu mai este vizibila ori comentariul/tinta a disparut.
 test("comentariu real si reply genereaza notificare cu link la comentariu", async ({
   page,

@@ -25,6 +25,16 @@ export type NotificationRow = {
   readAt: Date | null;
 };
 
+// Referral: link spre profilul celui înscris (notificările mai vechi n-au joinedUserId → fără link).
+export function notificationHref(payload: unknown): string | null {
+  const p = (payload ?? {}) as NotificationPayload;
+  return p.detailId
+    ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}${p.commentId ? `#comment-${p.commentId}` : ""}`
+    : p.joinedUserId
+      ? `/profile/${p.joinedUserId}`
+      : null;
+}
+
 export function mapNotificationRows(rows: NotificationRow[]): NotificationView[] {
   return rows.map((n) => {
     const p = (n.payloadJson ?? {}) as NotificationPayload;
@@ -36,12 +46,7 @@ export function mapNotificationRows(rows: NotificationRow[]): NotificationView[]
       actorSubRole: p.sketchAuthorSubRole ?? null,
       actorVerified: p.sketchAuthorVerified ?? false,
       detailTitle: p.detailTitle ?? "un detaliu",
-      // Referral: link spre profilul celui înscris (notificările mai vechi n-au joinedUserId → fără link).
-      href: p.detailId
-        ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}${p.commentId ? `#comment-${p.commentId}` : ""}`
-        : p.joinedUserId
-          ? `/profile/${p.joinedUserId}`
-          : null,
+      href: notificationHref(p),
       createdAt: n.createdAt.toISOString(),
       unread: n.readAt === null,
     };

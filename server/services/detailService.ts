@@ -53,6 +53,7 @@ import {
   updateDetailRow,
 } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { ROLE_MAIN_LABELS } from "@/server/domain/roles";
 import { listTopAuthors } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
@@ -679,8 +680,7 @@ export async function getFeed(options?: {
     ...(options?.followingUserId && isUuid(options.followingUserId)
       ? { followingUserId: options.followingUserId }
       : {}),
-    ...(options?.authorRole &&
-    ["PROIECTANT", "EXECUTANT", "FURNIZOR", "BENEFICIAR"].includes(options.authorRole)
+    ...(options?.authorRole && Object.hasOwn(ROLE_MAIN_LABELS, options.authorRole)
       ? { authorRole: options.authorRole }
       : {}),
     ...(options?.verified ? { verified: true } : {}),

@@ -269,6 +269,7 @@ export default async function FeedPage({
                 }
                 search={!!q}
                 unanswered={unanswered}
+                noMatch={following || !!authorRole || verified || withSketches}
               />
             ) : (
               <>

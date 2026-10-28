@@ -17,6 +17,13 @@ vi.mock("@/server/services/notificationService", () => ({
           detailTitle: "Titlu",
         },
       },
+      {
+        id: "r",
+        type: "REFERRAL_JOINED",
+        readAt: new Date(),
+        createdAt: new Date(),
+        payloadJson: { joinedUserId: "joined", joinedUserName: "Maria" },
+      },
     ]),
 }));
 vi.mock("./mark-read-on-view", () => ({ MarkReadOnView: () => null }));
@@ -25,4 +32,9 @@ import Page from "./page";
 it("linkul unui reply pe schita selecteaza schita inainte de ancora comentariului", async () => {
   const html = renderToStaticMarkup(await Page());
   expect(html).toContain('href="/details/detail?sketch=sketch#comment-comment"');
+});
+
+it("referral pe pagina duce la profilul celui inscris, ca in clopotel", async () => {
+  const html = renderToStaticMarkup(await Page());
+  expect(html).toContain('href="/profile/joined"');
 });

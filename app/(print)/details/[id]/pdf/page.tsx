@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { blobReadUrl } from "@/lib/blob-read-url";
+import { isOwnBlobUrl } from "@/lib/blob-url";
+import { siteUrl } from "@/lib/site-url";
 import { getDetail } from "@/server/services/detailService";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { REMOVED_AUTHOR_LABEL } from "@/server/domain/sketch";
@@ -9,6 +12,11 @@ import { PrintButton } from "./print-button";
 import "./print.css";
 
 export const metadata: Metadata = { title: "Export PDF", robots: { index: false, follow: false } };
+
+// Un link relativ nu se mai poate deschide din PDF-ul salvat.
+function printableUrl(url: string): string {
+  return url.startsWith("/") ? siteUrl() + url : url;
+}
 
 export default async function DetailPdfPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
@@ -46,7 +54,7 @@ export default async function DetailPdfPage({ params }: { params: Promise<{ id: 
         {detail.description && <p className="whitespace-pre-wrap">{detail.description}</p>}
         {detail.imageUrl /* eslint-disable-next-line @next/next/no-img-element -- full-size printable original */ && (
           <img
-            src={detail.imageUrl}
+            src={blobReadUrl(detail.imageUrl, "detail", detail.id)}
             alt={detail.title}
             className="max-h-[220mm] w-full object-contain"
           />
@@ -76,8 +84,8 @@ export default async function DetailPdfPage({ params }: { params: Promise<{ id: 
                 <li key={r.id} className="break-words text-sm">
                   {r.body && <p className="whitespace-pre-wrap">{r.body}</p>}
                   {r.url && (
-                    <a href={r.url} rel="noreferrer">
-                      {r.url}
+                    <a href={printableUrl(blobReadUrl(r.url, "resource", r.id))} rel="noreferrer">
+                      {isOwnBlobUrl(r.url) ? new URL(r.url).pathname.split("/").pop() : r.url}
                     </a>
                   )}
                 </li>
@@ -86,7 +94,7 @@ export default async function DetailPdfPage({ params }: { params: Promise<{ id: 
           </section>
         )}
         <p className="break-all border-t border-border pt-3 text-sm">
-          Detaliu: /details/{detail.id}
+          Detaliu: {siteUrl()}/details/{detail.id}
         </p>
       </article>
     </main>

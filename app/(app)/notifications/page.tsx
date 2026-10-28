@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { notificationHref } from "@/lib/notification-view";
 import { getNotifications } from "@/server/services/notificationService";
 
 import { MarkReadOnView } from "./mark-read-on-view";
@@ -19,9 +20,7 @@ type Payload = {
 
 function describe(type: string, p: Payload): { text: string; href: string | null } {
   const title = p.detailTitle ?? "un detaliu";
-  const href = p.detailId
-    ? `/details/${p.detailId}${p.sketchId ? `?sketch=${p.sketchId}` : ""}${p.commentId ? `#comment-${p.commentId}` : ""}`
-    : null;
+  const href = notificationHref(p);
   switch (type) {
     case "COMMENT_ADDED":
       return { text: `Ai un comentariu nou la „${title}”.`, href };

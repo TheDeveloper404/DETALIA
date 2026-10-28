@@ -25,12 +25,12 @@ import {
   type NotificationType,
 } from "@/server/repos/notificationsRepo";
 import { getThreadCommentForTarget } from "@/server/repos/commentsRepo";
-import { targetExists } from "@/server/services/validationService";
 import type { TargetType } from "@/server/domain/validation";
 import { getDetailById, listProjectIdForDetails } from "@/server/repos/detailsRepo";
+import { getSketchById } from "@/server/repos/sketchesRepo";
 import { getUserContact } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
-import { getProjectAccess } from "@/server/services/projectService";
+import { canAccessProjectDetail, getProjectAccess } from "@/server/services/projectService";
 
 function detailUrl(detailId: string): string {
   return `${siteUrl()}/details/${detailId}`;
@@ -260,27 +260,45 @@ export async function notifyCommentAdded(input: {
   commentId: string;
   parentCommentId: string | null;
   replyToCommentId: string | null;
+  // Dezaprobarea unei schite: justificarea e pe detaliu, dar o primeste si autorul schitei.
+  sketchContextId?: string | null;
 }) {
   if (input.targetType !== "DETAIL") return;
   const detail = await getDetailById(input.targetId);
   if (!detail) return;
-  const recipients = new Set([detail.ownerId]);
+  const recipients = new Set<string>();
+  // Autorul care s-a retras de pe continut nu mai primeste notificari despre el.
+  if (!detail.isAnonymized) recipients.add(detail.ownerId);
+  const sketch = input.sketchContextId ? await getSketchById(input.sketchContextId) : null;
+  const sketchId = sketch?.detailId === detail.id ? sketch.id : null;
+  if (sketch && sketchId && !sketch.authorRemoved) recipients.add(sketch.authorId);
   for (const id of new Set([input.parentCommentId, input.replyToCommentId])) {
     if (!id) continue;
     const comment = await getThreadCommentForTarget(id, input.targetType, input.targetId);
     if (comment) recipients.add(comment.authorId);
   }
   recipients.delete(input.actorId);
-  for (const recipientUserId of recipients) {
-    if (!(await targetExists(input.targetType, input.targetId, recipientUserId))) continue;
-    await insertNotification({
-      recipientUserId,
-      type: input.parentCommentId ? "COMMENT_REPLIED" : "COMMENT_ADDED",
-      payloadJson: {
-        detailId: detail.id,
-        detailTitle: detail.title,
-        commentId: input.commentId,
-      },
-    });
-  }
+  const allowed = await Promise.all(
+    [...recipients].map(async (userId) =>
+      !detail.projectId || (await canAccessProjectDetail({ projectId: detail.projectId, userId }))
+        ? userId
+        : null,
+    ),
+  );
+  await Promise.all(
+    allowed
+      .filter((userId): userId is string => !!userId)
+      .map((recipientUserId) =>
+        insertNotification({
+          recipientUserId,
+          type: input.parentCommentId ? "COMMENT_REPLIED" : "COMMENT_ADDED",
+          payloadJson: {
+            detailId: detail.id,
+            detailTitle: detail.title,
+            commentId: input.commentId,
+            ...(sketchId ? { sketchId } : {}),
+          },
+        }),
+      ),
+  );
 }

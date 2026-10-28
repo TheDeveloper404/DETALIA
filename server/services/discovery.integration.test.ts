@@ -25,8 +25,9 @@ const {
 const { setFollow, getFollowState } = await import("./followService");
 const { listFeedWithTotal } = await import("@/server/repos/detailsRepo");
 const { addComment, getComments } = await import("./commentService");
-const { getNotifications } = await import("./notificationService");
+const { getNotifications, notifyCommentAdded } = await import("./notificationService");
 const { getDetail } = await import("./detailService");
+const { disapprove } = await import("./validationService");
 let owner: string,
   reader: string,
   actor: string,
@@ -274,6 +275,63 @@ describe("Notificari comentarii cu DB real", () => {
         .length,
     ).toBe(before);
     expect((await getDetail(privateId, owner))?.id).toBe(privateId);
+  });
+  // **Notificari la comentarii/reply:** autorul continutului, autorul radacinii firului si autorul comentariului caruia i se raspunde primesc notificarea o singura data fiecare; actorul nu se notifica singur. Exclusiv in-app, fara extras din comentariu; accesul se verifica si pentru destinatar. La citire, notificarile noi se omit daca discutia nu mai este vizibila ori comentariul/tinta a disparut.
+  it("dezaprobarea unei schite anunta owner-ul si autorul schitei, cu link la schita; actorul nu se anunta", async () => {
+    await db.delete(notifications);
+    const [sketch, own, removed] = await db
+      .insert(sketches)
+      .values([
+        { detailId: publicId, authorId: direct, status: "PUBLISHED" },
+        { detailId: publicId, authorId: direct, status: "PUBLISHED" },
+        { detailId: publicId, authorId: direct, status: "PUBLISHED", authorRemoved: true },
+      ])
+      .returning();
+    const disapproveSketch = (userId: string, targetId: string) =>
+      disapprove({ userId, targetType: "SKETCH", targetId, justification: "nu tine" });
+    expect(await disapproveSketch(reader, sketch.id)).toEqual({ ok: true });
+    const rows = await db.select().from(notifications);
+    expect(rows.map((r) => r.recipientUserId).sort()).toEqual([owner, direct].sort());
+    expect(rows.every((r) => (r.payloadJson as { sketchId?: string }).sketchId === sketch.id)).toBe(
+      true,
+    );
+    expect((await getNotifications(direct)).map((r) => r.type)).toEqual(["COMMENT_ADDED"]);
+    await db.delete(notifications);
+    expect(await disapproveSketch(direct, own.id)).toEqual({ ok: true });
+    expect((await db.select().from(notifications)).map((r) => r.recipientUserId)).toEqual([owner]);
+    await db.delete(notifications);
+    expect(await disapproveSketch(reader, removed.id)).toEqual({ ok: true });
+    expect((await db.select().from(notifications)).map((r) => r.recipientUserId)).toEqual([owner]);
+  });
+  // **Notificari la comentarii/reply:** autorul continutului, autorul radacinii firului si autorul comentariului caruia i se raspunde primesc notificarea o singura data fiecare; actorul nu se notifica singur. Exclusiv in-app, fara extras din comentariu; accesul se verifica si pentru destinatar. La citire, notificarile noi se omit daca discutia nu mai este vizibila ori comentariul/tinta a disparut.
+  it("o schita de pe alt detaliu nu adauga destinatari si nici link spre ea", async () => {
+    await db.delete(notifications);
+    const [foreign] = await db
+      .insert(sketches)
+      .values({ detailId: privateId, authorId: direct, status: "PUBLISHED" })
+      .returning();
+    const [comment] = await db
+      .insert(comments)
+      .values({ authorId: reader, targetType: "DETAIL", targetId: publicId, body: "schita straina" })
+      .returning();
+    await notifyCommentAdded({
+      actorId: reader,
+      targetType: "DETAIL",
+      targetId: publicId,
+      commentId: comment.id,
+      parentCommentId: null,
+      replyToCommentId: null,
+      sketchContextId: foreign.id,
+    });
+    const rows = await db.select().from(notifications);
+    expect(rows.map((r) => r.recipientUserId)).toEqual([owner]);
+    expect((rows[0].payloadJson as { sketchId?: string }).sketchId).toBeUndefined();
+  });
+  // **Notificari la comentarii/reply:** autorul continutului, autorul radacinii firului si autorul comentariului caruia i se raspunde primesc notificarea o singura data fiecare; actorul nu se notifica singur. Exclusiv in-app, fara extras din comentariu; accesul se verifica si pentru destinatar. La citire, notificarile noi se omit daca discutia nu mai este vizibila ori comentariul/tinta a disparut.
+  it("autorul retras de pe detaliu (anonimizat) nu mai primeste notificari la comentarii", async () => {
+    await db.delete(notifications);
+    await addComment({ userId: reader, targetType: "DETAIL", targetId: anonymousId, body: "la anonim" });
+    expect(await db.select().from(notifications)).toEqual([]);
   });
 });
 

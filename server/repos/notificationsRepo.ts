@@ -4,7 +4,8 @@ import { and, desc, eq, exists, isNotNull, isNull, lt, notInArray, or, sql } fro
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { comments, details, notifications, projectMembers, projects } from "@/db/schema";
+import { comments, details, notifications } from "@/db/schema";
+import { hasProjectAccessForUser } from "@/server/repos/detailsRepo";
 
 export type NotificationType =
   | "SKETCH_PROPOSED"
@@ -48,34 +49,7 @@ export async function listByRecipient(userId: string, limit = 30) {
         eq(comments.hiddenAfterRelease, false),
         or(isNull(comments.parentCommentId), eq(root.hiddenAfterRelease, false)),
         eq(details.status, "PUBLISHED"),
-        or(
-          isNull(details.projectId),
-          exists(
-            db
-              .select({ id: projects.id })
-              .from(projects)
-              .where(
-                and(
-                  eq(projects.id, details.projectId),
-                  or(
-                    eq(projects.ownerId, userId),
-                    exists(
-                      db
-                        .select({ id: projectMembers.id })
-                        .from(projectMembers)
-                        .where(
-                          and(
-                            eq(projectMembers.projectId, projects.id),
-                            eq(projectMembers.userId, userId),
-                            isNull(projectMembers.removedAt),
-                          ),
-                        ),
-                    ),
-                  ),
-                ),
-              ),
-          ),
-        ),
+        hasProjectAccessForUser(userId),
       ),
     );
   return db

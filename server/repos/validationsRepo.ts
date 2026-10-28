@@ -54,7 +54,7 @@ export async function upsertDisapprovalWithComment(input: {
     insert into ${comments} (target_type, target_id, author_id, body, origin_validation_id, was_disapproval, sketch_context_id)
     select 'DETAIL', ${input.detailId}::uuid, ${input.userId}::uuid, ${input.body}, id, true, ${input.sketchContextId ?? null}::uuid
     from transition
-    returning origin_validation_id as id
+    returning id
   `);
   return result.rows[0] ?? null;
 }
