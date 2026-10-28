@@ -16,6 +16,7 @@ export function MobileCategoryFilter({
   total,
   q = null,
   unanswered = false,
+  filterQuery = "",
 }: {
   categories: SidebarCategory[];
   activeId: string | null;
@@ -23,6 +24,7 @@ export function MobileCategoryFilter({
   total: number;
   q?: string | null;
   unanswered?: boolean;
+  filterQuery?: string;
 }) {
   const [open, setOpen] = useState(false);
   const activeName = activeId ? categories.find((c) => c.id === activeId)?.name : null;
@@ -65,6 +67,7 @@ export function MobileCategoryFilter({
             total={total}
             q={q}
             unanswered={unanswered}
+            filterQuery={filterQuery}
           />
         </DialogOverlay>
       )}

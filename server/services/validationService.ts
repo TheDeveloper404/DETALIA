@@ -16,6 +16,7 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
 import { canAccessProjectDetail } from "@/server/services/projectService";
+import { notifyCommentAdded } from "@/server/services/notificationService";
 import {
   deletePosition,
   listPositionsForTarget,
@@ -172,6 +173,19 @@ export async function disapprove(input: {
   // știe că textul lui nu a fost salvat nicăieri.
   if (!transition) {
     return { ok: false, error: "ALREADY_DISAPPROVED" };
+  }
+  try {
+    await notifyCommentAdded({
+      actorId: input.userId,
+      targetType: "DETAIL",
+      targetId: realDetailId,
+      commentId: transition.id,
+      parentCommentId: null,
+      replyToCommentId: null,
+      sketchContextId: input.targetType === "SKETCH" ? input.targetId : null,
+    });
+  } catch {
+    console.error("comment_notification_failed");
   }
 
   return { ok: true };

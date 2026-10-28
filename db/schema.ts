@@ -26,12 +26,7 @@ import {
 
 // ───────────────────────────── Enum-uri ─────────────────────────────
 export const userStatus = pgEnum("user_status", ["ACTIVE", "SUSPENDED", "DELETED"]);
-export const roleMain = pgEnum("role_main", [
-  "PROIECTANT",
-  "EXECUTANT",
-  "FURNIZOR",
-  "BENEFICIAR",
-]);
+export const roleMain = pgEnum("role_main", ["PROIECTANT", "EXECUTANT", "FURNIZOR", "BENEFICIAR"]);
 export const verificationStatus = pgEnum("verification_status", [
   "DECLARED",
   "PENDING",
@@ -70,6 +65,8 @@ export const notificationType = pgEnum("notification_type", [
   "MATERIAL_OFFER_EDITED",
   // Cineva s-a înscris prin linkul de referral al userului (2026-08-25).
   "REFERRAL_JOINED",
+  "COMMENT_ADDED",
+  "COMMENT_REPLIED",
 ]);
 
 // ════════════════════ (A) Tabele Auth.js (adapter Drizzle) ════════════════════
@@ -763,7 +760,10 @@ export const adminTotp = pgTable("admin_totp", {
   enabled: boolean().notNull().default(false),
   // Coduri de rezervă one-time, stocate ca hash SHA-256 (valori random cu entropie mare, nu parole
   // alese de om → SHA-256 e suficient, ca la tokenurile de magic link). Consum = update atomic.
-  backupCodesHash: text().array().notNull().default(sql`ARRAY[]::text[]`),
+  backupCodesHash: text()
+    .array()
+    .notNull()
+    .default(sql`ARRAY[]::text[]`),
   // ANTI-REPLAY (RFC 6238 §5.2): ultimul pas-de-timp acceptat. Un cod interceptat (shoulder surfing,
   // proxy) nu mai poate fi folosit a doua oară în fereastra lui de 30s — acceptăm STRICT contoare mai
   // mari. NULL = niciun cod acceptat încă.
@@ -855,3 +855,35 @@ export const canvasItems = pgTable(
 
 // Notă: FK `target_id` (polimorfic, validări/comentarii) nu are .references() forțat
 // — integritatea lui se asigură în services (vezi docs/SECURITATE.md §4).
+
+export const userFollows = pgTable(
+  "user_follows",
+  {
+    followerUserId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    followedUserId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.followerUserId, t.followedUserId] }),
+    index("user_follows_followed_user_id_idx").on(t.followedUserId),
+  ],
+);
+
+export const categoryFollows = pgTable(
+  "category_follows",
+  {
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    categoryId: uuid()
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.categoryId] }),
+    index("category_follows_category_id_idx").on(t.categoryId),
+  ],
+);

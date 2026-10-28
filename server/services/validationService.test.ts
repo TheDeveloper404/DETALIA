@@ -5,6 +5,7 @@ vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({ getSketchById: vi.fn() }));
 vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail: vi.fn() }));
+vi.mock("@/server/services/notificationService", () => ({ notifyCommentAdded: vi.fn() }));
 vi.mock("@/server/repos/validationsRepo", () => ({
   deletePosition: vi.fn(),
   listPositionsForTarget: vi.fn(),
@@ -19,6 +20,7 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
 import { upsertDisapprovalWithComment, upsertPosition } from "@/server/repos/validationsRepo";
 import { canAccessProjectDetail } from "@/server/services/projectService";
+import { notifyCommentAdded } from "@/server/services/notificationService";
 
 import { approve, disapprove, recordSketchDisapproval, targetExists } from "./validationService";
 
@@ -97,6 +99,23 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
     const r = await disapprove({ ...target, justification: "iar nu merge" });
     expect(r).toEqual({ ok: false, error: "ALREADY_DISAPPROVED" });
     expect(insertComment).not.toHaveBeenCalled();
+    expect(notifyCommentAdded).not.toHaveBeenCalled();
+  });
+
+  // Regula aprobata: "autorul continutului ... primesc notificarea o singura data fiecare; actorul nu se notifica singur."
+  it("disapprove nou → notificare la comentariul-justificare, pe detaliul real", async () => {
+    vi.mocked(upsertDisapprovalWithComment).mockResolvedValue({ id: "c-1" } as never);
+    expect(await disapprove({ ...target, justification: "motiv" })).toEqual({ ok: true });
+    expect(notifyCommentAdded).toHaveBeenCalledTimes(1);
+    expect(notifyCommentAdded).toHaveBeenCalledWith({
+      actorId: target.userId,
+      targetType: "DETAIL",
+      targetId: target.targetId,
+      commentId: "c-1",
+      parentCommentId: null,
+      replyToCommentId: null,
+      sketchContextId: null,
+    });
   });
 
   // SECURITATE (2026-07-16): detailId NU vine din input (client-controlled) — se derivă server-side din
@@ -124,6 +143,11 @@ describe("„nu există dezaprobare mută” — justificarea e obligatorie", ()
       targetType: "SKETCH",
       targetId: sketchId,
       detailId: realDetailId,
+      sketchContextId: sketchId,
+    });
+    expect(vi.mocked(notifyCommentAdded).mock.calls[0][0]).toMatchObject({
+      targetType: "DETAIL",
+      targetId: realDetailId,
       sketchContextId: sketchId,
     });
   });

@@ -1,3 +1,4 @@
+vi.mock("@/server/services/notificationService", () => ({ notifyCommentAdded: vi.fn() }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/server/repos/commentsRepo", () => ({

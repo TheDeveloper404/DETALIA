@@ -3,18 +3,29 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
+import { notificationHref } from "@/lib/notification-view";
 import { getNotifications } from "@/server/services/notificationService";
 
 import { MarkReadOnView } from "./mark-read-on-view";
 
 export const metadata: Metadata = { title: "Notificări" };
 
-type Payload = { detailId?: string; detailTitle?: string; sketchAuthorName?: string | null };
+type Payload = {
+  sketchId?: string;
+  commentId?: string;
+  detailId?: string;
+  detailTitle?: string;
+  sketchAuthorName?: string | null;
+};
 
 function describe(type: string, p: Payload): { text: string; href: string | null } {
   const title = p.detailTitle ?? "un detaliu";
-  const href = p.detailId ? `/details/${p.detailId}` : null;
+  const href = notificationHref(p);
   switch (type) {
+    case "COMMENT_ADDED":
+      return { text: `Ai un comentariu nou la „${title}”.`, href };
+    case "COMMENT_REPLIED":
+      return { text: `Ai un răspuns nou în discuția de la „${title}”.`, href };
     case "SKETCH_PROPOSED":
       return { text: `${p.sketchAuthorName ?? "Cineva"} a schițat peste „${title}”.`, href };
     case "SKETCH_DELETED":

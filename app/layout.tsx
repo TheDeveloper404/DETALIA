@@ -4,6 +4,7 @@ import { Archivo, Geist, Geist_Mono, IBM_Plex_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import NextTopLoader from "nextjs-toploader";
 
+import { PwaRegistration } from "@/components/pwa-registration";
 import { SITE_OPEN_GRAPH } from "@/lib/seo";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
@@ -69,6 +70,7 @@ export default async function RootLayout({
           showSpinner={false}
           speed={300}
         />
+        <PwaRegistration />
         {children}
         {/* Vercel Web Analytics — vizitatori + page views. First-party (`/_vercel/insights/*`, same-origin)
             → nu necesită excepții CSP. Se activează doar în deploy pe Vercel (no-op în dev). */}

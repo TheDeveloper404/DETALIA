@@ -245,3 +245,9 @@ Este randat în continuare doar pentru proprietarul profilului.
 ## Neacoperit încă (adaugă pe măsură ce apare)
 
 Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/notificare inline.
+
+
+## Urmarire si filtre avansate
+- `components/follow-button.tsx`: aceeasi actiune pentru user/categorie, stare explicita, pending si eroare cu reincercare; pagina profilului si categoria selectata din feed.
+- `components/feed-filters.tsx`: rol autor, verificat, cu schite; combina parametrii existenti si reseteaza pagina. Categoria/cautarea/paginarea pastreaza restul filtrelor.
+- Export PDF in meniul detaliului → pagina dedicata fara header/nav din aplicatie; controalele dispar la print. Foloseste dialogul browserului, nu un modal nou.

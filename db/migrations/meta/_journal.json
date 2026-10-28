@@ -183,6 +183,13 @@
       "when": 1791277038450,
       "tag": "0025_regular_nightmare",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793189882494,
+      "tag": "0026_aspiring_eternity",
+      "breakpoints": true
     }
   ]
 }

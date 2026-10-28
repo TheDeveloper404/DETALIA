@@ -100,6 +100,7 @@ export function CategoryFilterList({
   total,
   q = null,
   unanswered = false,
+  filterQuery = "",
 }: {
   categories: SidebarCategory[];
   activeId: string | null;
@@ -109,12 +110,13 @@ export function CategoryFilterList({
   // selectarea unei categorii resetează silențios restul (Greptile PR #272).
   q?: string | null;
   unanswered?: boolean;
+  filterQuery?: string;
 }) {
   const sections = categories.filter((c) => c.parentId === null);
   const childrenOf = (parentId: string) => categories.filter((c) => c.parentId === parentId);
 
   const catHref = (id?: string) => {
-    const p = new URLSearchParams();
+    const p = new URLSearchParams(filterQuery);
     if (id) p.set("cat", id);
     if (q) p.set("q", q);
     if (unanswered) p.set("unanswered", "1");

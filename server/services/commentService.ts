@@ -20,6 +20,7 @@ import {
 } from "@/server/repos/commentsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { filterSketchIdsByDetail } from "@/server/repos/sketchesRepo";
+import { notifyCommentAdded } from "@/server/services/notificationService";
 import { targetExists } from "@/server/services/validationService";
 
 // Validează mențiunile @schiță dintr-un corp de comentariu de pe un DETALIU: tokenii care nu trimit
@@ -33,11 +34,7 @@ async function sanitizeDetailMentions(detailId: string, body: string): Promise<s
 }
 
 type AddCommentError =
-  | "NO_ROLE"
-  | "TARGET_NOT_FOUND"
-  | "BODY_REQUIRED"
-  | "BODY_TOO_LONG"
-  | "INVALID_PARENT";
+  "NO_ROLE" | "TARGET_NOT_FOUND" | "BODY_REQUIRED" | "BODY_TOO_LONG" | "INVALID_PARENT";
 
 export type AddCommentResult = { ok: true } | { ok: false; error: AddCommentError };
 
@@ -69,7 +66,11 @@ export async function addComment(input: {
   let replyToCommentId: string | null = null;
   if (input.parentCommentId) {
     if (!isUuid(input.parentCommentId)) return { ok: false, error: "INVALID_PARENT" };
-    const thread = await getThreadCommentForTarget(input.parentCommentId, input.targetType, input.targetId);
+    const thread = await getThreadCommentForTarget(
+      input.parentCommentId,
+      input.targetType,
+      input.targetId,
+    );
     if (!thread) return { ok: false, error: "INVALID_PARENT" };
     parentCommentId = thread.rootId;
     replyToCommentId = thread.id === thread.rootId ? null : thread.id;
@@ -77,9 +78,7 @@ export async function addComment(input: {
 
   // Mențiuni @schiță doar pe comentariile de DETALIU (targetId = detailId); tokenii străini se degradează.
   const body =
-    input.targetType === "DETAIL"
-      ? await sanitizeDetailMentions(input.targetId, v.value)
-      : v.value;
+    input.targetType === "DETAIL" ? await sanitizeDetailMentions(input.targetId, v.value) : v.value;
 
   // Imaginea atașată (opțională, maxim una): trece prin ACELAȘI pipeline ca imaginile de detalii —
   // `reprocessBlobImage` verifică întâi că URL-ul e din store-ul NOSTRU și al userului curent
@@ -92,7 +91,7 @@ export async function addComment(input: {
     imageUrl = processed.ok ? processed.url : null;
   }
 
-  await insertComment({
+  const comment = await insertComment({
     targetType: input.targetType,
     targetId: input.targetId,
     authorId: input.userId,
@@ -102,17 +101,32 @@ export async function addComment(input: {
     parentCommentId,
     replyToCommentId,
   });
+  try {
+    await notifyCommentAdded({
+      actorId: input.userId,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      commentId: comment.id,
+      parentCommentId,
+      replyToCommentId,
+    });
+  } catch {
+    console.error("comment_notification_failed");
+  }
   return { ok: true };
 }
 
-export async function getComments(targetType: TargetType, targetId: string, currentUserId?: string) {
+export async function getComments(
+  targetType: TargetType,
+  targetId: string,
+  currentUserId?: string,
+) {
   if (!isUuid(targetId)) return []; // SEC-11: id malformat → fără comentarii (nu eroare SQL)
   return listCommentsForTarget(targetType, targetId, currentUserId);
 }
 
 export type EditCommentResult =
-  | { ok: true }
-  | { ok: false; error: "BODY_REQUIRED" | "BODY_TOO_LONG" | "NOT_FOUND" };
+  { ok: true } | { ok: false; error: "BODY_REQUIRED" | "BODY_TOO_LONG" | "NOT_FOUND" };
 
 // Editează un comentariu propriu. Ownership = condiția pe authorId din repo (fără IDOR).
 export async function editComment(input: {

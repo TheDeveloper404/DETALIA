@@ -38,6 +38,7 @@ export function FeedSidebar({
   savedCount,
   q = null,
   unanswered = false,
+  filterQuery = "",
 }: {
   profile: SidebarProfile;
   categories: SidebarCategory[];
@@ -47,6 +48,7 @@ export function FeedSidebar({
   savedCount: number;
   q?: string | null;
   unanswered?: boolean;
+  filterQuery?: string;
 }) {
   return (
     // mt-2: aliniază cu containerul „Detalii în dezbatere" din main (are mt-2 propriu) și cu rail-ul
@@ -160,6 +162,7 @@ export function FeedSidebar({
             total={total}
             q={q}
             unanswered={unanswered}
+            filterQuery={filterQuery}
           />
         </div>
       </nav>

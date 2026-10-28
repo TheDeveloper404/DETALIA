@@ -7,7 +7,10 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), browsing-topics=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), browsing-topics=()",
+  },
   // HSTS: și Vercel îl pune, dar îl declarăm explicit (2 ani + subdomenii + preload).
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   // Izolare cross-origin (găsit lipsă la ZAP full-scan, 2026-08-22). COOP/CORP = `same-origin`, sigur
@@ -31,7 +34,11 @@ const nextConfig: NextConfig = {
   // indiferent de ce presupune platforma.
   serverExternalPackages: ["sharp"],
   outputFileTracingIncludes: {
-    "/*": ["node_modules/sharp/**/*", "node_modules/@img/sharp-libvips*/**/*", "node_modules/@img/sharp-linux*/**/*"],
+    "/*": [
+      "node_modules/sharp/**/*",
+      "node_modules/@img/sharp-libvips*/**/*",
+      "node_modules/@img/sharp-linux*/**/*",
+    ],
   },
   experimental: {
     // Trimiterea unei schițe postează prin Server Action strokes JSON + thumbnail PNG (1000px lățime,
@@ -52,6 +59,17 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'self'; script-src 'self'; frame-ancestors 'none'",
+          },
+        ],
+      },
       // robots.txt/sitemap.xml (+ fișierele de metadata OG/apple-icon/manifest) sunt excluse din matcher-ul proxy.ts (nu au nevoie de nonce, sunt text simplu,
       // nu HTML) → CSP-ul dinamic din lib/csp.ts nu ajunge la ele. Politică statică minimă, doar ca headerul
       // să existe (ZAP: "CSP Header Not Set", risc real aproape nul, dar ieftin de închis).
@@ -62,7 +80,10 @@ const nextConfig: NextConfig = {
         // (ZAP 2026-08-22). Risc real era deja zero: fără content HTML de framing/formulare pe aceste
         // rute, plus `X-Frame-Options: DENY` (mai sus) acoperea deja framing-ul.
         headers: [
-          { key: "Content-Security-Policy", value: "default-src 'none'; frame-ancestors 'none'; form-action 'none'" },
+          {
+            key: "Content-Security-Policy",
+            value: "default-src 'none'; frame-ancestors 'none'; form-action 'none'",
+          },
         ],
       },
     ];
