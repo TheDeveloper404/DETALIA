@@ -24,6 +24,9 @@ const STROKE_OPTIONS = {
   simulatePressure: true,
 };
 
+// Stroke-urile confirmate sunt imuabile. Pastram o singura rezolutie; WeakMap nu retine istoricul eliminat.
+const strokePaths = new WeakMap<Stroke, { width: number; height: number; path: Path2D }>();
+
 // Pentru casetele de text, `size` (8/16/28) e prea mic ca font lizibil → îl scalăm. Factor partajat
 // cu input-ul flotant din editor ca textul fixat să apară la aceeași mărime cu cel tastat.
 export const TEXT_FONT_SCALE = 2.4;
@@ -58,6 +61,12 @@ export function renderStrokes(
 ) {
   const scale = width / REFERENCE_WIDTH;
   for (const s of strokes) {
+    const cached = strokePaths.get(s);
+    if (cached && cached.width === width && cached.height === height) {
+      ctx.fillStyle = s.color;
+      ctx.fill(cached.path);
+      continue;
+    }
     const size = s.size * scale;
     const points = s.points.map(([x, y]) => [x * width, y * height]);
 
@@ -140,6 +149,8 @@ export function renderStrokes(
     const path = svgPathFromOutline(outline);
     if (!path) continue;
     ctx.fillStyle = s.color;
-    ctx.fill(new Path2D(path));
+    const geometry = new Path2D(path);
+    strokePaths.set(s, { width, height, path: geometry });
+    ctx.fill(geometry);
   }
 }

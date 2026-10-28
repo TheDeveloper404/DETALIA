@@ -1,6 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { SESSION_MAX_AGE_SECONDS } from "./session-config";
+
+async function loadTtl(raw: string | undefined): Promise<number> {
+  vi.resetModules();
+  vi.stubEnv("MAGIC_LINK_TTL_MINUTES", raw);
+  return (await import("./session-config")).magicLinkTtlMinutes;
+}
+
+describe("magicLinkTtlMinutes", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("foloseste valoarea din env", async () => {
+    expect(await loadTtl("30")).toBe(30);
+  });
+
+  it("revine la 15 cand env lipseste, e gol sau invalid", async () => {
+    expect(await loadTtl(undefined)).toBe(15);
+    expect(await loadTtl("")).toBe(15);
+    expect(await loadTtl("abc")).toBe(15);
+  });
+});
 
 // Gard de regresie pe decizia de produs 2026-08-09: sesiune FIXĂ de 7 zile de la ultimul login, nu
 // culisantă. O revenire tăcută la default-ul Auth.js (30 zile) sau la o fereastră culisantă (prin

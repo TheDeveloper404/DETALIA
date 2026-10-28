@@ -1,3 +1,5 @@
+import { gunzipSync } from "node:zlib";
+
 import { expect, test } from "@playwright/test";
 
 // E2E — /verify (pas intermediar anti-prefetch al magic link-ului de USER) și /maintenance (ecranul
@@ -5,14 +7,61 @@ import { expect, test } from "@playwright/test";
 // real din Resend) — doar ramurile deterministe: lipsă param, și SEC-03 (anti open-redirect).
 
 test.describe("/verify", () => {
+  // PII (email, tokenuri, OTP, dovezi rol) **nu se loghează** — doar metadate.
+  test("PostHog nu trimite callback-ul magic link din referrer", async ({ page, baseURL }) => {
+    const captured: { event: string; properties: Record<string, unknown> }[] = [];
+    await page.route("**/ingest/**", async (route) => {
+      const request = route.request();
+      if (request.method() !== "POST" || !new URL(request.url()).pathname.endsWith("/e/")) {
+        await route.continue();
+        return;
+      }
+      const raw = request.postDataBuffer()!;
+      let json = raw.toString("utf8");
+      if (raw[0] === 0x1f && raw[1] === 0x8b) json = gunzipSync(raw).toString("utf8");
+      else if (json.startsWith("data=")) {
+        json = Buffer.from(new URLSearchParams(json).get("data")!, "base64").toString("utf8");
+      }
+      const payload = JSON.parse(json);
+      captured.push(...(Array.isArray(payload) ? payload : [payload]));
+      // Nu trimitem evenimentele sintetice in PostHog.
+      await route.fulfill({ json: { status: 1 } });
+    });
+    const callback = new URL("/api/auth/callback/resend", baseURL!);
+    callback.searchParams.set("token", "e2e-sensitive-token");
+    callback.searchParams.set("email", "e2e-sensitive-email@example.test");
+    const referrer = new URL("/verify", baseURL!);
+    referrer.searchParams.set("u", callback.toString());
+    await page.goto("/login?error=Verification", { referer: referrer.toString() });
+    await expect
+      .poll(() =>
+        captured.some(
+          (event) =>
+            event.event === "$pageview" && String(event.properties.$referrer).includes("/verify?"),
+        ),
+      )
+      .toBe(true);
+    const pageview = captured.find(
+      (event) =>
+        event.event === "$pageview" && String(event.properties.$referrer).includes("/verify?"),
+    )!;
+    expect(String(pageview.properties.$referrer)).toContain("u=%5Bredacted%5D");
+    expect(String(pageview.properties.$current_url)).toContain("error=Verification");
+    expect(JSON.stringify(captured)).not.toContain("e2e-sensitive-");
+  });
+
   test("fără param u → Link invalid, fără AutoVerify", async ({ page }) => {
     await page.goto("/verify");
     await expect(page.getByText("Link invalid")).toBeVisible();
     await expect(page.getByRole("link", { name: "Înapoi la autentificare" })).toBeVisible();
   });
 
-  test("SEC-03: u pe altă origine → respins ca link invalid (anti open-redirect)", async ({ page }) => {
-    await page.goto(`/verify?u=${encodeURIComponent("https://evil.example.com/api/auth/callback/resend")}`);
+  test("SEC-03: u pe altă origine → respins ca link invalid (anti open-redirect)", async ({
+    page,
+  }) => {
+    await page.goto(
+      `/verify?u=${encodeURIComponent("https://evil.example.com/api/auth/callback/resend")}`,
+    );
     await expect(page.getByText("Link invalid")).toBeVisible();
   });
 

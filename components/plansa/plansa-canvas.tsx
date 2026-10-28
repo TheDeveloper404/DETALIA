@@ -292,6 +292,40 @@ function buildInitialSnapshot(doc: CanvasDocument | null, sources: PlansaItemSou
   return { snapshot: { items, strokes }, materialized };
 }
 
+export async function renderCanvasThumbnail(
+  initialDocument: CanvasDocument | null,
+  sources: PlansaItemSource[],
+  type: "image/png" | "image/jpeg" = "image/png",
+  loadedImages?: Map<string, HTMLImageElement>,
+): Promise<Blob | null> {
+  const images = new Map(loadedImages);
+  await Promise.all(sources.map((source) => new Promise<void>((resolve, reject) => {
+    const key = itemKey(source);
+    if (images.has(key)) { resolve(); return; }
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => { images.set(key, image); resolve(); };
+    image.onerror = () => reject(new Error("Imaginea plansei nu a putut fi incarcata."));
+    image.src = source.imageUrl;
+  })));
+  const { snapshot, materialized } = buildInitialSnapshot(initialDocument, sources);
+  const items = snapshot.items.map((item) => {
+    if (!materialized.has(itemKey(item))) return item;
+    const image = images.get(itemKey(item))!;
+    return { ...item, height: clampItemSize(item.width * (image.naturalHeight / image.naturalWidth) * (1 / WORKSPACE_RATIO)) };
+  });
+  const off = document.createElement("canvas");
+  off.width = THUMB_W;
+  off.height = THUMB_H;
+  const ctx = off.getContext("2d");
+  if (!ctx) return null;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, THUMB_W, THUMB_H);
+  drawItems(ctx, items, THUMB_W, THUMB_H, images, null);
+  renderStrokes(ctx, snapshot.strokes, THUMB_W, THUMB_H);
+  return new Promise((resolve) => off.toBlob(resolve, type, 0.9));
+}
+
 export const PlansaCanvas = forwardRef<
   PlansaCanvasHandle,
   {
@@ -374,25 +408,14 @@ export const PlansaCanvas = forwardRef<
     () => ({
       getDocument: () => toDocument(present),
       exportThumbnail: async (type = "image/png") => {
-        const off = document.createElement("canvas");
-        off.width = THUMB_W;
-        off.height = THUMB_H;
-        const ctx = off.getContext("2d");
-        if (!ctx) return null;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, THUMB_W, THUMB_H);
-        drawItems(ctx, present.items, THUMB_W, THUMB_H, imagesRef.current, null);
-        renderStrokes(ctx, present.strokes, THUMB_W, THUMB_H);
-        return new Promise((resolve) => {
-          try {
-            off.toBlob((b) => resolve(b), type, 0.9);
-          } catch {
-            resolve(null);
-          }
-        });
+        try {
+          return await renderCanvasThumbnail(toDocument(present), sources.filter((source) => present.items.some((item) => itemKey(item) === itemKey(source))), type, imagesRef.current);
+        } catch {
+          return null;
+        }
       },
     }),
-    [present, toDocument],
+    [present, toDocument, sources],
   );
 
   // Notifică shell-ul la fiecare modificare comisă (autosave debounced acolo). Sare peste mount.

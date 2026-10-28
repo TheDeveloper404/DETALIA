@@ -20,7 +20,7 @@ vi.mock("react", async (original) => ({
   useEffect: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({ unstable_rethrow: rethrow }));
-vi.mock("../actions", () => ({ regenerateInviteLinkAction: regenerate, renameProjectAction: rename, shareCanvasAction: share }));
+vi.mock("../actions", () => ({ regenerateInviteLinkAction: regenerate, renameProjectAction: rename, shareCanvasAction: share, getCanvasShareSnapshotAction: share }));
 
 import { ContentGrid } from "./content-grid";
 import { EditableProjectName } from "./editable-project-name";

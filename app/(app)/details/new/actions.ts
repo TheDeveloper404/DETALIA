@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseAnnotationStrokes } from "@/lib/annotation-form";
+import { deleteBlobs } from "@/lib/storage";
 import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
@@ -101,7 +102,9 @@ export async function createDetailAction(
   if (!(await canUseBlobUrls([imageUrl], userId))) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
   // SEC-02: validează real + re-encodează (fără metadata) + plafonează dimensiuni. Returnează un URL curat.
-  const processed = await reprocessBlobImage(imageUrl, "details", userId);
+  const processed = await reprocessBlobImage(imageUrl, "details", userId, {
+    preserveOriginal: true,
+  });
   if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
 
   const result = await createDetail({
@@ -121,12 +124,15 @@ export async function createDetailAction(
   });
 
   if (!result.ok) {
+    await deleteBlobs([processed.url]);
     // Lipsa rolului declarat = îl trimitem la onboarding (nu e o eroare de formular).
     if (result.error === "NO_ROLE") {
       redirect("/onboarding");
     }
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
+
+  await deleteBlobs([imageUrl]);
 
   // ADNOTAREA opțională a autorului peste propria imagine (desenată în formular). Detaliul e DEJA
   // publicat aici → o adnotare care eșuează NU trebuie să-l piardă: încercăm, și mergem mai departe
@@ -208,8 +214,11 @@ export async function saveNewDetailDraftAction(
   const rawImageUrl = String(formData.get("imageUrl") ?? "");
   let imageUrl: string | null = null;
   if (rawImageUrl.length > 0) {
-    if (!(await canUseBlobUrls([rawImageUrl], userId))) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
-    const processed = await reprocessBlobImage(rawImageUrl, "details", userId);
+    if (!(await canUseBlobUrls([rawImageUrl], userId)))
+      return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
+    const processed = await reprocessBlobImage(rawImageUrl, "details", userId, {
+      preserveOriginal: true,
+    });
     if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
     imageUrl = processed.url;
   }
@@ -230,9 +239,11 @@ export async function saveNewDetailDraftAction(
   });
 
   if (!result.ok) {
+    if (imageUrl) await deleteBlobs([imageUrl]);
     if (result.error === "NO_ROLE") redirect("/onboarding");
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
+  if (rawImageUrl) await deleteBlobs([rawImageUrl]);
   redirect(`/details/${result.detailId}/edit`);
 }

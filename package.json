@@ -15,6 +15,7 @@
     "check:subqueries": "node scripts/check-correlated-subqueries.mjs",
     "check:blob-writes": "node scripts/check-blob-write-guard.mjs",
     "check:visibility": "node scripts/check-visibility-guard.mjs",
+    "health": "tsx --env-file-if-exists=.env.health scripts/health.ts",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",

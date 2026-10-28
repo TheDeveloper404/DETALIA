@@ -20,8 +20,56 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
+// Regula aprobata: "ar trebui sa ramana desenul de unde a ramas in ciorna".
+test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imaginea veche", async ({ page }) => {
+  await stripBypassHeadersForBlobUploads(page);
+  let resumeUpload: () => void = () => {};
+  const paused = new Promise<void>((resolve) => { resumeUpload = resolve; });
+  await page.route("**/api/blob/upload", async (route) => { await paused; await route.continue(); });
+  let createdId: string | null = null;
+  try {
+    await page.goto("/details/new");
+    await page.locator("#title").fill(`E2E desen schimbat ${Date.now()}`);
+    await page.getByRole("button", { name: "Desenează", exact: true }).click();
+    const surface = page.locator("canvas").first();
+    await expect(surface).toBeVisible();
+    await surface.scrollIntoViewIfNeeded();
+    await expect(surface).toBeInViewport({ ratio: 0.9 });
+    const box = (await surface.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4, { steps: 5 });
+    await page.mouse.up();
+    const started = page.waitForRequest("**/api/blob/upload");
+    await page.getByRole("button", { name: "Salvează ciornă", exact: true }).click();
+    await started;
+    // Click-ul pe salvare deruleaza formularul; coordonatele anterioare nu mai indica desenul.
+    await surface.scrollIntoViewIfNeeded();
+    await expect(surface).toBeInViewport({ ratio: 0.9 });
+    const currentBox = (await surface.boundingBox())!;
+    await page.mouse.move(currentBox.x + currentBox.width * 0.6, currentBox.y + currentBox.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(currentBox.x + currentBox.width * 0.8, currentBox.y + currentBox.height * 0.4, { steps: 5 });
+    await page.mouse.up();
+    resumeUpload();
+    await expect(page.locator('p[role="alert"]')).toContainText("Desenul s-a modificat");
+    await expect(page.locator('input[name="imageUrl"]')).toHaveValue("");
+    await expect(page).toHaveURL(/\/details\/new$/);
+    await page.getByRole("button", { name: "Salvează ciornă", exact: true }).click();
+    await expect(page).toHaveURL(/\/details\/[0-9a-f-]+\/edit$/);
+    createdId = page.url().match(/\/details\/([0-9a-f-]+)\/edit/)![1];
+  } finally {
+    resumeUpload();
+    if (createdId) {
+      const [row] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, createdId));
+      await db.delete(details).where(eq(details.id, createdId));
+      await deleteBlobs([row?.imageUrl]);
+    }
+  }
+});
 
-test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → publicat + apare la /details/[id]", async ({
+// Imaginea s-a urcat CLIENT direct în Blob; validarea finală o face DetailService.
+test("Adaugă detaliu: corecteaza resursa respinsa fara a realege imaginea → publicat", async ({
   page,
 }) => {
   const [category] = await pickLeafCategories(1);
@@ -48,8 +96,18 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
 
     await page.locator("#image").setInputFiles(imagePath);
     // Upload-ul client → Blob e async; preview-ul (buton „Înlocuiește") confirmă că imageUrl s-a completat.
-    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+      timeout: 15_000,
+    });
 
+    await page.getByRole("button", { name: /Adaugă resursă/ }).click();
+    const resourceUrl = page.getByTestId("resources-list").locator('input[type="text"]').first();
+    await resourceUrl.fill("example.com");
+    await page.getByRole("button", { name: "Publică detaliul" }).click();
+    await expect(page.locator('p[role="alert"]')).toContainText("O resursă atașată e invalidă.");
+    await expect(page.locator("#title")).toHaveValue(title);
+    await expect(page.locator('input[name="imageUrl"]')).not.toHaveValue("");
+    await resourceUrl.fill("https://example.com");
     await page.getByRole("button", { name: "Publică detaliul" }).click();
 
     await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 15_000 });
@@ -60,7 +118,10 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
     expect(detailId).toBeTruthy();
 
     if (detailId) {
-      const [row] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, detailId));
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId));
       imageUrl = row?.imageUrl ?? null;
     }
   } finally {
@@ -69,7 +130,9 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
   }
 });
 
-test("Adaugă detaliu: fără categorie selectată → eroare de validare, fără redirect", async ({ page }) => {
+test("Adaugă detaliu: fără categorie selectată → eroare de validare, fără redirect", async ({
+  page,
+}) => {
   await page.goto("/details/new");
   await page.locator("#title").fill(`E2E fără categorie ${Date.now()}`);
   await page.getByRole("button", { name: "Publică detaliul" }).click();

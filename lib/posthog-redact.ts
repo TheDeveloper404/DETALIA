@@ -1,23 +1,39 @@
 import type { CaptureResult } from "posthog-js";
 
-// SEC-002 (audit 2026-08-11): tokenul de invitație de proiect stă în PATH (`/projects/join/<token>`),
-// nu în query string — `custom_personal_data_properties` din `instrumentation-client.ts` maschează DOAR
-// query params, deci nu-l acoperă. Confirmat cu query direct în PostHog: tokenuri VII reale, din trafic
-// de producție, deja capturate necriptat înainte de acest fix.
+// Invitatiile contin tokenul in path, unde mascarea query-ului nu ajunge.
 export const INVITE_JOIN_PATH = /\/projects\/join\/[^/?#]+/;
 
-// Găsit la /code-review (2026-08-11): fix-ul inițial redacta DOAR $pathname/$current_url, dar PostHog
-// poate purta același path și în $referrer, $initial_current_url sau proprietăți custom (orice event
-// poate avea un URL cu tokenul în el) — scanăm generic toate proprietățile string, pentru orice
-// eveniment (pageview sau altul) care poartă acest path.
+// Mascam URL-urile din evenimente si profil, inclusiv intregul callback codificat in u.
 export function redactInviteToken(event: CaptureResult | null): CaptureResult | null {
   if (!event) return event;
-  const props = event.properties;
-  if (!props) return event;
-  for (const key of Object.keys(props)) {
-    const value = props[key];
-    if (typeof value === "string" && INVITE_JOIN_PATH.test(value)) {
-      props[key] = value.replace(INVITE_JOIN_PATH, "/projects/join/[redacted]");
+  for (const props of [
+    event.properties,
+    event.$set,
+    event.$set_once,
+    event.properties?.$set,
+    event.properties?.$set_once,
+  ]) {
+    if (!props || typeof props !== "object") continue;
+    for (const key of Object.keys(props)) {
+      if (typeof props[key] !== "string") continue;
+      const value = props[key].replace(INVITE_JOIN_PATH, "/projects/join/[redacted]");
+      props[key] = value;
+      if (!/^(https?:\/\/|\/)/i.test(value)) continue;
+      const queryStart = value.indexOf("?");
+      if (queryStart === -1) continue;
+      const hashStart = value.indexOf("#", queryStart);
+      const params = new URLSearchParams(
+        value.slice(queryStart + 1, hashStart === -1 ? undefined : hashStart),
+      );
+      let redacted = false;
+      for (const param of [...params.keys()]) {
+        if (/^(token|u|email|callbackUrl)$/i.test(param)) {
+          params.set(param, "[redacted]");
+          redacted = true;
+        }
+      }
+      // Pe URL-urile sensibile nu pastram nici fragmentul. Restul URL-urilor raman identice.
+      if (redacted) props[key] = value.slice(0, queryStart + 1) + params.toString();
     }
   }
   return event;

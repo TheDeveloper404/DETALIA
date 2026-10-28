@@ -6,12 +6,14 @@
 //  - „Scoate în comunitate" e ireversibilă — nicio cale de întoarcere prin cod.
 
 import { cache } from "react";
+import { createHash } from "node:crypto";
 
 import { audit } from "@/lib/audit";
-import { isOwnBlobUrl } from "@/lib/blob-url";
+import { isUsersBlobUrl } from "@/lib/blob-url";
 import { generateInviteToken, isInviteTokenExpired } from "@/lib/invite-token";
-import { deleteBlobs, uploadProjectCanvasShare } from "@/lib/storage";
-import { readOwnBlob } from "@/lib/blob-store";
+import { deleteBlobs } from "@/lib/storage";
+import { reprocessBlobImage } from "@/lib/image-processing";
+import { getCanvasForEdit } from "@/server/services/plansaService";
 import {
   canReleaseToCommunity,
   formatShareTimestamp,
@@ -391,12 +393,8 @@ export async function listCanvasSharesUnchecked(projectId: string) {
 }
 
 // ───────────────────────── Partajare planșă în proiect (§6B, Faza B) ─────────────────────────
-// Copie ÎNGHEȚATĂ, needitabilă — planșa NU se creează în proiect, e adusă din contul personal al
-// membrului (decizie de produs). Sursa e `canvases.thumbnailUrl`, deja un PNG compus la fiecare
-// salvare a planșei — re-descărcăm bytes-urile SERVER-SIDE (fetch) și le re-încărcăm ca blob NOU (nu
-// doar referință, și NU un export proaspăt client-side): reflectă ultima salvare a planșei, nu
-// eventualele modificări nesalvate din editor. Independența de blob-ul original contează pentru
-// ștergerea/editarea ulterioară a planșei sursă, nu pentru prospețime.
+// Copie independenta randata din documentul salvat curent la partajare.
+// Hash-ul leaga documentul si sursele accesibile; miniatura auxiliara nu este sursa partajarii.
 
 export type ShareCanvasResult =
   | { ok: true; shareId: string }
@@ -406,6 +404,8 @@ export async function shareCanvasToProject(input: {
   canvasId: string;
   projectId: string;
   userId: string;
+  snapshotUrl?: string;
+  documentHash?: string;
 }): Promise<ShareCanvasResult> {
   if (!isUuid(input.canvasId) || !isUuid(input.projectId)) return { ok: false, error: "NOT_FOUND" };
 
@@ -417,28 +417,31 @@ export async function shareCanvasToProject(input: {
   const access = await getProjectAccess({ projectId: input.projectId, userId: input.userId });
   if (!access.hasAccess) return { ok: false, error: "FORBIDDEN" };
 
-  if (!canvas.thumbnailUrl) return { ok: false, error: "EMPTY_CANVAS" };
-  // SEC-07 (audit 2026-08-22): `thumbnailUrl` e scris exclusiv server-side (saveCanvasThumbnail), NU
-  // vine direct din client — zero risc SSRF azi. Gardă defensivă, aliniată cu restul fetch-urilor
-  // server-side de blob (`lib/project-image-proxy.ts`), ca să nu rămână singura excepție dacă vreodată
-  // acest câmp ajunge acceptat ca URL direct din client.
-  if (!isOwnBlobUrl(canvas.thumbnailUrl)) return { ok: false, error: "UPLOAD_FAILED" };
+  const sourceSnapshot = await getCanvasForEdit({ canvasId: input.canvasId, ownerId: input.userId });
+  if (!sourceSnapshot.ok || !input.snapshotUrl || !input.documentHash ||
+      input.documentHash !== createHash("sha256").update(JSON.stringify({ document: sourceSnapshot.value.document, sources: [...sourceSnapshot.value.items].sort((a, b) => `${a.detailId}:${a.sketchId ?? ""}`.localeCompare(`${b.detailId}:${b.sketchId ?? ""}`)) })).digest("hex")) {
+    return { ok: false, error: "UPLOAD_FAILED" };
+  }
+  // Snapshot-ul vine din client: acceptam numai staging canonic din namespace-ul actorului.
+  if (!isUsersBlobUrl(input.snapshotUrl, input.userId) ||
+      !new URL(input.snapshotUrl).pathname.startsWith(`/u/${input.userId}/canvases/uploads/`)) {
+    return { ok: false, error: "UPLOAD_FAILED" };
+  }
 
   if ((await countCanvasSharesByProject(input.projectId)) >= MAX_CANVAS_SHARES_PER_PROJECT) {
     return { ok: false, error: "LIMIT_REACHED" };
   }
 
-  let blob: Blob;
-  try {
-    const res = await readOwnBlob(canvas.thumbnailUrl);
-    if (!res) return { ok: false, error: "UPLOAD_FAILED" };
-    blob = await new Response(res.body).blob();
-  } catch {
+  const uploaded = await reprocessBlobImage(input.snapshotUrl, "project-shares", input.userId);
+  if (!uploaded.ok) return { ok: false, error: "UPLOAD_FAILED" };
+
+  const latest = await getCanvasForEdit({ canvasId: input.canvasId, ownerId: input.userId });
+  const stillHasAccess = await getProjectAccess({ projectId: input.projectId, userId: input.userId });
+  if (!latest.ok || !stillHasAccess.hasAccess ||
+      input.documentHash !== createHash("sha256").update(JSON.stringify({ document: latest.value.document, sources: [...latest.value.items].sort((a, b) => `${a.detailId}:${a.sketchId ?? ""}`.localeCompare(`${b.detailId}:${b.sketchId ?? ""}`)) })).digest("hex")) {
+    await deleteBlobs([uploaded.url]);
     return { ok: false, error: "UPLOAD_FAILED" };
   }
-
-  const uploaded = await uploadProjectCanvasShare(blob, input.userId);
-  if (!uploaded.ok) return { ok: false, error: "UPLOAD_FAILED" };
 
   // `formatShareTimestamp` (server/domain/project.ts): ora Bucureștiului explicit, NU ora locală a
   // serverului (Vercel = UTC) — bug real 2026-08-16, numele arăta mereu cu 2-3 ore în urmă.

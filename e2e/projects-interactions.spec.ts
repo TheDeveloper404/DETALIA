@@ -77,7 +77,7 @@ async function seedCanvasWithThumbnail(ownerId: string, name: string): Promise<{
   if (!uploaded.ok) throw new Error(`Seed thumbnail upload failed: ${uploaded.error}`);
   const [row] = await db
     .insert(canvases)
-    .values({ ownerId, name, state: null, thumbnailUrl: uploaded.url })
+    .values({ ownerId, name, state: { version: 1, items: [], strokes: [{ kind: "free", color: "#ff0000", size: 3, points: [[0.1, 0.1], [0.8, 0.8]] }] }, thumbnailUrl: uploaded.url })
     .returning({ id: canvases.id });
   return { id: row.id, thumbnailUrl: uploaded.url };
 }
@@ -184,6 +184,7 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     const memberCtx = await sessionContextFor(browser, baseURL, memberUserId, "E2E Interacțiuni Member", MEMBER_EMAIL);
     try {
       const mpage = await memberCtx.newPage();
+      await stripBypassHeadersForBlobUploads(mpage);
       await mpage.goto(`/projects/join/${inviteToken}`);
       await mpage.getByRole("button", { name: "Alătură-te proiectului" }).click();
       await expect(mpage).toHaveURL(new RegExp(`/projects/${projectId}$`), { timeout: 10_000 });
@@ -261,6 +262,7 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     const memberCtx = await sessionContextFor(browser, baseURL, memberUserId, "E2E Interacțiuni Member", MEMBER_EMAIL);
     try {
       const mpage = await memberCtx.newPage();
+      await stripBypassHeadersForBlobUploads(mpage);
       await mpage.goto(`/projects/${projectId}`);
       await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();

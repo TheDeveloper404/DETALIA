@@ -1,5 +1,4 @@
-// Repo detalii — singurul loc cu acces Drizzle pentru `details` și `detail_resources`.
-// Services-urile cheamă repo-ul; UI-ul NU atinge DB direct.
+
 import { and, count, desc, eq, exists, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { type PgColumn } from "drizzle-orm/pg-core";
 
@@ -22,12 +21,7 @@ import {
 import { foldDiacritics } from "@/lib/diacritics";
 import { DETAIL_STATUS, type DetailResourceInput } from "@/server/domain/detail";
 
-// Creează detaliul + categoriile + resursele într-un SINGUR `db.batch` (atomic). Neon HTTP nu are
-// tranzacții interactive, dar `batch` trimite toate query-urile într-o singură rundă atomică — posibil
-// aici pentru că id-ul detaliului e generat CLIENT-SIDE (crypto.randomUUID()), nu de `defaultRandom()`
-// al coloanei, deci detailCategories/detailResources pot referi id-ul înainte ca insert-ul să se fi
-// „întors" cu `.returning()`. Înlocuiește vechiul flux secvențial (detail → categorii → resurse), unde
-// o eroare la mijloc putea lăsa un detaliu fără categorii/resurse.
+// ID-ul generat inainte de insert permite salvarea detaliului si relatiilor intr-un batch atomic.
 export async function insertDetailWithRelations(input: {
   title: string;
   description: string | null;

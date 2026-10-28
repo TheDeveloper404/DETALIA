@@ -1,7 +1,4 @@
-// Storage (Vercel Blob) — strat de infra pentru upload-uri. Singurul loc care atinge `@vercel/blob`.
-// Tokenul BLOB_READ_WRITE_TOKEN e citit automat de `put()` din env (vezi .env.example).
-//
-// Securitate: validăm tipul și dimensiunea pe SERVER înainte de upload (frontend-ul nu e sursă de adevăr).
+// Upload si stergere Blob pentru fisiere procesate pe server.
 import { del } from "@vercel/blob";
 
 import { isOwnBlobUrl } from "@/lib/blob-url";
@@ -16,10 +13,7 @@ export type UploadImageResult = { ok: true; url: string } | { ok: false; error: 
 // Upload-urile client (inclusiv thumbnail-urile) merg direct in Blob. Aici raman imaginile deja
 // pe server: copiile partajate in proiect si fixture-urile care genereaza thumbnail-uri in E2E.
 
-// Validare comună (EMPTY/TOO_LARGE) + re-encodare SEC-02 (sharp: magic bytes, strip metadata, plafon
-// dimensiuni) — un Blob generat de NOI (canvas/export), dar câmpul de fișier al unui server action e
-// tot controlat de client, deci nu se are încredere în el fără verificare reală. Foldere separate per
-// tip de conținut (nu doar cosmetic — la curățare/audit se disting blob-urile după prefixul din URL).
+// Validam si re-encodam inclusiv imaginile generate de client.
 async function uploadImage(blob: Blob, folder: string, userId: string): Promise<UploadImageResult> {
   if (!blob || blob.size === 0) return { ok: false, error: "EMPTY" };
   if (blob.size > MAX_IMAGE_BYTES) return { ok: false, error: "TOO_LARGE" };
@@ -33,21 +27,12 @@ export async function uploadCanvasThumbnail(blob: Blob, userId: string): Promise
   return uploadImage(blob, "canvases", userId);
 }
 
-// Copie înghețată a unei planșe, partajată într-un proiect (Faza B, §6B) — primește bytes-urile deja
-// re-descărcate SERVER-SIDE de la `canvases.thumbnailUrl` al planșei sursă (projectService.ts), NU un
-// export proaspăt client-side. Blob-ul urcat aici e NOU (nu doar referință la URL-ul original): dacă
-// planșa sursă e ștearsă/regenerată după partajare, `deleteCanvas` șterge blob-ul EI — al nostru rămâne
-// independent.
+// Copie independenta pentru proiect: stergerea plansei sursa nu o afecteaza.
 export async function uploadProjectCanvasShare(blob: Blob, userId: string): Promise<UploadImageResult> {
   return uploadImage(blob, "project-shares", userId);
 }
 
-// Ștergere best-effort a unor blob-uri (ex: la ștergerea unui detaliu — imaginea lui + thumbnail-urile
-// schițelor). NU aruncă: o eroare de storage nu trebuie să rateze ștergerea logică din DB (un blob
-// orfan = doar risipă de storage, nu o eroare de utilizator). Filtrăm pe `isOwnBlobUrl` (SEC-A2, nu doar
-// „un store Vercel Blob oarecare") — un URL dintr-un store vechi/rotit trimis la `del()` respinge server-side
-// ÎNTREG batch-ul cu "Some urls are malformed" (văzut recurent în log-urile de preview), blocând ștergerea
-// și a celorlalte URL-uri valide din același apel.
+// Stergere best-effort dupa mutatia DB; acceptam numai URL-uri din store-urile proprii.
 export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<void> {
   const valid = urls.filter((u): u is string => !!u && isOwnBlobUrl(u));
   if (valid.length === 0) return;

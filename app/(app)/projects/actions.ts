@@ -1,5 +1,9 @@
 "use server";
 
+import { createHash } from "node:crypto";
+import { getCanvasForEdit } from "@/server/services/plansaService";
+import { validateCanvasDocument } from "@/server/domain/plansa";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -123,6 +127,19 @@ export async function deleteProjectAction(
 
 // Partajare planșă în proiect (§6B) — copie înghețată, needitabilă. `canvasId` trebuie să fie a
 // userului curent (verificat în service, anti-IDOR).
+export async function getCanvasShareSnapshotAction(canvasId: string) {
+  const userId = await requireActiveUserId();
+  if (!(await checkLimit(limiters.mutation, userId)).ok) return { ok: false as const, error: ERROR_MESSAGES.RATE_LIMITED };
+  const result = await getCanvasForEdit({ canvasId, ownerId: userId });
+  if (!result.ok) return { ok: false as const, error: ERROR_MESSAGES.NOT_FOUND };
+  const doc = validateCanvasDocument(result.value.document);
+  if ((!doc.ok || (!doc.value.items.length && !doc.value.strokes.length)) && !result.value.items.length) {
+    return { ok: false as const, error: ERROR_MESSAGES.EMPTY_CANVAS };
+  }
+  return { ok: true as const, document: doc.ok ? doc.value : null, sources: result.value.items,
+    documentHash: createHash("sha256").update(JSON.stringify({ document: result.value.document, sources: [...result.value.items].sort((a, b) => `${a.detailId}:${a.sketchId ?? ""}`.localeCompare(`${b.detailId}:${b.sketchId ?? ""}`)) })).digest("hex") };
+}
+
 export async function shareCanvasAction(
   _prevState: ProjectActionResult,
   formData: FormData,
@@ -133,7 +150,8 @@ export async function shareCanvasAction(
   }
   const canvasId = String(formData.get("canvasId") ?? "");
   const projectId = String(formData.get("projectId") ?? "");
-  const res = await shareCanvasToProject({ canvasId, projectId, userId });
+  const res = await shareCanvasToProject({ canvasId, projectId, userId,
+    snapshotUrl: String(formData.get("snapshotUrl") ?? ""), documentHash: String(formData.get("documentHash") ?? "") });
   if (!res.ok) return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut partaja planșa." };
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
