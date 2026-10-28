@@ -10,6 +10,11 @@ test.describe("/verify", () => {
   // PII (email, tokenuri, OTP, dovezi rol) **nu se loghează** — doar metadate.
   test("PostHog nu trimite callback-ul magic link din referrer", async ({ page, baseURL }) => {
     const captured: { event: string; properties: Record<string, unknown> }[] = [];
+    // posthog-js nu trimite evenimente cand navigator.webdriver e true sau brandul e HeadlessChrome.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "webdriver", { get: () => false });
+      Object.defineProperty(navigator, "userAgentData", { get: () => undefined });
+    });
     await page.route("**/ingest/**", async (route) => {
       const request = route.request();
       if (request.method() !== "POST" || !new URL(request.url()).pathname.endsWith("/e/")) {
@@ -23,7 +28,7 @@ test.describe("/verify", () => {
         json = Buffer.from(new URLSearchParams(json).get("data")!, "base64").toString("utf8");
       }
       const payload = JSON.parse(json);
-      captured.push(...(Array.isArray(payload) ? payload : [payload]));
+      captured.push(...(Array.isArray(payload) ? payload : (payload.batch ?? [payload])));
       // Nu trimitem evenimentele sintetice in PostHog.
       await route.fulfill({ json: { status: 1 } });
     });
