@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, BookmarkCheck, Check, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Bookmark, BookmarkCheck, Check, FileDown, LayoutDashboard, Link2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
@@ -143,7 +143,10 @@ export function DetailActionsMenu({
               </button>
             </form>
 
-            <Link href={`/details/${detailId}/pdf`} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>Export PDF</Link>
+            <Link href={`/details/${detailId}/pdf`} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
+              <FileDown className="size-4 text-muted-foreground" strokeWidth={2} />
+              Export PDF
+            </Link>
 
             {/* Trimite în Planșă — doar dacă modelul poate reprezenta corect ce vede userul (tab de bază). */}
             {canSendToCanvas && (
