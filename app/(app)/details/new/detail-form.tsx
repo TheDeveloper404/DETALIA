@@ -456,8 +456,10 @@ export function DetailForm({
   const canvasRef = useRef<SketchCanvasHandle>(null);
   const annotationCanvasRef = useRef<SketchCanvasHandle>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const drawingRevision = useRef(0);
 
   const onDrawingChange = useCallback(() => {
+    drawingRevision.current += 1;
     if (imageUrlRef.current) imageUrlRef.current.value = "";
     setImageChanged(true);
   }, []);
@@ -490,6 +492,7 @@ export function DetailForm({
   // Comutarea sursei resetează starea celeilalte + URL-ul deja urcat (evită trimiterea unei imagini vechi).
   function switchMode(next: "upload" | "draw" | "canvas") {
     if (next === mode) return;
+    drawingRevision.current += 1;
     setMode(next);
     setClientError(null);
     setImageChanged(true); // comutarea sursei = imagine nouă (la editare → reprocesare pe server)
@@ -501,6 +504,7 @@ export function DetailForm({
   // Decupajul dintr-o planșă (§7) intră EXACT ca un upload normal — evită duplicarea logicii de submit
   // din `onSubmit` (care deja urcă `imageFile` în Blob pentru mode "upload").
   function applyCanvasCrop(file: File) {
+    drawingRevision.current += 1;
     setImageFile(file);
     setPreview({ url: URL.createObjectURL(file), name: "decupaj din planșă" });
     setImageChanged(true);
@@ -534,6 +538,7 @@ export function DetailForm({
     }
     setClientError(null);
     setImageFile(file);
+    drawingRevision.current += 1;
     setImageChanged(true); // fișier nou → la editare, serverul reprocesează + curăță blob-ul vechi
     setPreview({ url: URL.createObjectURL(file), name: file.name });
     discardAnnotation(); // imagine nouă → adnotarea veche nu se mai potrivește peste ea
@@ -549,6 +554,7 @@ export function DetailForm({
   }
 
   function removeImage() {
+    drawingRevision.current += 1;
     setPreview(null);
     setImageFile(null);
     discardAnnotation();
@@ -587,11 +593,16 @@ export function DetailForm({
       if (uploading) return;
       setUploading(true);
       setClientError(null);
+      const exportedRevision = drawingRevision.current;
       try {
         const blob = await canvasRef.current?.exportThumbnail();
         if (!blob) throw new Error("export");
         const file = new File([blob], "detaliu.png", { type: "image/png" });
         const url = await uploadImageToBlob("details", file);
+        if (exportedRevision !== drawingRevision.current) {
+          setClientError("Desenul s-a modificat în timpul încărcării. Salvează din nou.");
+          return;
+        }
         if (imageUrlRef.current) imageUrlRef.current.value = url;
         formRef.current?.requestSubmit(submitter ?? undefined);
       } catch {

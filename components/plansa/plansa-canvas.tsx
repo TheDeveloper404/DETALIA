@@ -308,7 +308,12 @@ export async function renderCanvasThumbnail(
     image.onerror = () => reject(new Error("Imaginea plansei nu a putut fi incarcata."));
     image.src = source.imageUrl;
   })));
-  const { snapshot } = buildInitialSnapshot(initialDocument, sources);
+  const { snapshot, materialized } = buildInitialSnapshot(initialDocument, sources);
+  const items = snapshot.items.map((item) => {
+    if (!materialized.has(itemKey(item))) return item;
+    const image = images.get(itemKey(item))!;
+    return { ...item, height: clampItemSize(item.width * (image.naturalHeight / image.naturalWidth) * (1 / WORKSPACE_RATIO)) };
+  });
   const off = document.createElement("canvas");
   off.width = THUMB_W;
   off.height = THUMB_H;
@@ -316,7 +321,7 @@ export async function renderCanvasThumbnail(
   if (!ctx) return null;
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, THUMB_W, THUMB_H);
-  drawItems(ctx, snapshot.items, THUMB_W, THUMB_H, images, null);
+  drawItems(ctx, items, THUMB_W, THUMB_H, images, null);
   renderStrokes(ctx, snapshot.strokes, THUMB_W, THUMB_H);
   return new Promise((resolve) => off.toBlob(resolve, type, 0.9));
 }

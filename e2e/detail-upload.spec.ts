@@ -20,6 +20,48 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
+// Regula aprobata: "ar trebui sa ramana desenul de unde a ramas in ciorna".
+test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imaginea veche", async ({ page }) => {
+  await stripBypassHeadersForBlobUploads(page);
+  let resumeUpload: () => void = () => {};
+  const paused = new Promise<void>((resolve) => { resumeUpload = resolve; });
+  await page.route("**/api/blob/upload", async (route) => { await paused; await route.continue(); });
+  let createdId: string | null = null;
+  try {
+    await page.goto("/details/new");
+    await page.locator("#title").fill(`E2E desen schimbat ${Date.now()}`);
+    await page.getByRole("button", { name: "Desenează", exact: true }).click();
+    const surface = page.locator("canvas").first();
+    await expect(surface).toBeVisible();
+    const box = (await surface.boundingBox())!;
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4, { steps: 5 });
+    await page.mouse.up();
+    const started = page.waitForRequest("**/api/blob/upload");
+    await page.getByRole("button", { name: "Salvează ciornă", exact: true }).click();
+    await started;
+    await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.8, box.y + box.height * 0.4, { steps: 5 });
+    await page.mouse.up();
+    resumeUpload();
+    await expect(page.locator('p[role="alert"]')).toContainText("Desenul s-a modificat");
+    await expect(page.locator('input[name="imageUrl"]')).toHaveValue("");
+    await expect(page).toHaveURL(/\/details\/new$/);
+    await page.getByRole("button", { name: "Salvează ciornă", exact: true }).click();
+    await expect(page).toHaveURL(/\/details\/[0-9a-f-]+\/edit$/);
+    createdId = page.url().match(/\/details\/([0-9a-f-]+)\/edit/)![1];
+  } finally {
+    resumeUpload();
+    if (createdId) {
+      const [row] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, createdId));
+      await db.delete(details).where(eq(details.id, createdId));
+      await deleteBlobs([row?.imageUrl]);
+    }
+  }
+});
+
 // Imaginea s-a urcat CLIENT direct în Blob; validarea finală o face DetailService.
 test("Adaugă detaliu: corecteaza resursa respinsa fara a realege imaginea → publicat", async ({
   page,

@@ -206,6 +206,36 @@ it.each([false, true])(
 );
 
 // Regula aprobata: "ar trebui sa ramana desenul de unde a ramas in ciorna".
+it.each(["export", "upload"])("nu trimite imaginea veche daca desenul se schimba in timpul %s", async (phase) => {
+  initial.categoryIds = ["category"];
+  let tree = render();
+  find(tree, (node) => node.props.onClick !== undefined && Children.toArray(node.props.children).includes("Desenează"))!.props.onClick!();
+  tree = render();
+  const input = { value: "" };
+  find(tree, (node) => node.type === "input" && node.props.name === "imageUrl")!.props.ref!.current = input;
+  const canvas = find(tree, (node) => typeof node.props.onStrokesCount === "function")!;
+  canvas.props.onStrokesCount!(1);
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const exportThumbnail = vi.fn(async () => { if (phase === "export") await pending; return new Blob(["drawing"], { type: "image/png" }); });
+  canvas.props.ref!.current = { exportThumbnail };
+  if (phase === "upload") upload.mockImplementationOnce(async () => { await pending; return "staging-old"; });
+  tree = render();
+  const form = find(tree, (node) => node.type === "form")!;
+  const requestSubmit = vi.fn();
+  form.props.ref!.current = { requestSubmit };
+  const task = form.props.onSubmit!({ nativeEvent: { submitter: { dataset: { intent: "draft" } } }, preventDefault: vi.fn() });
+  if (phase === "upload") await vi.waitFor(() => expect(upload).toHaveBeenCalled());
+  canvas.props.onChange!([]);
+  release();
+  await task;
+  expect(input.value).toBe("");
+  expect(requestSubmit).not.toHaveBeenCalled();
+  tree = render();
+  await find(tree, (node) => node.type === "form")!.props.onSubmit!({ nativeEvent: { submitter: { dataset: { intent: "draft" } } }, preventDefault: vi.fn() });
+  expect(requestSubmit).toHaveBeenCalledOnce();
+});
+
 it.each([[false,"draft"],[true,"draft"],[false,"publish"],[true,"publish"]] as const)("o editare de desen invalideaza exportul ciornei, inclusiv in timpul salvarii (%s, %s)",async (pending,intent)=>{
   initial.categoryIds=["category"];
   let tree=render();
