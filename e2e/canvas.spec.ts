@@ -5,7 +5,8 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { canvasItems, canvases } from "../db/schema";
+import { canvasItems, canvases, details } from "../db/schema";
+import { blobReadUrl } from "../lib/blob-read-url";
 import { deleteBlobs } from "../lib/storage";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
@@ -15,6 +16,36 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 // de service, în security.spec.ts.
 
 let cachedDetailId: string | null = null;
+
+// Istoric UNIFICAT (undo/redo) — items + strokes într-un singur snapshot.
+test("eliminare imagine, Undo si redeschidere pastreaza sursa", async ({ page, baseURL }) => {
+  const seed = JSON.parse(readFileSync(path.resolve(__dirname, ".auth", "seed.json"), "utf8")) as { testerUserId: string; detailId: string };
+  const item = { id: "undo-image", detailId: seed.detailId, sketchId: null, x: 0.1, y: 0.1, width: 0.3, height: 0.2, z: 1 };
+  const [created] = await db.insert(canvases).values({ ownerId: seed.testerUserId, name: `Undo source ${Date.now()}`, state: { version: 1, items: [item], strokes: [] } }).returning({ id: canvases.id });
+  await db.insert(canvasItems).values({ canvasId: created.id, detailId: seed.detailId });
+  const [detail] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, seed.detailId));
+  const sourceUrl = new URL(blobReadUrl(detail.imageUrl!, "detail", seed.detailId), baseURL!).toString();
+  await stripBypassHeadersForBlobUploads(page);
+  try {
+    await page.goto(`/canvases/${created.id}/edit`);
+    const surface = page.locator("canvas").first();
+    await expect(surface).toBeVisible();
+    const box = (await surface.boundingBox())!;
+    await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.2);
+    await page.getByRole("button", { name: "Elimină de pe planșă", exact: true }).click();
+    await expect.poll(async () => (await db.select().from(canvasItems).where(eq(canvasItems.canvasId, created.id))).length).toBe(0);
+    await page.getByRole("button", { name: "Undo", exact: true }).click();
+    await expect.poll(async () => {
+      const [row] = await db.select({ state: canvases.state }).from(canvases).where(eq(canvases.id, created.id));
+      return (row.state as { items: unknown[] }).items.length;
+    }).toBe(1);
+    const loaded = page.waitForResponse((response) => response.url() === sourceUrl && response.ok());
+    await page.reload();
+    await loaded;
+  } finally {
+    await db.delete(canvases).where(eq(canvases.id, created.id));
+  }
+});
 function detailId(): string {
   if (!cachedDetailId) {
     const seed = JSON.parse(

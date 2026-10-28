@@ -1,11 +1,26 @@
 "use client";
 
 import { blobReadUrl } from "@/lib/blob-read-url";
-import { Box, Check, ChevronDown, FileCheck, Info, LayoutGrid, Pencil, Plus, RotateCcw, Save, Send, Trash2, Upload, X } from "lucide-react";
+import {
+  Box,
+  Check,
+  ChevronDown,
+  FileCheck,
+  Info,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  Send,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 
 import { CanvasCropPicker, type CropCanvasOption } from "@/components/canvas-crop-picker";
 import type { SketchCanvasHandle } from "@/components/sketch/sketch-canvas";
@@ -59,10 +74,15 @@ const SketchCanvas = dynamic(
   { ssr: false, loading: () => <div className="flex-1 bg-muted/30" /> },
 );
 
-type FormState = { error: string | null };
+type FormState = { error: string | null; imageUrl?: string; sourceImageUrl?: string };
 const initialState: FormState = { error: null };
 
-export type CategoryOption = { id: string; name: string; parentId: string | null; isGroup: boolean };
+export type CategoryOption = {
+  id: string;
+  name: string;
+  parentId: string | null;
+  isGroup: boolean;
+};
 
 // Tipuri de resursă oferite în formular (oglindesc enum-ul de domeniu; toate stochează un URL/referință).
 type ResourceRow = { type: ResourceType; value: string; id?: string; previewUrl?: string };
@@ -265,7 +285,9 @@ function CategoryDropdown({
                                     <span
                                       className={cn(
                                         "flex size-4 flex-none items-center justify-center rounded border",
-                                        active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                                        active
+                                          ? "border-primary bg-primary text-primary-foreground"
+                                          : "border-input",
                                       )}
                                     >
                                       {active && <Check className="size-3" strokeWidth={3} />}
@@ -292,7 +314,9 @@ function CategoryDropdown({
                         <span
                           className={cn(
                             "flex size-4 flex-none items-center justify-center rounded border",
-                            active ? "border-primary bg-primary text-primary-foreground" : "border-input",
+                            active
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-input",
                           )}
                         >
                           {active && <Check className="size-3" strokeWidth={3} />}
@@ -360,7 +384,9 @@ export function DetailForm({
   const [mode, setMode] = useState<"upload" | "draw" | "canvas">("upload");
   // La editare, pornim cu imaginea existentă ca previzualizare (null = ciornă fără imagine încă).
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(
-    initial?.imageUrl ? { url: blobReadUrl(initial.imageUrl, "detail", initial.detailId), name: "imaginea curentă" } : null,
+    initial?.imageUrl
+      ? { url: blobReadUrl(initial.imageUrl, "detail", initial.detailId), name: "imaginea curentă" }
+      : null,
   );
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -375,12 +401,18 @@ export function DetailForm({
       return false;
     });
   }, [resources]);
-  useEffect(() => () => {
-    resourcePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
-  }, []);
-  useEffect(() => () => {
-    if (preview?.url.startsWith("blob:")) URL.revokeObjectURL(preview.url);
-  }, [preview]);
+  useEffect(
+    () => () => {
+      resourcePreviewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    },
+    [],
+  );
+  useEffect(
+    () => () => {
+      if (preview?.url.startsWith("blob:")) URL.revokeObjectURL(preview.url);
+    },
+    [preview],
+  );
   // Indecșii resurselor „încărcate" (fișier urcat de noi, nu link lipit de mână) — arată previzualizare
   // compactă în loc de câmpul de text cu URL-ul. Inițializat și din resursele EXISTENTE (editare), nu
   // doar din upload-uri noi în sesiunea curentă.
@@ -413,7 +445,9 @@ export function DetailForm({
   // pe pillul „Altă locație" cu textul deja completat (formularul reflectă starea reală salvată).
   const isInitialRomania = !initial || initial.location === DEFAULT_LOCATION;
   const [isRomania, setIsRomania] = useState(isInitialRomania);
-  const [locationText, setLocationText] = useState(isInitialRomania ? "" : (initial?.location ?? ""));
+  const [locationText, setLocationText] = useState(
+    isInitialRomania ? "" : (initial?.location ?? ""),
+  );
   // Semnalăm serverului dacă imaginea s-a schimbat efectiv (la editare) → reprocesare doar atunci.
   const [imageChanged, setImageChanged] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -422,6 +456,19 @@ export function DetailForm({
   const canvasRef = useRef<SketchCanvasHandle>(null);
   const annotationCanvasRef = useRef<SketchCanvasHandle>(null);
   const errorRef = useRef<HTMLParagraphElement>(null);
+
+  const onDrawingChange = useCallback(() => {
+    if (imageUrlRef.current) imageUrlRef.current.value = "";
+    setImageChanged(true);
+  }, []);
+
+  useEffect(() => {
+    const imageInput = imageUrlRef.current;
+    if (draftState.imageUrl && imageInput && imageInput.value === draftState.sourceImageUrl) {
+      imageInput.value = draftState.imageUrl;
+      setImageChanged(false);
+    }
+  }, [draftState]);
 
   // La editare fără schimbare de imagine, trimitem URL-ul existent (deja procesat) → onSubmit trece
   // direct, fără re-upload. Îl punem în câmpul ascuns la montare.
@@ -549,7 +596,9 @@ export function DetailForm({
         formRef.current?.requestSubmit(submitter ?? undefined);
       } catch {
         setClientError(
-          (await isSessionAlive()) ? "Salvarea desenului a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE,
+          (await isSessionAlive())
+            ? "Salvarea desenului a eșuat. Încearcă din nou."
+            : SESSION_EXPIRED_MESSAGE,
         );
       } finally {
         setUploading(false);
@@ -577,7 +626,9 @@ export function DetailForm({
         setClientError(HEIC_ERROR_MESSAGE);
       } else {
         setClientError(
-          (await isSessionAlive()) ? "Încărcarea imaginii a eșuat. Încearcă din nou." : SESSION_EXPIRED_MESSAGE,
+          (await isSessionAlive())
+            ? "Încărcarea imaginii a eșuat. Încearcă din nou."
+            : SESSION_EXPIRED_MESSAGE,
         );
       }
     } finally {
@@ -623,14 +674,18 @@ export function DetailForm({
   const [resourceUploadError, setResourceUploadError] = useState<Record<number, string>>({});
   const cadFileRef = useRef<HTMLInputElement>(null);
   async function handleResourceFile(i: number, type: ResourceType, file: File) {
-    const maxBytes = type === "CAD" ? MAX_CAD_BYTES : type === "PDF" ? MAX_DOC_BYTES : MAX_IMAGE_BYTES;
+    const maxBytes =
+      type === "CAD" ? MAX_CAD_BYTES : type === "PDF" ? MAX_DOC_BYTES : MAX_IMAGE_BYTES;
     const limitLabel = resourceUploadLimitLabel(type);
     if (type === "IMAGE" && isHeicFile(file)) {
       setResourceUploadError((e) => ({ ...e, [i]: HEIC_ERROR_MESSAGE }));
       return;
     }
     if (type === "IMAGE" && !(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) {
-      setResourceUploadError((e) => ({ ...e, [i]: "Imaginea trebuie să fie PNG, JPG, WebP sau AVIF." }));
+      setResourceUploadError((e) => ({
+        ...e,
+        [i]: "Imaginea trebuie să fie PNG, JPG, WebP sau AVIF.",
+      }));
       return;
     }
     if (file.size > maxBytes) {
@@ -663,7 +718,9 @@ export function DetailForm({
 
   // Serializăm resursele cu valoare ne-goală → câmp ascuns citit de server action.
   const resourcesJson = JSON.stringify(
-    resources.filter((r) => r.value.trim().length > 0).map((r) => ({ type: r.type, url: r.value.trim() })),
+    resources
+      .filter((r) => r.value.trim().length > 0)
+      .map((r) => ({ type: r.type, url: r.value.trim() })),
   );
 
   return (
@@ -679,11 +736,7 @@ export function DetailForm({
         value={annotationStrokes ? JSON.stringify(annotationStrokes) : ""}
       />
       {/* Nota merge doar dacă există un desen — o explicație fără adnotare n-ar avea unde să apară. */}
-      <input
-        type="hidden"
-        name="annotationNote"
-        value={annotationStrokes ? annotationNote : ""}
-      />
+      <input type="hidden" name="annotationNote" value={annotationStrokes ? annotationNote : ""} />
       {/* Editare: id-ul detaliului + semnal dacă imaginea s-a schimbat (pt reprocesare pe server). */}
       {isEdit && <input type="hidden" name="detailId" value={initial.detailId} />}
       {isEdit && <input type="hidden" name="imageChanged" value={imageChanged ? "1" : "0"} />}
@@ -702,7 +755,11 @@ export function DetailForm({
         >
           {clientError ?? state.error ?? draftState.error}
           {!clientError && state.error && (
-            <SupportHint failures={publishFailures} flow="detail_publish" errorMessage={state.error} />
+            <SupportHint
+              failures={publishFailures}
+              flow="detail_publish"
+              errorMessage={state.error}
+            />
           )}
         </p>
       )}
@@ -750,7 +807,11 @@ export function DetailForm({
           <label className={labelClass}>
             Categorii <Req />
           </label>
-          <CategoryDropdown categories={categories} categoryIds={categoryIds} toggleCategory={toggleCategory} />
+          <CategoryDropdown
+            categories={categories}
+            categoryIds={categoryIds}
+            toggleCategory={toggleCategory}
+          />
           {categoryIds.map((id) => (
             <input key={id} type="hidden" name="categoryIds" value={id} />
           ))}
@@ -761,10 +822,12 @@ export function DetailForm({
         <div>
           <label className={labelClass}>Locație</label>
           <div className="mb-3 inline-flex rounded-[10px] border border-[#e6ddcf] bg-[#f6ede4] p-1">
-            {([
-              { key: true, label: "România" },
-              { key: false, label: "Altă locație" },
-            ] as const).map(({ key, label }) => (
+            {(
+              [
+                { key: true, label: "România" },
+                { key: false, label: "Altă locație" },
+              ] as const
+            ).map(({ key, label }) => (
               <button
                 key={label}
                 type="button"
@@ -792,7 +855,11 @@ export function DetailForm({
               className={cn(fieldClass, "mb-3")}
             />
           )}
-          <input type="hidden" name="location" value={isRomania ? DEFAULT_LOCATION : locationText} />
+          <input
+            type="hidden"
+            name="location"
+            value={isRomania ? DEFAULT_LOCATION : locationText}
+          />
         </div>
 
         {/* CONTEXT TEHNIC: zonă climatică, seismică (a_g + Tc), încărcare zăpadă/vânt — DOAR pt România
@@ -855,11 +922,15 @@ export function DetailForm({
           {/* Alege sursa: încarci un fișier gata făcut, desenezi detaliul pe loc, sau decupezi dintr-o
               planșă proprie deja salvată (§7, doar la creare — myCanvases absent la editare). */}
           <div className="mb-3 inline-flex rounded-[10px] border border-[#e6ddcf] bg-[#f6ede4] p-1">
-            {([
-              { key: "upload", label: "Încarcă fișier", Icon: Upload },
-              { key: "draw", label: "Desenează", Icon: Pencil },
-              ...(myCanvases ? [{ key: "canvas", label: "Dintr-o planșă", Icon: LayoutGrid }] as const : []),
-            ] as const).map(({ key, label, Icon }) => (
+            {(
+              [
+                { key: "upload", label: "Încarcă fișier", Icon: Upload },
+                { key: "draw", label: "Desenează", Icon: Pencil },
+                ...(myCanvases
+                  ? ([{ key: "canvas", label: "Dintr-o planșă", Icon: LayoutGrid }] as const)
+                  : []),
+              ] as const
+            ).map(({ key, label, Icon }) => (
               <button
                 key={key}
                 type="button"
@@ -890,7 +961,7 @@ export function DetailForm({
 
           {mode === "draw" ? (
             <div className="flex h-[70vh] max-h-[760px] min-h-[520px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
-              <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} />
+              <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} onChange={onDrawingChange} />
             </div>
           ) : mode === "canvas" ? (
             <CanvasCropPicker
@@ -995,7 +1066,9 @@ export function DetailForm({
                       id="annotationNoteField"
                       data-testid="annotate-note"
                       value={annotationNote}
-                      onChange={(e) => setAnnotationNote(e.target.value.slice(0, MAX_SKETCH_NOTE_LENGTH))}
+                      onChange={(e) =>
+                        setAnnotationNote(e.target.value.slice(0, MAX_SKETCH_NOTE_LENGTH))
+                      }
                       maxLength={MAX_SKETCH_NOTE_LENGTH}
                       rows={2}
                       placeholder="Ex.: săgeata arată sensul de scurgere; cota e măsurată la fața finită."
@@ -1081,8 +1154,8 @@ export function DetailForm({
                       </span>
                     ) : (
                       <span className="w-full font-mono text-[11.5px] leading-relaxed text-[#a59a88]">
-                        Vrei să explici ceva anume din imagine? Apasă „Adnotează” și desenează peste ea —
-                        săgeți, cote, notițe. Opțional.
+                        Vrei să explici ceva anume din imagine? Apasă „Adnotează” și desenează peste
+                        ea — săgeți, cote, notițe. Opțional.
                       </span>
                     ))}
                 </div>
@@ -1123,7 +1196,9 @@ export function DetailForm({
                   <span className="whitespace-nowrap text-[13px] font-semibold">
                     Plan CAD · .{r.value.split(/[?#]/)[0].split(".").pop()?.toUpperCase()}
                   </span>
-                  <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">încărcat</span>
+                  <span className="whitespace-nowrap font-mono text-[11px] text-muted-foreground">
+                    încărcat
+                  </span>
                   <button
                     type="button"
                     onClick={() => removeResource(i)}
@@ -1145,7 +1220,9 @@ export function DetailForm({
                   : "border-[#ecdcc8] bg-[#f6ede4] text-primary hover:border-primary",
               )}
             >
-              {resources.some((r, i) => r.type === "CAD" && uploadedResourceIndices.has(i) && r.value.trim()) ? (
+              {resources.some(
+                (r, i) => r.type === "CAD" && uploadedResourceIndices.has(i) && r.value.trim(),
+              ) ? (
                 <>
                   <Plus className="size-[15px]" strokeWidth={2} />
                   Încă un plan CAD
@@ -1216,14 +1293,26 @@ export function DetailForm({
                         <div className="flex min-w-0 flex-1 items-center gap-2.5">
                           {r.type === "IMAGE" ? (
                             <div className="relative size-[38px] flex-none overflow-hidden rounded-[9px] border border-input bg-card">
-                              <Image src={r.previewUrl ?? (r.id ? blobReadUrl(r.value, "resource", r.id) : r.value)} alt="" fill sizes="38px" unoptimized className="object-cover" />
+                              <Image
+                                src={
+                                  r.previewUrl ??
+                                  (r.id ? blobReadUrl(r.value, "resource", r.id) : r.value)
+                                }
+                                alt=""
+                                fill
+                                sizes="38px"
+                                unoptimized
+                                className="object-cover"
+                              />
                             </div>
                           ) : (
                             <div className="inline-flex size-[38px] flex-none items-center justify-center rounded-[9px] border border-input bg-card">
                               <FileCheck className="size-4 text-emerald-600" strokeWidth={2} />
                             </div>
                           )}
-                          <span className="truncate text-[13px] text-muted-foreground">Încărcat</span>
+                          <span className="truncate text-[13px] text-muted-foreground">
+                            Încărcat
+                          </span>
                           <button
                             type="button"
                             onClick={() => clearUploadedResource(i)}

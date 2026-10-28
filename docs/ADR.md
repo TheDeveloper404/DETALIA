@@ -250,3 +250,58 @@ canonic si pipeline existent; abuz → cota existenta si cel mult o miniatura cl
 Un UPDATE explicit respins curata numai fisierul nou; o exceptie DB cu commit incert nu-l sterge.
 **Verificare:** integrare prin ruta/gard/service reale cu DB/Blob simulate; E2E Preview tine POST-ul
 miniaturii in asteptare si verifica o noua salvare document plus navigarea. Fara schema/dependinte/env noi.
+
+## ADR-023 — Mascarea callback-ului magic link inainte de ingestia PostHog (2026-10-28)
+
+**Scop aprobat:** URL-urile din telemetrie nu trimit emailul/tokenul de autentificare. Nu schimbam loginul.
+**Decizie:** extindem hook-ul existent `redactInviteToken`, fara modul/dependinta noua. Inspectam
+stringurile din proprietati eveniment, `$set`/`$set_once` top-level si cele doua bag-uri de profil
+din properties. URLSearchParams pe query mascheaza intregile valori `u`, `token`, `email`, `callbackUrl`,
+case-insensitive si dupa decodificarea cheilor. Un `u` mascat elimina si callback-ul codificat din el.
+URL-urile sensibile pierd fragmentul; restul URL-urilor si cheia PostHog `properties.token` raman intacte.
+**Alternativa respinsa:** mascarea SDK pentru URL-ul curent, singura, lasa referrer/profilul neacoperite;
+un parser recursiv arbitrar ar mari inutil suprafata. Nu colectam si nu modificam tokenuri reale in teste.
+**STRIDE:** disclosure URL browser → eveniment/profil → PostHog; minimizarea opereaza inaintea retelei.
+Nu se introduc redirecturi, scrieri DB, noi privilegii, requesturi, schema sau secrete.
+**Limite:** nu sterge istoricul si nu este un filtru pentru snapshot-urile separate Session Replay.
+**Verificare:** regresii unitare, dispatcher SDK real, E2E Preview scris pentru inspectia requestului.
+
+## ADR-024 — Retry upload si rezultate de adnotare fara schimbarea publicarii (2026-10-28)
+
+**Scop aprobat:** retrimiterea formularului dupa validare respinsa functioneaza cu aceeasi imagine;
+un refuz de adnotare nu este prezentat drept succes complet.
+**Decizie:** `reprocessBlobImage` are optiune preserveOriginal folosita numai de actiunile detaliului.
+Originalul staging ramane disponibil pana la succesul serviciului. Un refuz explicit curata copia noua,
+nu originalul; la exceptie cu commit incert nu stergem imaginea potential referita din DB.
+Salvarea ciornei fara navigare intoarce URL-ul procesat si URL-ul sursa; formularul il preia numai
+daca intre timp nu a fost aleasa alta imagine. Restul apelantilor reprocessorului pastreaza comportamentul.
+**Alternativa respinsa:** duplicarea tuturor validarilor de service in handlers lasa ciclul upload-ului
+fragil la urmatorul refuz de business si dubleaza regulile. Nu adaugam schema sau registru de upload.
+**Adnotare:** pastram salvarea separata/best-effort. Refuzurile folosesc bannerele existente,
+inclusiv cel pentru adnotare blocata; nu introducem atomicitate cu salvarea detaliului.
+**Securitate:** namespace-ul propriu, canonicalizarea, re-encodarea si gardurile raman obligatorii.
+Originale abandonate pot ramane temporar in staging; curatenia este separata, fara stergeri speculative.
+
+## ADR-025 — Randare reutilizata pentru snapshot actual la partajare (2026-10-28)
+
+**Scop aprobat:** Undo nu pierde sursele la redeschidere; copia inghetata partajata reflecta documentul
+salvat, fara a face miniatura optionala o dependenta pentru autosave/iesire (ADR-022 ramane valabil).
+**Decizie:** citirea surselor foloseste documentul validat plus indexul pending pentru adaugari;
+fiecare sursa ramane filtrata prin regulile existente de acces/vizibilitate. Nu reverificam toate
+sursele la fiecare autosave si nu folosim indexul incomplet ca unica sursa la redeschidere.
+La partajare, citirea autorizata furnizeaza documentul salvat, sursele permise si amprenta starii.
+Rendererul existent al plansei este reutilizat, cu incarcare dinamica la partajare, pentru snapshot.
+Serverul verifica staging propriu, permisiunile si concordanta cu starea salvata; creeaza copia
+independenta pentru proiect. Nu acceptam miniatura veche drept fallback daca snapshot-ul actual esueaza.
+**Alternative respinse:** asteptarea miniaturii la iesire reintroduce blocajul reparat; un renderer
+nou pe server ar duplica desenarea. Fara schema/dependinte noi. Contractul exact este consemnat in CHANGELOG.
+
+## ADR-026 — Cache de geometrie pentru trasee imuabile (2026-10-28)
+
+**Decizie:** `renderStrokes` reutilizeaza outline/Path2D prin WeakMap asociat obiectului Stroke,
+cu o singura rezolutie per traseu. Editorii inlocuiesc traseele confirmate la modificare; preview-ul
+produce obiecte noi. Resize/export cu alta rezolutie recalculeaza. WeakMap nu retine istoricul eliminat.
+**Motiv:** ambele editoare recalculau acelasi freehand la fiecare pointermove. Solutia comuna elimina
+calculul repetat fara a schimba pointer events, selectie, radiera, Undo/Redo, text, forme sau export.
+**Limite:** benchmark-ul CPU cu rasterizare simulata nu este dovada de FPS in browser; trasarea noua
+si rasterizarea continua sa aiba cost. Nu introducem cache global cu chei string sau dependinte noi.

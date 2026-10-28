@@ -9,8 +9,9 @@ import { useActionState, useEffect, useState } from "react";
 
 import { DialogOverlay } from "@/components/dialog-overlay";
 import { cn } from "@/lib/utils";
+import { uploadImageToBlob } from "@/lib/blob-upload";
 
-import { deleteCanvasShareAction, shareCanvasAction, type ProjectActionResult } from "../actions";
+import { deleteCanvasShareAction, getCanvasShareSnapshotAction, shareCanvasAction, type ProjectActionResult } from "../actions";
 
 // Detaliu ÎNCĂ în proiect (privat) — SEC-005: NU trimitem `imageUrl` (URL Blob public) către client,
 // doar `hasImage` (randăm prin proxy autenticat, /api/project-image/detail/[id], care verifică acces
@@ -279,6 +280,14 @@ function AddContentModal({
     fd.set("canvasId", canvasId);
     fd.set("projectId", projectId);
     try {
+      const snapshot = await getCanvasShareSnapshotAction(canvasId);
+      if (!snapshot.ok) { setError(snapshot.error); return; }
+      const { renderCanvasThumbnail } = await import("@/components/plansa/plansa-canvas");
+      const blob = await renderCanvasThumbnail(snapshot.document, snapshot.sources, "image/jpeg");
+      if (!blob) { setError("Nu am putut genera imaginea plansei. Incearca din nou."); return; }
+      const url = await uploadImageToBlob("canvases/uploads", new File([blob], "canvas-share.jpg", { type: blob.type }));
+      fd.set("snapshotUrl", url);
+      fd.set("documentHash", snapshot.documentHash);
       const res = await shareCanvasAction(INITIAL, fd);
       if (!res.ok) {
         setError(res.error ?? "Nu am putut partaja planșa.");

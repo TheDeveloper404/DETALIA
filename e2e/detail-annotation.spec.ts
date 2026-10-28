@@ -9,6 +9,7 @@ import { db } from "../db";
 import { details, sketches } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
 import { pickLeafCategories } from "./category-helpers";
+import { getSeed } from "./seed";
 import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 
 // E2E — ADNOTAREA autorului peste PROPRIA imagine (2026-07-31, vezi CHANGELOG).
@@ -71,7 +72,8 @@ async function cleanup(detailId: string | null, imageUrl: string | null): Promis
 }
 
 test.describe("Adnotarea autorului la publicarea detaliului", () => {
-  test("Încarcă imagine → Adnotează → desenează → Gata → publică: adnotarea se salvează și se vede", async ({
+  // o adnotare pe care alții au construit nu dispare complet
+  test("Adnotarea se salveaza; stergerea ei dupa folosirea ca fundal este refuzata cu mesaj", async ({
     page,
   }) => {
     const [category] = await pickLeafCategories(1);
@@ -90,7 +92,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.keyboard.press("Escape");
 
       await page.locator("#image").setInputFiles(imagePath);
-      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+        timeout: 15_000,
+      });
 
       // Pasul e OPȚIONAL, deci userul trebuie să înțeleagă DE CE l-ar face — textul explicativ e parte
       // din cerință (2026-07-31: „trebuie specificat clar de ce"), nu decor.
@@ -136,6 +140,37 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await expect(toggle).toHaveAttribute("aria-pressed", "false");
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+      // o adnotare pe care alții au construit nu dispare complet
+      await db
+        .insert(sketches)
+        .values({
+          detailId: detailId!,
+          authorId: getSeed().authorUserId,
+          status: "PUBLISHED",
+          strokesJson: annotations[0]!.strokesJson,
+          baseSketchIds: [annotations[0]!.id],
+        });
+      await db
+        .update(sketches)
+        .set({ lockedAt: new Date() })
+        .where(eq(sketches.id, annotations[0]!.id));
+      await page.goto(`/details/${detailId}/edit`);
+      await page.locator("#title").fill(`${title} editat`);
+      // Formularul trimite desenul gol la eliminarea tuturor traseelor. Exercitam exact acest payload.
+      await page.locator('input[name="annotationStrokes"]').evaluate((input) => {
+        (input as HTMLInputElement).value = "";
+      });
+      await page.getByRole("button", { name: "Salvează modificările" }).click();
+      await expect(
+        page.getByText("Adnotarea nu mai poate fi ștearsă", { exact: true }),
+      ).toBeVisible();
+      await expect(page.getByRole("heading", { name: `${title} editat` })).toBeVisible();
+      const [retained] = await db
+        .select({ id: sketches.id })
+        .from(sketches)
+        .where(eq(sketches.id, annotations[0]!.id));
+      expect(retained?.id).toBe(annotations[0]!.id);
     } finally {
       await cleanup(detailId, imageUrl);
     }
@@ -156,7 +191,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.getByRole("button", { name: category.name, exact: true }).click();
       await page.keyboard.press("Escape");
       await page.locator("#image").setInputFiles(imagePath);
-      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+        timeout: 15_000,
+      });
 
       await page.getByRole("button", { name: "Publică detaliul" }).click();
       await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 20_000 });
@@ -187,7 +224,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
     await page.locator("#title").fill(`E2E adnotare aruncată ${Date.now()}`);
 
     await page.locator("#image").setInputFiles(makeImage());
-    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page.getByTestId("annotate-open").click();
     await drawStroke(page);
@@ -221,7 +260,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.getByRole("button", { name: category.name, exact: true }).click();
       await page.keyboard.press("Escape");
       await page.locator("#image").setInputFiles(makeImage());
-      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+        timeout: 15_000,
+      });
 
       await page.getByTestId("annotate-open").click();
       await drawStroke(page);
@@ -277,7 +318,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
 
   // 2026-08-11, decizie de produs: adnotarea se editează la fel ca nume/descriere/date tehnice.
   // Editarea înlocuiește desenul PE LOC — nu creează un rând nou.
-  test("Adnotarea se editează din Editare detaliu, PE LOC (același rând, desen nou)", async ({ page }) => {
+  test("Adnotarea se editează din Editare detaliu, PE LOC (același rând, desen nou)", async ({
+    page,
+  }) => {
     const [category] = await pickLeafCategories(1);
     const title = `E2E editare adnotare ${Date.now()}`;
     let detailId: string | null = null;
@@ -291,7 +334,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.getByRole("button", { name: category.name, exact: true }).click();
       await page.keyboard.press("Escape");
       await page.locator("#image").setInputFiles(makeImage());
-      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+        timeout: 15_000,
+      });
 
       await page.getByTestId("annotate-open").click();
       await drawStroke(page);
@@ -330,7 +375,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
         .where(and(eq(sketches.detailId, detailId!), eq(sketches.status, "PUBLISHED")));
       expect(after).toHaveLength(1);
       expect(after[0]?.id).toBe(before!.id);
-      expect((after[0]?.strokesJson as unknown[] | null)?.length ?? 0).toBeGreaterThan(strokesBefore);
+      expect((after[0]?.strokesJson as unknown[] | null)?.length ?? 0).toBeGreaterThan(
+        strokesBefore,
+      );
     } finally {
       await cleanup(detailId, imageUrl);
     }
@@ -354,7 +401,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.getByRole("button", { name: category.name, exact: true }).click();
       await page.keyboard.press("Escape");
       await page.locator("#image").setInputFiles(makeImage());
-      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+        timeout: 15_000,
+      });
 
       await page.getByTestId("annotate-open").click();
       await drawStroke(page);
@@ -418,7 +467,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await page.getByRole("button", { name: category.name, exact: true }).click();
       await page.keyboard.press("Escape");
       await page.locator("#image").setInputFiles(makeImage());
-      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+        timeout: 15_000,
+      });
 
       await page.getByTestId("annotate-open").click();
       await drawStroke(page);
@@ -482,7 +533,9 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       await dialog.getByRole("button", { name: "Șterge" }).click();
 
       // Banner explicit — NU tăcere. Redirect cu `?sketch-delete=annotation-locked`.
-      await expect(page).toHaveURL(new RegExp(`/details/${detailId}\\?sketch-delete=annotation-locked`));
+      await expect(page).toHaveURL(
+        new RegExp(`/details/${detailId}\\?sketch-delete=annotation-locked`),
+      );
       await expect(page.getByText("Adnotarea nu mai poate fi ștearsă")).toBeVisible();
 
       // Adnotarea rămâne EXACT cum era: toggle-ul tot acolo, rândul intact în DB, `authorRemoved`
@@ -490,7 +543,11 @@ test.describe("Adnotarea autorului la publicarea detaliului", () => {
       // avea niciun efect vizibil pe o adnotare).
       await expect(page.getByTestId("annotation-toggle-1")).toBeVisible();
       const [stillThere] = await db
-        .select({ status: sketches.status, isAnnotation: sketches.isAnnotation, authorRemoved: sketches.authorRemoved })
+        .select({
+          status: sketches.status,
+          isAnnotation: sketches.isAnnotation,
+          authorRemoved: sketches.authorRemoved,
+        })
         .from(sketches)
         .where(eq(sketches.id, annotation!.id));
       expect(stillThere?.status).toBe("PUBLISHED");

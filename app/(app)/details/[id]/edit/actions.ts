@@ -13,7 +13,7 @@ import { publishDetailDraft, saveDetailDraft, updateDetail } from "@/server/serv
 import { parseAnnotationStrokes } from "@/lib/annotation-form";
 import { createAnnotation, deleteSketch, updateAnnotation } from "@/server/services/sketchService";
 
-export type EditDetailState = { error: string | null };
+export type EditDetailState = { error: string | null; imageUrl?: string; sourceImageUrl?: string };
 
 // Resursele vin ca JSON dintr-un câmp ascuns (repeater pe client). Parsare defensivă — identică
 // cu cea din fluxul de creare.
@@ -97,7 +97,9 @@ export async function updateDetailAction(
   const imageChanged = String(formData.get("imageChanged") ?? "") === "1";
   let finalImageUrl = imageUrl;
   if (imageChanged) {
-    const processed = await reprocessBlobImage(imageUrl, "details", userId);
+    const processed = await reprocessBlobImage(imageUrl, "details", userId, {
+      preserveOriginal: true,
+    });
     if (!processed.ok) return { error: ERROR_MESSAGES.INVALID_TYPE };
     finalImageUrl = processed.url;
   }
@@ -119,8 +121,11 @@ export async function updateDetailAction(
   });
 
   if (!result.ok) {
+    if (imageChanged) await deleteBlobs([finalImageUrl]);
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
+
+  if (imageChanged) await deleteBlobs([imageUrl]);
 
   // Imaginea s-a schimbat → curăță blob-ul vechi (best-effort, după commit-ul DB).
   if (result.oldImageUrl) {
@@ -133,22 +138,25 @@ export async function updateDetailAction(
   // (`createAnnotation`); altfel înlocuiește pe loc rândul existent (`updateAnnotation`).
   const annotationStrokes = parseAnnotationStrokes(formData.get("annotationStrokes"));
   const annotationSketchId = String(formData.get("annotationSketchId") ?? "");
+  let annotationError: string | null = null;
   if (annotationStrokes !== null) {
     if (annotationSketchId.length > 0) {
-      await updateAnnotation({
+      const annotation = await updateAnnotation({
         detailId,
         sketchId: annotationSketchId,
         authorId: userId,
         strokes: annotationStrokes,
         note: formData.get("annotationNote"),
       });
+      if (!annotation.ok) annotationError = annotation.error;
     } else {
-      await createAnnotation({
+      const annotation = await createAnnotation({
         detailId,
         authorId: userId,
         strokes: annotationStrokes,
         note: formData.get("annotationNote"),
       });
+      if (!annotation.ok) annotationError = annotation.error;
     }
   } else if (annotationSketchId.length > 0) {
     // Golit complet la „Gata" (0 trasee → `annotationStrokes` gol în formular): fără ramura asta,
@@ -156,13 +164,20 @@ export async function updateDetailAction(
     // (găsit la /code-review, 2026-08-11) — userul vedea „Adnotează" pe buton, credea că a șters, dar
     // desenul vechi supraviețuia neatins. Ștergerea reală trece prin `deleteSketch` — respectă regula
     // de stack (o adnotare pe care alții au construit nu dispare complet, ca orice altă foaie blocată).
-    await deleteSketch({ sketchId: annotationSketchId, actorUserId: userId });
+    const annotation = await deleteSketch({ sketchId: annotationSketchId, actorUserId: userId });
+    if (!annotation.ok) annotationError = annotation.error;
   }
 
   // Detaliul editat: reîmprospătează pagina lui + feed-ul (titlu/categorii se pot fi schimbat).
   revalidatePath(`/details/${detailId}`);
   revalidatePath("/feed");
-  redirect(`/details/${detailId}`);
+  redirect(
+    annotationError === "ANNOTATION_LOCKED"
+      ? `/details/${detailId}?sketch-delete=annotation-locked`
+      : annotationError
+        ? `/details/${detailId}?annotation=failed`
+        : `/details/${detailId}`,
+  );
 }
 
 // Câmpurile comune citite din formular pt cele două acțiuni de ciornă de mai jos.
@@ -183,19 +198,25 @@ function readDraftFields(formData: FormData) {
 }
 
 // Imaginea e OPȚIONALĂ la ciornă — validăm/reprocesăm (SEC-02) doar dacă e prezentă/schimbată.
-async function resolveDraftImageUrl(formData: FormData, userId: string): Promise<
-  { ok: true; imageUrl: string | null } | { ok: false; error: string }
+async function resolveDraftImageUrl(
+  formData: FormData,
+  userId: string,
+): Promise<
+  { ok: true; imageUrl: string | null; sourceImageUrl?: string } | { ok: false; error: string }
 > {
   const rawImageUrl = String(formData.get("imageUrl") ?? "");
   if (rawImageUrl.length === 0) return { ok: true, imageUrl: null };
-  if (!(await canUseBlobUrls([rawImageUrl], userId))) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
+  if (!(await canUseBlobUrls([rawImageUrl], userId)))
+    return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
 
   const imageChanged = String(formData.get("imageChanged") ?? "") === "1";
   if (!imageChanged) return { ok: true, imageUrl: rawImageUrl };
 
-  const processed = await reprocessBlobImage(rawImageUrl, "details", userId);
+  const processed = await reprocessBlobImage(rawImageUrl, "details", userId, {
+    preserveOriginal: true,
+  });
   if (!processed.ok) return { ok: false, error: ERROR_MESSAGES.INVALID_TYPE };
-  return { ok: true, imageUrl: processed.url };
+  return { ok: true, imageUrl: processed.url, sourceImageUrl: rawImageUrl };
 }
 
 // Re-salvează o ciornă existentă (autorul, doar cât e DRAFT) — validare LENIENTĂ. Nu redirecționează
@@ -205,7 +226,8 @@ export async function saveDraftDetailAction(
   formData: FormData,
 ): Promise<EditDetailState> {
   const userId = await requireActiveUserId();
-  if (!(await checkLimit(limiters.mutation, userId)).ok) return { error: "Prea multe salvări într-un timp scurt." };
+  if (!(await checkLimit(limiters.mutation, userId)).ok)
+    return { error: "Prea multe salvări într-un timp scurt." };
 
   const fields = readDraftFields(formData);
   if (fields.detailId.length === 0) return { error: ERROR_MESSAGES.NOT_FOUND };
@@ -215,10 +237,16 @@ export async function saveDraftDetailAction(
   if (!image.ok) return { error: image.error };
 
   const result = await saveDetailDraft({ ...fields, authorId: userId, imageUrl: image.imageUrl });
-  if (!result.ok) return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+  if (!result.ok) {
+    if (image.sourceImageUrl) await deleteBlobs([image.imageUrl]);
+    return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+  }
+  if (image.sourceImageUrl) await deleteBlobs([image.sourceImageUrl]);
 
   revalidatePath(`/details/${fields.detailId}/edit`);
-  return { error: null };
+  return image.sourceImageUrl
+    ? { error: null, imageUrl: image.imageUrl!, sourceImageUrl: image.sourceImageUrl }
+    : { error: null };
 }
 
 // Publică o ciornă (DRAFT → PUBLISHED) — validare STRICTĂ (imagine + categorie obligatorii).
@@ -238,8 +266,16 @@ export async function publishDraftDetailAction(
   if (!image.ok) return { error: image.error };
   if (!image.imageUrl) return { error: ERROR_MESSAGES.IMAGE_REQUIRED };
 
-  const result = await publishDetailDraft({ ...fields, authorId: userId, imageUrl: image.imageUrl });
-  if (!result.ok) return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+  const result = await publishDetailDraft({
+    ...fields,
+    authorId: userId,
+    imageUrl: image.imageUrl,
+  });
+  if (!result.ok) {
+    if (image.sourceImageUrl) await deleteBlobs([image.imageUrl]);
+    return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
+  }
+  if (image.sourceImageUrl) await deleteBlobs([image.sourceImageUrl]);
 
   revalidatePath("/feed");
   redirect(`/details/${fields.detailId}`);

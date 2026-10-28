@@ -256,7 +256,13 @@ export async function getCanvasForEdit(input: {
   const canvas = await getCanvasById(input.canvasId);
   if (!canvas || canvas.ownerId !== input.ownerId) return { ok: false, error: "NOT_FOUND" };
 
-  const rows = await listItems(input.canvasId);
+  const indexed = await listItems(input.canvasId);
+  const document = validateCanvasDocument(canvas.state);
+  // Undo restaureaza geometria dupa eliminarea indexului; indexul pastreaza si adaugari inca nepozitionate.
+  const rows = [...new Map(
+    [...indexed, ...(document.ok ? document.value.items : [])].map((item) =>
+      [`${item.detailId}:${item.sketchId ?? ""}`, { detailId: item.detailId, sketchId: item.sketchId ?? null }] as const),
+  ).values()];
 
   // Batching (era N+1: câte un `getSketchById`/`getDetailById`/`canAccessProjectDetail` per item,
   // secvențial) — două query-uri `IN (...)` pe toate id-urile, plus verificarea de acces la proiect
@@ -284,9 +290,10 @@ export async function getCanvasForEdit(input: {
     if (row.sketchId) {
       const sketch = sketchesById.get(row.sketchId);
       // SEC-002: schiță ascunsă la release → tratată ca dispărută, la fel ca ștearsă/retrasă.
-      if (!sketch || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl || sketch.hiddenAfterRelease)
+      if (!sketch || sketch.detailId !== row.detailId || sketch.status !== "PUBLISHED" || !sketch.thumbnailUrl || sketch.hiddenAfterRelease)
         continue;
       const detail = detailsById.get(row.detailId);
+      if (!detail) continue;
       // Proiecte (2026-08-09, gol găsit la /code-review): un membru ELIMINAT din proiect nu mai
       // trebuie să vadă, la fiecare reîncărcare a planșei, titlul/thumbnailul unui detaliu care a
       // rămas privat — tratat ca „dispărut", la fel ca un detaliu șters/nepublicat.

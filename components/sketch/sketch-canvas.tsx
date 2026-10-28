@@ -237,9 +237,10 @@ export const SketchCanvas = forwardRef<
     // NU intră în `present`/istoricul undo-redo: userul nu poate muta/șterge desenul altcuiva.
     backgroundStrokes?: Stroke[];
     onStrokesCount?: (count: number) => void;
+    onChange?: (strokes: Stroke[]) => void;
   }
 >(function SketchCanvas(
-  { imageUrl, aspectRatio = 3 / 4, initialStrokes, backgroundStrokes, onStrokesCount },
+  { imageUrl, aspectRatio = 3 / 4, initialStrokes, backgroundStrokes, onStrokesCount, onChange },
   ref,
 ) {
   const [history, dispatch] = useReducer(historyReducer, {
@@ -283,6 +284,12 @@ export const SketchCanvas = forwardRef<
   const panRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
 
   const present = history.present;
+  const lastNotifiedStrokes = useRef(present);
+  useEffect(() => {
+    if (lastNotifiedStrokes.current === present) return;
+    lastNotifiedStrokes.current = present;
+    onChange?.(present);
+  }, [present, onChange]);
 
   // Expune strokes + export thumbnail pentru butoanele din bara de context.
   useImperativeHandle(

@@ -15,10 +15,7 @@ export function getPostHogClient(): PostHog {
   return posthogClient;
 }
 
-// Punct unic pentru evenimente trimise din Server Actions (SDK complet, spre deosebire de
-// `reportServerEvent` care e Edge-safe prin fetch brut) — injectează `environment` automat, ca niciun
-// apel nou să nu (re)creeze golul găsit 2026-08-18: fără acest tag, o alertă Slack pe evenimentul respectiv
-// n-avea cum să excludă trafic non-producție altfel decât hardcodând o listă de email-uri de test.
+// Tag-ul environment permite separarea alertelor de productie de trafic Preview.
 export function captureServerEvent(
   distinctId: string,
   event: string,
@@ -31,10 +28,7 @@ export function captureServerEvent(
   });
 }
 
-// flush() n-are un timeout implicit strâns (shutdown-ul din SDK are default 30s) — pe un serverless
-// function care apoi face redirect() către user, un răspuns lent/agățat de la PostHog bloca acțiunea
-// întreagă (găsit 2026-08-25: schița rămânea "Se publică…" minute în șir). Cap dur: publicarea/mutația
-// deja s-a scris în DB înainte de acest apel — analytics-ul e best-effort, nu trebuie să țină userul.
+// Analytics este best-effort: nu trebuie sa blocheze mutatia deja salvata.
 const FLUSH_TIMEOUT_MS = 2000;
 
 export async function flushPostHogEvents(): Promise<void> {

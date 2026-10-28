@@ -50,7 +50,12 @@ async function cleanImageBuffer(input: Buffer): Promise<CleanImage | null> {
 
     const resized = pipeline
       .rotate() // aplică EXIF Orientation, apoi metadata se pierde la re-encodare.
-      .resize({ width: MAX_DIMENSION, height: MAX_DIMENSION, fit: "inside", withoutEnlargement: true });
+      .resize({
+        width: MAX_DIMENSION,
+        height: MAX_DIMENSION,
+        fit: "inside",
+        withoutEnlargement: true,
+      });
 
     // Re-encodare explicită pe formatul detectat (metadata NU se păstrează by default → strip EXIF/ICC/XMP).
     let data: Buffer;
@@ -85,44 +90,58 @@ export type ReprocessResult = { ok: true; url: string } | { ok: false };
 // șterge originalul; pe eșec șterge orfanul. `folder` = prefixul de cale în Blob (ex. "details", "avatars").
 // `userId` = SEC-001: URL-ul trebuie să fie sub namespace-ul acestui user — altfel oricine ar putea da
 // URL-ul imaginii altcuiva și l-am șterge aici ca „original" după re-încărcare.
-export async function reprocessBlobImage(url: string, folder: string, userId: string): Promise<ReprocessResult> {
+export async function reprocessBlobImage(
+  url: string,
+  folder: string,
+  userId: string,
+  // Formularele de detaliu pastreaza staging-ul pana la confirmarea salvarii.
+  options: { preserveOriginal?: boolean } = {},
+): Promise<ReprocessResult> {
   // Acceptăm DOAR URL-uri din store-ul nostru, urcate de userul curent → fetch-ul nu poate fi îndreptat
   // spre alte gazde (anti-SSRF) și nu putem șterge/consuma fișierul altcuiva.
   if (!isUsersBlobUrl(url, userId)) return { ok: false };
   // Exceptiile publice nu pot fi folosite ca ruta de export pentru un URL privat pastrat.
-  if (isPrivateBlobUrl(url) && ["avatars", "covers", "comments"].includes(folder)) return { ok: false };
+  if (isPrivateBlobUrl(url) && ["avatars", "covers", "comments"].includes(folder))
+    return { ok: false };
 
   let input: Buffer;
   try {
     const res = await readOwnBlob(url);
     if (!res) {
-      await delOrphan(url);
+      if (!options.preserveOriginal) await delOrphan(url);
       return { ok: false };
     }
     input = Buffer.from(await new Response(res.body).arrayBuffer());
   } catch {
-    await delOrphan(url);
+    if (!options.preserveOriginal) await delOrphan(url);
     return { ok: false };
   }
 
   const clean = await cleanImageBuffer(input);
   if (!clean) {
-    await delOrphan(url); // imagine invalidă → curăță orfanul.
+    if (!options.preserveOriginal) await delOrphan(url); // imagine invalidă → curăță orfanul.
     return { ok: false };
   }
 
   try {
-    const uploaded = await put(`u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
-      access: blobAccessForFolder(folder),
-      ...blobStoreOptions(blobAccessForFolder(folder)),
-      addRandomSuffix: false,
-      contentType: clean.contentType,
-    });
-    await delOrphan(url); // originalul necurat → orfan, îl ștergem.
+    const uploaded = await put(
+      `u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`,
+      clean.data,
+      {
+        access: blobAccessForFolder(folder),
+        ...blobStoreOptions(blobAccessForFolder(folder)),
+        addRandomSuffix: false,
+        contentType: clean.contentType,
+      },
+    );
+    if (!options.preserveOriginal) await delOrphan(url); // originalul necurat → orfan, îl ștergem.
     return { ok: true, url: uploaded.url };
   } catch (err) {
-    console.error("reprocess: re-upload Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
-    await delOrphan(url);
+    console.error(
+      "reprocess: re-upload Blob eșuat:",
+      err instanceof Error ? err.message : "necunoscut",
+    );
+    if (!options.preserveOriginal) await delOrphan(url);
     return { ok: false };
   }
 }
@@ -139,15 +158,22 @@ export async function processAndUploadImage(
   const clean = await cleanImageBuffer(Buffer.from(await blob.arrayBuffer()));
   if (!clean) return { ok: false };
   try {
-    const uploaded = await put(`u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`, clean.data, {
-      access: "private",
-      ...blobStoreOptions("private"),
-      addRandomSuffix: false,
-      contentType: clean.contentType,
-    });
+    const uploaded = await put(
+      `u/${userId}/${folder}/${crypto.randomUUID()}.${clean.ext}`,
+      clean.data,
+      {
+        access: "private",
+        ...blobStoreOptions("private"),
+        addRandomSuffix: false,
+        contentType: clean.contentType,
+      },
+    );
     return { ok: true, url: uploaded.url };
   } catch (err) {
-    console.error("processAndUploadImage: upload Blob eșuat:", err instanceof Error ? err.message : "necunoscut");
+    console.error(
+      "processAndUploadImage: upload Blob eșuat:",
+      err instanceof Error ? err.message : "necunoscut",
+    );
     return { ok: false };
   }
 }

@@ -20,8 +20,8 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
-
-test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → publicat + apare la /details/[id]", async ({
+// Imaginea s-a urcat CLIENT direct în Blob; validarea finală o face DetailService.
+test("Adaugă detaliu: corecteaza resursa respinsa fara a realege imaginea → publicat", async ({
   page,
 }) => {
   const [category] = await pickLeafCategories(1);
@@ -48,8 +48,16 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
 
     await page.locator("#image").setInputFiles(imagePath);
     // Upload-ul client → Blob e async; preview-ul (buton „Înlocuiește") confirmă că imageUrl s-a completat.
-    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: "Înlocuiește" })).toBeVisible({
+      timeout: 15_000,
+    });
 
+    await page.getByRole("button", { name: /Adaugă resursă/ }).click();
+    const resourceUrl = page.getByTestId("resources-list").locator('input[type="text"]').first();
+    await resourceUrl.fill("example.com");
+    await page.getByRole("button", { name: "Publică detaliul" }).click();
+    await expect(page.locator('p[role="alert"]')).toContainText("O resursă atașată e invalidă.");
+    await resourceUrl.fill("https://example.com");
     await page.getByRole("button", { name: "Publică detaliul" }).click();
 
     await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 15_000 });
@@ -60,7 +68,10 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
     expect(detailId).toBeTruthy();
 
     if (detailId) {
-      const [row] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, detailId));
+      const [row] = await db
+        .select({ imageUrl: details.imageUrl })
+        .from(details)
+        .where(eq(details.id, detailId));
       imageUrl = row?.imageUrl ?? null;
     }
   } finally {
@@ -69,7 +80,9 @@ test("Adaugă detaliu: formular complet (titlu, categorie, imagine reală) → p
   }
 });
 
-test("Adaugă detaliu: fără categorie selectată → eroare de validare, fără redirect", async ({ page }) => {
+test("Adaugă detaliu: fără categorie selectată → eroare de validare, fără redirect", async ({
+  page,
+}) => {
   await page.goto("/details/new");
   await page.locator("#title").fill(`E2E fără categorie ${Date.now()}`);
   await page.getByRole("button", { name: "Publică detaliul" }).click();
