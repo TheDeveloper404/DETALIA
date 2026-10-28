@@ -278,6 +278,35 @@ describe("validateDetailInput — locație (2026-07-16, pill România / Altă lo
   });
 });
 
+// Regula: „Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet
+// apare doar cand nu e ales niciun judet."
+describe("validateDetailInput — județ (2026-10-28)", () => {
+  it("județ din listă, la România → păstrat", () => {
+    const r = validateDetailInput({ ...base, location: "România", county: " Cluj " });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.county).toBe("Cluj");
+  });
+
+  it("fără județ → null (opțional)", () => {
+    const r = validateDetailInput({ ...base, county: "" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.county).toBeNull();
+  });
+
+  it("județ din afara listei → INVALID_COUNTY", () => {
+    expect(validateDetailInput({ ...base, county: "Atlantida" })).toEqual({
+      ok: false,
+      error: "INVALID_COUNTY",
+    });
+  });
+
+  it("locație non-România → județul e ignorat, chiar dacă clientul îl trimite", () => {
+    const r = validateDetailInput({ ...base, location: "Italia, Roma", county: "Cluj" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.county).toBeNull();
+  });
+});
+
 // „Salvează ciornă" (2026-07-06) — strict:false relaxează imagine/categorie, titlul rămâne obligatoriu
 // (altfel ciorna n-ar avea cum să apară listată în „Ciornele mele").
 describe("validateDetailInput — strict:false (CIORNĂ)", () => {

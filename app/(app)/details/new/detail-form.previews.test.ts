@@ -132,6 +132,7 @@ beforeEach(() => {
     categoryIds: [],
     imageUrl: null,
     location: "România",
+    county: null,
     climateZone: null,
     seismicAg: "",
     seismicTc: "",

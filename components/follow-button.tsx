@@ -20,10 +20,10 @@ export function FollowButton({
         type="button"
         aria-pressed={followed}
         disabled={pending}
-        className={`group inline-flex h-11 items-center gap-2 self-start rounded-lg border px-[18px] text-[14.5px] font-semibold transition-colors disabled:opacity-50 ${
+        className={`group inline-flex h-10 items-center gap-1.5 self-start rounded-full border px-4 text-[13.5px] font-semibold transition-colors disabled:opacity-50 ${
           followed
-            ? "border-border bg-card text-foreground hover:border-destructive hover:bg-[#fbeeec] hover:text-destructive"
-            : "border-[#95492e] bg-primary text-primary-foreground hover:bg-[#95492e]"
+            ? "border-border bg-card text-foreground/80 hover:border-destructive/40 hover:bg-[#fbeeec] hover:text-destructive"
+            : "border-[#ecd3c4] bg-[#fbf1ea] text-[#8a4428] hover:border-primary/50 hover:bg-[#f7e6da]"
         }`}
         onClick={() =>
           startTransition(async () => {
@@ -39,11 +39,11 @@ export function FollowButton({
       >
         {followed ? (
           <>
-            <Check className="size-4 group-hover:hidden" strokeWidth={2.2} aria-hidden />
-            <X className="hidden size-4 group-hover:block" strokeWidth={2.2} aria-hidden />
+            <Check className="size-3.5 group-hover:hidden" strokeWidth={2.2} aria-hidden />
+            <X className="hidden size-3.5 group-hover:block" strokeWidth={2.2} aria-hidden />
           </>
         ) : (
-          <Plus className="size-4" strokeWidth={2.2} aria-hidden />
+          <Plus className="size-3.5" strokeWidth={2.2} aria-hidden />
         )}
         {pending ? "Se salvează…" : followed ? "Anulează urmărirea" : "Urmărește"}
       </button>

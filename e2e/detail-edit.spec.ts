@@ -130,6 +130,20 @@ test.describe.serial("Editare detaliu — locație / context tehnic", () => {
     if (detailId) await db.delete(details).where(eq(details.id, detailId));
   });
 
+  // Regula: „Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet
+  // apare doar cand nu e ales niciun judet."
+  test("județul ales la România se salvează și rămâne selectat la redeschidere", async ({ page }) => {
+    await page.goto(`/details/${detailId}/edit`);
+    const county = page.getByRole("combobox", { name: "Județ (opțional)", exact: true });
+    await county.selectOption("Cluj");
+    await page.getByRole("button", { name: "Salvează modificările" }).click();
+    await expect(page).toHaveURL(`/details/${detailId}`, { timeout: 15_000 });
+    const [row] = await db.select({ county: details.county }).from(details).where(eq(details.id, detailId!));
+    expect(row.county).toBe("Cluj");
+    await page.goto(`/details/${detailId}/edit`);
+    await expect(county).toHaveValue("Cluj");
+  });
+
   test("pill „Altă locație” ascunde Context tehnic; salvat corect afișează locația pe pagina publică", async ({
     page,
   }) => {

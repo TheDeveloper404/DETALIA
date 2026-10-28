@@ -12,7 +12,7 @@ import { MobileCategoryFilter } from "@/components/mobile-category-filter";
 import { ProductTour } from "@/components/product-tour";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
-import { resolveFeedPage } from "@/server/domain/detail";
+import { COUNTIES, resolveFeedPage } from "@/server/domain/detail";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import {
@@ -47,8 +47,7 @@ export default async function FeedPage({
     page?: string;
     following?: string;
     role?: string;
-    verified?: string;
-    sketches?: string;
+    judet?: string;
   }>;
 }) {
   const session = await auth();
@@ -65,18 +64,16 @@ export default async function FeedPage({
     page: rawPage,
     following: rawFollowing,
     role: rawRole,
-    verified: rawVerified,
-    sketches: rawSketches,
+    judet: rawCounty,
   } = await searchParams;
   const following = rawFollowing === "1";
   const authorRole = rawRole && Object.hasOwn(ROLE_MAIN_LABELS, rawRole) ? rawRole : null;
-  const verified = rawVerified === "1";
-  const withSketches = rawSketches === "1";
+  const county =
+    rawCounty && (COUNTIES as readonly string[]).includes(rawCounty) ? rawCounty : null;
   const filters = new URLSearchParams();
   if (following) filters.set("following", "1");
   if (authorRole) filters.set("role", authorRole);
-  if (verified) filters.set("verified", "1");
-  if (withSketches) filters.set("sketches", "1");
+  if (county) filters.set("judet", county);
   const filterQuery = filters.toString();
   const q = rawQ?.trim() || null;
   const unanswered = rawUnanswered === "1";
@@ -111,8 +108,7 @@ export default async function FeedPage({
     page,
     followingUserId: following ? session.user.id : null,
     authorRole,
-    verified,
-    withSketches,
+    county,
   });
   const activeCategory = categories.find((c) => c.id === activeId && !c.isGroup);
   const categoryFollowed = activeCategory
@@ -210,12 +206,11 @@ export default async function FeedPage({
                   unanswered ||
                   following ||
                   !!authorRole ||
-                  verified ||
-                  withSketches
+                  !!county
                 }
                 search={!!q}
                 unanswered={unanswered}
-                noMatch={following || !!authorRole || verified || withSketches}
+                noMatch={following || !!authorRole || !!county}
               />
             ) : (
               <>

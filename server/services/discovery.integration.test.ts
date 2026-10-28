@@ -124,15 +124,15 @@ describe("Follow + SQL real pentru feed", () => {
     expect(result.rows.some((r) => r.id === anonymousId)).toBe(true);
     expect(await db.select().from(categoryFollows)).toHaveLength(1);
   });
-  // **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
-  it("rol + verificat + schite + categorie + follow folosesc aceleasi predicate pentru randuri/total", async () => {
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  it("rol + judet + categorie + follow folosesc aceleasi predicate pentru randuri/total", async () => {
+    await db.update(details).set({ county: "Cluj" }).where(eq(details.id, publicId));
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: true });
     const result = await feed({
       followingUserId: reader,
       categoryId: cat,
       authorRole: "PROIECTANT",
-      verified: true,
-      withSketches: true,
+      county: "Cluj",
       limit: 1,
     });
     expect(result.rows.map((r) => r.id)).toEqual([publicId]);
@@ -140,21 +140,21 @@ describe("Follow + SQL real pentru feed", () => {
     const beyond = await feed({
       followingUserId: reader,
       authorRole: "PROIECTANT",
-      verified: true,
-      withSketches: true,
+      county: "Cluj",
       limit: 1,
       offset: 1,
     });
     expect(beyond.rows).toEqual([]);
     expect(beyond.total).toBe(1);
+    expect((await feed({ county: "Iași" })).total).toBe(0);
+    await db.update(details).set({ county: null }).where(eq(details.id, publicId));
+    expect((await feed({ county: "Cluj" })).total).toBe(0);
   });
-  // **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
-  it("rolul anonimului este snapshot-ul afisat; adnotarile si schitele ascunse nu satisfac filtrul", async () => {
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  it("rolul anonimului este snapshot-ul afisat", async () => {
     expect((await feed({ authorRole: "BENEFICIAR" })).rows.map((r) => r.id)).toEqual([anonymousId]);
-    expect((await feed({ authorRole: "BENEFICIAR", verified: true })).total).toBe(0);
-    expect((await feed({ withSketches: true })).rows.map((r) => r.id)).toEqual([publicId]);
   });
-  // **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
   it("categoria inexistenta si inputul SQL sunt valori parametrizate, nu instructiuni", async () => {
     expect((await feed({ q: "' OR 1=1 --" })).total).toBe(0);
     expect((await feed({ categoryId: crypto.randomUUID() })).total).toBe(0);

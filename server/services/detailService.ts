@@ -10,6 +10,7 @@
 import { cache } from "react";
 
 import {
+  COUNTIES,
   FEED_PAGE_SIZE,
   DETAIL_STATUS,
   feedOffset,
@@ -93,6 +94,7 @@ export async function createDetail(input: {
   categoryIds: string[];
   imageUrl: string;
   location?: string | null;
+  county?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -122,6 +124,7 @@ export async function createDetail(input: {
     categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
     location: input.location,
+    county: input.county,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -148,6 +151,7 @@ export async function createDetail(input: {
     authorId: input.authorId,
     imageUrl: value.imageUrl,
     location: value.location,
+    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -180,6 +184,7 @@ export async function updateDetail(input: {
   categoryIds: string[];
   imageUrl: string;
   location?: string | null;
+  county?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -216,6 +221,7 @@ export async function updateDetail(input: {
     categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
     location: input.location,
+    county: input.county,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -240,6 +246,7 @@ export async function updateDetail(input: {
     description: value.description,
     imageUrl: value.imageUrl,
     location: value.location,
+    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -266,6 +273,7 @@ export type DraftDetailInput = {
   categoryIds?: string[];
   imageUrl?: string | null;
   location?: string | null;
+  county?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -290,6 +298,7 @@ async function validateDraft(input: DraftDetailInput) {
       categoryIds: input.categoryIds ?? [],
       imageUrl: input.imageUrl ?? null,
       location: input.location,
+      county: input.county,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -326,6 +335,7 @@ export async function createDetailDraft(
     authorId: input.authorId,
     imageUrl: value.imageUrl,
     location: value.location,
+    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -367,6 +377,7 @@ export async function saveDetailDraft(
     description: value.description,
     imageUrl: value.imageUrl,
     location: value.location,
+    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -402,6 +413,7 @@ export async function publishDetailDraft(
     categoryIds: input.categoryIds ?? [],
     imageUrl: input.imageUrl ?? null,
     location: input.location,
+    county: input.county,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -424,6 +436,7 @@ export async function publishDetailDraft(
     description: value.description,
     imageUrl: value.imageUrl,
     location: value.location,
+    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -657,8 +670,7 @@ export async function getFeed(options?: {
   unanswered?: boolean;
   followingUserId?: string | null;
   authorRole?: string | null;
-  verified?: boolean;
-  withSketches?: boolean;
+  county?: string | null;
   page?: number;
   limit?: number;
 }) {
@@ -683,8 +695,9 @@ export async function getFeed(options?: {
     ...(options?.authorRole && Object.hasOwn(ROLE_MAIN_LABELS, options.authorRole)
       ? { authorRole: options.authorRole }
       : {}),
-    ...(options?.verified ? { verified: true } : {}),
-    ...(options?.withSketches ? { withSketches: true } : {}),
+    ...(options?.county && (COUNTIES as readonly string[]).includes(options.county)
+      ? { county: options.county }
+      : {}),
     limit,
     offset: feedOffset(page, limit),
   });

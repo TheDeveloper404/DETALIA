@@ -88,6 +88,14 @@ export const MAX_RESOURCE_URL_LENGTH = 2048; // URL de resursă (limită rezonab
 // Locație (2026-07-16): pill „România" (implicit) vs „Altă locație" (text liber țară+oraș).
 export const DEFAULT_LOCATION = "România";
 export const LOCATION_MAX_LENGTH = 200;
+// Judetul e optional si are sens doar pentru România (filtrul „Locație" din feed).
+export const COUNTIES = [
+  "Alba", "Arad", "Argeș", "Bacău", "Bihor", "Bistrița-Năsăud", "Botoșani", "Brăila", "Brașov",
+  "București", "Buzău", "Călărași", "Caraș-Severin", "Cluj", "Constanța", "Covasna", "Dâmbovița",
+  "Dolj", "Galați", "Giurgiu", "Gorj", "Harghita", "Hunedoara", "Ialomița", "Iași", "Ilfov",
+  "Maramureș", "Mehedinți", "Mureș", "Neamț", "Olt", "Prahova", "Sălaj", "Satu Mare", "Sibiu",
+  "Suceava", "Teleorman", "Timiș", "Tulcea", "Vâlcea", "Vaslui", "Vrancea",
+] as const;
 
 // Parametri tehnici — liste finale confirmate (`lista_categorii.md`). Toți opționali; fără
 // valoare aleasă = neafișat (nu forțăm „General" pe zona climatică, care n-are variantă neutră).
@@ -145,6 +153,7 @@ type NormalizedDetailInput = {
   categoryIds: string[];
   imageUrl: string | null;
   location: string;
+  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -161,6 +170,7 @@ export type DetailValidationError =
   | "CATEGORY_REQUIRED"
   | "TOO_MANY_CATEGORIES"
   | "INVALID_ZONE"
+  | "INVALID_COUNTY"
   | "LOCATION_REQUIRED"
   | "LOCATION_TOO_LONG"
   | "TOO_MANY_RESOURCES"
@@ -181,6 +191,7 @@ export function validateDetailInput(
     categoryIds: string[];
     imageUrl: string | null;
     location?: string | null;
+    county?: string | null;
     climateZone?: string | null;
     seismicAg?: string | null;
     seismicTc?: string | null;
@@ -257,6 +268,7 @@ export function validateDetailInput(
   // NU au sens în afara României — enforce pe SERVER (nu doar UI): pt orice locație ≠ România, sunt
   // forțate la valoarea neutră INDIFERENT ce a trimis clientul (formularul le ascunde, dar un POST
   // direct nu trebuie să poată strecura o clasificare românească pe un detaliu din altă țară).
+  let county: string | null = null;
   let climateZone: string | null = null;
   let seismicAg = "General";
   let seismicTc = "General";
@@ -264,6 +276,9 @@ export function validateDetailInput(
   let windLoad = "General";
 
   if (isRomania) {
+    county = input.county?.trim() || null;
+    if (county !== null && !isOneOf(COUNTIES, county)) return { ok: false, error: "INVALID_COUNTY" };
+
     const climateZoneRaw = input.climateZone?.trim() || null;
     if (climateZoneRaw !== null && !isOneOf(CLIMATE_ZONES, climateZoneRaw)) {
       return { ok: false, error: "INVALID_ZONE" };
@@ -291,6 +306,7 @@ export function validateDetailInput(
       categoryIds,
       imageUrl,
       location,
+      county,
       climateZone,
       seismicAg,
       seismicTc,
