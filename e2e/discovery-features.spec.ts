@@ -270,7 +270,13 @@ test("paginarea pastreaza follow, categorie, rol, verificat si cu schite", async
   const term = "Pagination " + crypto.randomUUID();
   const rows = await db
     .insert(details)
-    .values(Array.from({ length: 51 }, (_, i) => ({ authorId, title: term + " " + i })))
+    .values(
+      Array.from({ length: 51 }, (_, i) => ({
+        authorId,
+        title: term + " " + i,
+        imageUrl: "/pwa-192.png",
+      })),
+    )
     .returning();
   const ids = rows.map((r) => r.id);
   detailIds.push(...ids);

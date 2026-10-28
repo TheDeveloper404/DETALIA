@@ -1,16 +1,22 @@
 "use client";
+import { startTransition, useOptimistic } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ROLE_MAIN_LABELS } from "@/server/domain/roles";
 
 export function FeedFilters() {
   const router = useRouter();
-  const params = useSearchParams();
+  const searchParams = useSearchParams();
+  // Bifa apare imediat; URL-ul real se actualizeaza abia dupa randarea pe server.
+  const [params, setParams] = useOptimistic<URLSearchParams>(searchParams);
   function change(key: string, value: string) {
     const next = new URLSearchParams(params);
     next.delete("page");
     if (value) next.set(key, value);
     else next.delete(key);
-    router.push("/feed?" + next.toString(), { scroll: false });
+    startTransition(() => {
+      setParams(next);
+      router.push("/feed?" + next.toString(), { scroll: false });
+    });
   }
   return (
     <fieldset className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
