@@ -8,10 +8,11 @@ import { ROLE_MAIN_LABELS } from "@/server/domain/roles";
 import { DialogOverlay } from "./dialog-overlay";
 
 const SHOW_OPTIONS: { key: FeedFilterKey; label: string; description: string }[] = [
+  { key: "following", label: "Oameni urmăriți", description: "Detaliile oamenilor pe care îi urmărești" },
   {
-    key: "following",
-    label: "Doar ce urmăresc",
-    description: "Oamenii și categoriile pe care le urmărești",
+    key: "followcat",
+    label: "Categorii urmărite",
+    description: "Detaliile din categoriile pe care le urmărești",
   },
   { key: "unanswered", label: "Așteaptă ajutor", description: "Fără nicio schiță sau poziție încă" },
 ];

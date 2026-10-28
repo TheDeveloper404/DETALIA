@@ -750,45 +750,47 @@ function feedFilterConditions(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
   county?: string | null;
 }) {
   const conds = [];
-  if (input.followingUserId)
-    conds.push(
-      or(
-        and(
-          isNull(details.anonymizedAt),
-          exists(
-            db
-              .select({ id: userFollows.followedUserId })
-              .from(userFollows)
-              .where(
-                and(
-                  eq(userFollows.followerUserId, input.followingUserId),
-                  eq(userFollows.followedUserId, details.authorId),
-                ),
-              ),
-          ),
-        ),
+  // „Oameni urmăriți" si „Categorii urmărite": fiecare separat, ambele = oricare dintre ele.
+  const followed = [];
+  if (input.followedPeopleOf)
+    followed.push(
+      and(
+        isNull(details.anonymizedAt),
         exists(
           db
-            .select({ id: categoryFollows.categoryId })
-            .from(categoryFollows)
-            .innerJoin(
-              detailCategories,
-              eq(detailCategories.categoryId, categoryFollows.categoryId),
-            )
+            .select({ id: userFollows.followedUserId })
+            .from(userFollows)
             .where(
               and(
-                eq(categoryFollows.userId, input.followingUserId),
-                eq(detailCategories.detailId, details.id),
+                eq(userFollows.followerUserId, input.followedPeopleOf),
+                eq(userFollows.followedUserId, details.authorId),
               ),
             ),
         ),
       )!,
     );
+  if (input.followedCategoriesOf)
+    followed.push(
+      exists(
+        db
+          .select({ id: categoryFollows.categoryId })
+          .from(categoryFollows)
+          .innerJoin(detailCategories, eq(detailCategories.categoryId, categoryFollows.categoryId))
+          .where(
+            and(
+              eq(categoryFollows.userId, input.followedCategoriesOf),
+              eq(detailCategories.detailId, details.id),
+            ),
+          ),
+      ),
+    );
+  if (followed.length) conds.push(or(...followed)!);
   if (input.authorRole)
     conds.push(sql`${detailWithAuthorColumns.authorRoleMain} = ${input.authorRole}`);
   if (input.county) conds.push(eq(details.county, input.county));
@@ -824,7 +826,8 @@ export async function listFeed(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
   county?: string | null;
   limit: number;
@@ -873,7 +876,8 @@ export async function listFeedWithTotal(input: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
   county?: string | null;
   limit: number;

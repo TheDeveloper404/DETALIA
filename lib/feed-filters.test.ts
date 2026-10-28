@@ -5,10 +5,11 @@ import { clearFeedFilters, feedFilterChips } from "./feed-filters";
 describe("feedFilterChips", () => {
   it("un chip per filtru activ, rolul si judetul cu eticheta lor", () => {
     const chips = feedFilterChips(
-      new URLSearchParams("following=1&unanswered=1&role=PROIECTANT&judet=Cluj"),
+      new URLSearchParams("following=1&followcat=1&unanswered=1&role=PROIECTANT&judet=Cluj"),
     );
     expect(chips).toEqual([
-      { key: "following", label: "Doar ce urmăresc" },
+      { key: "following", label: "Oameni urmăriți" },
+      { key: "followcat", label: "Categorii urmărite" },
       { key: "unanswered", label: "Așteaptă ajutor" },
       { key: "role", label: "Rol: Proiectare" },
       { key: "judet", label: "Județ: Cluj" },
@@ -27,7 +28,7 @@ describe("feedFilterChips", () => {
 describe("clearFeedFilters", () => {
   it("scoate filtrele si pagina, pastreaza cautarea si categoria", () => {
     const next = clearFeedFilters(
-      new URLSearchParams("q=grinda&cat=c1&page=3&following=1&role=EXECUTANT&judet=Iași"),
+      new URLSearchParams("q=grinda&cat=c1&page=3&following=1&followcat=1&role=EXECUTANT&judet=Iași"),
     );
     expect(next.toString()).toBe("q=grinda&cat=c1");
   });

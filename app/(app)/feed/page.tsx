@@ -46,6 +46,7 @@ export default async function FeedPage({
     tour?: string;
     page?: string;
     following?: string;
+    followcat?: string;
     role?: string;
     judet?: string;
   }>;
@@ -63,15 +64,18 @@ export default async function FeedPage({
     tour,
     page: rawPage,
     following: rawFollowing,
+    followcat: rawFollowCat,
     role: rawRole,
     judet: rawCounty,
   } = await searchParams;
   const following = rawFollowing === "1";
+  const followingCategories = rawFollowCat === "1";
   const authorRole = rawRole && Object.hasOwn(ROLE_MAIN_LABELS, rawRole) ? rawRole : null;
   const county =
     rawCounty && (COUNTIES as readonly string[]).includes(rawCounty) ? rawCounty : null;
   const filters = new URLSearchParams();
   if (following) filters.set("following", "1");
+  if (followingCategories) filters.set("followcat", "1");
   if (authorRole) filters.set("role", authorRole);
   if (county) filters.set("judet", county);
   const filterQuery = filters.toString();
@@ -106,7 +110,8 @@ export default async function FeedPage({
     q,
     unanswered,
     page,
-    followingUserId: following ? session.user.id : null,
+    followedPeopleOf: following ? session.user.id : null,
+    followedCategoriesOf: followingCategories ? session.user.id : null,
     authorRole,
     county,
   });
@@ -205,12 +210,13 @@ export default async function FeedPage({
                   !!q ||
                   unanswered ||
                   following ||
+                  followingCategories ||
                   !!authorRole ||
                   !!county
                 }
                 search={!!q}
                 unanswered={unanswered}
-                noMatch={following || !!authorRole || !!county}
+                noMatch={following || followingCategories || !!authorRole || !!county}
               />
             ) : (
               <>

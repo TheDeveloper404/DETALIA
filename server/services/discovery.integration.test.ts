@@ -100,36 +100,40 @@ const feed = (extra: Partial<Parameters<typeof listFeedWithTotal>[0]> = {}) =>
   listFeedWithTotal({ q: "Discovery", limit: 50, ...extra });
 
 describe("Follow + SQL real pentru feed", () => {
-  // **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. Filtrul „Urmariti” include detaliile unui autor urmarit SAU ale unei categorii urmarite, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de user urmarit.
+  // **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. In „Filtre”, „Oameni urmăriți” arata detaliile autorilor urmariti, „Categorii urmărite” pe cele din categoriile urmarite; ambele bifate = oricare dintre ele, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de oameni urmariti.
   it("setarea repetata este idempotenta, privata per follower; nu dezvaluie autorul anonim", async () => {
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: true });
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: true });
     expect(await getFollowState(reader, "USER", owner)).toBe(true);
     expect(await getFollowState(actor, "USER", owner)).toBe(false);
-    const result = await feed({ followingUserId: reader });
+    const result = await feed({ followedPeopleOf: reader });
     expect(result.rows.map((r) => r.id)).toEqual([publicId]);
     expect(result.total).toBe(1);
     expect(await db.select().from(userFollows)).toHaveLength(1);
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: false });
-    expect((await feed({ followingUserId: reader })).total).toBe(0);
+    expect((await feed({ followedPeopleOf: reader })).total).toBe(0);
   });
-  // **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. Filtrul „Urmariti” include detaliile unui autor urmarit SAU ale unei categorii urmarite, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de user urmarit.
-  it("categoria urmarita include anonimul public, fara proiecte/ciorne sau dubluri", async () => {
+  // **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. In „Filtre”, „Oameni urmăriți” arata detaliile autorilor urmariti, „Categorii urmărite” pe cele din categoriile urmarite; ambele bifate = oricare dintre ele, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de oameni urmariti.
+  it("oamenii si categoriile urmarite se filtreaza separat; ambele = oricare, fara proiecte/ciorne/dubluri", async () => {
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: true });
     await setFollow({ userId: reader, kind: "CATEGORY", targetId: cat, followed: true });
     await setFollow({ userId: reader, kind: "CATEGORY", targetId: cat, followed: true });
-    const result = await feed({ followingUserId: reader });
-    expect(result.total).toBe(3);
-    expect(new Set(result.rows.map((r) => r.id)).size).toBe(3);
-    expect(result.rows.some((r) => r.id === anonymousId)).toBe(true);
+    const people = await feed({ followedPeopleOf: reader });
+    expect(people.rows.map((r) => r.id)).toEqual([publicId]);
+    const categories = await feed({ followedCategoriesOf: reader });
+    expect(categories.total).toBe(3);
+    expect(categories.rows.some((r) => r.id === anonymousId)).toBe(true);
+    const both = await feed({ followedPeopleOf: reader, followedCategoriesOf: reader });
+    expect(both.total).toBe(3);
+    expect(new Set(both.rows.map((r) => r.id)).size).toBe(3);
     expect(await db.select().from(categoryFollows)).toHaveLength(1);
   });
-  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
   it("rol + judet + categorie + follow folosesc aceleasi predicate pentru randuri/total", async () => {
     await db.update(details).set({ county: "Cluj" }).where(eq(details.id, publicId));
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: true });
     const result = await feed({
-      followingUserId: reader,
+      followedPeopleOf: reader,
       categoryId: cat,
       authorRole: "PROIECTANT",
       county: "Cluj",
@@ -138,7 +142,7 @@ describe("Follow + SQL real pentru feed", () => {
     expect(result.rows.map((r) => r.id)).toEqual([publicId]);
     expect(result.total).toBe(1);
     const beyond = await feed({
-      followingUserId: reader,
+      followedPeopleOf: reader,
       authorRole: "PROIECTANT",
       county: "Cluj",
       limit: 1,
@@ -150,11 +154,11 @@ describe("Follow + SQL real pentru feed", () => {
     await db.update(details).set({ county: null }).where(eq(details.id, publicId));
     expect((await feed({ county: "Cluj" })).total).toBe(0);
   });
-  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
   it("rolul anonimului este snapshot-ul afisat", async () => {
     expect((await feed({ authorRole: "BENEFICIAR" })).rows.map((r) => r.id)).toEqual([anonymousId]);
   });
-  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Doar ce urmăresc", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
   it("categoria inexistenta si inputul SQL sunt valori parametrizate, nu instructiuni", async () => {
     expect((await feed({ q: "' OR 1=1 --" })).total).toBe(0);
     expect((await feed({ categoryId: crypto.randomUUID() })).total).toBe(0);

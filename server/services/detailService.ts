@@ -668,7 +668,8 @@ export async function getFeed(options?: {
   categoryId?: string | null;
   q?: string | null;
   unanswered?: boolean;
-  followingUserId?: string | null;
+  followedPeopleOf?: string | null;
+  followedCategoriesOf?: string | null;
   authorRole?: string | null;
   county?: string | null;
   page?: number;
@@ -689,8 +690,11 @@ export async function getFeed(options?: {
     categoryId,
     q,
     unanswered,
-    ...(options?.followingUserId && isUuid(options.followingUserId)
-      ? { followingUserId: options.followingUserId }
+    ...(options?.followedPeopleOf && isUuid(options.followedPeopleOf)
+      ? { followedPeopleOf: options.followedPeopleOf }
+      : {}),
+    ...(options?.followedCategoriesOf && isUuid(options.followedCategoriesOf)
+      ? { followedCategoriesOf: options.followedCategoriesOf }
       : {}),
     ...(options?.authorRole && Object.hasOwn(ROLE_MAIN_LABELS, options.authorRole)
       ? { authorRole: options.authorRole }

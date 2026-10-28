@@ -250,5 +250,6 @@ Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/noti
 ## Urmarire si filtre avansate
 - `components/follow-button.tsx`: pastila soft — „Urmărește" (fundal teracota deschis) / „Anulează urmărirea" (alb; hover rosu discret); pe profil sub „Membru din", in feed langa numele categoriei selectate.
 - `components/feed-filters.tsx`: bara feed-ului (slot-uri `search` + `categoryFilter`) cu butonul „Filtre · N"; panoul (`DialogOverlay`: de jos pe telefon, popover de la `sm`) are „Ce vezi" (Doar ce urmăresc, Așteaptă ajutor), „Autor" (rol), „Locație" (județ). Lucreaza pe o ciorna: se aplica la „Aplică"/„Arată detaliile", Esc/click afara = fara schimbari. Fara rand de chip-uri sub bara (feed-ul nu se misca); filtrele active = numarul de pe buton + starea panoului. Numararea/resetarea in `lib/feed-filters.ts`.
-- `components/dialog-overlay.tsx`: focusul intra in panou la deschidere, Tab ramane in dialog, revine pe elementul de dinainte la inchidere.
+- `components/dialog-overlay.tsx`: focusul intra in panou la deschidere, Tab ramane in dialog, revine pe elementul de dinainte la inchidere; click oriunde in afara panoului (inclusiv header-ul) il inchide.
+- **Regula meniuri:** orice meniu dropdown foloseste `components/use-dismiss.ts` (click in afara / Escape → se inchide), nu un backdrop transparent — backdrop-ul ramane sub header (`z-50`) si lasa doua meniuri deschise simultan.
 - Export PDF in meniul detaliului → pagina dedicata fara header/nav din aplicatie; controalele dispar la print. Foloseste dialogul browserului, nu un modal nou.

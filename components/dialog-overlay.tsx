@@ -27,6 +27,18 @@ export function DialogOverlay({
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const backdropRef = useRef<HTMLDivElement>(null);
+
+  // Click pe ce ramane deasupra fundalului (ex. header-ul, alt meniu) inchide si el dialogul.
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target) || backdropRef.current === target) return;
+      onClose();
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [onClose]);
 
   // Focusul intra in dialog la deschidere si revine pe elementul de dinainte la inchidere.
   useEffect(() => {
@@ -60,7 +72,7 @@ export function DialogOverlay({
 
   return (
     <>
-      <div className={backdropClassName} onClick={onClose} aria-hidden />
+      <div ref={backdropRef} className={backdropClassName} onClick={onClose} aria-hidden />
       <div
         ref={panelRef}
         role="dialog"
