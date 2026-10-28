@@ -57,6 +57,8 @@ test("Adaugă detaliu: corecteaza resursa respinsa fara a realege imaginea → p
     await resourceUrl.fill("example.com");
     await page.getByRole("button", { name: "Publică detaliul" }).click();
     await expect(page.locator('p[role="alert"]')).toContainText("O resursă atașată e invalidă.");
+    await expect(page.locator("#title")).toHaveValue(title);
+    await expect(page.locator('input[name="imageUrl"]')).not.toHaveValue("");
     await resourceUrl.fill("https://example.com");
     await page.getByRole("button", { name: "Publică detaliul" }).click();
 

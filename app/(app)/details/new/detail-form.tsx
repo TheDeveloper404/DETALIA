@@ -724,7 +724,7 @@ export function DetailForm({
   );
 
   return (
-    <form ref={formRef} action={formAction} onSubmit={onSubmit} className="flex flex-col">
+    <form ref={formRef} action={formAction} onSubmit={onSubmit} onReset={(event) => event.preventDefault()} className="flex flex-col">
       <input type="hidden" name="resources" value={resourcesJson} />
       {/* URL-ul imaginii, completat după upload-ul client direct în Blob. */}
       <input type="hidden" name="imageUrl" ref={imageUrlRef} />

@@ -262,6 +262,7 @@ test.describe.serial("Proiecte — interacțiuni (Faza B/C): redenumire, partaja
     const memberCtx = await sessionContextFor(browser, baseURL, memberUserId, "E2E Interacțiuni Member", MEMBER_EMAIL);
     try {
       const mpage = await memberCtx.newPage();
+      await stripBypassHeadersForBlobUploads(mpage);
       await mpage.goto(`/projects/${projectId}`);
       await mpage.getByRole("main").getByRole("button", { name: "Adaugă" }).click();
       await mpage.getByRole("button", { name: "Adaugă planșă" }).click();

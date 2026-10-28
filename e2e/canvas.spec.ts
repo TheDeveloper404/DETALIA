@@ -26,6 +26,12 @@ test("eliminare imagine, Undo si redeschidere pastreaza sursa", async ({ page, b
   const [detail] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, seed.detailId));
   const sourceUrl = new URL(blobReadUrl(detail.imageUrl!, "detail", seed.detailId), baseURL!).toString();
   await stripBypassHeadersForBlobUploads(page);
+  // Seed-ul comun are un URL placeholder; testam restaurarea sursei, fara un Blob fictiv inaccesibil.
+  await page.route(sourceUrl, (route) => route.fulfill({
+    contentType: "image/png",
+    headers: { "access-control-allow-origin": "*" },
+    body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64"),
+  }));
   try {
     await page.goto(`/canvases/${created.id}/edit`);
     const surface = page.locator("canvas").first();
