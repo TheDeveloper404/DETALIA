@@ -88,43 +88,44 @@ test.afterEach(async () => {
 
 // **Urmarire:** userul poate urmari/opri urmarirea unui user sau a unei categorii; setarea aceleiasi stari repetat nu o inverseaza. Filtrul „Urmariti” include detaliile unui autor urmarit SAU ale unei categorii urmarite, cu vizibilitatea si ordinea cronologica existente. Identitatea unui autor anonimizat nu poate fi dedusa prin filtrul de user urmarit.
 test("follow/unfollow user si categorie controleaza feed-ul Urmariti", async ({ page }) => {
+  const follow = page.getByRole("button", { name: "Urmărește", exact: true });
+  const unfollow = page.getByRole("button", { name: "Anulează urmărirea", exact: true });
   await page.goto("/profile/" + authorId);
-  await page.getByRole("button", { name: "Urmărește " + authorName, exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Nu mai urmări " + authorName, exact: true }),
-  ).toBeVisible();
+  await follow.click();
+  await expect(unfollow).toBeVisible();
   await page.goto("/feed?following=1&q=" + encodeURIComponent(title));
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toHaveCount(0);
   await page.goto("/profile/" + authorId);
-  await page.getByRole("button", { name: "Nu mai urmări " + authorName, exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Urmărește " + authorName, exact: true }),
-  ).toBeVisible();
+  await unfollow.click();
+  await expect(follow).toBeVisible();
   await page.goto("/feed?following=1&q=" + encodeURIComponent(title));
   await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
   await page.goto("/feed?cat=" + categoryId + "&q=" + encodeURIComponent(title));
-  await page.getByRole("button", { name: "Urmărește " + categoryName, exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "Nu mai urmări " + categoryName, exact: true }),
-  ).toBeVisible();
-  await page.getByRole("link", { name: "Urmăriți", exact: true }).click();
+  await expect(page.getByRole("heading", { name: categoryName, exact: true })).toBeVisible();
+  await follow.click();
+  await expect(unfollow).toBeVisible();
+  await page.getByRole("button", { name: /^Filtre/ }).click();
+  await page.getByRole("checkbox", { name: "Doar ce urmăresc", exact: true }).check();
   await expect(page).toHaveURL((url) => url.searchParams.get("following") === "1");
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Nu mai urmări " + categoryName, exact: true }).click();
+  await unfollow.click();
   await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
 });
 
 // **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.
 test("cautarea avansata combina filtrele si le pastreaza la toggle/cautare", async ({ page }) => {
   await page.goto("/feed?cat=" + categoryId + "&q=" + encodeURIComponent(title));
+  await page.getByRole("button", { name: "Filtre", exact: true }).click();
   await page.getByRole("combobox", { name: "Rol autor", exact: true }).selectOption("PROIECTANT");
   await expect(page).toHaveURL((url) => url.searchParams.get("role") === "PROIECTANT");
   await page.getByRole("checkbox", { name: "Autor verificat", exact: true }).check();
   await expect(page).toHaveURL((url) => url.searchParams.get("verified") === "1");
   await page.getByRole("checkbox", { name: "Cu schițe", exact: true }).check();
   await expect(page).toHaveURL((url) => url.searchParams.get("sketches") === "1");
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toHaveCount(0);
   await page
@@ -139,6 +140,13 @@ test("cautarea avansata combina filtrele si le pastreaza la toggle/cautare", asy
       url.searchParams.get("role") === "PROIECTANT",
   );
   await expect(page.getByRole("heading", { name: title, exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Scoate filtrul Cu schițe", exact: true }).click();
+  await expect(page).toHaveURL(
+    (url) =>
+      !url.searchParams.has("sketches") &&
+      url.searchParams.get("verified") === "1" &&
+      url.searchParams.get("role") === "PROIECTANT",
+  );
 });
 
 // **Cautare avansata:** filtrele de rol al autorului, categorie, rol verificat si existenta schitelor se combina cu cautarea si „Urmariti”; rezultatele si paginarea folosesc aceleasi conditii. Rolul/verificarea urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras; schitele ascunse si adnotarile nu satisfac filtrul „cu schite”.

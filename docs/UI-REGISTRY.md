@@ -248,6 +248,6 @@ Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/noti
 
 
 ## Urmarire si filtre avansate
-- `components/follow-button.tsx`: aceeasi actiune pentru user/categorie, stare explicita, pending si eroare cu reincercare; pagina profilului si categoria selectata din feed.
-- `components/feed-filters.tsx`: rol autor, verificat, cu schite; combina parametrii existenti si reseteaza pagina. Categoria/cautarea/paginarea pastreaza restul filtrelor.
+- `components/follow-button.tsx`: „Urmărește" (plin, primary) / „Anulează urmărirea" (alb; hover rosu `destructive`); pe profil sub „Membru din", in feed langa numele categoriei selectate.
+- `components/feed-filters.tsx`: bara feed-ului (slot-uri `search` + `categoryFilter`) cu butonul „Filtre · N"; panoul (`DialogOverlay`: de jos pe telefon, popover de la `sm`) are „Ce vezi" (Doar ce urmăresc, Așteaptă ajutor), „Autor", „Conținut"; chip-urile cu „×" sub bara. Etichetele/resetarea in `lib/feed-filters.ts`.
 - Export PDF in meniul detaliului → pagina dedicata fara header/nav din aplicatie; controalele dispar la print. Foloseste dialogul browserului, nu un modal nou.

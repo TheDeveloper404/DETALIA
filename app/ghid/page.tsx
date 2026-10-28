@@ -65,9 +65,9 @@ const SECTIONS: Section[] = [
       <p>
         Nu trebuie să ai ceva de publicat ca să începi. Explorează detalii, urmărește argumentele și
         salvează ce îți este util. În feed poți <strong>căuta</strong> după cuvinte din titlu sau
-        descriere, poți filtra pe <strong>categorii</strong> și poți alege{" "}
-        <strong>„Așteaptă ajutor”</strong> — detaliile la care nimeni n-a propus încă o schiță sau
-        n-a luat o poziție.
+        descriere, poți filtra pe <strong>categorii</strong> și poți alege din{" "}
+        <strong>Filtre</strong> „Așteaptă ajutor” — detaliile la care nimeni n-a propus încă o schiță
+        sau n-a luat o poziție.
       </p>
     ),
   },

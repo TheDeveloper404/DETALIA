@@ -14,11 +14,13 @@ export function DialogOverlay({
   onClose,
   ariaLabel,
   panelClassName,
+  backdropClassName = "fixed inset-0 z-40 bg-black/20 backdrop-blur-sm",
   children,
 }: {
   onClose: () => void;
   ariaLabel?: string;
   panelClassName: string;
+  backdropClassName?: string;
   children: React.ReactNode;
 }) {
   useEffect(() => {
@@ -31,7 +33,7 @@ export function DialogOverlay({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className={backdropClassName} onClick={onClose} aria-hidden />
       <div role="dialog" aria-modal="true" aria-label={ariaLabel} className={panelClassName}>
         {children}
       </div>
