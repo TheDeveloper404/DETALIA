@@ -15,6 +15,7 @@ vi.mock("@/server/repos/profileRepo", () => ({
 vi.mock("@/server/repos/usersRepo", () => ({
   getPublicProfile: vi.fn(),
   updateSeenBadges: vi.fn(),
+  updateUserDetails: vi.fn(),
   countReferrals: vi.fn().mockResolvedValue(0),
 }));
 vi.mock("@/server/repos/materialOffersRepo", () => ({
@@ -26,10 +27,16 @@ vi.mock("@/server/services/referralService", () => ({
 }));
 
 import { getContributionCounts, getProfileStats } from "@/server/repos/profileRepo";
-import { getPublicProfile, updateSeenBadges } from "@/server/repos/usersRepo";
+import { getPublicProfile, updateSeenBadges, updateUserDetails } from "@/server/repos/usersRepo";
 import { listMaterialOffersBySupplier, listMaterialOffersReceivedByAuthor } from "@/server/repos/materialOffersRepo";
 
-import { getProfileView, markBadgesSeen, memberSinceOf, roleLabelOf } from "./profileService";
+import {
+  getProfileView,
+  markBadgesSeen,
+  memberSinceOf,
+  roleLabelOf,
+  updateProfileDetails,
+} from "./profileService";
 
 const PROFILE_ROW = {
   name: "Ion Popescu",
@@ -255,5 +262,38 @@ describe("getProfileView — materialOffers strict privat (viewerIsOwner)", () =
     expect(listMaterialOffersBySupplier).not.toHaveBeenCalled();
     expect(listMaterialOffersReceivedByAuthor).not.toHaveBeenCalled();
     expect(view?.materialOffers).toEqual([]);
+  });
+});
+
+describe("updateProfileDetails — județ", () => {
+  const input = {
+    name: "Ion Popescu",
+    headline: "",
+    about: "",
+    location: "Apahida",
+    county: "",
+    website: "",
+    company: "",
+    phone: "",
+    phoneVisible: false,
+    emailVisible: false,
+    weeklyDigestEnabled: true,
+  };
+
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.
+  it("judetul din lista se salveaza; gol inseamna nespecificat", async () => {
+    expect(await updateProfileDetails(USER_ID, { ...input, county: " Cluj " })).toEqual({ ok: true });
+    expect(updateUserDetails).toHaveBeenLastCalledWith(USER_ID, expect.objectContaining({ county: "Cluj" }));
+    expect(await updateProfileDetails(USER_ID, input)).toEqual({ ok: true });
+    expect(updateUserDetails).toHaveBeenLastCalledWith(USER_ID, expect.objectContaining({ county: null }));
+  });
+
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.
+  it("un judet din afara listei e respins si profilul nu se salveaza", async () => {
+    expect(await updateProfileDetails(USER_ID, { ...input, county: "Atlantida" })).toEqual({
+      ok: false,
+      reason: "INVALID_COUNTY",
+    });
+    expect(updateUserDetails).not.toHaveBeenCalled();
   });
 });

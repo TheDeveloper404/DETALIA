@@ -69,10 +69,10 @@ export function UserMenu({
       >
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="h-10 w-10 rounded-full object-cover" />
+          <img src={image} alt="" className="h-8 w-8 rounded-full object-cover sm:h-10 sm:w-10" />
         ) : (
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <PersonSilhouette className="size-5" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground sm:h-10 sm:w-10">
+            <PersonSilhouette className="size-4 sm:size-5" />
           </span>
         )}
       </button>

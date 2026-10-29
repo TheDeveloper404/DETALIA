@@ -1,5 +1,6 @@
 import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { MAX_IMAGE_BYTES } from "@/lib/upload-limits";
 
 type Effect = {
   deps?: unknown[];
@@ -71,9 +72,11 @@ type Props = {
   children?: ReactNode;
   id?: string;
   name?: string;
+  value?: unknown;
   ref?: { current: unknown };
   type?: string;
-  onClick?: () => void;
+  role?: string;
+  onClick?: (event?: unknown) => void;
   onStrokesCount?: (count: number) => void;
   onSubmit?: (event: unknown) => Promise<void>;
   onChange?: (event: unknown) => void;
@@ -91,6 +94,7 @@ function find(
     .find(Boolean);
 }
 let initial: DetailFormInitial;
+let clipboardDocument: EventTarget & { activeElement: unknown };
 function render() {
   hooks.state = hooks.ref = hooks.effect = hooks.action = 0;
   const tree = DetailForm({ categories: [], initial });
@@ -117,6 +121,9 @@ beforeEach(() => {
   hooks.state = hooks.ref = hooks.effect = hooks.action = 0;
   hooks.draftResult = null;
   vi.clearAllMocks();
+  clipboardDocument = Object.assign(new EventTarget(), { activeElement: null as unknown });
+  vi.stubGlobal("document", clipboardDocument);
+  vi.stubGlobal("window", { matchMedia: vi.fn(() => ({ matches: true })) });
   vi.stubGlobal(
     "URL",
     class extends URL {
@@ -132,7 +139,6 @@ beforeEach(() => {
     categoryIds: [],
     imageUrl: null,
     location: "România",
-    county: null,
     climateZone: null,
     seismicAg: "",
     seismicTc: "",
@@ -144,6 +150,134 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+// Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+it.each(["focus", "hover"])("paste cu %s foloseste preview-ul si upload-ul existente", async (activation) => {
+  initial.categoryIds = ["category"];
+  let tree = render();
+  const zone = find(tree, (node) => node.props["data-testid"] === "detail-image-zone")!;
+  zone.props.ref!.current = { contains: () => activation === "focus", matches: () => activation === "hover" };
+  const file = new File(["image"], "clipboard.png", { type: "image/png" });
+  const event = new Event("paste", { cancelable: true });
+  Object.defineProperty(event, "clipboardData", { value: { items: [
+    { kind: "string", type: "text/plain", getAsFile: () => null },
+    { kind: "file", type: "image/png", getAsFile: () => file },
+  ] } });
+  clipboardDocument.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(true);
+  expect(createUrl).toHaveBeenCalledWith(file);
+  tree = render();
+  const input = { value: "" };
+  find(tree, (node) => node.props.name === "imageUrl")!.props.ref!.current = input;
+  const requestSubmit = vi.fn();
+  const form = find(tree, (node) => node.type === "form")!;
+  form.props.ref!.current = { requestSubmit };
+  await form.props.onSubmit!({ preventDefault: vi.fn(), nativeEvent: { submitter: undefined } });
+  expect(upload).toHaveBeenCalledWith("details", file);
+  expect(requestSubmit).toHaveBeenCalledOnce();
+  expect(input.value).toBe("https://store.test/resource.jpg");
+});
+
+// Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+it.each(["outside", "text", "mobile", "draw", "unmount"])("paste nu intervine pentru %s", (scenario) => {
+  const tree = render();
+  const zone = find(tree, (node) => node.props["data-testid"] === "detail-image-zone")!;
+  zone.props.ref!.current = { contains: () => scenario !== "outside", matches: () => false };
+  if (scenario === "mobile") vi.mocked(window.matchMedia).mockReturnValue({ matches: false } as MediaQueryList);
+  if (scenario === "draw") {
+    find(tree, (node) => node.props.onClick !== undefined && Children.toArray(node.props.children).includes("Desenează"))!.props.onClick!();
+    render();
+  }
+  if (scenario === "unmount") for (const effect of hooks.effects) effect.cleanup?.();
+  const event = new Event("paste", { cancelable: true });
+  Object.defineProperty(event, "clipboardData", { value: { items: scenario === "text" ? [
+    { kind: "string", type: "text/plain", getAsFile: () => null },
+  ] : [
+    { kind: "file", type: "image/png", getAsFile: () => new File(["image"], "clipboard.png", { type: "image/png" }) },
+  ] } });
+  clipboardDocument.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false);
+  expect(createUrl).not.toHaveBeenCalled();
+});
+
+// Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+it.each(["type", "size"])("imaginea lipita respecta validarea existenta de %s", (scenario) => {
+  const tree = render();
+  find(tree, (node) => node.props["data-testid"] === "detail-image-zone")!.props.ref!.current = { contains: () => true, matches: () => false };
+  const file = new File(["image"], "clipboard.png", { type: scenario === "type" ? "image/gif" : "image/png" });
+  if (scenario === "size") Object.defineProperty(file, "size", { value: MAX_IMAGE_BYTES + 1 });
+  const event = new Event("paste", { cancelable: true });
+  Object.defineProperty(event, "clipboardData", { value: { items: [{ kind: "file", type: file.type, getAsFile: () => file }] } });
+  clipboardDocument.dispatchEvent(event);
+  expect(createUrl).not.toHaveBeenCalled();
+  const alert = find(render(), (node) => node.props.role === "alert")!;
+  expect(Children.toArray(alert.props.children).some((child) => typeof child === "string" && child.startsWith(scenario === "type" ? "Imaginea trebuie" : "Imaginea e prea mare"))).toBe(true);
+});
+
+// Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+it("click activeaza zona pe desktop; Alege fisier si click pe mobil deschid selectorul", () => {
+  const tree = render();
+  const click = vi.fn();
+  const focus = vi.fn();
+  find(tree, (node) => node.props.id === "image")!.props.ref!.current = { click };
+  const zoneButton = find(tree, (node) => Children.toArray(node.props.children).some((child) => isValidElement<Props>(child) && child.props.children === "Încarcă desenul"))!;
+  zoneButton.props.onClick!({ currentTarget: { focus } });
+  expect(focus).toHaveBeenCalledOnce();
+  expect(click).not.toHaveBeenCalled();
+  find(tree, (node) => node.type === "button" && node.props.children === "Alege fișier")!.props.onClick!();
+  expect(click).toHaveBeenCalledOnce();
+  vi.mocked(window.matchMedia).mockReturnValue({ matches: false } as MediaQueryList);
+  zoneButton.props.onClick!({ currentTarget: { focus } });
+  expect(click).toHaveBeenCalledTimes(2);
+});
+
+// Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+it("fisier A apoi paste B permite realegerea si publicarea fisierului A", async () => {
+  initial.categoryIds = ["category"];
+  let tree = render();
+  const picker = { value: "a.png" };
+  const a = new File(["a"], "a.png", { type: "image/png" });
+  const b = new File(["b"], "b.png", { type: "image/png" });
+  const input = find(tree, (node) => node.props.id === "image")!;
+  input.props.ref!.current = picker;
+  input.props.onChange!({ target: { files: [a] } });
+  tree = render();
+  find(tree, (node) => node.props["data-testid"] === "detail-image-zone")!.props.ref!.current = { contains: () => true, matches: () => false };
+  const event = new Event("paste", { cancelable: true });
+  Object.defineProperty(event, "clipboardData", { value: { items: [{ kind: "file", type: b.type, getAsFile: () => b }] } });
+  clipboardDocument.dispatchEvent(event);
+  expect(picker.value).toBe("");
+  tree = render();
+  expect(find(tree, (node) => node.props.children === "b.png")).toBeTruthy();
+  find(tree, (node) => node.props.id === "image")!.props.onChange!({ target: { files: [a] } });
+  tree = render();
+  expect(find(tree, (node) => node.props.children === "a.png")).toBeTruthy();
+  find(tree, (node) => node.props.name === "imageUrl")!.props.ref!.current = { value: "" };
+  const form = find(tree, (node) => node.type === "form")!;
+  form.props.ref!.current = { requestSubmit: vi.fn() };
+  await form.props.onSubmit!({ preventDefault: vi.fn(), nativeEvent: { submitter: undefined } });
+  expect(upload).toHaveBeenLastCalledWith("details", a);
+});
+
+// Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+it("butoanele de mod sunt in afara zonei de paste si nu pierd adnotarea existenta", () => {
+  initial.imageUrl = "https://store.test/original.png";
+  initial.annotation = { id: "annotation", note: "Nota existenta", strokes: [{ kind: "free", color: "#000000", size: 0.01, points: [[0, 0], [1, 1]] }] };
+  const tree = render();
+  const modeButton = find(tree, (node) => node.props.onClick !== undefined && Children.toArray(node.props.children).includes("Desenează"))!;
+  const zone = find(tree, (node) => node.props["data-testid"] === "detail-image-zone")!;
+  expect(find(zone, (node) => node === modeButton)).toBeUndefined();
+  clipboardDocument.activeElement = modeButton;
+  zone.props.ref!.current = { contains: () => false, matches: () => false };
+  const event = new Event("paste", { cancelable: true });
+  Object.defineProperty(event, "clipboardData", { value: { items: [{ kind: "file", type: "image/png", getAsFile: () => new File(["b"], "b.png", { type: "image/png" }) }] } });
+  clipboardDocument.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false);
+  expect(createUrl).not.toHaveBeenCalled();
+  const unchanged = render();
+  expect(find(unchanged, (node) => node.props.name === "annotationStrokes")!.props.value).toBe(JSON.stringify(initial.annotation.strokes));
+  expect(find(unchanged, (node) => node.props.name === "annotationNote")!.props.value).toBe("Nota existenta");
 });
 
 // Regula aprobata: "Preview-uri de imagini: eliberarea memoriei imediat dupa eliminare/inlocuire."

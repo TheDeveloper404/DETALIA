@@ -1,12 +1,13 @@
 // Repo users — extensii DETALIA peste tabelul gestionat de Auth.js. Singurul loc cu acces Drizzle pe `users`.
 // Auth.js gestionează crearea/sesiunile; aici doar actualizăm câmpuri de profil (ex: poza).
-import { and, desc, eq, gt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
 import { accounts, details, roles, sessions, userStatus, users } from "@/db/schema";
 
 import { verifiedCondition } from "@/server/repos/repoHelpers";
+import type { RoleMain } from "@/server/domain/roles";
 
 export async function updateUserImage(userId: string, imageUrl: string | null) {
   await db.update(users).set({ image: imageUrl }).where(eq(users.id, userId));
@@ -50,6 +51,7 @@ export async function completeOnboardingProfileAndRole(
     name: string;
     headline: string | null;
     location: string | null;
+    county: string | null;
     website: string | null;
     company: string | null;
     roleMain: (typeof roles.$inferInsert)["roleMain"];
@@ -69,7 +71,7 @@ export async function completeOnboardingProfileAndRole(
     )
     update ${users}
     set first_name = ${fields.firstName}, last_name = ${fields.lastName}, name = ${fields.name},
-        headline = ${fields.headline}, location = ${fields.location}, website = ${fields.website}, company = ${fields.company},
+        headline = ${fields.headline}, location = ${fields.location}, county = ${fields.county}, website = ${fields.website}, company = ${fields.company},
         image = coalesce(${fields.image ?? null}, ${users.image}),
         cover_image = coalesce(${fields.coverImage ?? null}, ${users.coverImage}),
         cover_position = case when ${fields.coverImage ?? null}::text is null then ${users.coverPosition} else ${fields.coverPosition} end
@@ -121,6 +123,7 @@ export async function getUserProfile(userId: string) {
       headline: users.headline,
       about: users.about,
       location: users.location,
+      county: users.county,
       website: users.website,
       company: users.company,
       phone: users.phone,
@@ -143,6 +146,7 @@ export async function updateUserDetails(
     headline: string | null;
     about: string | null;
     location: string | null;
+    county: string | null;
     website: string | null;
     company: string | null;
     phone: string | null;
@@ -210,6 +214,40 @@ export async function listTopAuthors(limit: number) {
     .where(sql`${detailCount} > 0`)
     .orderBy(sql`${detailCount} desc`)
     .limit(limit);
+}
+
+// Utilizatorii ACTIVI ai rolului ales, inclusiv fara postari. Contorul respecta vizibilitatea profilului
+// public. Un singur LEFT JOIN agregat, nu un count corelat per user. Cu județ ales: doar cei care l-au
+// setat în profil.
+export async function listUsersByRole(roleMain: RoleMain, county: string | null = null) {
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      image: users.image,
+      subRole: roles.subRole,
+      detailCount: sql<number>`count(${details.id})::int`,
+    })
+    .from(users)
+    .innerJoin(roles, eq(roles.userId, users.id))
+    .leftJoin(
+      details,
+      and(
+        eq(details.authorId, users.id),
+        eq(details.status, "PUBLISHED"),
+        isNull(details.projectId),
+        isNull(details.anonymizedAt),
+      ),
+    )
+    .where(
+      and(
+        eq(roles.roleMain, roleMain),
+        eq(users.status, "ACTIVE"),
+        county ? eq(users.county, county) : undefined,
+      ),
+    )
+    .groupBy(users.id, roles.subRole)
+    .orderBy(users.name, users.id);
 }
 
 // Listă useri pentru panoul de admin: nume, prenume, email, rol (+ subrol), data creării.
@@ -283,6 +321,7 @@ export async function anonymizeUserRow(userId: string, placeholderEmail: string)
       headline: null,
       about: null,
       location: null,
+      county: null,
       website: null,
       company: null,
       phone: null,

@@ -1,5 +1,5 @@
 // Filtrele din meniul „Filtre" al feed-ului: ce chip-uri arata si cum se reseteaza. Pur, fara I/O.
-import { COUNTIES } from "@/server/domain/detail";
+import { COUNTIES } from "@/server/domain/counties";
 import { ROLE_MAIN_LABELS } from "@/server/domain/roles";
 
 export const FEED_FILTER_KEYS = ["following", "followcat", "unanswered", "role", "judet"] as const;

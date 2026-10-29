@@ -71,6 +71,98 @@ async function cleanup(detailId: string | null, imageUrl: string | null): Promis
   if (imageUrl) await deleteBlobs([imageUrl]);
 }
 
+for (const device of [
+  { name: "desktop", width: 1280, height: 900, touch: false, dx: 30, dy: 0 },
+  { name: "tableta", width: 834, height: 1112, touch: true, dx: 0, dy: 30 },
+  { name: "mobil", width: 390, height: 844, touch: true, dx: 30, dy: 30 },
+]) {
+  // Pe pagina detaliului, imaginea, adnotarile si schita vizibila au zoom si deplasare comune, doar pentru vizualizare. Controalele +, - si reset sunt in imagine; Ctrl+rotita mareste pe desktop, pinch cu doua degete pe touch. Scroll-ul paginii ramane disponibil la dimensiunea initiala, iar Schiteaza este o actiune separata.
+  test(`Zoom direct in detaliu: ${device.name}`, async ({ page, context }) => {
+    const seed = getSeed();
+    const [detail] = await db.insert(details).values({
+      title: `E2E zoom ${device.name} ${Date.now()}`, authorId: seed.testerUserId,
+      imageUrl: "/pwa-512.png",
+    }).returning({ id: details.id });
+    try {
+      const strokes = [{ color: "#d22", size: 4, points: [[0.2, 0.2], [0.7, 0.7]] }];
+      await db.insert(sketches).values({ detailId: detail.id, authorId: seed.testerUserId, status: "PUBLISHED", isAnnotation: true, strokesJson: strokes });
+      const [sketch] = await db.insert(sketches).values({ detailId: detail.id, authorId: seed.authorUserId, status: "PUBLISHED", strokesJson: strokes }).returning({ id: sketches.id });
+      await page.setViewportSize({ width: device.width, height: device.height });
+      await page.goto(`/details/${detail.id}`);
+      const viewport = page.getByTestId("detail-image-viewport");
+      const content = page.getByTestId("detail-image-content");
+      const image = content.locator("img");
+      await viewport.scrollIntoViewIfNeeded();
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+      await expect(content.locator("canvas")).toBeVisible();
+      const imageNode = await image.elementHandle();
+      const zoomIn = page.getByRole("button", { name: "Mărește imaginea", exact: true });
+      const reset = page.getByRole("button", { name: "Resetează zoom-ul", exact: true });
+      await zoomIn.click();
+      await expect(viewport).toHaveAttribute("data-zoom", "1.1");
+      // Pe Preview, Vercel adauga `?dpl=<deployment>` la fisierele statice (skew protection).
+      await expect(image).toHaveAttribute("src", /^\/pwa-512\.png(\?dpl=[\w-]+)?$/);
+      await expect(content).toHaveCSS("transform", /matrix\(1\.1, 0, 0, 1\.1,/);
+      await expect.poll(() => content.locator("canvas").evaluate((canvas: HTMLCanvasElement) =>
+        Math.abs(canvas.width - canvas.getBoundingClientRect().width) < 1,
+      )).toBe(true);
+      await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+
+      // Comutarea intre adnotare si schita pastreaza acelasi zoom si aceeasi imagine DOM.
+      await page.getByTestId(`sketch-tab-${sketch.id}`).click();
+      await expect(viewport).toHaveAttribute("data-zoom", "1.1");
+      await expect(content.locator("canvas")).toBeVisible();
+      await expect.poll(() => content.locator("canvas").evaluate((canvas: HTMLCanvasElement) =>
+        Math.abs(canvas.width - canvas.getBoundingClientRect().width) < 1,
+      )).toBe(true);
+      expect(await imageNode!.evaluate((node) => node.isConnected)).toBe(true);
+      await reset.click();
+      await expect(viewport).toHaveAttribute("data-zoom", "1");
+      await viewport.scrollIntoViewIfNeeded();
+      const box = await viewport.boundingBox();
+      if (!box) throw new Error("Imagine fara bounding box");
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      if (device.touch) {
+        const cdp = await context.newCDPSession(page);
+        try {
+          await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 2 });
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x: x - device.dx, y: y - device.dy }, { id: 2, x: x + device.dx, y: y + device.dy }] });
+          for (let i = 1; i <= 5; i++) {
+            const scale = 1 + i / 5;
+            await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: x - device.dx * scale, y: y - device.dy * scale }, { id: 2, x: x + device.dx * scale, y: y + device.dy * scale }] });
+          }
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect.poll(async () => Number(await viewport.getAttribute("data-zoom"))).toBeGreaterThan(1.5);
+          const before = await content.getAttribute("style");
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ id: 1, x, y }] });
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ id: 1, x: x + 20, y }] });
+          await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+          await expect.poll(() => content.getAttribute("style")).not.toBe(before);
+        } finally { await cdp.detach(); }
+      } else {
+        await page.mouse.move(x, y);
+        await page.keyboard.down("Control");
+        await page.mouse.wheel(0, -100);
+        await page.keyboard.up("Control");
+        await expect.poll(async () => Number(await viewport.getAttribute("data-zoom"))).toBeGreaterThan(1);
+        const before = await content.getAttribute("style");
+        await page.mouse.down();
+        await page.mouse.move(x, y + 20, { steps: 5 });
+        await page.mouse.up();
+        await expect.poll(() => content.getAttribute("style")).not.toBe(before);
+      }
+      await reset.click();
+      await expect(viewport).toHaveAttribute("data-zoom", "1");
+      await expect(content).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 0)");
+      await expect(viewport).toHaveCSS("touch-action", "auto");
+      const [saved] = await db.select({ strokes: sketches.strokesJson }).from(sketches).where(eq(sketches.id, sketch.id));
+      expect(saved.strokes).toEqual(strokes);
+      await expect(page).toHaveURL(new RegExp(`/details/${detail.id}(\\?.*)?$`));
+    } finally { await cleanup(detail.id, null); }
+  });
+}
+
 test.describe("Adnotarea autorului la publicarea detaliului", () => {
   // o adnotare pe care alții au construit nu dispare complet
   test("Adnotarea se salveaza; stergerea ei dupa folosirea ca fundal este refuzata cu mesaj", async ({

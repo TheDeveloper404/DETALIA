@@ -26,7 +26,7 @@ export function HomeIconLink() {
       onClick={scrollFeedToTop}
       className="inline-flex h-12 w-12 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
     >
-      <House className="size-7" strokeWidth={2} />
+      <House className="size-5 sm:size-7" strokeWidth={2} />
     </Link>
   );
 }

@@ -26,7 +26,7 @@ const { setFollow, getFollowState } = await import("./followService");
 const { listFeedWithTotal } = await import("@/server/repos/detailsRepo");
 const { addComment, getComments } = await import("./commentService");
 const { getNotifications, notifyCommentAdded } = await import("./notificationService");
-const { getDetail } = await import("./detailService");
+const { getDetail, getUsersByRole } = await import("./detailService");
 const { disapprove } = await import("./validationService");
 let owner: string,
   reader: string,
@@ -128,13 +128,13 @@ describe("Follow + SQL real pentru feed", () => {
     expect(new Set(both.rows.map((r) => r.id)).size).toBe(3);
     expect(await db.select().from(categoryFollows)).toHaveLength(1);
   });
-  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.
   it("rol + judet + categorie + follow folosesc aceleasi predicate pentru randuri/total", async () => {
-    await db.update(details).set({ county: "Cluj" }).where(eq(details.id, publicId));
+    await db.update(users).set({ county: "Cluj" }).where(eq(users.id, owner));
     await setFollow({ userId: reader, kind: "USER", targetId: owner, followed: true });
     const result = await feed({
       followedPeopleOf: reader,
-      categoryId: cat,
+      categoryIds: [cat],
       authorRole: "PROIECTANT",
       county: "Cluj",
       limit: 1,
@@ -151,18 +151,101 @@ describe("Follow + SQL real pentru feed", () => {
     expect(beyond.rows).toEqual([]);
     expect(beyond.total).toBe(1);
     expect((await feed({ county: "Iași" })).total).toBe(0);
-    await db.update(details).set({ county: null }).where(eq(details.id, publicId));
+    // Doar detaliul public al autorului din Cluj: nu cel anonimizat, nu al altui autor fara judet.
+    expect((await feed({ county: "Cluj" })).rows.map((r) => r.id)).toEqual([publicId]);
+    // Un judet pus pe detaliu (coloana veche) nu mai conteaza.
+    await db.update(details).set({ county: "Iași" }).where(eq(details.id, publicId));
+    expect((await feed({ county: "Iași" })).total).toBe(0);
+    await db.update(users).set({ county: null }).where(eq(users.id, owner));
     expect((await feed({ county: "Cluj" })).total).toBe(0);
   });
-  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.
   it("rolul anonimului este snapshot-ul afisat", async () => {
     expect((await feed({ authorRole: "BENEFICIAR" })).rows.map((r) => r.id)).toEqual([anonymousId]);
   });
-  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul detaliului se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet apare doar cand nu e ales niciun judet.
+  // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.
   it("categoria inexistenta si inputul SQL sunt valori parametrizate, nu instructiuni", async () => {
     expect((await feed({ q: "' OR 1=1 --" })).total).toBe(0);
-    expect((await feed({ categoryId: crypto.randomUUID() })).total).toBe(0);
+    expect((await feed({ categoryIds: [crypto.randomUUID()] })).total).toBe(0);
   });
+
+  // Filtrul de categorii permite selectarea simultana a mai multor categorii in toata aplicatia; feed-ul include detaliile din oricare categorie selectata, fara dubluri. X elimina doar categoria respectiva din filtru, iar eliminarea ultimei categorii revine la toate detaliile.
+  it("trei categorii: oricare, fara dubluri, cu acelasi total pe pagini si eliminare individuala", async () => {
+    const term = "Multicat " + crypto.randomUUID();
+    const selected = await db.insert(categories).values(
+      Array.from({ length: 4 }, (_, i) => ({ name: `${term} ${i}`, slug: `${term}-${i}` })),
+    ).returning();
+    const categoryIds = selected.slice(0, 3).map((c) => c.id);
+    const rows = await db.insert(details).values([
+      { title: `${term} prima`, authorId: owner },
+      { title: `${term} a doua`, authorId: owner },
+      { title: `${term} a treia`, authorId: owner },
+      { title: `${term} alta categorie`, authorId: owner },
+      { title: `${term} ciorna`, authorId: owner, status: "DRAFT" as const },
+      { title: `${term} proiect`, authorId: owner, projectId },
+    ]).returning();
+    await db.insert(detailCategories).values([
+      { detailId: rows[0].id, categoryId: categoryIds[0] },
+      { detailId: rows[0].id, categoryId: categoryIds[1] },
+      { detailId: rows[1].id, categoryId: categoryIds[1] },
+      { detailId: rows[2].id, categoryId: categoryIds[2] },
+      { detailId: rows[3].id, categoryId: selected[3].id },
+      { detailId: rows[4].id, categoryId: categoryIds[0] },
+      { detailId: rows[5].id, categoryId: categoryIds[2] },
+    ]);
+
+    const first = await feed({ q: term, categoryIds, limit: 2 });
+    const second = await feed({ q: term, categoryIds, limit: 2, offset: 2 });
+    expect(first.total).toBe(3);
+    expect(second.total).toBe(3);
+    expect([...first.rows, ...second.rows].map((r) => r.id).sort()).toEqual(rows.slice(0, 3).map((r) => r.id).sort());
+    expect((await feed({ q: term, categoryIds: categoryIds.slice(1) })).total).toBe(3);
+    expect((await feed({ q: term, categoryIds: [categoryIds[2]] })).rows.map((r) => r.id)).toEqual([rows[2].id]);
+    expect((await feed({ q: term, categoryIds: [] })).total).toBe(4);
+  });
+});
+
+// Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate.
+it("lista rolului include utilizatori fara postari si peste sase, fara detalii private/ciorne/anonime sau date de contact", async () => {
+  const term = "Directory " + crypto.randomUUID();
+  const directory = await db.insert(users).values(
+    Array.from({ length: 8 }, (_, i) => ({ name: `${term} ${i}`, email: `${i}-${term}@directory.test` })),
+  ).returning();
+  await db.insert(roles).values(directory.map((u, i) => ({
+    userId: u.id,
+    roleMain: i === 7 ? "FURNIZOR" as const : "BENEFICIAR" as const,
+    subRole: i === 7 ? "Producător materiale" : "Beneficiar",
+  })));
+  await db.insert(projectMembers).values({ projectId, userId: directory[1].id });
+  await db.insert(details).values([
+    { title: `${term} public`, authorId: directory[1].id, imageUrl: "/pwa-192.png" },
+    { title: `${term} privat`, authorId: directory[1].id, projectId, imageUrl: "/pwa-192.png" },
+    { title: `${term} ciorna`, authorId: directory[1].id, status: "DRAFT", imageUrl: "/pwa-192.png" },
+    { title: `${term} anonim`, authorId: directory[1].id, anonymizedAt: new Date(), imageUrl: "/pwa-192.png", authorRoleSnapshot: { roleMain: "BENEFICIAR", verificationStatus: "DECLARED" } },
+  ]);
+
+  const result = await getUsersByRole("BENEFICIAR");
+  expect(result).toHaveLength(7);
+  expect(result.map((u) => u.id)).toEqual(directory.slice(0, 7).map((u) => u.id));
+  expect(result[0].detailCount).toBe(0);
+  expect(result[1].detailCount).toBe(1);
+  expect(Object.keys(result[0]).sort()).toEqual(["detailCount", "id", "image", "name", "subRole"]);
+});
+
+// Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate. Conturile suspendate sau sterse nu apar in lista. Cu un judet ales, lista contine doar utilizatorii care l-au setat in profil.
+it("lista rolului cu judet contine doar utilizatorii care l-au setat in profil", async () => {
+  const [cluj, fara] = await db
+    .insert(users)
+    .values([
+      { name: "Judet Cluj", email: "county-cluj@directory.test", county: "Cluj" },
+      { name: "Judet lipsa", email: "county-none@directory.test" },
+    ])
+    .returning();
+  await db.insert(roles).values([cluj, fara].map((u) => ({ userId: u.id, roleMain: "FURNIZOR" as const })));
+  expect((await getUsersByRole("FURNIZOR", "Cluj")).map((u) => u.id)).toEqual([cluj.id]);
+  expect(await getUsersByRole("FURNIZOR", "Iași")).toEqual([]);
+  const all = (await getUsersByRole("FURNIZOR")).map((u) => u.id);
+  expect(all).toEqual(expect.arrayContaining([cluj.id, fara.id]));
 });
 
 describe("Notificari comentarii cu DB real", () => {

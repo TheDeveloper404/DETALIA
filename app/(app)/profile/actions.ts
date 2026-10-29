@@ -103,6 +103,7 @@ const DETAILS_ERRORS: Record<string, string> = {
   NAME_TOO_LONG: "Numele e prea lung (max 100).",
   INVALID_WEBSITE: "Website-ul trebuie să înceapă cu http:// sau https://.",
   INVALID_PHONE: "Telefonul poate conține doar cifre, spații și + - ( ).",
+  INVALID_COUNTY: "Alege un județ din listă.",
 };
 
 // Editează câmpurile de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
@@ -119,6 +120,7 @@ export async function updateProfileDetailsAction(
     headline: String(formData.get("headline") ?? ""),
     about: String(formData.get("about") ?? ""),
     location: String(formData.get("location") ?? ""),
+    county: String(formData.get("county") ?? ""),
     website: String(formData.get("website") ?? ""),
     company: String(formData.get("company") ?? ""),
     phone: String(formData.get("phone") ?? ""),

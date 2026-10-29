@@ -226,26 +226,32 @@ const sketchWithAuthorColumns = {
 
 type SketchWithAuthorRow = Awaited<ReturnType<typeof selectByDetailAndStatus>>[number];
 
-function selectByDetailAndStatus(detailId: string, status: SketchStatus) {
+function teancConditions(detailId: string, status: SketchStatus) {
+  return and(
+    eq(sketches.detailId, detailId),
+    eq(sketches.status, status),
+    // Exclude ADNOTAREA (isAnnotation=true, 2026-08-11) — rândul creat prin `createAnnotation()`.
+    // NU mai e derivat din identitatea autorului: un desen ULTERIOR al autorului pe propriul
+    // detaliu, prin „Schițează peste" normal, e o schiță obișnuită și INTRĂ aici (vezi domain/sketch.ts).
+    eq(sketches.isAnnotation, false),
+    // SEC-002: schițele altor membri, ascunse definitiv la „Scoate în comunitate" (vezi
+    // hiddenAfterRelease în schema). False pentru orice schiță nescoasă încă dintr-un proiect.
+    eq(sketches.hiddenAfterRelease, false),
+  );
+}
+
+function selectSketchesWithAuthor() {
   return db
     .select(sketchWithAuthorColumns)
     .from(sketches)
     .innerJoin(details, eq(details.id, sketches.detailId))
     .leftJoin(users, eq(users.id, sketches.authorId))
-    .leftJoin(roles, eq(roles.userId, sketches.authorId))
-    .where(
-      and(
-        eq(sketches.detailId, detailId),
-        eq(sketches.status, status),
-        // Exclude ADNOTAREA (isAnnotation=true, 2026-08-11) — rândul creat prin `createAnnotation()`.
-        // NU mai e derivat din identitatea autorului: un desen ULTERIOR al autorului pe propriul
-        // detaliu, prin „Schițează peste" normal, e o schiță obișnuită și INTRĂ aici (vezi domain/sketch.ts).
-        eq(sketches.isAnnotation, false),
-        // SEC-002: schițele altor membri, ascunse definitiv la „Scoate în comunitate" (vezi
-        // hiddenAfterRelease în schema). False pentru orice schiță nescoasă încă dintr-un proiect.
-        eq(sketches.hiddenAfterRelease, false),
-      ),
-    )
+    .leftJoin(roles, eq(roles.userId, sketches.authorId));
+}
+
+function selectByDetailAndStatus(detailId: string, status: SketchStatus) {
+  return selectSketchesWithAuthor()
+    .where(teancConditions(detailId, status))
     .orderBy(desc(sketches.createdAt));
 }
 
@@ -282,6 +288,14 @@ async function listByDetailAndStatus(detailId: string, status: SketchStatus) {
 // Adnotările autorului pe propriul detaliu NU sunt aici — vezi `listAnnotationsByDetail`.
 export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
+}
+
+// O singură schiță din teancul detaliului (aceleași condiții ca `listPublishedByDetail`), pt export.
+export async function getPublishedTeancSketch(detailId: string, sketchId: string) {
+  const [row] = await selectSketchesWithAuthor()
+    .where(and(eq(sketches.id, sketchId), teancConditions(detailId, "PUBLISHED")))
+    .limit(1);
+  return row ? maskRemovedAuthor(row) : null;
 }
 
 // ADNOTAREA autorului: schița PUBLISHED cu `isAnnotation = true` de pe acest detaliu (2026-08-11: cel

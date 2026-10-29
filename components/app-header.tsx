@@ -28,7 +28,7 @@ export async function AppHeader() {
       <div className="mx-auto flex w-full max-w-[var(--container-max)] items-center justify-between px-5 min-[601px]:px-8 min-[1201px]:px-12 max-[600px]:[&>a_img]:h-7!">
         <BrandLogoHome size={44} />
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-0 sm:gap-1.5">
           <HomeIconLink />
           <NotificationBell notifications={notifications} count={unread} />
           <UserMenu name={media?.name ?? session.user.name ?? null} image={media?.image ?? null} />

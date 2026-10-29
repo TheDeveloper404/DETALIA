@@ -11,7 +11,7 @@ import { DialogOverlay } from "./dialog-overlay";
 
 export function MobileCategoryFilter({
   categories,
-  activeId,
+  activeIds,
   basePath,
   total,
   q = null,
@@ -19,7 +19,7 @@ export function MobileCategoryFilter({
   filterQuery = "",
 }: {
   categories: SidebarCategory[];
-  activeId: string | null;
+  activeIds: string[];
   basePath: string;
   total: number;
   q?: string | null;
@@ -27,7 +27,8 @@ export function MobileCategoryFilter({
   filterQuery?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const activeName = activeId ? categories.find((c) => c.id === activeId)?.name : null;
+  const activeName = activeIds.length === 1 ? categories.find((c) => c.id === activeIds[0])?.name : null;
+  const label = activeName ?? (activeIds.length > 1 ? `${activeIds.length} categorii` : "Categorii");
 
   return (
     <>
@@ -35,10 +36,15 @@ export function MobileCategoryFilter({
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="flex h-11 flex-none items-center gap-1.5 rounded-lg bg-card px-3.5 text-[13.5px] font-medium text-foreground/80 ring-1 ring-foreground/10 lg:hidden"
+        aria-label={label}
+        className={`flex h-11 w-11 flex-none items-center justify-center gap-1.5 rounded-lg text-[13.5px] font-medium ring-1 sm:w-auto sm:px-3.5 lg:hidden ${
+          activeIds.length
+            ? "bg-[#fbf1ea] text-[#8a4428] ring-primary"
+            : "bg-card text-foreground/80 ring-foreground/10"
+        }`}
       >
-        <SlidersHorizontal className="size-4" strokeWidth={2} />
-        {activeName ?? "Categorii"}
+        <SlidersHorizontal className="size-4" strokeWidth={2} aria-hidden />
+        <span className="hidden sm:inline">{label}</span>
       </button>
 
       {open && (
@@ -62,7 +68,7 @@ export function MobileCategoryFilter({
           </div>
           <CategoryFilterList
             categories={categories}
-            activeId={activeId}
+            activeIds={activeIds}
             basePath={basePath}
             total={total}
             q={q}

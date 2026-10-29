@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { COUNTIES } from "@/server/domain/counties";
 
 import { type ProfileFormState, updateProfileDetailsAction } from "./actions";
 
@@ -45,6 +46,7 @@ export function EditDetailsForm({
   initialHeadline,
   initialAbout,
   initialLocation,
+  initialCounty,
   initialWebsite,
   initialCompany,
   initialPhone,
@@ -57,6 +59,7 @@ export function EditDetailsForm({
   initialHeadline: string | null;
   initialAbout: string | null;
   initialLocation: string | null;
+  initialCounty: string | null;
   initialWebsite: string | null;
   initialCompany: string | null;
   initialPhone: string | null;
@@ -120,6 +123,24 @@ export function EditDetailsForm({
             defaultValue={initialLocation ?? ""}
             className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
           />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="county">
+            Județ <span className="font-normal text-muted-foreground">(opțional)</span>
+          </Label>
+          <select
+            id="county"
+            name="county"
+            defaultValue={initialCounty ?? ""}
+            className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+          >
+            <option value="">Nespecificat</option>
+            {COUNTIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="website">

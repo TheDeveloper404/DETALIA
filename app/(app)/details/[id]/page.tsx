@@ -1,5 +1,5 @@
 import { blobReadUrl } from "@/lib/blob-read-url";
-import { Compass, FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
+import { ChevronDown, Compass, FileText, ImageIcon, Link as LinkIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -194,19 +194,47 @@ export default async function DetailPage({
   const isFurnizor = role?.roleMain === "FURNIZOR";
   const isDetailPublic = isPubliclyVisible(detail);
 
+  const resourceItems = detail.resources.map((r) => {
+    // IMAGE: thumbnail + lightbox (imaginea propriu-zisă), NU chip cu link ca restul tipurilor.
+    if (r.type === "IMAGE" && r.url) {
+      return <ResourceImage key={r.id} url={blobReadUrl(r.url, "resource", r.id)} alt={detail.title} />;
+    }
+    const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
+    const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
+    const chip = (
+      <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground/80">
+        <Icon className="size-3.5 flex-none text-[#5e6f8a]" strokeWidth={1.8} />
+        <span className="max-w-[28ch] truncate">{label}</span>
+      </span>
+    );
+    return r.type === "TEXT" || !r.url ? (
+      <span key={r.id}>{chip}</span>
+    ) : (
+      <a
+        key={r.id}
+        href={blobReadUrl(r.url, "resource", r.id)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="max-w-full transition-colors hover:[&>span]:border-primary"
+      >
+        {chip}
+      </a>
+    );
+  });
+
   return (
     <main className="mx-auto w-full max-w-[var(--container-max)] flex-1 px-6 pb-20 pt-5">
       {/* breadcrumb — dacă detaliul e într-un proiect, firul reflectă asta (Proiectele mele / Nume
           proiect), nu feed-ul public: userul ajuns aici din proiect trebuie să se poată întoarce la el,
           nu într-un feed unde detaliul nici nu apare. */}
-      <nav className="mb-5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+      <nav className="mb-5 flex min-w-0 items-center gap-2 whitespace-nowrap font-mono text-xs text-muted-foreground">
         {project ? (
           <>
             <Link href="/projects" className="hover:text-foreground">
               Proiectele mele
             </Link>
             <span className="text-[#cabfac]">/</span>
-            <Link href={`/projects/${project.id}`} className="hover:text-foreground">
+            <Link href={`/projects/${project.id}`} className="min-w-0 truncate hover:text-foreground">
               {project.name}
             </Link>
           </>
@@ -218,7 +246,7 @@ export default async function DetailPage({
             {detail.categories[0] && (
               <>
                 <span className="text-[#cabfac]">/</span>
-                <Link href={`/feed?cat=${detail.categories[0].id}`} className="hover:text-foreground">
+                <Link href={`/feed?cat=${detail.categories[0].id}`} className="min-w-0 truncate hover:text-foreground">
                   {detail.categories[0].name}
                 </Link>
               </>
@@ -281,38 +309,22 @@ export default async function DetailPage({
 
       <div className="flex min-w-0 flex-col gap-7">
           {/* ===== RESURSE (opționale) — imaginea 2D trăiește acum în viewportul workspace-ului (tab 0) ===== */}
+          {/* Mobil: resursele stau strânse sub „Resurse (N)" și se deschid la apăsare. */}
           {detail.resources.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2.5">
+            <details className="group sm:hidden">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg border border-border bg-card px-3 font-mono text-[11px] uppercase tracking-wider text-muted-foreground [&::-webkit-details-marker]:hidden">
+                Resurse ({detail.resources.length})
+                <ChevronDown className="size-3.5 transition-transform group-open:rotate-180" strokeWidth={2} />
+              </summary>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2.5">{resourceItems}</div>
+            </details>
+          )}
+          {detail.resources.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2.5 max-sm:hidden">
               <span className="mr-0.5 font-mono text-[11px] uppercase tracking-wider text-[#a59a88]">
                 Resurse
               </span>
-              {detail.resources.map((r) => {
-                // IMAGE: thumbnail + lightbox (imaginea propriu-zisă), NU chip cu link ca restul tipurilor.
-                if (r.type === "IMAGE" && r.url) {
-                  return <ResourceImage key={r.id} url={blobReadUrl(r.url, "resource", r.id)} alt={detail.title} />;
-                }
-                const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
-                const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
-                const chip = (
-                  <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground/80">
-                    <Icon className="size-3.5 text-[#5e6f8a]" strokeWidth={1.8} />
-                    <span className="max-w-[28ch] truncate">{label}</span>
-                  </span>
-                );
-                return r.type === "TEXT" || !r.url ? (
-                  <span key={r.id}>{chip}</span>
-                ) : (
-                  <a
-                    key={r.id}
-                    href={blobReadUrl(r.url, "resource", r.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="transition-colors hover:[&>span]:border-primary"
-                  >
-                    {chip}
-                  </a>
-                );
-              })}
+              {resourceItems}
             </div>
           )}
 
@@ -327,7 +339,6 @@ export default async function DetailPage({
               createdAt: detail.createdAt,
               categories: detail.categories,
               location: detail.location,
-              county: detail.county,
               climateZone: detail.climateZone,
               seismicAg: detail.seismicAg,
               seismicTc: detail.seismicTc,

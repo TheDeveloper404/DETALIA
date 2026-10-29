@@ -130,21 +130,6 @@ test.describe.serial("Editare detaliu — locație / context tehnic", () => {
     if (detailId) await db.delete(details).where(eq(details.id, detailId));
   });
 
-  // Regula: „Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet
-  // apare doar cand nu e ales niciun judet."
-  test("județul ales la România se salvează și rămâne selectat la redeschidere", async ({ page }) => {
-    await page.goto(`/details/${detailId}/edit`);
-    const county = page.getByRole("combobox", { name: "Județ (opțional)", exact: true });
-    await county.selectOption("Cluj");
-    await page.getByRole("button", { name: "Salvează modificările" }).click();
-    await expect(page).toHaveURL(`/details/${detailId}`, { timeout: 15_000 });
-    await expect(page.getByText("Cluj, România", { exact: true })).toBeVisible();
-    const [row] = await db.select({ county: details.county }).from(details).where(eq(details.id, detailId!));
-    expect(row.county).toBe("Cluj");
-    await page.goto(`/details/${detailId}/edit`);
-    await expect(county).toHaveValue("Cluj");
-  });
-
   test("pill „Altă locație” ascunde Context tehnic; salvat corect afișează locația pe pagina publică", async ({
     page,
   }) => {
@@ -204,7 +189,8 @@ test.describe.serial("Resursă suplimentară — IMAGE afișată ca imagine, cu 
   test("resursa IMAGE apare ca thumbnail; click → lightbox cu imaginea mărită", async ({ page }) => {
     await page.goto(`/details/${detailId}`);
 
-    const thumbnail = page.getByRole("button", { name: /Mărește imaginea/ });
+    // Doar thumbnail-ul resursei („Mărește imaginea: <alt>"), nu butonul de zoom al imaginii de bază.
+    const thumbnail = page.getByRole("button", { name: /^Mărește imaginea: / });
     await expect(thumbnail).toBeVisible();
     // NU e link extern — un chip PDF/LINK ar fi un <a>, thumbnail-ul e strict <button>.
     await expect(page.locator("a", { hasText: "e2e-placeholder" })).toHaveCount(0);

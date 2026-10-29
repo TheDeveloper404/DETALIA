@@ -9,14 +9,14 @@ import { feedPageWindow } from "@/server/domain/detail";
 export function FeedPagination({
   page,
   totalPages,
-  categoryId,
+  categoryIds,
   q,
   unanswered = false,
   filterQuery = "",
 }: {
   page: number;
   totalPages: number;
-  categoryId: string | null;
+  categoryIds: string[];
   q: string | null;
   unanswered?: boolean;
   filterQuery?: string;
@@ -25,7 +25,7 @@ export function FeedPagination({
 
   function href(target: number) {
     const params = new URLSearchParams(filterQuery);
-    if (categoryId) params.set("cat", categoryId);
+    if (categoryIds.length) params.set("cat", categoryIds.join(","));
     if (q) params.set("q", q);
     if (unanswered) params.set("unanswered", "1");
     if (target > 1) params.set("page", String(target));

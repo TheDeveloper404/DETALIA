@@ -1,9 +1,9 @@
 "use client";
 import { ListFilter } from "lucide-react";
-import { startTransition, useId, useOptimistic, useState } from "react";
+import { startTransition, useEffect, useId, useOptimistic, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearFeedFilters, feedFilterChips, type FeedFilterKey } from "@/lib/feed-filters";
-import { COUNTIES } from "@/server/domain/detail";
+import { COUNTIES } from "@/server/domain/counties";
 import { ROLE_MAIN_LABELS } from "@/server/domain/roles";
 import { DialogOverlay } from "./dialog-overlay";
 
@@ -38,6 +38,17 @@ export function FeedFilters({
   const [draft, setDraft] = useState<URLSearchParams | null>(null);
   const id = useId();
   const chips = feedFilterChips(params);
+  const open = draft !== null;
+
+  // Mobil: cât timp panoul e deschis, pagina din spate nu se mai derulează.
+  useEffect(() => {
+    if (!open || !window.matchMedia("(max-width: 639px)").matches) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   function navigate(next: URLSearchParams) {
     startTransition(() => {
@@ -63,8 +74,8 @@ export function FeedFilters({
 
   return (
     <div className="mb-5 mt-2 flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10">
-        <div className="min-w-0 flex-1 basis-64">{search}</div>
+      <div className="flex flex-nowrap items-center gap-2 rounded-lg bg-card px-4 py-3.5 ring-1 ring-foreground/10 sm:flex-wrap sm:gap-3">
+        <div className="min-w-0 flex-1 basis-0 sm:basis-64">{search}</div>
         <div className="relative flex flex-none items-center gap-2">
           <button
             type="button"
@@ -72,16 +83,16 @@ export function FeedFilters({
             aria-haspopup="dialog"
             aria-expanded={!!draft}
             aria-label={chips.length ? `Filtre, ${chips.length} active` : "Filtre"}
-            className={`flex h-11 flex-none items-center gap-2 rounded-lg border pl-4 pr-3.5 text-[14.5px] font-semibold transition-colors ${
+            className={`flex h-11 w-11 flex-none items-center justify-center gap-2 rounded-lg border text-[14.5px] font-semibold transition-colors sm:w-auto sm:pl-4 sm:pr-3.5 ${
               chips.length
                 ? "border-primary bg-[#fbf1ea] text-[#8a4428]"
                 : "border-border bg-card text-foreground hover:bg-secondary"
             }`}
           >
             <ListFilter className="size-4" strokeWidth={2} aria-hidden />
-            Filtre
+            <span className="hidden sm:inline">Filtre</span>
             {chips.length > 0 && (
-              <span className="inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-primary px-1.5 font-mono text-xs text-primary-foreground">
+              <span className="hidden h-[22px] min-w-[22px] items-center justify-center rounded-full bg-primary px-1.5 font-mono text-xs text-primary-foreground sm:inline-flex">
                 {chips.length}
               </span>
             )}

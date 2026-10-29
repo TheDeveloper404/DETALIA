@@ -14,6 +14,7 @@ export type OnboardingState = { error: string | null };
 
 const ERROR_MESSAGES: Record<string, string> = {
   ALREADY_HAS_ROLE: "Ai deja un rol declarat.",
+  INVALID_COUNTY: "Alege un județ din listă.",
   INVALID_ROLE: "Selectează un rol valid.",
   INVALID_SUBROLE: "Subrolul ales nu corespunde rolului.",
   INVALID_SECONDARY_ROLE: "Rolul adițional ales nu e valid.",
@@ -54,6 +55,7 @@ export async function onboardingAction(
   const secondaryRole = secondaryRoleRaw || null;
   const headline = clean(formData.get("headline")) || null;
   const location = clean(formData.get("location")) || null;
+  const county = clean(formData.get("county")) || null;
   const company = clean(formData.get("company")) || null;
   const websiteRaw = clean(formData.get("website")) || null;
 
@@ -98,6 +100,7 @@ export async function onboardingAction(
     secondaryRole,
     headline,
     location,
+    county,
     company,
     website,
     avatarUrl: avatarUrl || null,

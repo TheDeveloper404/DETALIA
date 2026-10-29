@@ -32,7 +32,7 @@ export function aboutPreview(about: string | null): string | null {
 export function FeedSidebar({
   profile,
   categories,
-  activeId,
+  activeIds,
   basePath = "/feed",
   total,
   savedCount,
@@ -42,7 +42,7 @@ export function FeedSidebar({
 }: {
   profile: SidebarProfile;
   categories: SidebarCategory[];
-  activeId: string | null;
+  activeIds: string[];
   basePath?: string;
   total: number;
   savedCount: number;
@@ -157,7 +157,7 @@ export function FeedSidebar({
         <div className="max-h-[420px] overflow-y-auto">
           <CategoryFilterList
             categories={categories}
-            activeId={activeId}
+            activeIds={activeIds}
             basePath={basePath}
             total={total}
             q={q}

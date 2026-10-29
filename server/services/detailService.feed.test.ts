@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { listFeedWithTotal } = vi.hoisted(() => ({
+const { listFeedWithTotal, listUsersByRole } = vi.hoisted(() => ({
   listFeedWithTotal: vi.fn(),
+  listUsersByRole: vi.fn(),
 }));
 
 // Repo-ul e mock-uit integral: testăm DOAR compunerea din getFeed (page → offset, total → totalPages,
@@ -29,11 +30,21 @@ vi.mock("@/server/repos/detailsRepo", () => ({
   replaceDetailResources: vi.fn(),
   updateDetailRow: vi.fn(),
 }));
-vi.mock("@/server/repos/usersRepo", () => ({ listTopAuthors: vi.fn() }));
+vi.mock("@/server/repos/usersRepo", () => ({ listTopAuthors: vi.fn(), listUsersByRole }));
 vi.mock("@/server/services/roleService", () => ({ userHasRole: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 
-import { getFeed } from "./detailService";
+import { getFeed, getUsersByRole } from "./detailService";
+
+// Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate.
+it("getUsersByRole pastreaza toti utilizatorii, inclusiv peste sase si cu zero postari", async () => {
+  const rows = Array.from({ length: 8 }, (_, i) => ({
+    id: `user-${i}`, name: `User ${i}`, image: null, subRole: "Electrician", detailCount: 0,
+  }));
+  listUsersByRole.mockResolvedValueOnce(rows);
+  expect(await getUsersByRole("EXECUTANT")).toBe(rows);
+  expect(listUsersByRole).toHaveBeenCalledWith("EXECUTANT", null);
+});
 
 describe("getFeed — paginare (50/pagină)", () => {
   it("fără opțiuni → page 1, limit implicit 50, offset 0", async () => {
@@ -41,17 +52,33 @@ describe("getFeed — paginare (50/pagină)", () => {
 
     const res = await getFeed();
 
-    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryId: null, q: null, unanswered: false, limit: 50, offset: 0 });
+    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryIds: [], q: null, unanswered: false, limit: 50, offset: 0 });
     expect(res).toEqual({ details: [], total: 0, page: 1, totalPages: 1 });
   });
 
   it("page 3 → offset (page-1)*limit, ACELEAȘI filtre trimise la listFeedWithTotal", async () => {
     vi.mocked(listFeedWithTotal).mockResolvedValueOnce({ rows: [], total: 120 });
 
-    const res = await getFeed({ categoryId: "cat-1", q: " termen ", page: 3 });
+    const res = await getFeed({ categoryIds: ["cat-1"], q: " termen ", page: 3 });
 
-    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryId: "cat-1", q: "termen", unanswered: false, limit: 50, offset: 100 });
+    expect(listFeedWithTotal).toHaveBeenCalledWith({ categoryIds: ["cat-1"], q: "termen", unanswered: false, limit: 50, offset: 100 });
     expect(res.totalPages).toBe(3); // 120 / 50 → 3 pagini
+  });
+
+  // Filtrul de categorii permite selectarea simultana a mai multor categorii in toata aplicatia; feed-ul include detaliile din oricare categorie selectata, fara dubluri. X elimina doar categoria respectiva din filtru, iar eliminarea ultimei categorii revine la toate detaliile.
+  it("trimite toate cele trei categorii impreuna cu cautarea si paginarea", async () => {
+    vi.mocked(listFeedWithTotal).mockResolvedValueOnce({ rows: [], total: 75 });
+    const categoryIds = ["cat-1", "cat-2", "cat-3"];
+
+    await getFeed({ categoryIds, q: " grinda ", page: 2 });
+
+    expect(listFeedWithTotal).toHaveBeenCalledWith({
+      categoryIds,
+      q: "grinda",
+      unanswered: false,
+      limit: 50,
+      offset: 50,
+    });
   });
 
   it("page 0 sau negativ (input netrust) → tratat ca pagina 1, nu offset negativ", async () => {

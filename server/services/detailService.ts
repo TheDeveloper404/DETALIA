@@ -10,7 +10,6 @@
 import { cache } from "react";
 
 import {
-  COUNTIES,
   FEED_PAGE_SIZE,
   DETAIL_STATUS,
   feedOffset,
@@ -54,8 +53,9 @@ import {
   updateDetailRow,
 } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
-import { ROLE_MAIN_LABELS } from "@/server/domain/roles";
-import { listTopAuthors } from "@/server/repos/usersRepo";
+import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
+import { listTopAuthors, listUsersByRole } from "@/server/repos/usersRepo";
+import { COUNTIES } from "@/server/domain/counties";
 import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
 import {
@@ -94,7 +94,6 @@ export async function createDetail(input: {
   categoryIds: string[];
   imageUrl: string;
   location?: string | null;
-  county?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -124,7 +123,6 @@ export async function createDetail(input: {
     categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
     location: input.location,
-    county: input.county,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -151,7 +149,6 @@ export async function createDetail(input: {
     authorId: input.authorId,
     imageUrl: value.imageUrl,
     location: value.location,
-    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -184,7 +181,6 @@ export async function updateDetail(input: {
   categoryIds: string[];
   imageUrl: string;
   location?: string | null;
-  county?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -221,7 +217,6 @@ export async function updateDetail(input: {
     categoryIds: input.categoryIds,
     imageUrl: input.imageUrl,
     location: input.location,
-    county: input.county,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -246,7 +241,6 @@ export async function updateDetail(input: {
     description: value.description,
     imageUrl: value.imageUrl,
     location: value.location,
-    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -273,7 +267,6 @@ export type DraftDetailInput = {
   categoryIds?: string[];
   imageUrl?: string | null;
   location?: string | null;
-  county?: string | null;
   climateZone?: string | null;
   seismicAg?: string | null;
   seismicTc?: string | null;
@@ -298,7 +291,6 @@ async function validateDraft(input: DraftDetailInput) {
       categoryIds: input.categoryIds ?? [],
       imageUrl: input.imageUrl ?? null,
       location: input.location,
-      county: input.county,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -335,7 +327,6 @@ export async function createDetailDraft(
     authorId: input.authorId,
     imageUrl: value.imageUrl,
     location: value.location,
-    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -377,7 +368,6 @@ export async function saveDetailDraft(
     description: value.description,
     imageUrl: value.imageUrl,
     location: value.location,
-    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -413,7 +403,6 @@ export async function publishDetailDraft(
     categoryIds: input.categoryIds ?? [],
     imageUrl: input.imageUrl ?? null,
     location: input.location,
-    county: input.county,
     climateZone: input.climateZone,
     seismicAg: input.seismicAg,
     seismicTc: input.seismicTc,
@@ -436,7 +425,6 @@ export async function publishDetailDraft(
     description: value.description,
     imageUrl: value.imageUrl,
     location: value.location,
-    county: value.county,
     climateZone: value.climateZone,
     seismicAg: value.seismicAg,
     seismicTc: value.seismicTc,
@@ -665,7 +653,7 @@ export async function getDeletionPreview(input: {
 // populată sau goală (findere Greptile pe PR #255, 2026-08-25: query-uri independente puteau vedea
 // stări diferite dacă un detaliu era publicat/șters exact între cele două).
 export async function getFeed(options?: {
-  categoryId?: string | null;
+  categoryIds?: string[];
   q?: string | null;
   unanswered?: boolean;
   followedPeopleOf?: string | null;
@@ -675,7 +663,7 @@ export async function getFeed(options?: {
   page?: number;
   limit?: number;
 }) {
-  const categoryId = options?.categoryId ?? null;
+  const categoryIds = options?.categoryIds ?? [];
   const q = options?.q?.trim() || null;
   const unanswered = options?.unanswered === true;
   // Input netrust (nu doar din URL — `getFeed` e un service public, apelabil direct): aceeași regulă
@@ -687,7 +675,7 @@ export async function getFeed(options?: {
   const page = Number.isSafeInteger(rawPage) && rawPage! > 0 ? rawPage! : 1;
 
   const { rows: details, total } = await listFeedWithTotal({
-    categoryId,
+    categoryIds,
     q,
     unanswered,
     ...(options?.followedPeopleOf && isUuid(options.followedPeopleOf)
@@ -781,6 +769,10 @@ export function getSavedDetailsCount(userId: string) {
 // Autori activi pentru rail-ul din feed (top după detalii publicate).
 export function getActiveAuthors(limit = 5) {
   return listTopAuthors(limit);
+}
+
+export function getUsersByRole(roleMain: RoleMain, county: string | null = null) {
+  return listUsersByRole(roleMain, county);
 }
 
 // Detalii înrudite (cel puțin o categorie comună) pentru sidebar-ul paginii de detaliu.
