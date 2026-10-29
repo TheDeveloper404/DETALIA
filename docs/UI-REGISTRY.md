@@ -44,11 +44,9 @@ Modal comun prin `DialogOverlay`, lista cu scroll si linkuri spre profil; avatar
 
 `detail-workspace.tsx`: pastila activa (schita sau autorul detaliului) are maximum 190 px sub 640 px: avatar, nume trunchiat cu „…” (link spre profil), rol si „#N”. Langa ea sta cel mult un avatar inactiv; de la doua in sus apare „+N” (`sketch-overflow-menu.tsx`), care deschide pe `DialogOverlay` lista tuturor foilor, cu cea activa bifata. De la 640 px: toate taburile, ca inainte.
 
-## Bara de unelte strânsă pe mobil (editor schita)
+## Bara de unelte pe mobil (editor schita)
 
-`components/sketch/sketch-canvas.tsx`: sub 640 px, „«” in capul barei o strange intr-o banda de 44 px (unealta activa, culoare, radiera, undo); „»”, unealta sau culoarea o redeschid. Editorul Planșă nu are inca acest comportament.
-
----
+`components/sketch/sketch-canvas.tsx`: sub 640 px bara are 44 px, o singura coloana, fara etichete, cu toate uneltele la vedere (fara strângere). De la 640 px: 86 px, doua coloane, ca inainte.
 
 ## Modal / Dialog de confirmare
 

@@ -111,7 +111,6 @@ export function ProfileView({
 }) {
   const [tab, setTab] = useState<Tab>("detalii");
   const [contactOpen, setContactOpen] = useState(false);
-  const hasContactInfo = !!(data.location || data.company || data.website || data.phone || data.email);
   const contactButton = (
     <button
       type="button"
@@ -200,18 +199,13 @@ export function ProfileView({
               <span className="rounded-full bg-primary px-3 py-1 font-mono text-[13.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
-              {hasContactInfo && <span className="max-sm:hidden">{contactButton}</span>}
-            </div>
-            <div className="mt-1.5 font-mono text-[13.5px] text-muted-foreground">
-              Membru din {data.memberSince}
+              <span className="max-sm:hidden">{contactButton}</span>
             </div>
             {/* Mobil: „Urmărește" și „Date de contact" pe același rând. */}
-            {(follow || hasContactInfo) && (
-              <div className={`mt-3.5 flex flex-wrap items-center gap-2 ${follow ? "" : "sm:hidden"}`}>
-                {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
-                {hasContactInfo && <span className="sm:hidden">{contactButton}</span>}
-              </div>
-            )}
+            <div className={`mt-3.5 flex flex-wrap items-center gap-2 ${follow ? "" : "sm:hidden"}`}>
+              {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
+              <span className="sm:hidden">{contactButton}</span>
+            </div>
           </div>
 
           {data.viewerIsOwner && (
@@ -252,6 +246,7 @@ export function ProfileView({
                 </button>
               </div>
               <div className="flex flex-col gap-2.5">
+                <span className="font-mono text-[13.5px] text-muted-foreground">Membru din {data.memberSince}</span>
                 {data.location && (
                   <span className="inline-flex items-center gap-2 text-[13.5px] text-muted-foreground">
                     <Pin /> {data.location}

@@ -16,15 +16,15 @@ vi.mock("../../../pdf/print-button", () => ({ PrintButton: "button" }));
 vi.mock("@/components/sketch/sketch-viewer", () => ({ SketchViewer: "sketch-viewer" }));
 import { SketchPrintContent } from "./sketch-print-content";
 
-type Props = { children?: ReactNode; disabled?: boolean; role?: string; onLoad?: () => void; onError?: () => void; onRendered?: () => void };
+type Props = { children?: ReactNode; disabled?: boolean; role?: string; onLoad?: () => void; onError?: () => void; onRendered?: () => void; ref?: (img: unknown) => void };
 function find(node: ReactNode, type: string): ReactElement<Props> | undefined {
   if (!isValidElement<Props>(node)) return;
   if (node.type === type) return node;
   return Children.toArray(node.props.children).map((child) => find(child, type)).find(Boolean);
 }
-function render(thumbnailUrl: string | null = null) {
+function render(thumbnailUrl: string | null = null, imageUrl: string | null = "/pwa-192.png") {
   hooks.index = 0;
-  return SketchPrintContent({ backHref: "/details/test", thumbnailUrl, imageUrl: "/pwa-192.png", alt: "Schita", strokes: [], children: "Metadate", footer: "Permalink" });
+  return SketchPrintContent({ backHref: "/details/test", thumbnailUrl, imageUrl, alt: "Schita", strokes: [], children: "Metadate", footer: "Permalink" });
 }
 beforeEach(() => { hooks.states = []; hooks.index = 0; });
 
@@ -58,4 +58,22 @@ it("eroarea de incarcare pastreaza print blocat si afiseaza mesajul", () => {
 });
 it("thumbnail-ul existent pastreaza print disponibil", () => {
   expect(find(render("https://store.test/thumb.jpg"), "button")!.props.disabled).toBe(false);
+});
+
+it("imaginea deja incarcata din cache (fara onLoad dupa hidratare) deblocheaza print", () => {
+  let tree = render();
+  find(tree, "img")!.props.ref!({ complete: true, naturalWidth: 192 });
+  find(tree, "sketch-viewer")!.props.onRendered!();
+  tree = render();
+  expect(find(tree, "button")!.props.disabled).toBe(false);
+});
+it("o imagine inca neincarcata la montare nu deblocheaza print", () => {
+  let tree = render();
+  find(tree, "img")!.props.ref!({ complete: false, naturalWidth: 0 });
+  find(tree, "sketch-viewer")!.props.onRendered!();
+  tree = render();
+  expect(find(tree, "button")!.props.disabled).toBe(true);
+});
+it("fara thumbnail si fara imagine de detaliu, titlul si nota se pot tipari", () => {
+  expect(find(render(null, null), "button")!.props.disabled).toBe(false);
 });

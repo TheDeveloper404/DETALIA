@@ -100,7 +100,8 @@ for (const device of [
       const reset = page.getByRole("button", { name: "Resetează zoom-ul", exact: true });
       await zoomIn.click();
       await expect(viewport).toHaveAttribute("data-zoom", "1.1");
-      await expect(image).toHaveAttribute("src", "/pwa-512.png");
+      // Pe Preview, Vercel adauga `?dpl=<deployment>` la fisierele statice (skew protection).
+      await expect(image).toHaveAttribute("src", /^\/pwa-512\.png(\?dpl=[\w-]+)?$/);
       await expect(content).toHaveCSS("transform", /matrix\(1\.1, 0, 0, 1\.1,/);
       await expect.poll(() => content.locator("canvas").evaluate((canvas: HTMLCanvasElement) =>
         Math.abs(canvas.width - canvas.getBoundingClientRect().width) < 1,

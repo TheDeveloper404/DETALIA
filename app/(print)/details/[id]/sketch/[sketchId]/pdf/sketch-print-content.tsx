@@ -15,8 +15,14 @@ export function SketchPrintContent({ backHref, thumbnailUrl, imageUrl, alt, stro
   children: ReactNode;
   footer: ReactNode;
 }) {
-  const [imageReady, setImageReady] = useState(!!thumbnailUrl);
-  const [drawingReady, setDrawingReady] = useState(!!thumbnailUrl);
+  // Fără nicio imagine de recompus nu avem ce aștepta: titlul și nota se pot tipări imediat.
+  const nothingToLoad = !!thumbnailUrl || !imageUrl;
+  const [imageReady, setImageReady] = useState(nothingToLoad);
+  const [drawingReady, setDrawingReady] = useState(nothingToLoad);
+  // O imagine deja în cache se poate încărca înainte de hidratare, iar `onLoad` nu mai vine.
+  const onImageMounted = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) setImageReady(true);
+  }, []);
   const [failed, setFailed] = useState(false);
   const onRendered = useCallback(() => setDrawingReady(true), []);
   const onError = useCallback(() => setFailed(true), []);
@@ -36,7 +42,7 @@ export function SketchPrintContent({ backHref, thumbnailUrl, imageUrl, alt, stro
         ) : imageUrl ? (
           <div className="relative w-full break-inside-avoid" data-testid="sketch-print-fallback">
             {/* eslint-disable-next-line @next/next/no-img-element -- full-size printable original */}
-            <img src={imageUrl} alt={alt} className="max-h-[220mm] w-full object-contain" onLoad={() => setImageReady(true)} onError={onError} />
+            <img ref={onImageMounted} src={imageUrl} alt={alt} className="max-h-[220mm] w-full object-contain" onLoad={() => setImageReady(true)} onError={onError} />
             <SketchViewer imageUrl={imageUrl} strokes={strokes} resolutionScale={3} onRendered={onRendered} onError={onError} />
           </div>
         ) : <p className="text-sm text-muted-foreground">Imaginea schiței nu e disponibilă.</p>}

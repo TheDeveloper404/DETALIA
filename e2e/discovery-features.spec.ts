@@ -433,9 +433,9 @@ for (const viewport of ["tableta", "desktop"] as const) {
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("menuitem", { name: "Export PDF", exact: true }).click();
     const pdf = await popupPromise;
-    await expect(pdf).toHaveURL(
-      (url) => url.pathname === "/details/" + detailIds[0] + "/sketch/" + sketch.id + "/pdf",
-    );
+    // RegExp, nu predicat: predicatul trece prin waitForURL, care asteapta si `load`, iar imaginea e
+    // tinuta intentionat pana mai jos (verificam butonul dezactivat cat timp desenul nu e gata).
+    await expect(pdf).toHaveURL(new RegExp(`/details/${detailIds[0]}/sketch/${sketch.id}/pdf$`));
     const heading = pdf.getByRole("heading", { name: "Schiță peste „" + title + "”", exact: true });
     await expect(heading).toBeVisible();
     const print = pdf.getByRole("button", { name: "Salvează PDF", exact: true });

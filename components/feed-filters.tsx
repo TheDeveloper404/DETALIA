@@ -1,6 +1,6 @@
 "use client";
 import { ListFilter } from "lucide-react";
-import { startTransition, useId, useOptimistic, useState } from "react";
+import { startTransition, useEffect, useId, useOptimistic, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { clearFeedFilters, feedFilterChips, type FeedFilterKey } from "@/lib/feed-filters";
 import { COUNTIES } from "@/server/domain/counties";
@@ -38,6 +38,17 @@ export function FeedFilters({
   const [draft, setDraft] = useState<URLSearchParams | null>(null);
   const id = useId();
   const chips = feedFilterChips(params);
+  const open = draft !== null;
+
+  // Mobil: cât timp panoul e deschis, pagina din spate nu se mai derulează.
+  useEffect(() => {
+    if (!open || !window.matchMedia("(max-width: 639px)").matches) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open]);
 
   function navigate(next: URLSearchParams) {
     startTransition(() => {

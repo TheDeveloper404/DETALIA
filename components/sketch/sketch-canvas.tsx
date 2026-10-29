@@ -5,8 +5,6 @@ import {
   Circle,
   Copy,
   Eraser,
-  ChevronsLeft,
-  ChevronsRight,
   Hand,
   Minus,
   Pencil,
@@ -263,8 +261,6 @@ export const SketchCanvas = forwardRef<
   const [tool, setTool] = useState<Tool | null>("pen");
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [zoom, setZoom] = useState(1);
-  // Doar sub 640 px: bara de unelte strânsă într-o bandă îngustă, ca desenul să aibă loc.
-  const [railCollapsed, setRailCollapsed] = useState(false);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   // Caseta de text în curs de tastare (poziție normalizată 0..1 + valoare + unghi la editare). null = niciuna.
   const [textDraft, setTextDraft] = useState<{ x: number; y: number; value: string; angle?: number } | null>(null);
@@ -756,79 +752,13 @@ export const SketchCanvas = forwardRef<
   const railBtn =
     "flex items-center justify-center rounded-[10px] border-[1.5px] bg-card transition-colors hover:border-primary disabled:cursor-default disabled:hover:border-border";
 
-  const ActiveToolIcon = TOOL_ITEMS.find((t) => t.value === tool)?.Icon;
-
   return (
     <div className="flex min-h-0 flex-1">
-      {/* BANDĂ ÎNGUSTĂ (doar mobil, bara strânsă): unealta activă, culoarea, radiera, undo. */}
-      {railCollapsed && (
-        <aside className="z-10 flex w-11 flex-none flex-col items-center gap-1 overflow-y-auto border-r border-border bg-background py-2 sm:hidden">
-          <button
-            type="button"
-            aria-label="Arată uneltele"
-            aria-expanded={false}
-            onClick={() => setRailCollapsed(false)}
-            className="flex size-11 items-center justify-center text-muted-foreground"
-          >
-            <ChevronsRight className="size-[18px]" strokeWidth={1.9} />
-          </button>
-          {ActiveToolIcon && (
-            <button
-              type="button"
-              aria-label="Schimbă unealta"
-              onClick={() => setRailCollapsed(false)}
-              className={cn(railBtn, "size-11 border-primary bg-[#f6ede4]")}
-            >
-              <ActiveToolIcon className="size-4 text-primary" strokeWidth={1.9} />
-            </button>
-          )}
-          <button
-            type="button"
-            aria-label="Schimbă culoarea"
-            onClick={() => setRailCollapsed(false)}
-            className="flex size-11 items-center justify-center"
-          >
-            <span aria-hidden className="block size-5 rounded-full ring-1 ring-foreground/15" style={{ backgroundColor: color }} />
-          </button>
-          <button
-            type="button"
-            aria-label="Radieră"
-            aria-pressed={tool === "eraser"}
-            onClick={() => selectTool(tool === "eraser" ? "pen" : "eraser")}
-            className={cn(railBtn, "size-11", tool === "eraser" ? "border-primary bg-[#f6ede4]" : "border-border")}
-          >
-            <Eraser className={cn("size-4", tool === "eraser" ? "text-primary" : "text-foreground/70")} strokeWidth={1.9} />
-          </button>
-          <button
-            type="button"
-            aria-label="Undo"
-            onClick={() => dispatch({ type: "undo" })}
-            disabled={history.past.length === 0}
-            className={cn(railBtn, "size-11 border-border disabled:opacity-40")}
-          >
-            <Undo2 className="size-4 text-foreground/80" strokeWidth={1.9} />
-          </button>
-        </aside>
-      )}
-
       {/* RAIL UNELTE */}
-      <aside
-        className={cn(
-          "z-10 flex w-[86px] flex-none flex-col items-center gap-3.5 overflow-y-auto border-r border-border bg-background py-4",
-          railCollapsed && "max-sm:hidden",
-        )}
-      >
-        <button
-          type="button"
-          aria-label="Ascunde uneltele"
-          aria-expanded
-          onClick={() => setRailCollapsed(true)}
-          className="-my-2 flex h-9 w-9 flex-none items-center justify-center text-muted-foreground sm:hidden"
-        >
-          <ChevronsLeft className="size-[18px]" strokeWidth={1.9} />
-        </button>
+      {/* Mobil: aceeași bară, îngustă (o coloană), toate uneltele mereu la vedere. */}
+      <aside className="z-10 flex w-11 flex-none flex-col items-center gap-3 overflow-y-auto border-r border-border bg-background py-3 sm:w-[86px] sm:gap-3.5 sm:py-4">
         <RailLabel>Unealtă</RailLabel>
-        <div className="grid w-full grid-cols-2 justify-items-center gap-1.5 px-1.5">
+        <div className="grid w-full grid-cols-1 justify-items-center gap-1.5 px-1 sm:grid-cols-2 sm:px-1.5">
           {TOOL_ITEMS.map(({ value, label, Icon }) => {
             const active = tool === value;
             return (
@@ -942,7 +872,7 @@ export const SketchCanvas = forwardRef<
           aria-label="Radieră"
           aria-pressed={tool === "eraser"}
           onClick={() => selectTool(tool === "eraser" ? "pen" : "eraser")}
-          className={cn(railBtn, "h-[46px] w-[52px]", tool === "eraser" ? "border-primary bg-[#f6ede4]" : "border-border")}
+          className={cn(railBtn, "h-[46px] w-9 sm:w-[52px]", tool === "eraser" ? "border-primary bg-[#f6ede4]" : "border-border")}
         >
           <Eraser className={cn("size-5", tool === "eraser" ? "text-primary" : "text-foreground/70")} strokeWidth={1.9} />
         </button>
@@ -955,7 +885,7 @@ export const SketchCanvas = forwardRef<
             aria-label="Undo"
             onClick={() => dispatch({ type: "undo" })}
             disabled={history.past.length === 0}
-            className={cn(railBtn, "h-10 w-[52px] border-border disabled:opacity-40")}
+            className={cn(railBtn, "h-10 w-9 border-border disabled:opacity-40 sm:w-[52px]")}
           >
             <Undo2 className="size-[18px] text-foreground/80" strokeWidth={1.9} />
           </button>
@@ -964,7 +894,7 @@ export const SketchCanvas = forwardRef<
             aria-label="Redo"
             onClick={() => dispatch({ type: "redo" })}
             disabled={history.future.length === 0}
-            className={cn(railBtn, "h-10 w-[52px] border-border disabled:opacity-40")}
+            className={cn(railBtn, "h-10 w-9 border-border disabled:opacity-40 sm:w-[52px]")}
           >
             <Redo2 className="size-[18px] text-foreground/80" strokeWidth={1.9} />
           </button>
@@ -1143,11 +1073,11 @@ export const SketchCanvas = forwardRef<
 
 function RailLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#a59a88]">{children}</div>
+    <div className="font-mono text-[9px] uppercase tracking-[0.1em] text-[#a59a88] max-sm:hidden">{children}</div>
   );
 }
 function RailDivider() {
-  return <div className="h-px w-[46px] flex-none bg-[#eee6da]" />;
+  return <div className="h-px w-8 flex-none bg-[#eee6da] sm:w-[46px]" />;
 }
 
 // Buton din bara de control a textului selectat (rotire/mărime/editare/ștergere).

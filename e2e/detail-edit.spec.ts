@@ -189,7 +189,8 @@ test.describe.serial("Resursă suplimentară — IMAGE afișată ca imagine, cu 
   test("resursa IMAGE apare ca thumbnail; click → lightbox cu imaginea mărită", async ({ page }) => {
     await page.goto(`/details/${detailId}`);
 
-    const thumbnail = page.getByRole("button", { name: /Mărește imaginea/ });
+    // Doar thumbnail-ul resursei („Mărește imaginea: <alt>"), nu butonul de zoom al imaginii de bază.
+    const thumbnail = page.getByRole("button", { name: /^Mărește imaginea: / });
     await expect(thumbnail).toBeVisible();
     // NU e link extern — un chip PDF/LINK ar fi un <a>, thumbnail-ul e strict <button>.
     await expect(page.locator("a", { hasText: "e2e-placeholder" })).toHaveCount(0);
