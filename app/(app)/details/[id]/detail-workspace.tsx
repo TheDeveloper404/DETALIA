@@ -735,6 +735,7 @@ export function DetailWorkspace({
               </div>
             )}
             <DetailImageViewer key={imageUrl} imageUrl={imageUrl} alt={header.title}>
+              {(zoom) => <>
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
                   altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16 — detaliul
                   de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
@@ -742,7 +743,7 @@ export function DetailWorkspace({
                   comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
               {!isBase && (
                 <div key={`sketch-${activeSketch?.id ?? "base"}`} className="absolute inset-0 animate-in fade-in duration-200">
-                  <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
+                  <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} resolutionScale={zoom} />
                 </div>
               )}
               {/* ADNOTAREA DESCHISĂ — doar pe tabul de bază, CU văl semitransparent (2026-08-11: o
@@ -756,9 +757,10 @@ export function DetailWorkspace({
                   key={`annotation-${openAnnotation.id}`}
                   className="absolute inset-0 animate-in fade-in duration-200"
                 >
-                  <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} />
+                  <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} resolutionScale={zoom} />
                 </div>
               )}
+              </>}
             </DetailImageViewer>
           </div>
         </div>

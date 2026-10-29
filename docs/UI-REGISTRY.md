@@ -22,6 +22,8 @@
 
 `components/detail-image-viewer.tsx`: cadru 4:3 cu imaginea si overlay-urile sub aceeasi transformare. Controalele - / procent (reset) / + stau in dreapta sus, cu tinte de 44 px, fara a intra in editare.
 Marire 100–300%, Ctrl+rotita pe desktop, pinch cu doua degete pe touch si drag la marire; la 100%, scroll vertical al paginii. Sursa originala se cere la marire; taburile pastreaza imaginea si zoom-ul montate.
+`SketchViewer.resolutionScale` urmareste zoom-ul: rezolutia canvasului creste, dimensiunile CSS raman aceleasi. Exportul PDF fara thumbnail foloseste acelasi viewer peste imaginea de baza, cu rezolutie 3x.
+`SketchPrintContent` pastreaza „Salveaza PDF” dezactivat pana cand imaginea de baza si overlay-ul sunt gata; o eroare de incarcare afiseaza mesaj si pastreaza butonul blocat.
 
 ## Filtru multiplu de categorii
 

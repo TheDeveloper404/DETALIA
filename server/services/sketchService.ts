@@ -13,6 +13,7 @@ import {
   composeStackStrokes,
   isSelfAnnotation,
   resolveSketchDeletionMode,
+  resolveStackLayers,
   SKETCH_STATUS,
   type Stroke,
   validateBaseSketchIds,
@@ -470,9 +471,24 @@ export function getTeanc(detailId: string) {
 }
 
 // O schiță din teanc, pentru export. Accesul la detaliu se verifică ÎNAINTE, cu `getDetail`.
-export function getTeancSketch(detailId: string, sketchId: string) {
-  if (!isUuid(detailId) || !isUuid(sketchId)) return Promise.resolve(null); // SEC-11
-  return getPublishedTeancSketch(detailId, sketchId);
+export async function getTeancSketch(detailId: string, sketchId: string) {
+  if (!isUuid(detailId) || !isUuid(sketchId)) return null; // SEC-11
+  const sketch = await getPublishedTeancSketch(detailId, sketchId);
+  if (!sketch) return null;
+  if (sketch.thumbnailUrl) return { ...sketch, printStrokes: [] as Stroke[] };
+  const [teanc, annotations] = await Promise.all([
+    listPublishedByDetail(detailId),
+    listAnnotationsByDetail(detailId),
+  ]);
+  const layers = resolveStackLayers(
+    (sketch.baseSketchIds as string[] | null) ?? [],
+    new Map(teanc.map((s) => [s.id, s])),
+    new Map(annotations.map((a) => [a.id, a])),
+  );
+  return { ...sketch, printStrokes: composeStackStrokes([
+    ...layers.map(({ layer }) => ({ strokes: layer.strokesJson as Stroke[] | null })),
+    { strokes: sketch.strokesJson as Stroke[] | null },
+  ]) };
 }
 
 // ADNOTĂRILE autorului peste propriul detaliu (0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării).

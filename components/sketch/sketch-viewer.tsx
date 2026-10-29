@@ -16,10 +16,16 @@ export function SketchViewer({
   imageUrl,
   strokes,
   veil = true,
+  resolutionScale = 1,
+  onRendered,
+  onError,
 }: {
   imageUrl: string;
   strokes: Stroke[];
   veil?: boolean;
+  resolutionScale?: number;
+  onRendered?: () => void;
+  onError?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -31,6 +37,7 @@ export function SketchViewer({
     // FĂRĂ crossOrigin: citim doar naturalWidth/Height (nu desenăm imaginea pe canvas) — cu
     // crossOrigin, un host fără CORS ar face onload să nu mai vină → stroke-urile ar dispărea silențios.
     const img = new Image();
+    img.onerror = () => onError?.();
     let observer: ResizeObserver | null = null;
     img.onload = () => {
       const setSize = () => {
@@ -52,14 +59,18 @@ export function SketchViewer({
       if (containerRef.current) observer.observe(containerRef.current);
     };
     img.src = imageUrl;
-    return () => observer?.disconnect();
-  }, [imageUrl]);
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+      observer?.disconnect();
+    };
+  }, [imageUrl, onError]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !rect.w || !rect.h) return;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) { onError?.(); return; }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     // Foaia semitransparentă a schiței peste detaliul-mamă (care rămâne opac, randat de părinte) — IDENTIC
     // cu editorul (sketch-canvas.tsx): schița stă pe o coală translucidă peste detaliu, nu invers.
@@ -68,14 +79,15 @@ export function SketchViewer({
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     renderStrokes(ctx, strokes, canvas.width, canvas.height);
-  }, [rect, strokes, veil]);
+    onRendered?.();
+  }, [rect, strokes, veil, resolutionScale, onRendered, onError]);
 
   return (
     <div ref={containerRef} className="pointer-events-none absolute inset-0">
       <canvas
         ref={canvasRef}
-        width={rect.w}
-        height={rect.h}
+        width={Math.round(rect.w * resolutionScale)}
+        height={Math.round(rect.h * resolutionScale)}
         className="absolute"
         style={{ left: rect.x, top: rect.y, width: rect.w, height: rect.h }}
       />

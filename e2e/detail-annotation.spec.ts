@@ -102,12 +102,18 @@ for (const device of [
       await expect(viewport).toHaveAttribute("data-zoom", "1.1");
       await expect(image).toHaveAttribute("src", "/pwa-512.png");
       await expect(content).toHaveCSS("transform", /matrix\(1\.1, 0, 0, 1\.1,/);
+      await expect.poll(() => content.locator("canvas").evaluate((canvas: HTMLCanvasElement) =>
+        Math.abs(canvas.width - canvas.getBoundingClientRect().width) < 1,
+      )).toBe(true);
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
 
       // Comutarea intre adnotare si schita pastreaza acelasi zoom si aceeasi imagine DOM.
       await page.getByTestId(`sketch-tab-${sketch.id}`).click();
       await expect(viewport).toHaveAttribute("data-zoom", "1.1");
       await expect(content.locator("canvas")).toBeVisible();
+      await expect.poll(() => content.locator("canvas").evaluate((canvas: HTMLCanvasElement) =>
+        Math.abs(canvas.width - canvas.getBoundingClientRect().width) < 1,
+      )).toBe(true);
       expect(await imageNode!.evaluate((node) => node.isConnected)).toBe(true);
       await reset.click();
       await expect(viewport).toHaveAttribute("data-zoom", "1");

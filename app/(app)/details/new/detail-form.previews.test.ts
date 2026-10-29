@@ -181,13 +181,13 @@ it.each(["focus", "hover"])("paste cu %s foloseste preview-ul si upload-ul exist
 
 // Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
 it.each(["outside", "text", "mobile", "draw", "unmount"])("paste nu intervine pentru %s", (scenario) => {
-  let tree = render();
+  const tree = render();
   const zone = find(tree, (node) => node.props["data-testid"] === "detail-image-zone")!;
   zone.props.ref!.current = { contains: () => scenario !== "outside", matches: () => false };
   if (scenario === "mobile") vi.mocked(window.matchMedia).mockReturnValue({ matches: false } as MediaQueryList);
   if (scenario === "draw") {
     find(tree, (node) => node.props.onClick !== undefined && Children.toArray(node.props.children).includes("Desenează"))!.props.onClick!();
-    tree = render();
+    render();
   }
   if (scenario === "unmount") for (const effect of hooks.effects) effect.cleanup?.();
   const event = new Event("paste", { cancelable: true });

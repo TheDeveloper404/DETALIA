@@ -43,7 +43,7 @@ let touchSurface: EventTarget;
 let resize: (entries: { contentRect: typeof frame }[]) => void;
 function render() {
   hooks.state = hooks.ref = hooks.effect = 0;
-  const tree = DetailImageViewer({ imageUrl: "https://images.test/detail.png", alt: "Detaliu", children: createElement("span", { "data-testid": "overlay" }) });
+  const tree = DetailImageViewer({ imageUrl: "https://images.test/detail.png", alt: "Detaliu", children: (zoom) => createElement("span", { "data-testid": "overlay", "data-resolution": zoom }) });
   (tree as ReactElement<Props>).props.ref!.current = viewport;
   find(tree, (node) => node.props["data-testid"] === "detail-image-content")!.props.ref!.current = touchSurface;
   for (const effect of hooks.effects) if (effect.changed) {
@@ -102,6 +102,7 @@ describe("interactiunea viewer-ului, fara browser", () => {
     const content = find(tree, (node) => node.props["data-testid"] === "detail-image-content")!;
     expect(content.props.style?.transform).toBe("translate(0px, 0px) scale(1.1)");
     expect(find(content, (node) => node.props["data-testid"] === "overlay")).toBeTruthy();
+    expect(find(content, (node) => node.props["data-testid"] === "overlay")!.props).toHaveProperty("data-resolution", 1.1);
     find(tree, (node) => node.props["aria-label"] === "Resetează zoom-ul")!.props.onClick!();
     tree = render();
     expect(tree.props["data-zoom"]).toBe(1);

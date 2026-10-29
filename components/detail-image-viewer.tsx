@@ -33,7 +33,7 @@ export function zoomImageView(view: ImageView, nextZoom: number, anchor: Point, 
 export function DetailImageViewer({ imageUrl, alt, children }: {
   imageUrl: string;
   alt: string;
-  children?: ReactNode;
+  children?: ReactNode | ((zoom: number) => ReactNode);
 }) {
   const [view, setView] = useState<ImageView>({ zoom: 1, x: 0, y: 0 });
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -203,7 +203,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
             setView((current) => constrainImageView(current, frame, image));
           }}
         />
-        {children}
+        {typeof children === "function" ? children(view.zoom) : children}
       </div>
       <div role="group" aria-label="Zoom imagine" onPointerDown={(event) => event.stopPropagation()} className="absolute right-2 top-2 z-[3] flex items-center rounded-lg border border-border bg-card/95 shadow-sm">
         <button type="button" onClick={() => zoomBy(0.9)} aria-label="Micșorează imaginea" className="flex size-11 items-center justify-center rounded-l-lg hover:bg-secondary disabled:opacity-40" disabled={view.zoom === 1}>

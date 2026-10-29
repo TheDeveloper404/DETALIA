@@ -419,8 +419,17 @@ for (const viewport of ["tableta", "desktop"] as const) {
       .select({ id: sketches.id })
       .from(sketches)
       .where(eq(sketches.detailId, detailIds[0]));
+    await db.update(sketches).set({ thumbnailUrl: null, strokesJson: [
+      { kind: "line", color: "#ff0000", size: 10, points: [[0.2, 0.2], [0.8, 0.8]] },
+    ] }).where(eq(sketches.id, sketch.id));
     await page.goto("/details/" + detailIds[0] + "?sketch=" + sketch.id);
     await page.getByRole("button", { name: "Acțiuni detaliu", exact: true }).click();
+    let releaseImage!: () => void;
+    const imageGate = new Promise<void>((resolve) => { releaseImage = resolve; });
+    await page.context().route("**/pwa-192.png", async (route) => {
+      await imageGate;
+      await route.continue();
+    });
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("menuitem", { name: "Export PDF", exact: true }).click();
     const pdf = await popupPromise;
@@ -429,6 +438,16 @@ for (const viewport of ["tableta", "desktop"] as const) {
     );
     const heading = pdf.getByRole("heading", { name: "Schiță peste „" + title + "”", exact: true });
     await expect(heading).toBeVisible();
+    const print = pdf.getByRole("button", { name: "Salvează PDF", exact: true });
+    try { await expect(print).toBeDisabled(); } finally { releaseImage(); }
+    const drawing = pdf.getByTestId("sketch-print-fallback").locator("canvas");
+    await expect(drawing).toBeVisible();
+    await expect.poll(() => drawing.evaluate((canvas: HTMLCanvasElement) => {
+      const ctx = canvas.getContext("2d")!;
+      const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      return pixels.some((r, i) => i % 4 === 0 && r > 180 && pixels[i + 1] < 100 && pixels[i + 2] < 100);
+    })).toBe(true);
+    await expect(print).toBeEnabled();
     await pdf.evaluate(() => {
       window.print = () => {
         document.documentElement.dataset.printRequested = "yes";
@@ -439,6 +458,11 @@ for (const viewport of ["tableta", "desktop"] as const) {
     await pdf.emulateMedia({ media: "print" });
     await expect(pdf.getByRole("button", { name: "Salvează PDF", exact: true })).toBeHidden();
     await expect(heading).toBeVisible();
+    await expect(drawing).toBeVisible();
+    await expect.poll(() => drawing.evaluate((canvas: HTMLCanvasElement) => {
+      const pixels = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+      return pixels.some((r, i) => i % 4 === 0 && r > 180 && pixels[i + 1] < 100 && pixels[i + 2] < 100);
+    })).toBe(true);
   });
 }
 
