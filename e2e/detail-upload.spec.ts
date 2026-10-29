@@ -20,6 +20,60 @@ import { stripBypassHeadersForBlobUploads } from "./strip-bypass-headers";
 const TINY_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 
+for (const width of [1280, 834]) {
+  for (const activation of ["focus", "hover"] as const) {
+    // Desktop/tableta: imaginea din clipboard se poate lipi cu Ctrl+V cand zona de upload are focus sau cursorul deasupra. Clickul activeaza zona; Alege fisier deschide selectorul clasic. Imaginea lipita foloseste aceleasi validari, preview si upload ca fisierul ales.
+    test(`clipboard imagine ${width}px cu ${activation}: Ctrl+V si publicare`, async ({ page, context }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await stripBypassHeadersForBlobUploads(page);
+      const [category] = await pickLeafCategories(1);
+      const title = `Clipboard ${crypto.randomUUID()}`;
+      let createdId: string | null = null;
+      let imageUrl: string | null = null;
+      try {
+        await page.goto("/details/new");
+        await page.locator("#title").fill(title);
+        await page.getByRole("button", { name: "Alege categoriile…", exact: true }).click();
+        await page.getByRole("button", { name: category.name, exact: true }).click();
+        await page.keyboard.press("Escape");
+        await page.evaluate(async (base64) => {
+          const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": new Blob([bytes], { type: "image/png" }) }),
+          ]);
+        }, TINY_PNG_BASE64);
+        const zone = page.getByTestId("detail-image-zone");
+        if (activation === "focus") {
+          await zone.getByRole("button").filter({ hasText: "Încarcă desenul" }).click();
+        } else {
+          await page.locator("#title").focus();
+          await zone.hover();
+        }
+        await page.keyboard.press("Control+V");
+        await expect(page.getByRole("button", { name: "Înlocuiește", exact: true })).toBeVisible();
+        await expect(page.locator("#title")).toHaveValue(title);
+        await page.getByRole("button", { name: "Publică detaliul", exact: true }).click();
+        await expect(page).toHaveURL(/\/details\/[0-9a-f-]+$/, { timeout: 15_000 });
+        createdId = page.url().split("/details/")[1];
+        await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+        const [row] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, createdId));
+        imageUrl = row?.imageUrl ?? null;
+        expect(imageUrl).toBeTruthy();
+      } finally {
+        if (createdId) {
+          if (!imageUrl) {
+            const [row] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, createdId));
+            imageUrl = row?.imageUrl ?? null;
+          }
+          await db.delete(details).where(eq(details.id, createdId));
+        }
+        if (imageUrl) await deleteBlobs([imageUrl]);
+      }
+    });
+  }
+}
+
 // Regula aprobata: "ar trebui sa ramana desenul de unde a ramas in ciorna".
 test("desenul modificat in timpul uploadului cere retrimitere, fara a salva imaginea veche", async ({ page }) => {
   await stripBypassHeadersForBlobUploads(page);

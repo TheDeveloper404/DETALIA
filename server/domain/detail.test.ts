@@ -16,6 +16,7 @@ import {
   getDetailVisibility,
   isHttpUrl,
   isPubliclyVisible,
+  resolveFeedCategoryIds,
   resolveFeedPage,
   validateDetailInput,
 } from "./detail";
@@ -278,35 +279,6 @@ describe("validateDetailInput — locație (2026-07-16, pill România / Altă lo
   });
 });
 
-// Regula: „Judetul e optional la publicare, doar pentru detaliile din Romania; un detaliu fara judet
-// apare doar cand nu e ales niciun judet."
-describe("validateDetailInput — județ (2026-10-28)", () => {
-  it("județ din listă, la România → păstrat", () => {
-    const r = validateDetailInput({ ...base, location: "România", county: " Cluj " });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.county).toBe("Cluj");
-  });
-
-  it("fără județ → null (opțional)", () => {
-    const r = validateDetailInput({ ...base, county: "" });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.county).toBeNull();
-  });
-
-  it("județ din afara listei → INVALID_COUNTY", () => {
-    expect(validateDetailInput({ ...base, county: "Atlantida" })).toEqual({
-      ok: false,
-      error: "INVALID_COUNTY",
-    });
-  });
-
-  it("locație non-România → județul e ignorat, chiar dacă clientul îl trimite", () => {
-    const r = validateDetailInput({ ...base, location: "Italia, Roma", county: "Cluj" });
-    expect(r.ok).toBe(true);
-    if (r.ok) expect(r.value.county).toBeNull();
-  });
-});
-
 // „Salvează ciornă" (2026-07-06) — strict:false relaxează imagine/categorie, titlul rămâne obligatoriu
 // (altfel ciorna n-ar avea cum să apară listată în „Ciornele mele").
 describe("validateDetailInput — strict:false (CIORNĂ)", () => {
@@ -338,6 +310,20 @@ describe("validateDetailInput — strict:false (CIORNĂ)", () => {
 
   it("strict (implicit) tot cere imagine + categorie — comportamentul vechi neschimbat", () => {
     expect(validateDetailInput(draftBase)).toEqual({ ok: false, error: "CATEGORY_REQUIRED" });
+  });
+});
+
+describe("resolveFeedCategoryIds", () => {
+  it("pastreaza URL-urile vechi cu o categorie si lipsa selectiei", () => {
+    expect(resolveFeedCategoryIds("cat-1")).toEqual(["cat-1"]);
+    expect(resolveFeedCategoryIds(undefined)).toEqual([]);
+  });
+
+  // Filtrul de categorii permite selectarea simultana a mai multor categorii in toata aplicatia; feed-ul include detaliile din oricare categorie selectata, fara dubluri. X elimina doar categoria respectiva din filtru, iar eliminarea ultimei categorii revine la toate detaliile.
+  it("accepta trei categorii separate prin virgula sau parametri repetati fara sa arunce", () => {
+    expect(resolveFeedCategoryIds("cat-1,cat-2,cat-3")).toEqual(["cat-1", "cat-2", "cat-3"]);
+    expect(resolveFeedCategoryIds(["cat-1", "cat-2", "cat-3"])).toEqual(["cat-1", "cat-2", "cat-3"]);
+    expect(resolveFeedCategoryIds(["cat-1,cat-2", "cat-2,cat-3"])).toEqual(["cat-1", "cat-2", "cat-3"]);
   });
 });
 

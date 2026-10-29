@@ -88,6 +88,8 @@ export const users = pgTable("users", {
   headline: text(),
   about: text(),
   location: text(),
+  // Județul (opțional, din lista `COUNTIES`) — filtrul „Locație" din feed și lista utilizatorilor după rol.
+  county: text(),
   website: text(),
   // Firma pe care o reprezintă userul (opțional, auto-declarat — ca locația/website-ul).
   company: text(),
@@ -234,7 +236,8 @@ export const details = pgTable(
     // context tehnic RO INVALID pt acel detaliu (enforce în validateDetailInput, nu doar UI) — nu
     // afișăm/acceptăm clasificări românești pe un detaliu din afara României.
     location: text().notNull().default("România"),
-    // Județul (opțional), doar pentru România — filtrul „Locație" din feed.
+    // Nefolosit din 2026-10-29: filtrul „Locație" citește județul din profilul autorului
+    // (`users.county`). Coloana rămâne în bază până la o ștergere separată.
     county: text(),
     // Zona climatică n-are variantă neutră în listă (Zona I..IV) → nullable, fără default.
     climateZone: text(),

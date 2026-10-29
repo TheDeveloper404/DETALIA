@@ -1,7 +1,6 @@
 "use client";
 
 import { Activity, Check, MapPin, Pencil, Snowflake, Trash2 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
@@ -9,6 +8,7 @@ import { useMemo, useRef, useState } from "react";
 import { AvatarInitials } from "@/components/avatar-initials";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DetailProductTour } from "@/components/detail-product-tour";
+import { DetailImageViewer } from "@/components/detail-image-viewer";
 import { RolePill } from "@/components/role-pill";
 import { SketchViewer } from "@/components/sketch/sketch-viewer";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { MaterialOfferPanel } from "./material-offer-panel";
 import { SupplierOfferButton, SupplierOfferPanel } from "./supplier-offer-panel";
 import type { MaterialOfferForDetail } from "@/server/repos/materialOffersRepo";
 import { ValidationPanel } from "./validation-panel";
+import { SketchOverflowMenu } from "./sketch-overflow-menu";
 
 // Antetul detaliului (titlu/autor/params/descriere) — mutat în capul cardului workspace (model 3.jpeg).
 export type DetailHeader = {
@@ -45,7 +46,6 @@ export type DetailHeader = {
   createdAt: Date;
   categories: { id: string; name: string }[];
   location: string;
-  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -208,19 +208,27 @@ export function DetailWorkspace({
   // (cea mai nouă primă, doar pentru afișarea taburilor). Altfel, la fiecare schiță nouă a aceluiași
   // autor, toate etichetele mai vechi s-ar renumerota (bug raportat 2026-07-07).
   // Folosită în DOUĂ locuri (taburi + bifele stack-ului) → o singură definiție, ca să nu divergă.
+  function sketchOrdinal(s: WorkspaceSketch): { n: number; of: number } {
+    const sameAuthor = sketches
+      .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
+      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    return { n: sameAuthor.findIndex((x) => x.id === s.id) + 1, of: sameAuthor.length };
+  }
+
   function sketchLabel(s: WorkspaceSketch): string {
     // Identitate retrasă → „Autor șters", nu „Anonim": al doilea ar sugera un cont fără nume, când de
     // fapt cineva a cerut deliberat să nu mai fie legat de desen. Ordinalul dispare odată cu numele —
     // „Autor șters — schița 2" ar reconstitui exact legătura pe care userul a retras-o.
     if (s.authorRemoved) return REMOVED_AUTHOR_LABEL;
     const baseName = s.author.name ?? "Anonim";
-    const sameAuthor = sketches
-      .filter((x) => (x.author.name ?? "") === (s.author.name ?? ""))
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    return sameAuthor.length > 1
-      ? `${baseName} — schița ${sameAuthor.findIndex((x) => x.id === s.id) + 1}`
-      : baseName;
+    const { n, of } = sketchOrdinal(s);
+    return of > 1 ? `${baseName} — schița ${n}` : baseName;
   }
+
+  // Mobil: lângă pastila activă încape cel mult un avatar; de la două schițe inactive în sus, toate
+  // trec în spatele „+N" (SketchOverflowMenu). Desktop/tabletă: toate taburile, ca înainte.
+  const inactiveSketchIds = sketches.filter((s) => s.id !== activeSketch?.id).map((s) => s.id);
+  const mobileOverflowIds = new Set(inactiveSketchIds.length > 1 ? inactiveSketchIds : []);
 
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
     id: s.id,
@@ -363,7 +371,7 @@ export function DetailWorkspace({
         {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
         <div className="border-b border-[#eee6da] px-5 py-5 sm:px-6">
           <div className="flex items-start justify-between gap-4">
-            <h1 className="font-heading text-[28px] font-extrabold leading-[1.15] tracking-tight text-balance">
+            <h1 className="font-heading text-[22px] font-extrabold leading-[1.15] tracking-tight text-balance sm:text-[28px]">
               {header.title}
             </h1>
           </div>
@@ -400,6 +408,8 @@ export function DetailWorkspace({
               subRole={detailAuthor.subRole}
               verified={detailAuthor.verification === "VERIFIED"}
             />
+            {/* Mobil: categoria, data și ⋮ pe rândul următor, împreună. */}
+            <span aria-hidden className="basis-full sm:hidden" />
             {header.categories.map((c) => (
               <Link
                 key={c.id}
@@ -410,7 +420,8 @@ export function DetailWorkspace({
               </Link>
             ))}
             <span className="font-mono text-xs text-muted-foreground">
-              · publicat {formatDate(header.createdAt)}
+              <span className="max-sm:hidden">· publicat </span>
+              {formatDate(header.createdAt)}
             </span>
             <span className="ml-auto">
               <DetailActionsMenu
@@ -435,12 +446,12 @@ export function DetailWorkspace({
             </span>
           </div>
 
-          {/* Locație — doar dacă NU e România sau are județ (implicit, nu adăugăm zgomot pt cazul normal). */}
-          {(header.location !== DEFAULT_LOCATION || header.county) && (
+          {/* Locație — doar dacă NU e România (implicit, nu adăugăm zgomot pt cazul normal). */}
+          {header.location !== DEFAULT_LOCATION && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
                 <MapPin className="size-3 text-[#5e6f8a]" strokeWidth={2} />
-                {header.county ? `${header.county}, ${header.location}` : header.location}
+                {header.location}
               </span>
             </div>
           )}
@@ -499,76 +510,147 @@ export function DetailWorkspace({
             data-tour="detail-tabs"
             className="flex min-h-11 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
           >
-            <button
-              type="button"
-              onClick={() => setTabAndUrl(null)}
-              title={detailAuthor.name ?? "Autor detaliu"}
-              aria-label={detailAuthor.name ?? "Autor detaliu"}
-              aria-current={isBase ? "true" : undefined}
+            <span
               className={cn(
-                "inline-flex items-center gap-2 rounded-full transition-colors",
+                "inline-flex flex-none items-center gap-2 rounded-full transition-colors",
                 isBase
-                  ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
+                  ? "max-w-[190px] bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30 sm:max-w-none"
                   : "p-0.5 opacity-70 hover:opacity-100",
               )}
             >
-              <AvatarInitials
-                name={detailAuthor.name}
-                imageUrl={detailAuthor.image}
-                size={28}
-                className={cn("ring-2 transition-colors", isBase ? "ring-primary" : "ring-transparent")}
-              />
+              <button
+                type="button"
+                onClick={() => setTabAndUrl(null)}
+                title={detailAuthor.name ?? "Autor detaliu"}
+                aria-label={detailAuthor.name ?? "Autor detaliu"}
+                aria-current={isBase ? "true" : undefined}
+                className="flex-none rounded-full"
+              >
+                <AvatarInitials
+                  name={detailAuthor.name}
+                  imageUrl={detailAuthor.image}
+                  size={28}
+                  className={cn("ring-2 transition-colors", isBase ? "ring-primary" : "ring-transparent")}
+                />
+              </button>
               {isBase && (
-                <span className="flex flex-col items-start leading-tight">
+                <span className="flex min-w-0 flex-col items-start leading-tight">
                   <span className="font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
                     Autor detaliu
                   </span>
-                  <span className="font-heading text-[13px] font-semibold text-foreground">
-                    {detailAuthor.id ? (detailAuthor.name ?? "Anonim") : REMOVED_AUTHOR_LABEL}
-                  </span>
+                  {detailAuthor.id ? (
+                    <Link
+                      href={`/profile/${detailAuthor.id}`}
+                      className="max-w-full truncate font-heading text-[13px] font-semibold text-foreground no-underline hover:underline"
+                    >
+                      {detailAuthor.name ?? "Anonim"}
+                    </Link>
+                  ) : (
+                    <span className="max-w-full truncate font-heading text-[13px] font-semibold text-foreground">
+                      {REMOVED_AUTHOR_LABEL}
+                    </span>
+                  )}
                 </span>
               )}
-            </button>
+            </span>
             {sketches.map((s) => {
+              const hiddenOnMobile = mobileOverflowIds.has(s.id);
               // Eticheta e IDENTICĂ cu cea a mențiunilor din dezbatere (comments-section) — cititorul
               // le poate corela. Vezi `sketchLabel` pentru regula ordinalului stabil.
               const label = sketchLabel(s);
               const isActive = activeSketch?.id === s.id;
+              // Mobil: nume trunchiat + rol + „#N"; desktop: eticheta completă + rol. Numele duce la profil
+              // (nu și pentru autorul retras — id-ul e mascat în repo).
+              const nameClass =
+                "min-w-0 truncate font-heading text-[13px] font-semibold text-foreground no-underline";
+              const name = (
+                <>
+                  <span className="sm:hidden">{s.authorRemoved ? label : (s.author.name ?? "Anonim")}</span>
+                  <span className="hidden sm:inline">{label}</span>
+                </>
+              );
               return (
-                <button
+                <span
                   key={s.id}
-                  type="button"
-                  data-testid={`sketch-tab-${s.id}`}
-                  onClick={() => setTabAndUrl(s.id)}
-                  title={label}
-                  aria-label={label}
-                  aria-current={isActive ? "true" : undefined}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-full transition-colors",
+                    "inline-flex flex-none items-center gap-2 rounded-full transition-colors",
                     isActive
-                      ? "bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30"
+                      ? "max-w-[190px] bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30 sm:max-w-none"
                       : "p-0.5 opacity-70 hover:opacity-100",
+                    hiddenOnMobile && "max-sm:hidden",
                   )}
                 >
-                  <AvatarInitials
-                    name={s.author.name}
-                    imageUrl={s.author.image}
-                    size={28}
-                    className={cn("ring-2 transition-colors", isActive ? "ring-primary" : "ring-transparent")}
-                  />
+                  <button
+                    type="button"
+                    data-testid={`sketch-tab-${s.id}`}
+                    onClick={() => setTabAndUrl(s.id)}
+                    title={label}
+                    aria-label={label}
+                    aria-current={isActive ? "true" : undefined}
+                    className="flex-none rounded-full"
+                  >
+                    <AvatarInitials
+                      name={s.author.name}
+                      imageUrl={s.author.image}
+                      size={28}
+                      className={cn("ring-2 transition-colors", isActive ? "ring-primary" : "ring-transparent")}
+                    />
+                  </button>
                   {isActive && (
-                    <span className="flex items-center gap-2">
-                      <span className="font-heading text-[13px] font-semibold text-foreground">{label}</span>
-                      <RolePill
-                        roleMain={s.author.roleMain}
-                        subRole={s.author.subRole}
-                        verified={s.author.verification === "VERIFIED"}
-                      />
-                    </span>
+                    <>
+                      {s.author.id ? (
+                        <Link href={`/profile/${s.author.id}`} className={cn(nameClass, "hover:underline")}>
+                          {name}
+                        </Link>
+                      ) : (
+                        <span className={nameClass}>{name}</span>
+                      )}
+                      <span className="flex-none">
+                        <RolePill
+                          roleMain={s.author.roleMain}
+                          subRole={s.author.subRole}
+                          verified={s.author.verification === "VERIFIED"}
+                        />
+                      </span>
+                      {!s.authorRemoved && (
+                        <span className="flex-none font-mono text-[11px] text-muted-foreground sm:hidden">
+                          #{sketchOrdinal(s).n}
+                        </span>
+                      )}
+                    </>
                   )}
-                </button>
+                </span>
               );
             })}
+            {mobileOverflowIds.size > 0 && (
+              <SketchOverflowMenu
+                hiddenCount={mobileOverflowIds.size}
+                activeId={activeSketch?.id ?? null}
+                onSelect={setTabAndUrl}
+                entries={[
+                  {
+                    id: null,
+                    label: detailAuthor.id ? (detailAuthor.name ?? "Anonim") : REMOVED_AUTHOR_LABEL,
+                    avatarName: detailAuthor.name,
+                    image: detailAuthor.image,
+                    roleMain: detailAuthor.roleMain,
+                    subRole: detailAuthor.subRole,
+                    verified: detailAuthor.verification === "VERIFIED",
+                    ordinal: null,
+                  },
+                  ...sketches.map((s) => ({
+                    id: s.id,
+                    label: s.authorRemoved ? REMOVED_AUTHOR_LABEL : (s.author.name ?? "Anonim"),
+                    avatarName: s.author.name,
+                    image: s.author.image,
+                    roleMain: s.author.roleMain,
+                    subRole: s.author.subRole,
+                    verified: s.author.verification === "VERIFIED",
+                    ordinal: s.authorRemoved ? null : sketchOrdinal(s).n,
+                  })),
+                ]}
+              />
+            )}
           </div>
           <div ref={setVoteSlotEl} className="flex shrink-0 items-center" />
         </div>
@@ -652,21 +734,12 @@ export function DetailWorkspace({
                 )}
               </div>
             )}
-            <div className="relative z-[1] aspect-[4/3] w-full max-w-3xl">
+            <DetailImageViewer key={imageUrl} imageUrl={imageUrl} alt={header.title}>
               {/* imaginea-mamă rămâne PERMANENT montată (nu se remontează la comutarea taburilor —
                   altfel reîncărca async și „pocnea") ȘI mereu OPACĂ (2026-07-16 — detaliul
                   de bază nu se mai face transparent; schița e cea cu foaia semitransparentă, randată de
                   SketchViewer peste el, ca în realitate). Doar overlay-ul de schiță face fade-in la
                   comutare (opacity, FĂRĂ animație de layout — nu redeschide problema tremurului). */}
-              <Image
-                src={imageUrl}
-                unoptimized={imageUrl.startsWith("/api/")}
-                alt={header.title}
-                fill
-                sizes="(max-width: 1024px) 100vw, 768px"
-                className="object-contain"
-                priority
-              />
               {!isBase && (
                 <div key={`sketch-${activeSketch?.id ?? "base"}`} className="absolute inset-0 animate-in fade-in duration-200">
                   <SketchViewer imageUrl={imageUrl} strokes={composedStrokes} />
@@ -686,7 +759,7 @@ export function DetailWorkspace({
                   <SketchViewer imageUrl={imageUrl} strokes={openAnnotation.strokes} />
                 </div>
               )}
-            </div>
+            </DetailImageViewer>
           </div>
         </div>
 

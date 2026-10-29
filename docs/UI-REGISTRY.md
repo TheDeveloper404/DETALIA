@@ -18,6 +18,34 @@
 - **După UI nou reutilizabil:** adaugă o secțiune scurtă (10-15 linii) — nu documentezi orice `<div>`,
   doar pattern-uri care s-ar putea repeta (modal, card de listă, badge, stare goală/eroare).
 
+## Zoom in pagina detaliului
+
+`components/detail-image-viewer.tsx`: cadru 4:3 cu imaginea si overlay-urile sub aceeasi transformare. Controalele - / procent (reset) / + stau in dreapta sus, cu tinte de 44 px, fara a intra in editare.
+Marire 100–300%, Ctrl+rotita pe desktop, pinch cu doua degete pe touch si drag la marire; la 100%, scroll vertical al paginii. Sursa originala se cere la marire; taburile pastreaza imaginea si zoom-ul montate.
+
+## Filtru multiplu de categorii
+
+`components/category-filter-list.tsx`, comun pentru sidebar desktop si panoul mobil: categoriile selectate au fundalul activ existent si un X de 44 px pentru eliminare individuala, separat de linkul numelui.
+Selectia se pastreaza in `cat=id1,id2,...`; „Toate detaliile” elimina selectia de categorii si pastreaza celelalte filtre.
+
+## Lipire imagine in formularul detaliului
+
+`app/(app)/details/new/detail-form.tsx`: de la 640 px, clickul pe zona de upload ii da focus, iar Ctrl+V preia imaginea din clipboard la focus sau hover. „Alege fisier” deschide selectorul clasic; sub 640 px, clickul pe zona continua sa deschida selectorul.
+Aceeasi validare, previzualizare si incarcare ca selectia normala; modurile de desenare/adnotare nu preiau paste-ul.
+
+## Utilizatori dupa rol
+
+`components/feed-role-users.tsx`: deasupra postarilor cand este ales Rol autor, inclusiv persoane fara postari. De la 640 px: maximum 6 profiluri in doua coloane; sub 640 px: doar titlu si numar. „Afiseaza” deschide lista completa: text discret, fara chenar, in dreapta jos, cu zona de apasare de minimum 44 px; pe desktop/tableta apare doar peste 6 rezultate.
+Modal comun prin `DialogOverlay`, lista cu scroll si linkuri spre profil; avatarul reutilizeaza `AvatarInitials`. Contoarele includ doar detalii publice neanonimizate.
+
+## Taburi de schite pe mobil
+
+`detail-workspace.tsx`: pastila activa (schita sau autorul detaliului) are maximum 190 px sub 640 px: avatar, nume trunchiat cu „…” (link spre profil), rol si „#N”. Langa ea sta cel mult un avatar inactiv; de la doua in sus apare „+N” (`sketch-overflow-menu.tsx`), care deschide pe `DialogOverlay` lista tuturor foilor, cu cea activa bifata. De la 640 px: toate taburile, ca inainte.
+
+## Bara de unelte strânsă pe mobil (editor schita)
+
+`components/sketch/sketch-canvas.tsx`: sub 640 px, „«” in capul barei o strange intr-o banda de 44 px (unealta activa, culoare, radiera, undo); „»”, unealta sau culoarea o redeschid. Editorul Planșă nu are inca acest comportament.
+
 ---
 
 ## Modal / Dialog de confirmare
@@ -252,4 +280,4 @@ Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/noti
 - `components/feed-filters.tsx`: bara feed-ului (slot-uri `search` + `categoryFilter`) cu butonul „Filtre · N"; panoul (`DialogOverlay`: de jos pe telefon, popover de la `sm`) are „Ce vezi" (Doar ce urmăresc, Așteaptă ajutor), „Autor" (rol), „Locație" (județ). Lucreaza pe o ciorna: se aplica la „Aplică"/„Arată detaliile", Esc/click afara = fara schimbari. Fara rand de chip-uri sub bara (feed-ul nu se misca); filtrele active = numarul de pe buton + starea panoului. Numararea/resetarea in `lib/feed-filters.ts`.
 - `components/dialog-overlay.tsx`: focusul intra in panou la deschidere, Tab ramane in dialog, revine pe elementul de dinainte la inchidere; click oriunde in afara panoului (inclusiv header-ul) il inchide.
 - **Regula meniuri:** orice meniu dropdown foloseste `components/use-dismiss.ts` (click in afara / Escape → se inchide), nu un backdrop transparent — backdrop-ul ramane sub header (`z-50`) si lasa doua meniuri deschise simultan.
-- Export PDF in meniul detaliului → pagina dedicata fara header/nav din aplicatie; controalele dispar la print. Foloseste dialogul browserului, nu un modal nou.
+- Export PDF in meniul detaliului (pe tab de schita exporta schita activa) → pagina dedicata fara header/nav din aplicatie; controalele dispar la print. Foloseste dialogul browserului, nu un modal nou.

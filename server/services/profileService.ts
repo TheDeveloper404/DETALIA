@@ -19,6 +19,7 @@ import {
   type EarnedBadge,
   type SeenBadges,
 } from "@/server/domain/badges";
+import { COUNTIES } from "@/server/domain/counties";
 import { isUuid } from "@/server/domain/ids";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import type { RoleSnapshot } from "@/server/domain/validation";
@@ -371,7 +372,10 @@ export async function setCoverPosition(userId: string, position: number): Promis
 
 export type UpdateDetailsResult =
   | { ok: true }
-  | { ok: false; reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" | "INVALID_PHONE" };
+  | {
+      ok: false;
+      reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" | "INVALID_PHONE" | "INVALID_COUNTY";
+    };
 
 // SEC-03: telefonul ajunge direct într-un `href="tel:..."` (profile-view.tsx) — allowlist la INPUT,
 // ca la website (normalizeWebsite), nu doar text liber netrecut prin nimic. Cifre, spații, +, -, (, ).
@@ -391,6 +395,7 @@ export async function updateProfileDetails(
     headline: string;
     about: string;
     location: string;
+    county: string;
     website: string;
     company: string;
     phone: string;
@@ -409,11 +414,17 @@ export async function updateProfileDetails(
   const phoneRes = normalizePhone(clip(input.phone, PHONE_MAX));
   if (!phoneRes.ok) return { ok: false, reason: "INVALID_PHONE" };
 
+  const county = input.county.trim() || null;
+  if (county !== null && !(COUNTIES as readonly string[]).includes(county)) {
+    return { ok: false, reason: "INVALID_COUNTY" };
+  }
+
   await updateUserDetails(userId, {
     name,
     headline: clip(input.headline, HEADLINE_MAX),
     about: clip(input.about, ABOUT_MAX),
     location: clip(input.location, LOCATION_MAX),
+    county,
     website: websiteRes.value,
     company: clip(input.company, COMPANY_MAX),
     phone: phoneRes.value,

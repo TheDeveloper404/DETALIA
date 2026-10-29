@@ -29,7 +29,6 @@ export async function insertDetailWithRelations(input: {
   authorId: string;
   imageUrl: string | null;
   location: string;
-  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -54,7 +53,6 @@ export async function insertDetailWithRelations(input: {
       authorId: input.authorId,
       imageUrl: input.imageUrl,
       location: input.location,
-      county: input.county,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -117,7 +115,6 @@ export async function updateDetailRow(
     description: string | null;
     imageUrl: string | null;
     location: string;
-    county: string | null;
     climateZone: string | null;
     seismicAg: string;
     seismicTc: string;
@@ -132,7 +129,6 @@ export async function updateDetailRow(
       description: input.description,
       imageUrl: input.imageUrl,
       location: input.location,
-      county: input.county,
       climateZone: input.climateZone,
       seismicAg: input.seismicAg,
       seismicTc: input.seismicTc,
@@ -205,7 +201,6 @@ const detailWithAuthorColumns = {
   description: details.description,
   imageUrl: details.imageUrl,
   location: details.location,
-  county: details.county,
   climateZone: details.climateZone,
   seismicAg: details.seismicAg,
   seismicTc: details.seismicTc,
@@ -747,7 +742,7 @@ function foldDiacriticsSql(column: PgColumn) {
 }
 
 function feedFilterConditions(input: {
-  categoryId?: string | null;
+  categoryIds?: string[];
   q?: string | null;
   unanswered?: boolean;
   followedPeopleOf?: string | null;
@@ -793,8 +788,21 @@ function feedFilterConditions(input: {
   if (followed.length) conds.push(or(...followed)!);
   if (input.authorRole)
     conds.push(sql`${detailWithAuthorColumns.authorRoleMain} = ${input.authorRole}`);
-  if (input.county) conds.push(eq(details.county, input.county));
-  if (input.categoryId) conds.push(hasAnyCategory([input.categoryId]));
+  // Județul din PROFILUL autorului (2026-10-29), nu de pe detaliu. Detaliile anonimizate nu intră:
+  // n-am lega un detaliu retras de locația autorului.
+  if (input.county)
+    conds.push(
+      and(
+        isNull(details.anonymizedAt),
+        exists(
+          db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(eq(users.id, details.authorId), eq(users.county, input.county))),
+        ),
+      )!,
+    );
+  if (input.categoryIds?.length) conds.push(hasAnyCategory(input.categoryIds));
   // „Fără răspuns" (2026-09-01): detaliu la care NIMENI nu s-a implicat cu o soluție SAU o poziție —
   // 0 schițe în teanc ȘI 0 validări (aprob/dezaprob). Comentariile NU contează (decizie de produs
   // Liviu). Reutilizează sub-interogările corelate deja definite (`sketchCount`/`validationCount`),
@@ -823,7 +831,7 @@ function feedFilterConditions(input: {
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
 // (listTopDebated) e cel care sortează pe scor de interacțiune, global, independent de acest feed.
 export async function listFeed(input: {
-  categoryId?: string | null;
+  categoryIds?: string[];
   q?: string | null;
   unanswered?: boolean;
   followedPeopleOf?: string | null;
@@ -873,7 +881,7 @@ export async function listFeed(input: {
 // ar fi declarat pagina validă, dar rândurile rămâneau vechi, goale). Batch elimină fereastra de
 // inconsistență complet, pentru ambele cazuri (populat sau gol) — nu doar un fallback pe cazul comun.
 export async function listFeedWithTotal(input: {
-  categoryId?: string | null;
+  categoryIds?: string[];
   q?: string | null;
   unanswered?: boolean;
   followedPeopleOf?: string | null;

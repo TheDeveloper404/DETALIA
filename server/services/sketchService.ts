@@ -32,6 +32,7 @@ import {
   filterPublishedSketchIds,
   finalizeStackBases,
   getPublicSketchTeaser,
+  getPublishedTeancSketch,
   markAuthorRemoved,
   listAnnotationsByDetail,
   listDraftsByAuthor,
@@ -466,6 +467,12 @@ export async function updateAnnotation(input: {
 export function getTeanc(detailId: string) {
   if (!isUuid(detailId)) return Promise.resolve([]); // SEC-11
   return listPublishedByDetail(detailId);
+}
+
+// O schiță din teanc, pentru export. Accesul la detaliu se verifică ÎNAINTE, cu `getDetail`.
+export function getTeancSketch(detailId: string, sketchId: string) {
+  if (!isUuid(detailId) || !isUuid(sketchId)) return Promise.resolve(null); // SEC-11
+  return getPublishedTeancSketch(detailId, sketchId);
 }
 
 // ADNOTĂRILE autorului peste propriul detaliu (0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării).

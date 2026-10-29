@@ -6,13 +6,15 @@ import { FeedFilters } from "@/components/feed-filters";
 import { FollowButton } from "@/components/follow-button";
 import { getFollowState } from "@/server/services/followService";
 import { FeedRail } from "@/components/feed-rail";
+import { FeedRoleUsers } from "@/components/feed-role-users";
 import { FeedSearch } from "@/components/feed-search";
 import { FeedSidebar } from "@/components/feed-sidebar";
 import { MobileCategoryFilter } from "@/components/mobile-category-filter";
 import { ProductTour } from "@/components/product-tour";
 import { auth } from "@/lib/auth";
 import { getUserMedia } from "@/server/repos/usersRepo";
-import { COUNTIES, resolveFeedPage } from "@/server/domain/detail";
+import { COUNTIES } from "@/server/domain/counties";
+import { resolveFeedCategoryIds, resolveFeedPage } from "@/server/domain/detail";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listCategoriesWithCounts } from "@/server/services/categoryService";
 import {
@@ -22,6 +24,7 @@ import {
   getPublishedDetailsCount,
   getSavedDetailsCount,
   getTopDebated,
+  getUsersByRole,
 } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
@@ -39,7 +42,7 @@ export default async function FeedPage({
   searchParams,
 }: {
   searchParams: Promise<{
-    cat?: string;
+    cat?: string | string[];
     q?: string;
     unanswered?: string;
     welcome?: string;
@@ -83,7 +86,7 @@ export default async function FeedPage({
   const unanswered = rawUnanswered === "1";
   const page = resolveFeedPage(rawPage);
 
-  const [categories, totalPublished, role, authors, media, platform, debated, savedCount] =
+  const [categories, totalPublished, role, authors, media, platform, debated, savedCount, roleUsers] =
     await Promise.all([
       listCategoriesWithCounts(),
       getPublishedDetailsCount(),
@@ -93,6 +96,7 @@ export default async function FeedPage({
       getPlatformState(),
       getTopDebated(7),
       getSavedDetailsCount(session.user.id),
+      authorRole ? getUsersByRole(authorRole as RoleMain, county) : Promise.resolve([]),
     ]);
 
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
@@ -104,9 +108,9 @@ export default async function FeedPage({
         : "Platforma va intra în curând în mentenanță."))
     : null;
 
-  const activeId = cat && categories.some((c) => c.id === cat) ? cat : null;
+  const activeIds = resolveFeedCategoryIds(cat).filter((id) => categories.some((c) => c.id === id));
   const { details, totalPages } = await getFeed({
-    categoryId: activeId,
+    categoryIds: activeIds,
     q,
     unanswered,
     page,
@@ -115,7 +119,9 @@ export default async function FeedPage({
     authorRole,
     county,
   });
-  const activeCategory = categories.find((c) => c.id === activeId && !c.isGroup);
+  const activeCategory = activeIds.length === 1
+    ? categories.find((c) => c.id === activeIds[0] && !c.isGroup)
+    : undefined;
   const categoryFollowed = activeCategory
     ? await getFollowState(session.user.id, "CATEGORY", activeCategory.id)
     : false;
@@ -124,7 +130,7 @@ export default async function FeedPage({
   // ultima pagină validă, NU „Niciun rezultat" fals pentru un filtru care chiar are rezultate.
   if (page > totalPages) {
     const params = new URLSearchParams(filterQuery);
-    if (activeId) params.set("cat", activeId);
+    if (activeIds.length) params.set("cat", activeIds.join(","));
     if (q) params.set("q", q);
     if (unanswered) params.set("unanswered", "1");
     if (totalPages > 1) params.set("page", String(totalPages));
@@ -159,7 +165,7 @@ export default async function FeedPage({
               about: media?.about ?? null,
             }}
             categories={categories}
-            activeId={activeId}
+            activeIds={activeIds}
             total={totalPublished}
             savedCount={savedCount}
             q={q}
@@ -188,7 +194,7 @@ export default async function FeedPage({
               categoryFilter={
                 <MobileCategoryFilter
                   categories={categories}
-                  activeId={activeId}
+                  activeIds={activeIds}
                   basePath="/feed"
                   total={totalPublished}
                   q={q}
@@ -197,6 +203,9 @@ export default async function FeedPage({
                 />
               }
             />
+            {authorRole && (
+              <FeedRoleUsers roleLabel={ROLE_MAIN_LABELS[authorRole as RoleMain]} county={county} users={roleUsers} />
+            )}
             {activeCategory && (
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-extrabold">{activeCategory.name}</h2>
@@ -206,7 +215,7 @@ export default async function FeedPage({
             {details.length === 0 ? (
               <FeedEmpty
                 filtered={
-                  !!activeId ||
+                  activeIds.length > 0 ||
                   !!q ||
                   unanswered ||
                   following ||
@@ -235,7 +244,7 @@ export default async function FeedPage({
                 <FeedPagination
                   page={page}
                   totalPages={totalPages}
-                  categoryId={activeId}
+                  categoryIds={activeIds}
                   q={q}
                   unanswered={unanswered}
                   filterQuery={filterQuery}

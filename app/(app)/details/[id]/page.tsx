@@ -199,14 +199,14 @@ export default async function DetailPage({
       {/* breadcrumb — dacă detaliul e într-un proiect, firul reflectă asta (Proiectele mele / Nume
           proiect), nu feed-ul public: userul ajuns aici din proiect trebuie să se poată întoarce la el,
           nu într-un feed unde detaliul nici nu apare. */}
-      <nav className="mb-5 flex items-center gap-2 font-mono text-xs text-muted-foreground">
+      <nav className="mb-5 flex min-w-0 items-center gap-2 whitespace-nowrap font-mono text-xs text-muted-foreground">
         {project ? (
           <>
             <Link href="/projects" className="hover:text-foreground">
               Proiectele mele
             </Link>
             <span className="text-[#cabfac]">/</span>
-            <Link href={`/projects/${project.id}`} className="hover:text-foreground">
+            <Link href={`/projects/${project.id}`} className="min-w-0 truncate hover:text-foreground">
               {project.name}
             </Link>
           </>
@@ -218,7 +218,7 @@ export default async function DetailPage({
             {detail.categories[0] && (
               <>
                 <span className="text-[#cabfac]">/</span>
-                <Link href={`/feed?cat=${detail.categories[0].id}`} className="hover:text-foreground">
+                <Link href={`/feed?cat=${detail.categories[0].id}`} className="min-w-0 truncate hover:text-foreground">
                   {detail.categories[0].name}
                 </Link>
               </>
@@ -327,7 +327,6 @@ export default async function DetailPage({
               createdAt: detail.createdAt,
               categories: detail.categories,
               location: detail.location,
-              county: detail.county,
               climateZone: detail.climateZone,
               seismicAg: detail.seismicAg,
               seismicTc: detail.seismicTc,

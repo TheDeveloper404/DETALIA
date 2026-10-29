@@ -144,7 +144,9 @@ export function DetailActionsMenu({
               </button>
             </form>
 
-            <Link href={`/details/${detailId}/pdf`} target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
+            <Link
+              href={activeSketchPublicId ? `/details/${detailId}/sketch/${activeSketchPublicId}/pdf` : `/details/${detailId}/pdf`}
+              target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
               <FileDown className="size-4 text-muted-foreground" strokeWidth={2} />
               Export PDF
             </Link>

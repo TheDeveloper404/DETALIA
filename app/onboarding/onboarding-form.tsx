@@ -7,6 +7,7 @@ import { SupportHint } from "@/components/support/support-hint";
 import { useFailureCount } from "@/components/support/use-failure-count";
 import { HEIC_ERROR_MESSAGE, HeicUnsupportedError, isHeicFile, uploadImageToBlob } from "@/lib/blob-upload";
 import { ALLOWED_IMAGE_TYPES, MAX_AVATAR_BYTES, MAX_AVATAR_MB } from "@/lib/upload-limits";
+import { COUNTIES } from "@/server/domain/counties";
 import {
   ROLE_MAINS,
   ROLE_MAIN_LABELS,
@@ -437,7 +438,7 @@ export function OnboardingForm() {
             </div>
           </div>
 
-          {/* Locație + Website */}
+          {/* Locație + Județ */}
           <div className="dt-row2" style={{ marginBottom: 24 }}>
             <div>
               <label htmlFor="dt-oras" style={labelStyle}>
@@ -452,6 +453,32 @@ export function OnboardingForm() {
                 style={inputStyle}
               />
             </div>
+            <div>
+              <label htmlFor="dt-judet" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
+                Județ{" "}
+                <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
+                  (opțional)
+                </span>
+              </label>
+              <select
+                id="dt-judet"
+                name="county"
+                defaultValue=""
+                className="dt-field dt-select"
+                style={{ ...inputStyle, cursor: "pointer", paddingRight: 38 }}
+              >
+                <option value="">Nespecificat</option>
+                {COUNTIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Website + Firmă */}
+          <div className="dt-row2" style={{ marginBottom: 24 }}>
             <div>
               <label htmlFor="dt-web" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
                 Website{" "}
@@ -468,24 +495,22 @@ export function OnboardingForm() {
                 style={inputStyle}
               />
             </div>
-          </div>
-
-          {/* Firmă (opțional) */}
-          <div style={{ marginBottom: 24 }}>
-            <label htmlFor="dt-company" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
-              Firmă{" "}
-              <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
-                (opțional)
-              </span>
-            </label>
-            <input
-              id="dt-company"
-              name="company"
-              placeholder="Firma pe care o reprezinți"
-              maxLength={120}
-              className="dt-field"
-              style={inputStyle}
-            />
+            <div>
+              <label htmlFor="dt-company" style={{ ...labelStyle, display: "flex", alignItems: "center", gap: 7 }}>
+                Firmă{" "}
+                <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.04em", textTransform: "none" }}>
+                  (opțional)
+                </span>
+              </label>
+              <input
+                id="dt-company"
+                name="company"
+                placeholder="Firma pe care o reprezinți"
+                maxLength={120}
+                className="dt-field"
+                style={inputStyle}
+              />
+            </div>
           </div>
 
           {/* Media: avatar + cover */}

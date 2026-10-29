@@ -54,7 +54,6 @@ import {
 import { cn } from "@/lib/utils";
 import {
   CLIMATE_ZONES,
-  COUNTIES,
   DEFAULT_LOCATION,
   DESCRIPTION_MAX_LENGTH,
   LOCATION_MAX_LENGTH,
@@ -103,7 +102,6 @@ export type DetailFormInitial = {
   // null = ciornă fără imagine încă (înainte de upload).
   imageUrl: string | null;
   location: string;
-  county: string | null;
   climateZone: string | null;
   seismicAg: string;
   seismicTc: string;
@@ -453,6 +451,7 @@ export function DetailForm({
   // Semnalăm serverului dacă imaginea s-a schimbat efectiv (la editare) → reprocesare doar atunci.
   const [imageChanged, setImageChanged] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const imageZoneRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const imageUrlRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<SketchCanvasHandle>(null);
@@ -515,8 +514,7 @@ export function DetailForm({
     setMode("upload");
   }
 
-  function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  function onPickImage(file: File | undefined) {
     if (!file) {
       setPreview(null);
       setImageFile(null);
@@ -546,6 +544,7 @@ export function DetailForm({
     discardAnnotation(); // imagine nouă → adnotarea veche nu se mai potrivește peste ea
     if (imageUrlRef.current) imageUrlRef.current.value = ""; // imagine nouă → forțează re-upload
   }
+
   // Adnotarea e desenată PESTE o anumită imagine (coordonate normalizate față de ea). Dacă imaginea
   // se schimbă sau dispare, stroke-urile n-ar mai însemna nimic peste noua imagine → le aruncăm.
   function discardAnnotation() {
@@ -563,6 +562,24 @@ export function DetailForm({
     if (fileRef.current) fileRef.current.value = "";
     if (imageUrlRef.current) imageUrlRef.current.value = "";
   }
+
+  useEffect(() => {
+    function onPaste(event: ClipboardEvent) {
+      if (mode !== "upload" || annotating || uploading || pending || draftPending) return;
+      if (!window.matchMedia("(min-width: 640px)").matches) return;
+      const zone = imageZoneRef.current;
+      if (!zone || (!zone.contains(document.activeElement) && !zone.matches(":hover"))) return;
+      const file = Array.from(event.clipboardData?.items ?? [])
+        .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+        ?.getAsFile();
+      if (!file) return;
+      event.preventDefault();
+      if (fileRef.current) fileRef.current.value = "";
+      onPickImage(file);
+    }
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  });
 
   // Imaginea se urcă DIRECT în Blob înainte de a trimite formularul (ocolește limita de body a
   // server action-ului). Flux: 1) submit → urc imaginea → pun URL-ul în câmpul ascuns → re-submit
@@ -858,18 +875,6 @@ export function DetailForm({
             ))}
           </div>
 
-          {isRomania && (
-            <div className="mb-3">
-              <Select name="county" aria-label="Județ (opțional)" defaultValue={initial?.county ?? ""}>
-                <option value="">Județ — nespecificat (opțional)</option>
-                {COUNTIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
           {!isRomania && (
             <input
               type="text"
@@ -980,213 +985,227 @@ export function DetailForm({
             id="image"
             type="file"
             accept="image/png,image/jpeg,image/webp,image/avif"
-            onChange={onPickImage}
+            onChange={(event) => onPickImage(event.target.files?.[0])}
             className="sr-only"
           />
 
-          {mode === "draw" ? (
-            <div className="flex h-[70vh] max-h-[760px] min-h-[520px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
-              <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} onChange={onDrawingChange} />
-            </div>
-          ) : mode === "canvas" ? (
-            <CanvasCropPicker
-              canvases={myCanvases ?? []}
-              onApply={applyCanvasCrop}
-              onCancel={() => switchMode("upload")}
-            />
-          ) : !preview ? (
-            <button
-              type="button"
-              onClick={() => fileRef.current?.click()}
-              className="dt-drop relative flex w-full flex-col items-center justify-center gap-3.5 overflow-hidden rounded-[14px] border-[1.5px] border-dashed border-[#d8cfc0] bg-[#faf7f1] px-6 py-12 transition-colors hover:border-primary"
-            >
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-40"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
-                  backgroundSize: "26px 26px",
-                }}
+          <div ref={imageZoneRef} data-testid="detail-image-zone">
+            {mode === "draw" ? (
+              <div className="flex h-[70vh] max-h-[760px] min-h-[520px] overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#efece6]">
+                <SketchCanvas ref={canvasRef} initialStrokes={[]} onStrokesCount={setDrawCount} onChange={onDrawingChange} />
+              </div>
+            ) : mode === "canvas" ? (
+              <CanvasCropPicker
+                canvases={myCanvases ?? []}
+                onApply={applyCanvasCrop}
+                onCancel={() => switchMode("upload")}
               />
-              <span className="relative flex size-[54px] items-center justify-center rounded-[14px] border border-[#e6ddcf] bg-secondary">
-                <Upload className="size-6 text-primary" strokeWidth={1.8} />
-              </span>
-              <span className="relative font-heading text-[15.5px] font-bold text-foreground">
-                Încarcă desenul
-              </span>
-              <span className="relative text-center font-mono text-[11.5px] leading-relaxed text-muted-foreground">
-                Secțiune sau plan de detaliu — PNG, JPG, WebP sau AVIF
-                <br />
-                max {MAX_IMAGE_MB} MB · ideal min. 1200 px pe latura mare
-              </span>
-            </button>
-          ) : (
-            <div className="relative overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#faf7f1]">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 opacity-50"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
-                  backgroundSize: "26px 26px",
-                }}
-              />
-              {!annotating && (
-                <div className="absolute right-3 top-3 z-[2] flex gap-2">
-                  {/* 2026-08-11: adnotarea e editabilă și la editarea unui detaliu PUBLICAT
-                      (`updateDetailAction` citește `annotationStrokes`/`annotationSketchId` — vezi
-                      edit/actions.ts), la fel ca titlul/descrierea. Vezi `canAnnotate` mai sus pt de ce
-                      fluxul de „Continuă ciorna" rămâne exclus. */}
-                  {canAnnotate && (
-                    <button
-                      type="button"
-                      onClick={() => setAnnotating(true)}
-                      data-testid="annotate-open"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#d8bfae] bg-white/90 px-2.5 py-1.5 font-heading text-[12.5px] font-semibold text-[#95492e]"
-                    >
-                      <Pencil className="size-3" strokeWidth={1.9} />
-                      {annotationStrokes ? "Editează adnotarea" : "Adnotează"}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#e6dccd] bg-white/90 px-2.5 py-1.5 font-heading text-[12.5px] font-semibold text-foreground/80"
-                  >
-                    <RotateCcw className="size-3" strokeWidth={1.9} />
-                    Înlocuiește
-                  </button>
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    aria-label="Elimină imaginea"
-                    className="inline-flex size-8 items-center justify-center rounded-lg border border-[#eccbc6] bg-white/90"
-                  >
-                    <Trash2 className="size-3.5 text-destructive" strokeWidth={2} />
-                  </button>
-                </div>
-              )}
-              {annotating ? (
-                // Editorul de adnotare, PESTE imaginea încărcată (SketchCanvas primește preview-ul
-                // local ca imagine-mamă). Stroke-urile se citesc din ref DOAR la „Gata", cât canvasul
-                // e încă montat — nu după, vezi capcana `ref` din bloc condiționat (CLAUDE.md).
-                <div className="relative z-[1]">
-                  <div className="flex h-[60vh] max-h-[640px] min-h-[420px] overflow-hidden rounded-t-[13px] bg-[#efece6]">
-                    <SketchCanvas
-                      ref={annotationCanvasRef}
-                      imageUrl={preview.url}
-                      initialStrokes={annotationStrokes ?? []}
-                      onStrokesCount={setAnnotationCount}
-                    />
-                  </div>
-                  <div className="border-t border-[#eee6da] bg-card px-3.5 pt-2.5">
-                    <label
-                      htmlFor="annotationNoteField"
-                      className="mb-1 block font-mono text-[11px] uppercase tracking-wide text-[#a59a88]"
-                    >
-                      Explicația ta, în cuvinte (opțional)
-                    </label>
-                    <textarea
-                      id="annotationNoteField"
-                      data-testid="annotate-note"
-                      value={annotationNote}
-                      onChange={(e) =>
-                        setAnnotationNote(e.target.value.slice(0, MAX_SKETCH_NOTE_LENGTH))
-                      }
-                      maxLength={MAX_SKETCH_NOTE_LENGTH}
-                      rows={2}
-                      placeholder="Ex.: săgeata arată sensul de scurgere; cota e măsurată la fața finită."
-                      className="w-full resize-none rounded-lg border border-[#e6dccd] bg-card px-3 py-2 text-[13.5px] leading-relaxed text-foreground placeholder:text-[#bdb3a2]"
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center justify-end gap-2 bg-card px-3.5 py-2.5">
-                    <span className="mr-auto font-mono text-[11.5px] text-muted-foreground">
-                      {annotationCount === 0
-                        ? "Desenează peste imagine ce vrei să explici."
-                        : `${annotationCount} ${annotationCount === 1 ? "traseu" : "trasee"}`}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setAnnotating(false)}
-                      className="rounded-lg border border-[#e6dccd] bg-card px-3 py-1.5 font-heading text-[12.5px] font-semibold text-foreground/80"
-                    >
-                      Renunță
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="annotate-save"
-                      onClick={() => {
-                        const strokes = annotationCanvasRef.current?.getStrokes() ?? [];
-                        // Stroke-urile călătoresc BRUT în body-ul server action-ului (spre deosebire de
-                        // modul „Desenează", care urcă un PNG în Blob și trimite doar URL-ul). Peste
-                        // limita de body a acțiunii, publicarea ÎNTREAGĂ ar pica opac — deci refuzăm
-                        // adnotarea aici, cu mesaj clar, în loc să pierdem detaliul la submit.
-                        if (
-                          strokes.length > 0 &&
-                          new Blob([JSON.stringify(strokes)]).size > MAX_ANNOTATION_BYTES
-                        ) {
-                          setClientError(
-                            "Adnotarea e prea complexă ca să fie salvată. Șterge din trasee și încearcă din nou.",
-                          );
-                          return;
-                        }
-                        setClientError(null);
-                        setAnnotationStrokes(strokes.length > 0 ? strokes : null);
-                        setAnnotating(false);
-                      }}
-                      className="rounded-lg border border-[#95492e] bg-primary px-3 py-1.5 font-heading text-[12.5px] font-bold text-primary-foreground"
-                    >
-                      Gata
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="relative z-[1] flex items-center justify-center p-6">
-                  {/* Previzualizarea arată imaginea CU adnotarea suprapusă, prin exact componenta care
-                      randează adnotarea pe pagina detaliului publicat (SketchViewer) — altfel, după
-                      „Gata", userul vedea poza goală și credea că desenul s-a pierdut (nu se pierduse,
-                      doar nu se randa). Fundal semitransparent implicit (2026-08-11): adnotarea e o
-                      schiță ca oricare alta — aceeași regulă ca pe pagina finală.
-                      Wrapper-ul `relative inline-block` se mulează exact pe imaginea randată, deci
-                      dreptunghiul măsurat de SketchViewer coincide cu imaginea. */}
-                  <span className="relative inline-block max-w-full">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
-                    <img
-                      src={preview.url}
-                      alt="Previzualizare detaliu"
-                      className="max-h-80 w-auto max-w-full object-contain"
-                    />
-                    {annotationStrokes && annotationStrokes.length > 0 && (
-                      <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
+            ) : !preview ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.currentTarget.focus();
+                    if (!window.matchMedia("(min-width: 640px)").matches) fileRef.current?.click();
+                  }}
+                  className="dt-drop relative flex w-full flex-col items-center justify-center gap-3.5 overflow-hidden rounded-[14px] border-[1.5px] border-dashed border-[#d8cfc0] bg-[#faf7f1] px-6 py-12 transition-colors hover:border-primary focus-visible:border-primary sm:pb-24"
+                >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-40"
+                    style={{
+                      backgroundImage:
+                        "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
+                      backgroundSize: "26px 26px",
+                    }}
+                  />
+                  <span className="relative flex size-[54px] items-center justify-center rounded-[14px] border border-[#e6ddcf] bg-secondary">
+                    <Upload className="size-6 text-primary" strokeWidth={1.8} />
+                  </span>
+                  <span className="relative font-heading text-[15.5px] font-bold text-foreground">
+                    Încarcă desenul
+                  </span>
+                  <span className="relative text-center font-mono text-[11.5px] leading-relaxed text-muted-foreground">
+                    Secțiune sau plan de detaliu — PNG, JPG, WebP sau AVIF
+                    <br />
+                    max {MAX_IMAGE_MB} MB · ideal min. 1200 px pe latura mare
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="absolute bottom-6 left-1/2 hidden min-h-11 -translate-x-1/2 items-center rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors hover:bg-secondary sm:inline-flex"
+                >
+                  Alege fișier
+                </button>
+              </div>
+            ) : (
+              <div className="relative overflow-hidden rounded-[14px] border border-[#e6ddcf] bg-[#faf7f1]">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 opacity-50"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(#ece1cd 1px,transparent 1px),linear-gradient(90deg,#ece1cd 1px,transparent 1px)",
+                    backgroundSize: "26px 26px",
+                  }}
+                />
+                {!annotating && (
+                  <div className="absolute right-3 top-3 z-[2] flex gap-2">
+                    {/* 2026-08-11: adnotarea e editabilă și la editarea unui detaliu PUBLICAT
+                        (`updateDetailAction` citește `annotationStrokes`/`annotationSketchId` — vezi
+                        edit/actions.ts), la fel ca titlul/descrierea. Vezi `canAnnotate` mai sus pt de ce
+                        fluxul de „Continuă ciorna" rămâne exclus. */}
+                    {canAnnotate && (
+                      <button
+                        type="button"
+                        onClick={() => setAnnotating(true)}
+                        data-testid="annotate-open"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[#d8bfae] bg-white/90 px-2.5 py-1.5 font-heading text-[12.5px] font-semibold text-[#95492e]"
+                      >
+                        <Pencil className="size-3" strokeWidth={1.9} />
+                        {annotationStrokes ? "Editează adnotarea" : "Adnotează"}
+                      </button>
                     )}
-                  </span>
-                </div>
-              )}
-              {!annotating && (
-                <div className="relative z-[2] flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[#eee6da] bg-card px-3.5 py-2.5">
-                  <Send className="size-3.5 rotate-0 text-[#7a8a3f]" strokeWidth={1.9} />
-                  <span className="truncate font-mono text-[12px] text-muted-foreground">
-                    {preview.name}
-                  </span>
-                  {/* DE CE să adnotezi — scris explicit, nu lăsat pe seama iconiței: fără asta userul
-                      vede un buton „Adnotează" și nu știe la ce i-ar folosi. Dispare odată adnotat. */}
-                  {canAnnotate &&
-                    (annotationStrokes ? (
-                      <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11.5px] text-[#95492e]">
-                        <Pencil className="size-3" strokeWidth={2} />
-                        adnotare adăugată
+                    <button
+                      type="button"
+                      onClick={() => fileRef.current?.click()}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#e6dccd] bg-white/90 px-2.5 py-1.5 font-heading text-[12.5px] font-semibold text-foreground/80"
+                    >
+                      <RotateCcw className="size-3" strokeWidth={1.9} />
+                      Înlocuiește
+                    </button>
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      aria-label="Elimină imaginea"
+                      className="inline-flex size-8 items-center justify-center rounded-lg border border-[#eccbc6] bg-white/90"
+                    >
+                      <Trash2 className="size-3.5 text-destructive" strokeWidth={2} />
+                    </button>
+                  </div>
+                )}
+                {annotating ? (
+                  // Editorul de adnotare, PESTE imaginea încărcată (SketchCanvas primește preview-ul
+                  // local ca imagine-mamă). Stroke-urile se citesc din ref DOAR la „Gata", cât canvasul
+                  // e încă montat — nu după, vezi capcana `ref` din bloc condiționat (CLAUDE.md).
+                  <div className="relative z-[1]">
+                    <div className="flex h-[60vh] max-h-[640px] min-h-[420px] overflow-hidden rounded-t-[13px] bg-[#efece6]">
+                      <SketchCanvas
+                        ref={annotationCanvasRef}
+                        imageUrl={preview.url}
+                        initialStrokes={annotationStrokes ?? []}
+                        onStrokesCount={setAnnotationCount}
+                      />
+                    </div>
+                    <div className="border-t border-[#eee6da] bg-card px-3.5 pt-2.5">
+                      <label
+                        htmlFor="annotationNoteField"
+                        className="mb-1 block font-mono text-[11px] uppercase tracking-wide text-[#a59a88]"
+                      >
+                        Explicația ta, în cuvinte (opțional)
+                      </label>
+                      <textarea
+                        id="annotationNoteField"
+                        data-testid="annotate-note"
+                        value={annotationNote}
+                        onChange={(e) =>
+                          setAnnotationNote(e.target.value.slice(0, MAX_SKETCH_NOTE_LENGTH))
+                        }
+                        maxLength={MAX_SKETCH_NOTE_LENGTH}
+                        rows={2}
+                        placeholder="Ex.: săgeata arată sensul de scurgere; cota e măsurată la fața finită."
+                        className="w-full resize-none rounded-lg border border-[#e6dccd] bg-card px-3 py-2 text-[13.5px] leading-relaxed text-foreground placeholder:text-[#bdb3a2]"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2 bg-card px-3.5 py-2.5">
+                      <span className="mr-auto font-mono text-[11.5px] text-muted-foreground">
+                        {annotationCount === 0
+                          ? "Desenează peste imagine ce vrei să explici."
+                          : `${annotationCount} ${annotationCount === 1 ? "traseu" : "trasee"}`}
                       </span>
-                    ) : (
-                      <span className="w-full font-mono text-[11.5px] leading-relaxed text-[#a59a88]">
-                        Vrei să explici ceva anume din imagine? Apasă „Adnotează” și desenează peste
-                        ea — săgeți, cote, notițe. Opțional.
-                      </span>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
+                      <button
+                        type="button"
+                        onClick={() => setAnnotating(false)}
+                        className="rounded-lg border border-[#e6dccd] bg-card px-3 py-1.5 font-heading text-[12.5px] font-semibold text-foreground/80"
+                      >
+                        Renunță
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="annotate-save"
+                        onClick={() => {
+                          const strokes = annotationCanvasRef.current?.getStrokes() ?? [];
+                          // Stroke-urile călătoresc BRUT în body-ul server action-ului (spre deosebire de
+                          // modul „Desenează", care urcă un PNG în Blob și trimite doar URL-ul). Peste
+                          // limita de body a acțiunii, publicarea ÎNTREAGĂ ar pica opac — deci refuzăm
+                          // adnotarea aici, cu mesaj clar, în loc să pierdem detaliul la submit.
+                          if (
+                            strokes.length > 0 &&
+                            new Blob([JSON.stringify(strokes)]).size > MAX_ANNOTATION_BYTES
+                          ) {
+                            setClientError(
+                              "Adnotarea e prea complexă ca să fie salvată. Șterge din trasee și încearcă din nou.",
+                            );
+                            return;
+                          }
+                          setClientError(null);
+                          setAnnotationStrokes(strokes.length > 0 ? strokes : null);
+                          setAnnotating(false);
+                        }}
+                        className="rounded-lg border border-[#95492e] bg-primary px-3 py-1.5 font-heading text-[12.5px] font-bold text-primary-foreground"
+                      >
+                        Gata
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative z-[1] flex items-center justify-center p-6">
+                    {/* Previzualizarea arată imaginea CU adnotarea suprapusă, prin exact componenta care
+                        randează adnotarea pe pagina detaliului publicat (SketchViewer) — altfel, după
+                        „Gata", userul vedea poza goală și credea că desenul s-a pierdut (nu se pierduse,
+                        doar nu se randa). Fundal semitransparent implicit (2026-08-11): adnotarea e o
+                        schiță ca oricare alta — aceeași regulă ca pe pagina finală.
+                        Wrapper-ul `relative inline-block` se mulează exact pe imaginea randată, deci
+                        dreptunghiul măsurat de SketchViewer coincide cu imaginea. */}
+                    <span className="relative inline-block max-w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- preview local (blob:), nu asset optimizabil */}
+                      <img
+                        src={preview.url}
+                        alt="Previzualizare detaliu"
+                        className="max-h-80 w-auto max-w-full object-contain"
+                      />
+                      {annotationStrokes && annotationStrokes.length > 0 && (
+                        <SketchViewer imageUrl={preview.url} strokes={annotationStrokes} />
+                      )}
+                    </span>
+                  </div>
+                )}
+                {!annotating && (
+                  <div className="relative z-[2] flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-[#eee6da] bg-card px-3.5 py-2.5">
+                    <Send className="size-3.5 rotate-0 text-[#7a8a3f]" strokeWidth={1.9} />
+                    <span className="truncate font-mono text-[12px] text-muted-foreground">
+                      {preview.name}
+                    </span>
+                    {/* DE CE să adnotezi — scris explicit, nu lăsat pe seama iconiței: fără asta userul
+                        vede un buton „Adnotează" și nu știe la ce i-ar folosi. Dispare odată adnotat. */}
+                    {canAnnotate &&
+                      (annotationStrokes ? (
+                        <span className="ml-auto inline-flex items-center gap-1.5 font-mono text-[11.5px] text-[#95492e]">
+                          <Pencil className="size-3" strokeWidth={2} />
+                          adnotare adăugată
+                        </span>
+                      ) : (
+                        <span className="w-full font-mono text-[11.5px] leading-relaxed text-[#a59a88]">
+                          Vrei să explici ceva anume din imagine? Apasă „Adnotează” și desenează peste
+                          ea — săgeți, cote, notițe. Opțional.
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Plan CAD direct lângă desen (2026-10-24, mostră aprobată) — scurtătură spre o resursă CAD:
               adaugă rândul la „Alte resurse" și urcă fișierul, fără să cauți „Plan CAD" în listă. Vizibil

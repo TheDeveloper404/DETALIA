@@ -54,7 +54,6 @@ const ERROR_MESSAGES: Record<string, string> = {
   CATEGORY_REQUIRED: "Alege cel puțin o categorie.",
   TOO_MANY_CATEGORIES: "Prea multe categorii bifate.",
   INVALID_ZONE: "Una dintre valorile de zonă/încărcare nu e validă.",
-  INVALID_COUNTY: "Județul ales nu e valid.",
   LOCATION_REQUIRED: "Completează țara și orașul.",
   LOCATION_TOO_LONG: "Locația e prea lungă (max 200 de caractere).",
   INVALID_CATEGORY: "Una dintre categoriile alese nu există.",
@@ -81,7 +80,6 @@ export async function createDetailAction(
   const description = String(formData.get("description") ?? "");
   const categoryIds = formData.getAll("categoryIds").map(String).filter(Boolean);
   const location = String(formData.get("location") ?? "");
-  const county = String(formData.get("county") ?? "");
   const climateZone = String(formData.get("climateZone") ?? "");
   const seismicAg = String(formData.get("seismicAg") ?? "");
   const seismicTc = String(formData.get("seismicTc") ?? "");
@@ -116,7 +114,6 @@ export async function createDetailAction(
     categoryIds,
     imageUrl: processed.url,
     location,
-    county,
     climateZone,
     seismicAg,
     seismicTc,
@@ -204,7 +201,6 @@ export async function saveNewDetailDraftAction(
   const description = String(formData.get("description") ?? "");
   const categoryIds = formData.getAll("categoryIds").map(String).filter(Boolean);
   const location = String(formData.get("location") ?? "");
-  const county = String(formData.get("county") ?? "");
   const climateZone = String(formData.get("climateZone") ?? "");
   const seismicAg = String(formData.get("seismicAg") ?? "");
   const seismicTc = String(formData.get("seismicTc") ?? "");
@@ -234,7 +230,6 @@ export async function saveNewDetailDraftAction(
     categoryIds,
     imageUrl,
     location,
-    county,
     climateZone,
     seismicAg,
     seismicTc,

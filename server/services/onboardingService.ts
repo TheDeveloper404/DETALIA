@@ -6,11 +6,13 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { deleteBlobs } from "@/lib/storage";
 import { completeOnboardingProfileAndRole } from "@/server/repos/usersRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
+import { COUNTIES } from "@/server/domain/counties";
 import { validateRoleDeclaration, type RoleDeclarationError } from "@/server/domain/roles";
 
 type CompleteOnboardingError =
   | "INVALID_TYPE"
   | "ALREADY_HAS_ROLE"
+  | "INVALID_COUNTY"
   | RoleDeclarationError;
 
 export type CompleteOnboardingResult = { ok: true } | { ok: false; error: CompleteOnboardingError };
@@ -24,6 +26,7 @@ export async function completeOnboarding(input: {
   secondaryRole: string | null;
   headline: string | null;
   location: string | null;
+  county: string | null;
   company: string | null;
   website: string | null;
   avatarUrl: string | null;
@@ -37,6 +40,9 @@ export async function completeOnboarding(input: {
   if (avatarUrl && !isUsersBlobUrl(avatarUrl, userId)) return { ok: false, error: "INVALID_TYPE" };
   if (coverUrl && !isUsersBlobUrl(coverUrl, userId)) return { ok: false, error: "INVALID_TYPE" };
 
+  if (input.county !== null && !(COUNTIES as readonly string[]).includes(input.county)) {
+    return { ok: false, error: "INVALID_COUNTY" };
+  }
   const role = validateRoleDeclaration(input);
   if (!role.ok) return role;
   if (await getRoleByUserId(userId)) return { ok: false, error: "ALREADY_HAS_ROLE" };
@@ -65,6 +71,7 @@ export async function completeOnboarding(input: {
     name: `${input.firstName} ${input.lastName}`,
     headline: input.headline,
     location: input.location,
+    county: input.county,
     website: input.website,
     company: input.company,
     ...role.value,

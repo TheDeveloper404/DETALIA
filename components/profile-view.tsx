@@ -112,6 +112,15 @@ export function ProfileView({
   const [tab, setTab] = useState<Tab>("detalii");
   const [contactOpen, setContactOpen] = useState(false);
   const hasContactInfo = !!(data.location || data.company || data.website || data.phone || data.email);
+  const contactButton = (
+    <button
+      type="button"
+      onClick={() => setContactOpen(true)}
+      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[14px] font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+    >
+      <Contact /> Date de contact
+    </button>
+  );
 
   useEffect(() => {
     if (!contactOpen) return;
@@ -182,7 +191,7 @@ export function ProfileView({
         <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-[32px] font-extrabold tracking-tight">{data.name}</h1>
+              <h1 className="text-[24px] font-extrabold tracking-tight sm:text-[32px]">{data.name}</h1>
               {data.verified && (
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f0e0b4] bg-[#fbf2da] px-3 py-1 font-mono text-[12.5px] text-[#9a7b1f]">
                   <Star className="text-[#d99a2b]" /> Verificat
@@ -191,22 +200,16 @@ export function ProfileView({
               <span className="rounded-full bg-primary px-3 py-1 font-mono text-[13.5px] text-primary-foreground">
                 {data.roleLabel}
               </span>
-              {hasContactInfo && (
-                <button
-                  type="button"
-                  onClick={() => setContactOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[14px] font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
-                >
-                  <Contact /> Date de contact
-                </button>
-              )}
+              {hasContactInfo && <span className="max-sm:hidden">{contactButton}</span>}
             </div>
             <div className="mt-1.5 font-mono text-[13.5px] text-muted-foreground">
               Membru din {data.memberSince}
             </div>
-            {follow && (
-              <div className="mt-3.5">
-                <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />
+            {/* Mobil: „Urmărește" și „Date de contact" pe același rând. */}
+            {(follow || hasContactInfo) && (
+              <div className={`mt-3.5 flex flex-wrap items-center gap-2 ${follow ? "" : "sm:hidden"}`}>
+                {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
+                {hasContactInfo && <span className="sm:hidden">{contactButton}</span>}
               </div>
             )}
           </div>
@@ -291,7 +294,7 @@ export function ProfileView({
         )}
 
         {data.bio && (
-          <p className="mt-[18px] max-w-[64ch] text-[17px] leading-relaxed text-muted-foreground">{data.bio}</p>
+          <p className="mt-[18px] max-w-[64ch] text-[15px] leading-relaxed text-muted-foreground sm:text-[17px]">{data.bio}</p>
         )}
 
         {data.about && (

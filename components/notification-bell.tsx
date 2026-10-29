@@ -248,7 +248,7 @@ export function NotificationBell({
           open ? "bg-muted text-primary" : "text-foreground hover:bg-muted",
         )}
       >
-        <Bell className="size-7" strokeWidth={2} />
+        <Bell className="size-5 sm:size-7" strokeWidth={2} />
         {unreadCount > 0 && (
           <span className="absolute -right-1 -top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full border-2 border-background bg-primary px-1 font-mono text-[10px] text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
