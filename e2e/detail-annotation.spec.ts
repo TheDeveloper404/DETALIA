@@ -153,7 +153,8 @@ for (const device of [
       await expect(resources.getByRole("link", { name: "PDF: https://example.test/fisa.pdf", exact: true })).toHaveAttribute("href", "https://example.test/fisa.pdf");
       await expect(resources.getByRole("link", { name: "CAD: https://example.test/racord.dwg", exact: true })).toHaveAttribute("href", "https://example.test/racord.dwg");
       await expect(resources.locator("img")).toHaveCount(0);
-      if (device.width >= 768) await expect.poll(async () => (await resources.boundingBox())?.height ?? Infinity).toBeLessThanOrEqual(48);
+      // Pe tableta coloana de informatii e ingusta: resursele pot trece pe doua randuri.
+      if (device.width >= 1024) await expect.poll(async () => (await resources.boundingBox())?.height ?? Infinity).toBeLessThanOrEqual(48);
       await resources.getByRole("button", { name: /^Mărește imaginea:/ }).click();
       await expect(page.getByRole("dialog").locator("img")).toBeVisible();
       await expect.poll(() => page.getByRole("dialog").locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);

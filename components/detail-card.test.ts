@@ -54,7 +54,7 @@ it("ruleaza foile in loop doar la hover si revine la baza la iesire", () => {
   vi.advanceTimersByTime(1500); view = render(); expect(view.image.src).toBe("/first.png");
   vi.advanceTimersByTime(1500); view = render(); expect(view.image.src).toBe("/api/files/sketch/s2");
   vi.advanceTimersByTime(1500); view = render(); expect(view.image.src).toBe("/base.png");
-  view.tree.props.onPointerLeave!(); view = render();
+  view.tree.props.onPointerLeave!(); render();
   vi.advanceTimersByTime(4500); expect(render().image.src).toBe("/base.png");
   expect(vi.getTimerCount()).toBe(0);
 });

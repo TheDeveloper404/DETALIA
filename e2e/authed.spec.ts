@@ -93,8 +93,10 @@ test.describe.serial("Validare pe rol", () => {
     // „Ai aprobat" nu mai e text vizibil (doar `title`), iar span-ul „Retrage" e tot în DOM (doar comprimat
     // vizual via CSS) → RĂMÂNE accessible name-ul butonului (title are prioritate mai mică). Semnalul
     // real de „aprobat" e rândul din lista de poziții, nu butonul (identic pt approve/disapprove).
+    // Lista de poziții stă în modalul „Validări", deschis din numărul dintre săgeți.
     await expect(page.getByRole("button", { name: /retrage/i })).toBeVisible();
-    await expect(page.getByText(/aprobă/)).toBeVisible();
+    await page.getByRole("button", { name: "Vezi validările", exact: true }).click();
+    await expect(page.getByRole("dialog").getByText(/aprobă/)).toBeVisible();
   });
 
   test("Dezaprob cere justificare → devine comentariu argumentat", async ({ page }) => {

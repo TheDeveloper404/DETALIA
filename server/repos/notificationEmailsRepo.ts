@@ -92,7 +92,10 @@ export async function listDeliverableEmailEvents(delivery: EmailDelivery) {
         or (${notifications.type} = 'SKETCH_PROPOSED' and exists (
           select 1 from sketches s where s.id = (${sql.identifier("notifications")}.payload_json->>'sketchId')::uuid
             and s.detail_id = ${sql.identifier("details")}.id and s.status = 'PUBLISHED'
-            and s.hidden_after_release = false))
+            and s.hidden_after_release = false
+            and ((${sql.identifier("details")}.author_id = ${delivery.recipientUserId}::uuid and ${sql.identifier("details")}.anonymized_at is null)
+              or exists (select 1 from sketches b where b.id = (s.base_sketch_ids->>-1)::uuid
+                and b.author_id = ${delivery.recipientUserId}::uuid and b.author_removed = false))))
         or (${notifications.type} in ('COMMENT_ADDED', 'COMMENT_REPLIED') and exists (
           select 1 from comments c left join comments root on root.id = c.parent_comment_id
           where c.id = (${sql.identifier("notifications")}.payload_json->>'commentId')::uuid
@@ -101,7 +104,13 @@ export async function listDeliverableEmailEvents(delivery: EmailDelivery) {
             and (c.parent_comment_id is null or root.hidden_after_release = false)
             and (c.sketch_context_id is null or exists (select 1 from sketches cs
               where cs.id = c.sketch_context_id and cs.detail_id = ${sql.identifier("details")}.id
-                and cs.status = 'PUBLISHED' and cs.hidden_after_release = false))))
+                and cs.status = 'PUBLISHED' and cs.hidden_after_release = false))
+            -- Autorul retras ramane destinatar doar daca e si in fir sau autorul schitei de context.
+            and ((${sql.identifier("details")}.author_id = ${delivery.recipientUserId}::uuid and ${sql.identifier("details")}.anonymized_at is null)
+              or root.author_id = ${delivery.recipientUserId}::uuid
+              or exists (select 1 from comments rt where rt.id = c.reply_to_comment_id and rt.author_id = ${delivery.recipientUserId}::uuid)
+              or exists (select 1 from sketches ps where ps.id = c.sketch_context_id
+                and ps.author_id = ${delivery.recipientUserId}::uuid and ps.author_removed = false))))
         or (${notifications.type} in ('MATERIAL_OFFER_SENT', 'MATERIAL_OFFER_EDITED') and exists (
           select 1 from material_offers o
           where o.id = (${sql.identifier("notifications")}.payload_json->>'offerId')::uuid

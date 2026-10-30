@@ -144,6 +144,42 @@ it("o schita ascunsa dupa claim nu mai produce email", async () => {
   expect((await listDeliverableEmailEvents(batch)).map((row) => row.id)).not.toContain(event.id);
 });
 
+// "Autorul care s-a retras de pe continut nu mai primeste notificari despre el." (notifyCommentAdded)
+it("autorul retras dupa claim nu mai primeste email pentru comentariu sau schita", async () => {
+  const { recipient, actor, detail, notification } = await seed();
+  const [sketch] = await db.insert(sketches).values({ detailId: detail.id, authorId: actor.id, status: "PUBLISHED" }).returning();
+  const event = await insertNotification({ recipientUserId: recipient.id, type: "SKETCH_PROPOSED", payloadJson: { detailId: detail.id, sketchId: sketch.id } });
+  const [batch] = await due(new Date());
+  expect((await listDeliverableEmailEvents(batch)).map((row) => row.id).sort()).toEqual([notification.id, event.id].sort());
+  await db.update(details).set({ anonymizedAt: new Date() }).where(eq(details.id, detail.id));
+  expect(await listDeliverableEmailEvents(batch)).toHaveLength(0);
+});
+
+// Acelasi notifyCommentAdded: autorul radacinii firului primeste reply-ul indiferent de retragerea de pe detaliu.
+it("autorul retras ramane destinatar pentru reply-ul din firul lui", async () => {
+  const { recipient, actor, detail, notification } = await seed();
+  const [root] = await db.insert(comments).values({ targetType: "DETAIL", targetId: detail.id, authorId: recipient.id, body: "Radacina" }).returning();
+  const [reply] = await db.insert(comments).values({ targetType: "DETAIL", targetId: detail.id, authorId: actor.id, body: "Reply", parentCommentId: root.id }).returning();
+  await db.update(notifications).set({ type: "COMMENT_REPLIED", payloadJson: { detailId: detail.id, commentId: reply.id } }).where(eq(notifications.id, notification.id));
+  await db.update(details).set({ anonymizedAt: new Date() }).where(eq(details.id, detail.id));
+  const [batch] = await due(new Date());
+  expect((await listDeliverableEmailEvents(batch)).map((row) => row.id)).toEqual([notification.id]);
+});
+
+// "directBase ... && !directBase.authorRemoved" (sketchService) — autorul schitei-baza retras nu mai primeste.
+it("autorul schitei-baza retras nu mai primeste email pentru schita construita peste ea", async () => {
+  const { recipient, actor, detail } = await seed();
+  const [other] = await db.insert(users).values({ name: "Altul", email: `${crypto.randomUUID()}@test.invalid` }).returning();
+  const [base] = await db.insert(sketches).values({ detailId: detail.id, authorId: other.id, status: "PUBLISHED" }).returning();
+  const [sketch] = await db.insert(sketches).values({ detailId: detail.id, authorId: actor.id, status: "PUBLISHED", baseSketchIds: [base.id] }).returning();
+  await db.delete(notifications).where(eq(notifications.recipientUserId, recipient.id));
+  const event = await insertNotification({ recipientUserId: other.id, type: "SKETCH_PROPOSED", payloadJson: { detailId: detail.id, sketchId: sketch.id } });
+  const [batch] = await due(new Date());
+  expect((await listDeliverableEmailEvents(batch)).map((row) => row.id)).toEqual([event.id]);
+  await db.update(sketches).set({ authorRemoved: true }).where(eq(sketches.id, base.id));
+  expect(await listDeliverableEmailEvents(batch)).toHaveLength(0);
+});
+
 // "Un actor deja inclus nu mareste numarul si nu reseteaza unread."
 it("aprobari grupate fara dubluri la reapelare si fara email", async () => {
   const { recipient, actor, detail } = await seed();
