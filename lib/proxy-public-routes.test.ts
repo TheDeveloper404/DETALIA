@@ -69,14 +69,14 @@ describe("proxy — rute fără sesiune de user", () => {
     },
   );
 
-  it("linkul de dezabonare din email (GET cu token) ajunge la handler fără sesiune", async () => {
-    const res = await proxy(new NextRequest(`${BASE}/api/digest/unsubscribe?token=abc`));
+  it.each(["/api/digest/unsubscribe", "/api/activity/unsubscribe"])("linkul de dezabonare %s (GET cu token) ajunge la handler fără sesiune", async (path) => {
+    const res = await proxy(new NextRequest(`${BASE}${path}?token=abc`));
     expect(isRedirect(res)).toBe(false);
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("confirmarea dezabonării (POST) ajunge la handler fără sesiune", async () => {
-    const res = await proxy(new NextRequest(`${BASE}/api/digest/unsubscribe`, { method: "POST" }));
+  it.each(["/api/digest/unsubscribe", "/api/activity/unsubscribe"])("confirmarea dezabonării %s (POST) ajunge la handler fără sesiune", async (path) => {
+    const res = await proxy(new NextRequest(`${BASE}${path}`, { method: "POST" }));
     expect(isRedirect(res)).toBe(false);
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });

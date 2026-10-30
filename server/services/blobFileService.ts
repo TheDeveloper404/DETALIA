@@ -1,6 +1,7 @@
 import type { BlobFileKind } from "@/lib/blob-read-url";
 import { isOwnBlobUrl, isUsersBlobUrl } from "@/lib/blob-url";
 import { isPrivateBlobUrl } from "@/lib/blob-store";
+import { deleteBlobs } from "@/lib/storage";
 import { isUuid } from "@/server/domain/ids";
 import { getBlobFile, getBlobFileReferences } from "@/server/repos/blobFilesRepo";
 import { canAccessProjectDetail } from "@/server/services/projectService";
@@ -27,6 +28,29 @@ export async function canUseBlobUrls(urls: string[], userId: string): Promise<bo
   return true;
 }
 
+// Sursa trimisa de client se sterge doar ca staging: imagine de detaliu a userului, nefolosita in DB.
+// Altfel un URL al altui detaliu propriu (cu schite ale altora) ar fi sters ocolind regula de stergere.
+export async function deleteStagingBlobs(urls: (string | null | undefined)[], userId: string) {
+  const candidates = urls.filter((url): url is string => {
+    if (!url || !isUsersBlobUrl(url, userId)) return false;
+    return new URL(url).pathname.startsWith(`/u/${userId}/details/`);
+  });
+  if (!candidates.length) return;
+  // Best-effort, ca deleteBlobs: ruleaza dupa salvare, deci un esec aici nu trebuie sa para salvare esuata.
+  let refs;
+  try {
+    refs = await getBlobFileReferences(candidates);
+  } catch (err) {
+    console.error("[blobFileService] verificare staging esuata, fisierul ramane", {
+      count: candidates.length,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+  const referenced = new Set(refs.map((ref) => ref.url));
+  await deleteBlobs(candidates.filter((url) => !referenced.has(url)));
+}
+
 // Decizia se ia pe entitatea din DB, nu pe URL-ul sau proprietarul upload-ului din browser.
 export async function getReadableBlobFile(kind: string, id: string, userId: string | null) {
   if (
@@ -51,7 +75,9 @@ export async function getReadableBlobFile(kind: string, id: string, userId: stri
   if (kind === "canvas") {
     allowed = "ownerId" in row && row.ownerId === userId;
   } else if (kind === "offer") {
-    allowed = "supplierId" in row && (row.supplierId === userId || row.ownerId === userId);
+    // Autorul retras de pe detaliu nu mai primeste ofertele lui (ca in getMaterialOffersForOwner).
+    allowed = "supplierId" in row &&
+      (row.supplierId === userId || (row.ownerId === userId && !row.ownerWithdrawn));
   } else if ("detailStatus" in row && row.detailStatus === "DRAFT") {
     allowed = row.ownerId === userId && !("projectId" in row && row.projectId);
   } else if ("projectId" in row && row.projectId) {

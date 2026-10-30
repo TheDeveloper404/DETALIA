@@ -6,9 +6,9 @@ vi.mock("@/db", async () => {
   const { db, client } = await createTestDb();
   return { db, client };
 });
-const { identity, get } = vi.hoisted(() => ({ identity: vi.fn(), get: vi.fn() }));
+const { identity, get, del } = vi.hoisted(() => ({ identity: vi.fn(), get: vi.fn(), del: vi.fn() }));
 vi.mock("@/lib/require-active-api-user", () => ({ requireActiveApiUserId: identity }));
-vi.mock("@vercel/blob", () => ({ get, del: vi.fn(), put: vi.fn() }));
+vi.mock("@vercel/blob", () => ({ get, del, put: vi.fn() }));
 
 import { db } from "@/db";
 import {
@@ -23,7 +23,8 @@ import {
   materialOffers,
   materialOfferFiles,
 } from "@/db/schema";
-import { canUseBlobUrls, getReadableBlobFile } from "./blobFileService";
+import { canUseBlobUrls, deleteStagingBlobs, getReadableBlobFile } from "./blobFileService";
+import { listMaterialOffersReceivedByAuthor } from "@/server/repos/materialOffersRepo";
 import { GET } from "@/app/api/files/[kind]/[id]/route";
 
 const url = (name: string) =>
@@ -148,6 +149,36 @@ describe("DET-03 — autorizare pe date SQL reale", () => {
     expect((await getReadableBlobFile("offer", offerId, member)).ok).toBe(true);
     expect((await getReadableBlobFile("offer", offerId, stranger)).ok).toBe(false);
     expect((await getReadableBlobFile("offer", offerId, null)).ok).toBe(false);
+  });
+
+  // "Autorul care s-a retras de pe continut nu mai primeste notificari despre el." (notificationService.ts)
+  it("autorul retras nu mai descarca fisierele ofertei si nu le mai vede in profil; furnizorul da", async () => {
+    expect(await listMaterialOffersReceivedByAuthor(owner)).toHaveLength(1);
+    await db.update(details).set({ anonymizedAt: new Date() }).where(eq(details.id, publicId));
+    expect(await listMaterialOffersReceivedByAuthor(owner)).toHaveLength(0);
+    expect((await getReadableBlobFile("offer", offerId, owner)).ok).toBe(false);
+    expect((await getReadableBlobFile("offer", offerId, member)).ok).toBe(true);
+    await db.update(details).set({ anonymizedAt: null }).where(eq(details.id, publicId));
+  });
+
+  // Stergerea nu ocoleste regula de stergere: "o adnotare pe care altii au construit nu dispare" (edit/actions.ts).
+  it("staging-ul se sterge doar daca e imagine de detaliu proprie si nefolosita", async () => {
+    const base = `https://testprivate.private.blob.vercel-storage.com/u/${owner}`;
+    await db.insert(details).values({ title: "Folosit", authorId: owner, imageUrl: `${base}/details/used.png`, status: "PUBLISHED" });
+    del.mockClear();
+    await deleteStagingBlobs([
+      `${base}/details/staging.png`, `${base}/details/used.png`, `${base}/avatars/me.png`,
+      `https://testprivate.private.blob.vercel-storage.com/u/${member}/details/other.png`, null,
+    ], owner);
+    expect(del).toHaveBeenCalledTimes(1);
+    expect(del.mock.calls[0][0]).toEqual([`${base}/details/staging.png`]);
+    // Ruleaza dupa salvare: DB-ul cazut la verificare nu arunca si nu sterge nimic.
+    del.mockClear();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const select = vi.spyOn(db, "select").mockImplementationOnce(() => { throw new Error("db down"); });
+    await expect(deleteStagingBlobs([`${base}/details/staging.png`], owner)).resolves.toBeUndefined();
+    expect(del).not.toHaveBeenCalled();
+    select.mockRestore(); error.mockRestore();
   });
 
   // "un membru eliminat nu trebuie să mai poată vedea imaginea" (lib/project-image-proxy.ts).

@@ -238,6 +238,7 @@ export default async function FeedPage({
                       isSaved={mySavedIds.has(d.id)}
                       searchQuery={q}
                       tourAnchor={i === 0}
+                      sketchPreviews={d.sketchPreviews}
                     />
                   ))}
                 </div>

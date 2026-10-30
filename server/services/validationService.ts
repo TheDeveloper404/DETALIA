@@ -16,7 +16,7 @@ import { getDetailById } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
 import { canAccessProjectDetail } from "@/server/services/projectService";
-import { notifyCommentAdded } from "@/server/services/notificationService";
+import { notifyApprovalReceived, notifyCommentAdded } from "@/server/services/notificationService";
 import {
   deletePosition,
   listPositionsForTarget,
@@ -126,6 +126,11 @@ export async function approve(input: {
     position: "APPROVE",
     roleSnapshot: snapshotFromRole(role),
   });
+  try {
+    await notifyApprovalReceived({ actorId: input.userId, targetType: input.targetType, targetId: input.targetId });
+  } catch {
+    console.error("approval_notification_failed");
+  }
   return { ok: true };
 }
 

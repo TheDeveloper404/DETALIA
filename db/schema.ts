@@ -6,6 +6,7 @@
 // — cu cheile TS exacte pe care le cere adapterul — și (B) tabelele de domeniu DETALIA.
 
 import { sql } from "drizzle-orm";
+import { ACTIVITY_EMAIL_MODES } from "@/server/domain/notification";
 import {
   type AnyPgColumn,
   bigint,
@@ -67,7 +68,9 @@ export const notificationType = pgEnum("notification_type", [
   "REFERRAL_JOINED",
   "COMMENT_ADDED",
   "COMMENT_REPLIED",
+  "APPROVAL_RECEIVED",
 ]);
+export const activityEmailMode = pgEnum("activity_email_mode", ACTIVITY_EMAIL_MODES);
 
 // ════════════════════ (A) Tabele Auth.js (adapter Drizzle) ════════════════════
 // Cheile TS (emailVerified, sessionToken, userId, providerAccountId, ...) trebuie să rămână
@@ -129,6 +132,7 @@ export const users = pgTable("users", {
   // login). Cronul (`/api/cron/weekly-digest`) sare userii cu flagul pe false. Separat de
   // `NOTIFICATION_EMAILS_ENABLED` (flag global de mediu pt emailurile de notificare in-app).
   weeklyDigestEnabled: boolean().notNull().default(true),
+  activityEmailMode: activityEmailMode().notNull().default("IMPORTANT"),
 });
 
 export const accounts = pgTable(
@@ -679,7 +683,27 @@ export const materialOfferFiles = pgTable(
   (t) => [index("material_offer_files_offer_id_idx").on(t.offerId)],
 );
 
-// Notificare (in-app + email).
+// Batch de email: notificarea este coada; batch-ul pastreaza snapshotul stabil pentru retry.
+export const notificationEmailDeliveries = pgTable("notification_email_deliveries", {
+  id: uuid().defaultRandom().primaryKey(),
+  recipientUserId: uuid().notNull().references(() => users.id, { onDelete: "cascade" }),
+  detailId: uuid().references(() => details.id, { onDelete: "set null" }),
+  mode: activityEmailMode().notNull(),
+  periodKey: text().unique(),
+  status: text().$type<"READY" | "LEASED" | "SENT" | "CANCELLED" | "FAILED">().notNull().default("READY"),
+  nextAttemptAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  leaseUntil: timestamp({ withTimezone: true }),
+  leaseToken: uuid(),
+  firstAttemptAt: timestamp({ withTimezone: true }),
+  payloadJson: jsonb(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("notification_email_deliveries_recipient_idx").on(t.recipientUserId),
+  index("notification_email_deliveries_detail_idx").on(t.detailId),
+  index("notification_email_deliveries_due_idx").on(t.status, t.nextAttemptAt),
+]);
+
+// Notificare (in-app + coada email persistenta, fara backfill pentru istoricul existent).
 export const notifications = pgTable(
   "notifications",
   {
@@ -691,8 +715,16 @@ export const notifications = pgTable(
     payloadJson: jsonb(),
     readAt: timestamp({ withTimezone: true }),
     createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    emailDueAt: timestamp({ withTimezone: true }),
+    emailDeliveryId: uuid().references(() => notificationEmailDeliveries.id, { onDelete: "set null" }),
+    groupKey: text().unique(),
   },
-  (t) => [index("notifications_recipient_user_id_idx").on(t.recipientUserId)],
+  (t) => [
+    index("notifications_recipient_user_id_idx").on(t.recipientUserId),
+    index("notifications_email_delivery_idx").on(t.emailDeliveryId),
+    index("notifications_email_pending_idx").on(t.recipientUserId, t.emailDueAt)
+      .where(sql`${t.emailDueAt} is not null and ${t.emailDeliveryId} is null and ${t.readAt} is null`),
+  ],
 );
 
 // ════════════════════════ (C) Admin — autentificare SEPARATĂ de useri ════════════════════════

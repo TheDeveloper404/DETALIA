@@ -74,6 +74,31 @@ const ATTACKER = "attacker-1";
 const SID = "11111111-1111-4111-8111-111111111111";
 const DID = "22222222-2222-4222-8222-222222222222";
 
+// "Notificare catre autorul schitei peste care se construieste direct"; "deduplica destinatarul".
+it.each([OWNER, SKETCH_AUTHOR, "direct-author"])("publicarea peste o schita anunta destinatarii distincti: %s", async (baseAuthor) => {
+  const baseId = "33333333-3333-4333-8333-333333333333";
+  vi.mocked(getSketchById).mockReset().mockResolvedValueOnce(draft({ baseSketchIds: [baseId] }) as never)
+    .mockResolvedValue({ id: baseId, detailId: DID, authorId: baseAuthor, status: "PUBLISHED" } as never);
+  vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+  vi.mocked(notifySketchProposed).mockResolvedValue(undefined);
+  expect(await publish({ sketchId: SID, authorId: SKETCH_AUTHOR })).toEqual({ ok: true });
+  const recipients = vi.mocked(notifySketchProposed).mock.calls.map(([call]) => call.recipientUserId);
+  expect(recipients).toEqual(baseAuthor === "direct-author" ? [OWNER, baseAuthor] : [OWNER]);
+});
+
+// "Daca acel candidat a disparut, nu notifica urmatorul stramos ca si cum ar fi parintele direct."
+it("nu promoveaza un stramos cand parintele direct a disparut", async () => {
+  const ancestor = "33333333-3333-4333-8333-333333333333";
+  const gone = "44444444-4444-4444-8444-444444444444";
+  vi.mocked(getSketchById).mockReset().mockResolvedValueOnce(draft({ baseSketchIds: [ancestor, gone] }) as never).mockResolvedValue(undefined as never);
+  vi.mocked(filterPublishedSketchIds).mockResolvedValue([ancestor]);
+  vi.mocked(publishFromDraft).mockResolvedValue(true as never);
+  vi.mocked(notifySketchProposed).mockResolvedValue(undefined);
+  expect(await publish({ sketchId: SID, authorId: SKETCH_AUTHOR })).toEqual({ ok: true });
+  expect(getSketchById).not.toHaveBeenCalledWith(ancestor);
+  expect(notifySketchProposed).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ recipientUserId: OWNER }));
+});
+
 const validStrokes = [{ color: "#211d18", size: 8, points: [[0.1, 0.2]], kind: "free" }];
 
 function draft(over: Record<string, unknown> = {}) {

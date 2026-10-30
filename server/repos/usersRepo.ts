@@ -4,7 +4,8 @@ import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { accounts, details, roles, sessions, userStatus, users } from "@/db/schema";
+import { accounts, details, notifications, roles, sessions, userStatus, users } from "@/db/schema";
+import type { ActivityEmailMode } from "@/server/domain/notification";
 
 import { verifiedCondition } from "@/server/repos/repoHelpers";
 import type { RoleMain } from "@/server/domain/roles";
@@ -130,6 +131,7 @@ export async function getUserProfile(userId: string) {
       phoneVisible: users.phoneVisible,
       emailVisible: users.emailVisible,
       weeklyDigestEnabled: users.weeklyDigestEnabled,
+      activityEmailMode: users.activityEmailMode,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -153,9 +155,21 @@ export async function updateUserDetails(
     phoneVisible: boolean;
     emailVisible: boolean;
     weeklyDigestEnabled: boolean;
+    activityEmailMode?: ActivityEmailMode;
   },
 ) {
   await db.update(users).set(fields).where(eq(users.id, userId));
+  if (fields.activityEmailMode === "IN_APP") {
+    await db.update(notifications).set({ emailDueAt: null }).where(eq(notifications.recipientUserId, userId));
+  }
+}
+
+// Dezabonarea din email nu modifica digestul saptamanal sau notificarile in-app.
+export async function disableActivityEmails(userId: string) {
+  await db.execute(sql`
+    with updated as (update users set activity_email_mode = 'IN_APP' where id = ${userId} returning id)
+    update notifications set email_due_at = null where recipient_user_id in (select id from updated)
+  `);
 }
 
 // Profil PUBLIC (adresabil prin userId) — câmpuri publice colectate la onboarding + rol/verificare.

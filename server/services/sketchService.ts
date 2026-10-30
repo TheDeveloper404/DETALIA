@@ -33,7 +33,6 @@ import {
   filterPublishedSketchIds,
   finalizeStackBases,
   getPublicSketchTeaser,
-  getPublishedTeancSketch,
   markAuthorRemoved,
   listAnnotationsByDetail,
   listDraftsByAuthor,
@@ -260,20 +259,28 @@ export async function publish(input: {
   // Notificarea este auxiliară: schița este deja publicată. Dezaprobarea obligatorie de mai sus
   // rămâne în afara acestui catch, ca o eroare de business să nu fie ascunsă.
   try {
-    const recipientHasAccess =
-      !detail.projectId || (await canAccessProjectDetail({ projectId: detail.projectId, userId: detail.ownerId }));
-    if (recipientHasAccess && !isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) {
+    const recipients = new Set<string>();
+    if (!detail.isAnonymized && !isSelfAnnotation({ sketchAuthorId: sketch.authorId, detailAuthorId: detail.ownerId })) recipients.add(detail.ownerId);
+    // Ultimul ID din reteta initiala este parintele direct; nu promovam un stramos daca a disparut.
+    const directBaseId = declaredBases.at(-1);
+    const directBase = directBaseId ? await getSketchById(directBaseId) : null;
+    if (directBase && directBase.detailId === detail.id && directBase.status === "PUBLISHED"
+      && !directBase.hiddenAfterRelease && !directBase.authorRemoved && directBase.authorId !== sketch.authorId) recipients.add(directBase.authorId);
+    if (recipients.size > 0 && !sketch.isAnnotation) {
       const author = await getNotificationActor(sketch.authorId);
-      await notifySketchProposed({
-        recipientUserId: detail.ownerId,
-        sketchId: sketch.id,
-        detailId: sketch.detailId,
-        detailTitle: detail.title,
-        sketchAuthorName: author?.name ?? null,
-        sketchAuthorRole: author?.roleMain ?? null,
-        sketchAuthorSubRole: author?.subRole ?? null,
-        sketchAuthorVerified: author?.verification === "VERIFIED",
-      });
+      for (const recipientUserId of recipients) {
+        if (detail.projectId && !await canAccessProjectDetail({ projectId: detail.projectId, userId: recipientUserId })) continue;
+        await notifySketchProposed({
+          recipientUserId,
+          sketchId: sketch.id,
+          detailId: sketch.detailId,
+          detailTitle: detail.title,
+          sketchAuthorName: author?.name ?? null,
+          sketchAuthorRole: author?.roleMain ?? null,
+          sketchAuthorSubRole: author?.subRole ?? null,
+          sketchAuthorVerified: author?.verification === "VERIFIED",
+        });
+      }
     }
   } catch {
     console.error("[sketchService] notificare eșuată (non-fatal)", {
@@ -470,25 +477,32 @@ export function getTeanc(detailId: string) {
   return listPublishedByDetail(detailId);
 }
 
-// O schiță din teanc, pentru export. Accesul la detaliu se verifică ÎNAINTE, cu `getDetail`.
-export async function getTeancSketch(detailId: string, sketchId: string) {
-  if (!isUuid(detailId) || !isUuid(sketchId)) return null; // SEC-11
-  const sketch = await getPublishedTeancSketch(detailId, sketchId);
-  if (!sketch) return null;
-  if (sketch.thumbnailUrl) return { ...sketch, printStrokes: [] as Stroke[] };
+// Export doar cu foile capturate, in ordinea vizibila. Accesul la detaliu se verifica INAINTE.
+// 20 fundaluri + foaia activa sunt valide la randare, exact ca in workspace.
+export async function getPrintStack(detailId: string, visibleIds: unknown, activeSketchId?: string) {
+  if (!isUuid(detailId) || (activeSketchId !== undefined && !isUuid(activeSketchId))) return null;
+  if (visibleIds !== undefined && !Array.isArray(visibleIds)) return null;
+  if (Array.isArray(visibleIds) && activeSketchId && !visibleIds.includes(activeSketchId)) return null;
+  const requested = visibleIds === undefined ? null : validateBaseSketchIds(
+    activeSketchId ? (visibleIds as unknown[]).filter((id) => id !== activeSketchId) : visibleIds,
+  );
+  if (requested && !requested.ok) return null;
   const [teanc, annotations] = await Promise.all([
     listPublishedByDetail(detailId),
     listAnnotationsByDetail(detailId),
   ]);
+  const activeSketch = activeSketchId ? teanc.find((s) => s.id === activeSketchId) : null;
+  if (activeSketchId && !activeSketch) return null;
+  const bases = requested ?? validateBaseSketchIds(activeSketch?.baseSketchIds ?? []);
+  if (!bases.ok) return null;
+  const ids = activeSketchId ? [...bases.value, activeSketchId] : bases.value;
   const layers = resolveStackLayers(
-    (sketch.baseSketchIds as string[] | null) ?? [],
+    ids,
     new Map(teanc.map((s) => [s.id, s])),
     new Map(annotations.map((a) => [a.id, a])),
   );
-  return { ...sketch, printStrokes: composeStackStrokes([
-    ...layers.map(({ layer }) => ({ strokes: layer.strokesJson as Stroke[] | null })),
-    { strokes: sketch.strokesJson as Stroke[] | null },
-  ]) };
+  return { activeSketch: activeSketch ?? null, layers,
+    printStrokes: composeStackStrokes(layers.map(({ layer }) => ({ strokes: layer.strokesJson as Stroke[] | null }))) };
 }
 
 // ADNOTĂRILE autorului peste propriul detaliu (0..MAX_ANNOTATIONS_PER_DETAIL, în ordinea desenării).

@@ -33,6 +33,7 @@ export function DetailActionsMenu({
   isSaved,
   canSendToCanvas,
   activeSketchPublicId,
+  visibleStackIds = [],
   canDeleteActiveSketch,
   deleteSketchLabel,
   deletionMode = "HARD_DELETE",
@@ -50,6 +51,7 @@ export function DetailActionsMenu({
   // Link public al schiței active (`/s/[id]`, fără cont) — singurul link din meniu; vizibil doar pe tab
   // de schiță (id-ul schiței active, null pe tab de bază).
   activeSketchPublicId?: string | null;
+  visibleStackIds?: string[];
   canDeleteActiveSketch?: boolean;
   deleteSketchLabel?: string;
   // Ce face efectiv „Șterge" pe SCHIȚA activă, calculat cu aceeași regulă ca pe server
@@ -145,7 +147,8 @@ export function DetailActionsMenu({
             </form>
 
             <Link
-              href={activeSketchPublicId ? `/details/${detailId}/sketch/${activeSketchPublicId}/pdf` : `/details/${detailId}/pdf`}
+              href={(activeSketchPublicId ? `/details/${detailId}/sketch/${activeSketchPublicId}/pdf` : `/details/${detailId}/pdf`)
+                + (visibleStackIds.length ? `?stack=${visibleStackIds.join(",")}` : "")}
               target="_blank" rel="noopener noreferrer" role="menuitem" onClick={() => setOpen(false)} className={itemClass}>
               <FileDown className="size-4 text-muted-foreground" strokeWidth={2} />
               Export PDF

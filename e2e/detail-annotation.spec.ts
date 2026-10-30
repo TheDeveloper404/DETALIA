@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { details, sketches } from "../db/schema";
+import { detailResources, details, sketches, validations } from "../db/schema";
 import { deleteBlobs } from "../lib/storage";
 import { pickLeafCategories } from "./category-helpers";
 import { getSeed } from "./seed";
@@ -77,16 +77,28 @@ for (const device of [
   { name: "mobil", width: 390, height: 844, touch: true, dx: 30, dy: 30 },
 ]) {
   // Pe pagina detaliului, imaginea, adnotarile si schita vizibila au zoom si deplasare comune, doar pentru vizualizare. Controalele +, - si reset sunt in imagine; Ctrl+rotita mareste pe desktop, pinch cu doua degete pe touch. Scroll-ul paginii ramane disponibil la dimensiunea initiala, iar Schiteaza este o actiune separata.
+  // "Păstrezi taburile cu userii ca și acum, gen nu schimbi formatul. La fel la butoanele aprob și dezaprob."
+  // "Și partea de explicații pe care le lasă userii, sa fie acolo in partea de jos"
+  // "Ok, implementează cele două." — resurse compacte si validarile in modal, fara schimbarea voturilor.
   test(`Zoom direct in detaliu: ${device.name}`, async ({ page, context }) => {
     const seed = getSeed();
     const [detail] = await db.insert(details).values({
       title: `E2E zoom ${device.name} ${Date.now()}`, authorId: seed.testerUserId,
-      imageUrl: "/pwa-512.png",
+      imageUrl: "/pwa-512.png", description: "Descriere pentru asezarea compacta a detaliului.",
     }).returning({ id: details.id });
     try {
       const strokes = [{ color: "#d22", size: 4, points: [[0.2, 0.2], [0.7, 0.7]] }];
-      await db.insert(sketches).values({ detailId: detail.id, authorId: seed.testerUserId, status: "PUBLISHED", isAnnotation: true, strokesJson: strokes });
-      const [sketch] = await db.insert(sketches).values({ detailId: detail.id, authorId: seed.authorUserId, status: "PUBLISHED", strokesJson: strokes }).returning({ id: sketches.id });
+      await db.insert(sketches).values({ detailId: detail.id, authorId: seed.testerUserId, status: "PUBLISHED", isAnnotation: true, strokesJson: strokes, note: "Explicatia adnotarii pentru layout." });
+      const [sketch] = await db.insert(sketches).values({ detailId: detail.id, authorId: seed.authorUserId, status: "PUBLISHED", strokesJson: strokes, note: "Explicatia schitei pentru layout." }).returning({ id: sketches.id });
+      await db.insert(detailResources).values([
+        { detailId: detail.id, type: "PDF", url: "https://example.test/fisa.pdf" },
+        { detailId: detail.id, type: "CAD", url: "https://example.test/racord.dwg" },
+        { detailId: detail.id, type: "IMAGE", url: "/pwa-512.png" },
+      ]);
+      await db.insert(validations).values([
+        { targetType: "DETAIL", targetId: detail.id, userId: seed.authorUserId, position: "APPROVE" },
+        { targetType: "DETAIL", targetId: detail.id, userId: seed.testerUserId, position: "DISAPPROVE" },
+      ]);
       await page.setViewportSize({ width: device.width, height: device.height });
       await page.goto(`/details/${detail.id}`);
       const viewport = page.getByTestId("detail-image-viewport");
@@ -95,6 +107,76 @@ for (const device of [
       await viewport.scrollIntoViewIfNeeded();
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
       await expect(content.locator("canvas")).toBeVisible();
+      const information = page.getByTestId("detail-information");
+      const explanation = page.getByTestId("detail-explanation");
+      await expect(information).toContainText("Descriere pentru asezarea compacta a detaliului.");
+      await expect(explanation).toContainText("Explicatia adnotarii pentru layout.");
+      await expect(information).toHaveCSS("overflow-y", "visible");
+      await expect(explanation).toHaveCSS("overflow-y", "visible");
+      await expect(page.getByRole("button", { name: "Acțiuni detaliu", exact: true })).toHaveCount(1);
+      await expect.poll(async () => {
+        const info = await information.boundingBox();
+        const drawing = await page.getByTestId("detail-drawing").boundingBox();
+        const note = await explanation.boundingBox();
+        const imageBox = await viewport.boundingBox();
+        const date = await page.getByTestId("detail-publication-date").boundingBox();
+        const title = await page.getByRole("heading", { level: 1 }).boundingBox();
+        const menu = await page.getByRole("button", { name: "Acțiuni detaliu", exact: true }).boundingBox();
+        const sketchButton = await page.getByRole("button", { name: "Schițează", exact: true }).boundingBox();
+        if (!info || !drawing || !note || !imageBox || !date || !title || !menu || !sketchButton) return false;
+        if (device.width < 768) return info.y < drawing.y && note.y >= drawing.y + drawing.height - 1;
+        return info.x + info.width <= drawing.x && note.x + note.width <= drawing.x
+          && Math.abs(note.y + note.height - drawing.y - drawing.height) < 2
+          && date.y < title.y && menu.x > info.x + info.width && menu.y + menu.height <= drawing.y
+          && imageBox.width >= drawing.width - 20
+          && sketchButton.x >= drawing.x && sketchButton.y + sketchButton.height <= drawing.y + drawing.height;
+      }).toBe(true);
+      if (device.width >= 768) {
+        await page.getByRole("button", { name: "Acțiuni detaliu", exact: true }).click();
+        await page.getByRole("menuitem", { name: /^(Șterge detaliul|Retrage-te din detaliu)$/ }).click();
+        const confirmation = page.getByRole("dialog");
+        await expect(confirmation).toBeVisible();
+        // Confirmarea trebuie sa intercepteze inclusiv pointerul deasupra headerului sticky.
+        await expect.poll(() => confirmation.evaluate((overlay) => {
+          const header = document.querySelector("header")?.getBoundingClientRect();
+          if (!header) return false;
+          const topmost = document.elementFromPoint(header.x + header.width / 2, header.y + header.height / 2);
+          return !!topmost && overlay.contains(topmost);
+        })).toBe(true);
+        await confirmation.getByRole("button", { name: "Anulează", exact: true }).click();
+        await expect(confirmation).not.toBeVisible();
+      }
+      if (device.width < 640) await page.getByText("Resurse (3)", { exact: true }).click();
+      const resources = device.width >= 768
+        ? page.getByTestId("detail-resources")
+        : page.locator("details").filter({ hasText: "Resurse (3)" });
+      await expect(resources.getByRole("link", { name: "PDF: https://example.test/fisa.pdf", exact: true })).toHaveAttribute("href", "https://example.test/fisa.pdf");
+      await expect(resources.getByRole("link", { name: "CAD: https://example.test/racord.dwg", exact: true })).toHaveAttribute("href", "https://example.test/racord.dwg");
+      await expect(resources.locator("img")).toHaveCount(0);
+      // Pe tableta coloana de informatii e ingusta: resursele pot trece pe doua randuri.
+      if (device.width >= 1024) await expect.poll(async () => (await resources.boundingBox())?.height ?? Infinity).toBeLessThanOrEqual(48);
+      await resources.getByRole("button", { name: /^Mărește imaginea:/ }).click();
+      await expect(page.getByRole("dialog").locator("img")).toBeVisible();
+      await expect.poll(() => page.getByRole("dialog").locator("img").evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).not.toBeVisible();
+
+      const validationCount = page.getByRole("button", { name: "Vezi validările", exact: true });
+      await expect(page.getByTestId("validation-positions-list")).toHaveCount(0);
+      await expect(validationCount).toHaveText("2");
+      await validationCount.click();
+      const validationDialog = page.getByRole("dialog", { name: "Validări", exact: true });
+      await expect(validationDialog.getByRole("button", { name: "Aprobări (1)", exact: true })).toHaveAttribute("aria-pressed", "true");
+      await expect(validationDialog.getByTestId("validation-positions-list").locator("li")).toHaveCount(1);
+      await expect(validationDialog.getByTestId("validation-positions-list").getByRole("link")).toHaveAttribute("href", `/profile/${seed.authorUserId}`);
+      await validationDialog.getByRole("button", { name: "Dezaprobări (1)", exact: true }).click();
+      await expect(validationDialog.getByTestId("validation-positions-list").getByRole("link")).toHaveAttribute("href", `/profile/${seed.testerUserId}`);
+      await page.keyboard.press("Escape");
+      await expect(validationDialog).not.toBeVisible();
+      await expect(validationCount).toBeFocused();
+      expect(await db.select({ userId: validations.userId, position: validations.position }).from(validations).where(and(eq(validations.targetType, "DETAIL"), eq(validations.targetId, detail.id)))).toEqual(expect.arrayContaining([
+        { userId: seed.authorUserId, position: "APPROVE" }, { userId: seed.testerUserId, position: "DISAPPROVE" },
+      ]));
       const imageNode = await image.elementHandle();
       const zoomIn = page.getByRole("button", { name: "Mărește imaginea", exact: true });
       const reset = page.getByRole("button", { name: "Resetează zoom-ul", exact: true });
@@ -110,6 +192,12 @@ for (const device of [
 
       // Comutarea intre adnotare si schita pastreaza acelasi zoom si aceeasi imagine DOM.
       await page.getByTestId(`sketch-tab-${sketch.id}`).click();
+      await expect(explanation).toContainText("Explicatia schitei pentru layout.");
+      await expect(explanation).not.toContainText("Explicatia adnotarii pentru layout.");
+      await expect(validationCount).toHaveText("0");
+      await validationCount.click();
+      await expect(validationDialog.getByText("Nicio aprobare încă.", { exact: true })).toBeVisible();
+      await validationDialog.getByRole("button", { name: "Închide validările", exact: true }).click();
       await expect(viewport).toHaveAttribute("data-zoom", "1.1");
       await expect(content.locator("canvas")).toBeVisible();
       await expect.poll(() => content.locator("canvas").evaluate((canvas: HTMLCanvasElement) =>
@@ -159,7 +247,10 @@ for (const device of [
       const [saved] = await db.select({ strokes: sketches.strokesJson }).from(sketches).where(eq(sketches.id, sketch.id));
       expect(saved.strokes).toEqual(strokes);
       await expect(page).toHaveURL(new RegExp(`/details/${detail.id}(\\?.*)?$`));
-    } finally { await cleanup(detail.id, null); }
+    } finally {
+      await db.delete(validations).where(and(eq(validations.targetType, "DETAIL"), eq(validations.targetId, detail.id)));
+      await cleanup(detail.id, null);
+    }
   });
 }
 

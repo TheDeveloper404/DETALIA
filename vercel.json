@@ -3,6 +3,10 @@
   "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"preview\" ] && [ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ]; then exit 0; else exit 1; fi",
   "crons": [
     {
+      "path": "/api/cron/notification-emails",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/cleanup-notifications",
       "schedule": "0 3 * * *"
     },

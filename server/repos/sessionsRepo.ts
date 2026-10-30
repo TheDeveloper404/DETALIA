@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { sessions } from "@/db/schema";
@@ -17,4 +17,12 @@ export async function hasValidUserSession(sessionToken: string, userId: string):
 
 export async function revokeUserSession(sessionToken: string) {
   await db.delete(sessions).where(eq(sessions.sessionToken, sessionToken));
+}
+
+// Rândurile expirate nu mai autentifică pe nimeni (hasValidUserSession cere expires > now); cron-ul zilnic le curăță.
+export async function deleteExpiredSessions(): Promise<number> {
+  const result = await db.execute<{ count: number }>(sql`
+    with deleted as (delete from sessions where expires <= now() returning 1) select count(*)::int as count from deleted
+  `);
+  return result.rows[0].count;
 }

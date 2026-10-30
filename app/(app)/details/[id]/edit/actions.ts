@@ -7,7 +7,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { deleteBlobs } from "@/lib/storage";
-import { canUseBlobUrls } from "@/server/services/blobFileService";
+import { canUseBlobUrls, deleteStagingBlobs } from "@/server/services/blobFileService";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { publishDetailDraft, saveDetailDraft, updateDetail } from "@/server/services/detailService";
 import { parseAnnotationStrokes } from "@/lib/annotation-form";
@@ -125,7 +125,7 @@ export async function updateDetailAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
-  if (imageChanged) await deleteBlobs([imageUrl]);
+  if (imageChanged) await deleteStagingBlobs([imageUrl], userId);
 
   // Imaginea s-a schimbat → curăță blob-ul vechi (best-effort, după commit-ul DB).
   if (result.oldImageUrl) {
@@ -241,7 +241,7 @@ export async function saveDraftDetailAction(
     if (image.sourceImageUrl) await deleteBlobs([image.imageUrl]);
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
-  if (image.sourceImageUrl) await deleteBlobs([image.sourceImageUrl]);
+  if (image.sourceImageUrl) await deleteStagingBlobs([image.sourceImageUrl], userId);
 
   revalidatePath(`/details/${fields.detailId}/edit`);
   return image.sourceImageUrl
@@ -275,7 +275,7 @@ export async function publishDraftDetailAction(
     if (image.sourceImageUrl) await deleteBlobs([image.imageUrl]);
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
-  if (image.sourceImageUrl) await deleteBlobs([image.sourceImageUrl]);
+  if (image.sourceImageUrl) await deleteStagingBlobs([image.sourceImageUrl], userId);
 
   revalidatePath("/feed");
   redirect(`/details/${fields.detailId}`);

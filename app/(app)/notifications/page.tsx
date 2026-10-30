@@ -16,12 +16,15 @@ type Payload = {
   detailId?: string;
   detailTitle?: string;
   sketchAuthorName?: string | null;
+  actorIds?: string[];
 };
 
 function describe(type: string, p: Payload): { text: string; href: string | null } {
   const title = p.detailTitle ?? "un detaliu";
   const href = notificationHref(p);
   switch (type) {
+    case "APPROVAL_RECEIVED":
+      return { text: `Ai primit ${p.actorIds?.length ?? 1} ${(p.actorIds?.length ?? 1) === 1 ? "aprobare" : "aprobări"} la „${title}”.`, href };
     case "COMMENT_ADDED":
       return { text: `Ai un comentariu nou la „${title}”.`, href };
     case "COMMENT_REPLIED":

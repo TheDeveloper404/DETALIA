@@ -140,14 +140,14 @@ export async function saveCanvasThumbnail(input: {
   }
   const processed = await reprocessBlobImage(input.thumbnailUrl, "canvases", input.ownerId);
   if (!processed.ok) return { ok: false, error: "INVALID_STATE" };
-  const ok = await updateThumbnailOwned(input.canvasId, input.ownerId, processed.url);
-  if (!ok) {
+  const updated = await updateThumbnailOwned(input.canvasId, input.ownerId, processed.url);
+  if (!updated) {
     await deleteBlobs([processed.url]);
     return { ok: false, error: "NOT_FOUND" };
   }
-  // Curăță blob-ul vechi (best-effort) DUPĂ ce noul URL e persistat.
-  if (existing.thumbnailUrl && existing.thumbnailUrl !== processed.url) {
-    await deleteBlobs([existing.thumbnailUrl]);
+  // Curăță blob-ul înlocuit de ACEASTĂ cerere (best-effort) DUPĂ ce noul URL e persistat.
+  if (updated.previousUrl && updated.previousUrl !== processed.url) {
+    await deleteBlobs([updated.previousUrl]);
   }
   return { ok: true };
 }

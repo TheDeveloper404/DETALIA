@@ -33,8 +33,27 @@ vi.mock("@/server/repos/detailsRepo", () => ({
 vi.mock("@/server/repos/usersRepo", () => ({ listTopAuthors: vi.fn(), listUsersByRole }));
 vi.mock("@/server/services/roleService", () => ({ userHasRole: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
+vi.mock("@/server/repos/sketchesRepo", () => ({ listFeedSketchPreviews: vi.fn().mockResolvedValue([]) }));
 
 import { getFeed, getUsersByRole } from "./detailService";
+import { listFeedSketchPreviews } from "@/server/repos/sketchesRepo";
+
+// "La hover peste un detaliu in feed sa fie o succesiune a schitelor din interiorul detaliului in loop"
+it("grupeaza miniaturile pe detaliu intr-un singur lot, fara a schimba paginarea", async () => {
+  listFeedWithTotal.mockResolvedValueOnce({ rows: [{ id: "d1" }, { id: "d2" }], total: 2 });
+  vi.mocked(listFeedSketchPreviews).mockResolvedValueOnce([
+    { id: "s1", detailId: "d1", thumbnailUrl: "/s1.png" },
+    { id: "s2", detailId: "d2", thumbnailUrl: "/s2.png" },
+    { id: "s3", detailId: "d1", thumbnailUrl: null },
+    { id: "s4", detailId: "d1", thumbnailUrl: "/s4.png" },
+  ]);
+  const result = await getFeed();
+  expect(listFeedSketchPreviews).toHaveBeenLastCalledWith(["d1", "d2"]);
+  expect(result.details.map((detail) => detail.sketchPreviews)).toEqual([
+    [{ id: "s1", thumbnailUrl: "/s1.png" }, { id: "s4", thumbnailUrl: "/s4.png" }],
+    [{ id: "s2", thumbnailUrl: "/s2.png" }],
+  ]);
+});
 
 // Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate.
 it("getUsersByRole pastreaza toti utilizatorii, inclusiv peste sase si cu zero postari", async () => {
@@ -126,7 +145,7 @@ describe("getFeed — paginare (50/pagină)", () => {
     expect(vi.mocked(listFeedWithTotal).mock.calls.length).toBe(callsBefore + 1);
     expect(res.total).toBe(120);
     expect(res.totalPages).toBe(3); // 120 / 50 → 3 pagini
-    expect(res.details).toEqual([{ id: "d1" }, { id: "d2" }]);
+    expect(res.details).toEqual([{ id: "d1", sketchPreviews: [] }, { id: "d2", sketchPreviews: [] }]);
   });
 
   // Regresie Greptile (PR #255, 2026-08-25): 0 rânduri (offset dincolo de ultima pagină) trebuia să

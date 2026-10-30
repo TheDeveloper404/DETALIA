@@ -104,6 +104,7 @@ const DETAILS_ERRORS: Record<string, string> = {
   INVALID_WEBSITE: "Website-ul trebuie să înceapă cu http:// sau https://.",
   INVALID_PHONE: "Telefonul poate conține doar cifre, spații și + - ( ).",
   INVALID_COUNTY: "Alege un județ din listă.",
+  INVALID_EMAIL_MODE: "Alege o opțiune validă pentru emailurile de activitate.",
 };
 
 // Editează câmpurile de text ale profilului (nume, headline, about, locație, website). NU atinge rolul (definitiv).
@@ -127,6 +128,7 @@ export async function updateProfileDetailsAction(
     phoneVisible: formData.get("phoneVisible") === "on",
     emailVisible: formData.get("emailVisible") === "on",
     weeklyDigestEnabled: formData.get("weeklyDigestEnabled") === "on",
+    activityEmailMode: formData.get("activityEmailMode") ?? undefined,
   });
   if (!res.ok)
     return { error: DETAILS_ERRORS[res.reason] ?? "Profilul n-a putut fi salvat.", ok: false };

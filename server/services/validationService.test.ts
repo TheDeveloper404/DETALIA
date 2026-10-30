@@ -5,7 +5,7 @@ vi.mock("@/server/repos/detailsRepo", () => ({ getDetailById: vi.fn() }));
 vi.mock("@/server/repos/rolesRepo", () => ({ getRoleByUserId: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({ getSketchById: vi.fn() }));
 vi.mock("@/server/services/projectService", () => ({ canAccessProjectDetail: vi.fn() }));
-vi.mock("@/server/services/notificationService", () => ({ notifyCommentAdded: vi.fn() }));
+vi.mock("@/server/services/notificationService", () => ({ notifyApprovalReceived: vi.fn(), notifyCommentAdded: vi.fn() }));
 vi.mock("@/server/repos/validationsRepo", () => ({
   deletePosition: vi.fn(),
   listPositionsForTarget: vi.fn(),

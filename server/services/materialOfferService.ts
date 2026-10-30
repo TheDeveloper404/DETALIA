@@ -105,6 +105,7 @@ export async function sendOrUpdateMaterialOffer(input: {
       detailId: input.detailId,
       detailTitle: detail.title,
       supplierName: actor?.name ?? null,
+      offerId,
     });
   } catch (err) {
     console.error("[materialOfferService] notificare eșuată (non-fatal)", {
@@ -148,6 +149,6 @@ export async function getMyMaterialOffer(userId: string, detailId: string) {
 export async function getMaterialOffersForOwner(userId: string, detailId: string) {
   if (!isUuid(detailId)) return [];
   const detail = await getDetailById(detailId);
-  if (!detail || detail.ownerId !== userId) return [];
+  if (!detail || detail.ownerId !== userId || detail.isAnonymized) return [];
   return listMaterialOffersForDetail(detailId);
 }

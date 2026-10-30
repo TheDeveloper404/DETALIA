@@ -97,6 +97,7 @@ export default defineConfig({
         /profile-contact\.spec\.ts/,
         /saved\.spec\.ts/,
         /notifications-page\.spec\.ts/,
+        /activity-notifications\.spec\.ts/,
         /detail-deletion\.spec\.ts/,
         /worksheet-2026-08-06\.spec\.ts/,
         /projects\.spec\.ts/,

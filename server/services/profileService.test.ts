@@ -280,6 +280,17 @@ describe("updateProfileDetails — județ", () => {
     weeklyDigestEnabled: true,
   };
 
+  // "Preferinte in profil: fara emailuri de activitate / interactiuni importante (implicit) / rezumat zilnic".
+  it.each(["IN_APP", "IMPORTANT", "DAILY"])("salveaza modul %s separat de digest", async (activityEmailMode) => {
+    expect(await updateProfileDetails(USER_ID, { ...input, activityEmailMode })).toEqual({ ok: true });
+    expect(updateUserDetails).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ activityEmailMode, weeklyDigestEnabled: true }));
+  });
+  // "Enum validat pe server".
+  it("respinge moduri email arbitrare fara scriere", async () => {
+    expect(await updateProfileDetails(USER_ID, { ...input, activityEmailMode: "ALL" })).toEqual({ ok: false, reason: "INVALID_EMAIL_MODE" });
+    expect(updateUserDetails).not.toHaveBeenCalled();
+  });
+
   // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.
   it("judetul din lista se salveaza; gol inseamna nespecificat", async () => {
     expect(await updateProfileDetails(USER_ID, { ...input, county: " Cluj " })).toEqual({ ok: true });

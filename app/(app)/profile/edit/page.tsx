@@ -80,6 +80,7 @@ export default async function ProfileEditPage() {
             email={email}
             initialEmailVisible={profile?.emailVisible ?? false}
             initialWeeklyDigestEnabled={profile?.weeklyDigestEnabled ?? true}
+            initialActivityEmailMode={profile?.activityEmailMode ?? "IMPORTANT"}
           />
         </section>
 

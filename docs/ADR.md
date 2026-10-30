@@ -1,5 +1,10 @@
 # DETALIA — Decizii de arhitectura (ADR — forma scurta)
 
+## ADR-032 — Emailuri de activitate din coada persistenta (2026-10-30)
+**Context:** activitatea importanta necitita necesita grupare si retry fara emailuri duplicate ori continut cu acces revocat.
+**Decizie:** notificarea retine scadenta si batch-ul; un singur tabel de livrari pastreaza snapshotul, lease/token si cheia Resend. CTE-uri atomice prin Neon HTTP; IMPORTANT dupa 30 min, DAILY la 07:00 UTC, preferinta separata de digestul saptamanal.
+**Consecinte:** fara provider/driver nou; accesul, citirea si preferinta se reverifica la fiecare incercare. Payload identic la retry, oprire dupa fereastra Resend de 24h; SQL aditiv pe dev/prod, istoricul nu este pus retroactiv in coada.
+
 Doar decizii de design (stack, model de date, auth, acces, storage), fiecare in 3–4 randuri: context → decizie → consecinte.
 Fix-urile si detaliile de implementare stau in `CHANGELOG.md`, nu aici.
 

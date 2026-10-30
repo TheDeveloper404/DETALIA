@@ -12,6 +12,7 @@ import { PersonSilhouette } from "./avatar-initials";
 import { BadgeEarnedPopup } from "./badge-earned-popup";
 import { ContributionGraph, type ContributionDay } from "./contribution-graph";
 import { FollowButton } from "./follow-button";
+import { FollowingUsersButton } from "./following-users-button";
 import { ReferralLinkCard } from "./referral-link-card";
 import { ShowMoreButton } from "./show-more-button";
 
@@ -115,7 +116,7 @@ export function ProfileView({
     <button
       type="button"
       onClick={() => setContactOpen(true)}
-      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[14px] font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+      className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
     >
       <Contact /> Date de contact
     </button>
@@ -196,15 +197,15 @@ export function ProfileView({
                   <Star className="text-[#d99a2b]" /> Verificat
                 </span>
               )}
-              <span className="rounded-full bg-primary px-3 py-1 font-mono text-[13.5px] text-primary-foreground">
-                {data.roleLabel}
-              </span>
-              <span className="max-sm:hidden">{contactButton}</span>
             </div>
-            {/* Mobil: „Urmărește" și „Date de contact" pe același rând. */}
-            <div className={`mt-3.5 flex flex-wrap items-center gap-2 ${follow ? "" : "sm:hidden"}`}>
+            <span className="mt-2 inline-flex rounded-full bg-primary px-3 py-1 font-mono text-[13.5px] text-primary-foreground">
+              {data.roleLabel}
+            </span>
+            {/* Aceeasi asezare pe mobil, tableta si desktop; erorile nu deplaseaza butonul de contact. */}
+            <div className="mt-3.5 flex flex-wrap items-start gap-2">
               {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
-              <span className="sm:hidden">{contactButton}</span>
+              {contactButton}
+              {data.viewerIsOwner && <FollowingUsersButton />}
             </div>
           </div>
 
@@ -777,7 +778,7 @@ function Star({ className, size = 12 }: { className?: string; size?: number }) {
 
 function Contact() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="16" height="16" className="shrink-0" aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="4" y="3" width="16" height="18" rx="2" />
       <circle cx="12" cy="10" r="2.5" />
       <path d="M8 17c0-2.2 1.8-3 4-3s4 .8 4 3" />

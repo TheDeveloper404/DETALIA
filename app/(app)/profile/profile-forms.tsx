@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { COUNTIES } from "@/server/domain/counties";
+import type { ActivityEmailMode } from "@/server/domain/notification";
 
 import { type ProfileFormState, updateProfileDetailsAction } from "./actions";
 
@@ -54,6 +55,7 @@ export function EditDetailsForm({
   email,
   initialEmailVisible,
   initialWeeklyDigestEnabled,
+  initialActivityEmailMode = "IMPORTANT",
 }: {
   initialName: string | null;
   initialHeadline: string | null;
@@ -67,6 +69,7 @@ export function EditDetailsForm({
   email: string | null; // afișare informativă (nu se editează aici) — doar vizibilitatea se bifează
   initialEmailVisible: boolean;
   initialWeeklyDigestEnabled: boolean;
+  initialActivityEmailMode?: ActivityEmailMode;
 }) {
   const [state, formAction, pending] = useActionState(
     updateProfileDetailsAction,
@@ -219,6 +222,15 @@ export function EditDetailsForm({
 
       <div className="border-t border-border pt-4">
         <h3 className="mb-1 text-sm font-semibold">Email-uri</h3>
+        <div className="mb-3 flex flex-col gap-1.5">
+          <Label htmlFor="activityEmailMode">Emailuri de activitate</Label>
+          <select id="activityEmailMode" name="activityEmailMode" defaultValue={initialActivityEmailMode} className="min-h-11 w-full min-w-0 rounded-lg border border-border bg-card px-3 text-sm">
+            <option value="IN_APP">Doar notificări în aplicație</option>
+            <option value="IMPORTANT">Interacțiuni importante</option>
+            <option value="DAILY">Rezumat zilnic al interacțiunilor necitite</option>
+          </select>
+          <p className="text-xs text-muted-foreground">Interacțiunile importante necitite sunt grupate după 30 de minute.</p>
+        </div>
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <input
             type="checkbox"

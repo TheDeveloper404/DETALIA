@@ -85,7 +85,8 @@ describe("geometria zoom-ului imaginii", () => {
     expect(constrainImageView({ zoom: 2, x: 999, y: 999 }, frame, { width: 100, height: 1000 })).toEqual({ zoom: 2, x: 0, y: 225 });
     expect(constrainImageView({ zoom: 2, x: 999, y: 999 }, frame, { width: 1000, height: 100 })).toEqual({ zoom: 2, x: 300, y: 0 });
     expect(constrainImageView({ zoom: 0.1, x: 50, y: 50 }, frame, image)).toEqual(base);
-    expect(constrainImageView({ zoom: 50, x: 0, y: 0 }, frame, image).zoom).toBe(3);
+    expect(constrainImageView({ zoom: 50, x: 0, y: 0 }, frame, image).zoom).toBe(3.5);
+    expect(zoomImageView(base, 50, { x: 0, y: 0 }, frame, image).zoom).toBe(3.5);
   });
 });
 
@@ -103,6 +104,13 @@ describe("interactiunea viewer-ului, fara browser", () => {
     expect(content.props.style?.transform).toBe("translate(0px, 0px) scale(1.1)");
     expect(find(content, (node) => node.props["data-testid"] === "overlay")).toBeTruthy();
     expect(find(content, (node) => node.props["data-testid"] === "overlay")!.props).toHaveProperty("data-resolution", 1.1);
+    for (let i = 0; i < 20; i++) {
+      find(tree, (node) => node.props["aria-label"] === "Mărește imaginea")!.props.onClick!();
+      tree = render();
+    }
+    expect(tree.props["data-zoom"]).toBe(3.5);
+    expect(find(tree, (node) => node.props["aria-label"] === "Resetează zoom-ul")!.props.children).toEqual([350, "%"]);
+    expect(find(tree, (node) => node.props["aria-label"] === "Mărește imaginea")!.props).toHaveProperty("disabled", true);
     find(tree, (node) => node.props["aria-label"] === "Resetează zoom-ul")!.props.onClick!();
     tree = render();
     expect(tree.props["data-zoom"]).toBe(1);

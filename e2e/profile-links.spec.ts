@@ -50,6 +50,7 @@ test.describe("Nume/poză din panoul de validare → link spre profil", () => {
 
     await page.goto(detailUrl());
     await page.getByRole("button", { name: "Aprobă", exact: true }).click();
+    await page.getByRole("button", { name: "Vezi validările", exact: true }).click();
 
     // Rândul de poziție (nume + rol) din lista „Pozițiile celorlalți" — vezi validation-panel.tsx —
     // conține acum un link explicit spre /profile/<userId>, căutat direct după href. Scopat la

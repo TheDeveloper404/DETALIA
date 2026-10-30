@@ -2,11 +2,11 @@ import { beforeEach, expect, it, vi } from "vitest";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/require-active-user", () => ({ requireActiveUserId: vi.fn() }));
 vi.mock("@/lib/rate-limit", () => ({ checkLimit: vi.fn(), limiters: { mutation: "mutation" } }));
-vi.mock("@/server/services/followService", () => ({ setFollow: vi.fn() }));
+vi.mock("@/server/services/followService", () => ({ setFollow: vi.fn(), getFollowedUsers: vi.fn() }));
 import { requireActiveUserId } from "@/lib/require-active-user";
 import { checkLimit } from "@/lib/rate-limit";
-import { setFollow } from "@/server/services/followService";
-import { setFollowAction } from "./actions";
+import { getFollowedUsers, setFollow } from "@/server/services/followService";
+import { getFollowedUsersAction, setFollowAction } from "./actions";
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(requireActiveUserId).mockResolvedValue("session-user");
@@ -39,6 +39,27 @@ it("rate limit nu modifica relatia", async () => {
 it("erorile DB sunt generice si permit reincercarea", async () => {
   vi.mocked(setFollow).mockRejectedValue(new Error("secret SQL connection"));
   const result = await setFollowAction("USER", "target", true);
+  expect(result.ok).toBe(false);
+  expect(JSON.stringify(result)).not.toContain("secret SQL");
+});
+
+// "Doar eu, in profilul meu (recomandat)"
+it("lista foloseste identitatea din sesiune, nu cursorul ca proprietar", async () => {
+  vi.mocked(getFollowedUsers).mockResolvedValue({ ok: true, users: [], nextCursor: null });
+  await getFollowedUsersAction("22222222-2222-4222-8222-222222222222");
+  expect(getFollowedUsers).toHaveBeenCalledWith("session-user", "22222222-2222-4222-8222-222222222222");
+});
+
+// "Doar eu, in profilul meu (recomandat)"
+it("sesiunea expirata sau suspendata nu poate citi lista", async () => {
+  vi.mocked(requireActiveUserId).mockRejectedValue(new Error("NEXT_REDIRECT"));
+  await expect(getFollowedUsersAction()).rejects.toThrow("NEXT_REDIRECT");
+  expect(getFollowedUsers).not.toHaveBeenCalled();
+});
+
+it("eroarea de citire este generica", async () => {
+  vi.mocked(getFollowedUsers).mockRejectedValue(new Error("secret SQL connection"));
+  const result = await getFollowedUsersAction();
   expect(result.ok).toBe(false);
   expect(JSON.stringify(result)).not.toContain("secret SQL");
 });

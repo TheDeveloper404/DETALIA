@@ -9,7 +9,7 @@ type Point = { x: number; y: number };
 type Size = { width: number; height: number };
 
 export function constrainImageView(view: ImageView, frame: Size, image: Size): ImageView {
-  const zoom = Math.max(1, Math.min(3, view.zoom));
+  const zoom = Math.max(1, Math.min(3.5, view.zoom));
   const fit = Math.min(frame.width / image.width, frame.height / image.height);
   const maxX = Math.max(0, (image.width * fit * zoom - frame.width) / 2);
   const maxY = Math.max(0, (image.height * fit * zoom - frame.height) / 2);
@@ -21,7 +21,7 @@ export function constrainImageView(view: ImageView, frame: Size, image: Size): I
 }
 
 export function zoomImageView(view: ImageView, nextZoom: number, anchor: Point, frame: Size, image: Size): ImageView {
-  const zoom = Math.max(1, Math.min(3, nextZoom));
+  const zoom = Math.max(1, Math.min(3.5, nextZoom));
   const ratio = zoom / view.zoom;
   return constrainImageView({
     zoom,
@@ -176,7 +176,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
       ref={viewportRef}
       data-testid="detail-image-viewport"
       data-zoom={view.zoom}
-      className={`relative z-[1] aspect-[4/3] w-full max-w-3xl overflow-hidden ${view.zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`relative z-[1] aspect-[4/3] w-full max-w-3xl overflow-hidden md:max-w-none ${view.zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
       style={{ touchAction: view.zoom > 1 ? "none" : "auto" }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -190,7 +190,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
           unoptimized={view.zoom > 1 || imageUrl.startsWith("/api/")}
           alt={alt}
           fill
-          sizes="(max-width: 1024px) 100vw, 768px"
+          sizes="(max-width: 767px) 100vw, (max-width: 1023px) calc(100vw - 344px), (max-width: 1640px) calc(100vw - 384px), 1256px"
           className="object-contain"
           draggable={false}
           priority
@@ -216,7 +216,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
         }} className="min-h-11 min-w-14 px-2 font-mono text-xs hover:bg-secondary">
           {Math.round(view.zoom * 100)}%
         </button>
-        <button type="button" onClick={() => zoomBy(1.1)} aria-label="Mărește imaginea" className="flex size-11 items-center justify-center rounded-r-lg hover:bg-secondary disabled:opacity-40" disabled={view.zoom === 3}>
+        <button type="button" onClick={() => zoomBy(1.1)} aria-label="Mărește imaginea" className="flex size-11 items-center justify-center rounded-r-lg hover:bg-secondary disabled:opacity-40" disabled={view.zoom === 3.5}>
           <ZoomIn className="size-4" strokeWidth={2} aria-hidden />
         </button>
       </div>

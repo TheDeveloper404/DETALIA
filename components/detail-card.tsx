@@ -1,3 +1,5 @@
+"use client";
+
 // Card de detaliu în feed — layout orizontal: thumbnail (imaginea 2D) + conținut (titlu, text,
 // autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
 //
@@ -7,6 +9,7 @@
 import { Eye, Layers, MessageSquare, Scale } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import type { FeedItem } from "@/server/repos/detailsRepo";
 import { blobReadUrl } from "@/lib/blob-read-url";
@@ -63,6 +66,7 @@ export function DetailCard({
   isSaved = false,
   searchQuery,
   tourAnchor = false,
+  sketchPreviews = [],
 }: {
   detail: FeedItem;
   currentUserId?: string | null;
@@ -71,26 +75,70 @@ export function DetailCard({
   searchQuery?: string | null;
   // Doar pe primul card din feed: ținta pasului „ce poți face pe un detaliu" din turul ghidat.
   tourAnchor?: boolean;
+  sketchPreviews?: { id: string; thumbnailUrl: string }[];
 }) {
   const href = `/details/${detail.id}`;
+  const [hovered, setHovered] = useState(false);
+  const [frame, setFrame] = useState(0);
+  // Fara tranzitie la saltul de pe copia bazei inapoi pe baza (arata identic, deci nu se vede).
+  const [instant, setInstant] = useState(false);
+  // Miniaturile se monteaza la primul hover, ca feed-ul sa nu le incarce la deschidere.
+  const [primed, setPrimed] = useState(false);
+  // Feed-ul arată DOAR detalii PUBLISHED (listFeed) → imageUrl mereu setat (DRAFT nu ajunge aici).
+  const baseUrl = blobReadUrl(detail.imageUrl!, "detail", detail.id);
+  // Banda [baza, ...schite, baza]: copia de la final tine loop-ul mereu spre stanga.
+  const slides = primed && sketchPreviews.length > 0
+    ? [baseUrl, ...sketchPreviews.map((preview) => blobReadUrl(preview.thumbnailUrl, "sketch", preview.id)), baseUrl]
+    : [baseUrl];
+  const last = slides.length - 1;
+  useEffect(() => {
+    if (!hovered || last === 0) return;
+    // Pe copia bazei saltul il face transitionend; timer-ul il face doar daca evenimentul nu vine.
+    const timer = setTimeout(() => {
+      setInstant(frame === last);
+      setFrame(frame === last ? 0 : frame + 1);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [hovered, frame, last]);
 
   return (
     <article
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          setPrimed(true);
+          setHovered(true);
+        }
+      }}
+      onPointerLeave={() => { setHovered(false); setInstant(frame === last); setFrame(0); }}
       data-tour={tourAnchor ? "feed-first-card" : undefined}
       className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row"
     >
       {/* Thumbnail — imaginea 2D a detaliului, cu eticheta de categorie peste. */}
       <div className="relative aspect-[4/3] w-full shrink-0 self-stretch overflow-hidden rounded-t-lg border-b border-border bg-secondary sm:w-[260px] sm:rounded-l-lg sm:rounded-tr-none sm:border-b-0 sm:border-r">
         <Link href={href} className="block size-full">
-          <Image
-            // Feed-ul arată DOAR detalii PUBLISHED (listFeed) → imageUrl mereu setat (DRAFT nu ajunge aici).
-            src={blobReadUrl(detail.imageUrl!, "detail", detail.id)}
-            unoptimized={detail.imageUrl!.includes(".private.blob.")}
-            alt={detail.title}
-            fill
-            sizes="(max-width: 640px) 100vw, 260px"
-            className="object-cover"
-          />
+          <div
+            className={`flex size-full ${instant ? "transition-none" : "transition-transform duration-500 ease-out"}`}
+            style={{ transform: `translateX(-${frame * 100}%)` }}
+            onTransitionEnd={() => {
+              if (frame > 0 && frame === last) { setInstant(true); setFrame(0); }
+            }}
+          >
+            {slides.map((src, index) => (
+              <div key={index} className="relative size-full shrink-0" aria-hidden={index > 0 || undefined}>
+                <Image
+                  src={src}
+                  unoptimized={src.startsWith("/api/files/")}
+                  // In afara cadrului pana gliseaza: lazy le-ar incarca abia in timpul glisarii.
+                  loading={index > 0 ? "eager" : undefined}
+                  onError={() => { setHovered(false); setInstant(true); setFrame(0); }}
+                  alt={index === 0 ? detail.title : ""}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 260px"
+                  className="object-cover"
+                />
+              </div>
+            ))}
+          </div>
           {detail.categories.length > 0 && (
             <span className="absolute left-2.5 top-2.5 rounded-md border border-border bg-background/85 px-1.5 py-1 font-mono text-[10px] uppercase tracking-wide text-primary">
               {detail.categories[0].name}

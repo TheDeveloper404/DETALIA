@@ -1,5 +1,5 @@
 // Repo schițe — singurul loc cu acces Drizzle pentru tabelul `sketches`.
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import { comments, details, roles, sketches, users, validations } from "@/db/schema";
@@ -288,6 +288,26 @@ async function listByDetailAndStatus(detailId: string, status: SketchStatus) {
 // Adnotările autorului pe propriul detaliu NU sunt aici — vezi `listAnnotationsByDetail`.
 export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
+}
+
+// Miniaturi pentru cardurile paginii de feed, intr-un singur query, fara trasee vectoriale.
+// Cel mult FEED_PREVIEWS_PER_DETAIL per detaliu (cele mai vechi), ca hover-ul sa nu incarce zeci de imagini.
+const FEED_PREVIEWS_PER_DETAIL = 5;
+export async function listFeedSketchPreviews(detailIds: string[]) {
+  if (detailIds.length === 0) return [];
+  const ranked = db.select({ id: sketches.id, detailId: sketches.detailId, thumbnailUrl: sketches.thumbnailUrl,
+    createdAt: sketches.createdAt,
+    rank: sql<number>`row_number() over (partition by ${sketches.detailId} order by ${sketches.createdAt}, ${sketches.id})`.as("rank") })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .where(and(inArray(sketches.detailId, detailIds), eq(sketches.status, "PUBLISHED"),
+      eq(sketches.isAnnotation, false), eq(sketches.hiddenAfterRelease, false), isNotNull(sketches.thumbnailUrl),
+      eq(details.status, "PUBLISHED"), isNull(details.projectId)))
+    .as("ranked");
+  return db.select({ id: ranked.id, detailId: ranked.detailId, thumbnailUrl: ranked.thumbnailUrl })
+    .from(ranked)
+    .where(lte(ranked.rank, FEED_PREVIEWS_PER_DETAIL))
+    .orderBy(asc(ranked.createdAt), asc(ranked.id));
 }
 
 // O singură schiță din teancul detaliului (aceleași condiții ca `listPublishedByDetail`), pt export.
