@@ -59,11 +59,16 @@ it("gliseaza foile in loop doar la hover si revine la baza la iesire", () => {
   expect(view.track.className).toContain("transition-transform");
   vi.advanceTimersByTime(1500); expect(render().offset).toBe("translateX(-200%)");
   vi.advanceTimersByTime(1500); view = render(); expect(view.offset).toBe("translateX(-300%)");
-  vi.advanceTimersByTime(1500); view = render(); expect(view.offset).toBe("translateX(-300%)");
   view.track.onTransitionEnd!(); view = render();
   expect(view.offset).toBe("translateX(-0%)"); expect(view.track.className).toContain("transition-none");
   vi.advanceTimersByTime(1500); view = render();
   expect(view.offset).toBe("translateX(-100%)"); expect(view.track.className).toContain("transition-transform");
+  // Fara transitionend pe copia bazei, timer-ul face saltul, ca loop-ul sa nu se opreasca.
+  vi.advanceTimersByTime(1500); render();
+  vi.advanceTimersByTime(1500); expect(render().offset).toBe("translateX(-300%)");
+  vi.advanceTimersByTime(1500); view = render();
+  expect(view.offset).toBe("translateX(-0%)"); expect(view.track.className).toContain("transition-none");
+  vi.advanceTimersByTime(1500); expect(render().offset).toBe("translateX(-100%)");
   view.tree.props.onPointerLeave!(); view = render();
   expect(view.offset).toBe("translateX(-0%)"); expect(view.track.className).toContain("transition-transform");
   vi.advanceTimersByTime(4500); expect(render().offset).toBe("translateX(-0%)");

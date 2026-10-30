@@ -24,6 +24,7 @@ import {
   materialOfferFiles,
 } from "@/db/schema";
 import { canUseBlobUrls, deleteStagingBlobs, getReadableBlobFile } from "./blobFileService";
+import { listMaterialOffersReceivedByAuthor } from "@/server/repos/materialOffersRepo";
 import { GET } from "@/app/api/files/[kind]/[id]/route";
 
 const url = (name: string) =>
@@ -151,8 +152,10 @@ describe("DET-03 — autorizare pe date SQL reale", () => {
   });
 
   // "Autorul care s-a retras de pe continut nu mai primeste notificari despre el." (notificationService.ts)
-  it("autorul retras nu mai descarca fisierele ofertei; furnizorul da", async () => {
+  it("autorul retras nu mai descarca fisierele ofertei si nu le mai vede in profil; furnizorul da", async () => {
+    expect(await listMaterialOffersReceivedByAuthor(owner)).toHaveLength(1);
     await db.update(details).set({ anonymizedAt: new Date() }).where(eq(details.id, publicId));
+    expect(await listMaterialOffersReceivedByAuthor(owner)).toHaveLength(0);
     expect((await getReadableBlobFile("offer", offerId, owner)).ok).toBe(false);
     expect((await getReadableBlobFile("offer", offerId, member)).ok).toBe(true);
     await db.update(details).set({ anonymizedAt: null }).where(eq(details.id, publicId));

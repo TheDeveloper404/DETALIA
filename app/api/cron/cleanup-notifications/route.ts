@@ -30,8 +30,9 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const deleted = await cleanupOldNotifications(RETENTION_DAYS);
+  audit("notifications_retention_cleanup", { deletedCount: deleted, retentionDays: RETENTION_DAYS }, "info");
   const expiredSessions = await deleteExpiredSessions();
-  audit("notifications_retention_cleanup", { deletedCount: deleted, retentionDays: RETENTION_DAYS, expiredSessions }, "info");
+  audit("expired_sessions_cleanup", { deletedCount: expiredSessions }, "info");
 
   return NextResponse.json({ ok: true, deleted });
 }

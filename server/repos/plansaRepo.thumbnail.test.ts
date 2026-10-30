@@ -9,6 +9,7 @@ vi.mock("@/db", async () => {
 const { db } = await import("@/db");
 const { users, canvases } = await import("@/db/schema");
 const { updateThumbnailOwned } = await import("./plansaRepo");
+const { PgDialect } = await import("drizzle-orm/pg-core");
 
 describe("thumbnail plansa", () => {
   // Regula (plansaService.ts): "Curăță blob-ul înlocuit de ACEASTĂ cerere (best-effort) DUPĂ ce noul URL e persistat."
@@ -27,6 +28,11 @@ describe("thumbnail plansa", () => {
     expect(previous).toContain("old");
     expect(previous.filter((url) => url === "old")).toHaveLength(1);
     expect(await updateThumbnailOwned(canvas.id, other, "x")).toBeNull();
+    // PGlite are o singura conexiune si serializeaza cererile: blocarea randului se verifica in statement.
+    const execute = vi.spyOn(db, "execute");
+    await updateThumbnailOwned(canvas.id, owner, "c");
+    expect(new PgDialect().sqlToQuery(execute.mock.calls[0][0] as never).sql).toMatch(/for update/i);
+    execute.mockRestore();
     expect(await updateThumbnailOwned(randomUUID(), owner, "x")).toBeNull();
   });
 });

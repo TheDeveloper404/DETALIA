@@ -119,12 +119,12 @@ test("hover in feed: succesiune schite si revenire la detaliu", async ({ page })
   }
   await expect(track).toHaveAttribute("style", /translateX\(-100%\)/);
   await expect(track).toHaveAttribute("style", /translateX\(-200%\)/);
-  await expect(track).toHaveAttribute("style", /translateX\(-0%\)/);
+  await expect(track).toHaveAttribute("style", /translateX\(-?0%\)/);
   await expect(track).toHaveAttribute("style", /translateX\(-100%\)/);
   await page.mouse.move(1, 1);
-  await expect(track).toHaveAttribute("style", /translateX\(-0%\)/);
+  await expect(track).toHaveAttribute("style", /translateX\(-?0%\)/);
   await page.waitForTimeout(1700);
-  await expect(track).toHaveAttribute("style", /translateX\(-0%\)/);
+  await expect(track).toHaveAttribute("style", /translateX\(-?0%\)/);
   await expect(image).toHaveAttribute("src", /pwa-192\.png/);
   await card.getByRole("heading", { name: title, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/details/${detailIds[0]}$`));

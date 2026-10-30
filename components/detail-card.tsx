@@ -93,12 +93,13 @@ export function DetailCard({
   const last = slides.length - 1;
   useEffect(() => {
     if (!hovered || last === 0) return;
-    const timer = setInterval(() => {
-      setInstant(false);
-      setFrame((current) => Math.min(current + 1, last));
+    // Pe copia bazei saltul il face transitionend; timer-ul il face doar daca evenimentul nu vine.
+    const timer = setTimeout(() => {
+      setInstant(frame === last);
+      setFrame(frame === last ? 0 : frame + 1);
     }, 1500);
-    return () => clearInterval(timer);
-  }, [hovered, last]);
+    return () => clearTimeout(timer);
+  }, [hovered, frame, last]);
 
   return (
     <article

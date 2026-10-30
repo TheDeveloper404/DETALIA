@@ -1,6 +1,6 @@
 // Repo pentru ofertele de materiale (Furnizor → autor detaliu) — singurul loc cu acces Drizzle pentru
 // `material_offers`/`material_offer_files`.
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 
 import { db } from "@/db";
 import { details, materialOfferFiles, materialOffers, roles, users } from "@/db/schema";
@@ -219,7 +219,8 @@ export async function listMaterialOffersReceivedByAuthor(authorId: string): Prom
     .from(materialOffers)
     .innerJoin(details, eq(details.id, materialOffers.detailId))
     .leftJoin(users, eq(users.id, materialOffers.supplierId))
-    .where(eq(details.authorId, authorId))
+    // Autorul retras de pe detaliu nu mai primeste ofertele lui (ca in getMaterialOffersForOwner).
+    .where(and(eq(details.authorId, authorId), isNull(details.anonymizedAt)))
     .orderBy(desc(materialOffers.createdAt));
 
   if (offers.length === 0) return [];
