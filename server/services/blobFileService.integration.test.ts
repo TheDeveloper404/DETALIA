@@ -172,6 +172,13 @@ describe("DET-03 — autorizare pe date SQL reale", () => {
     ], owner);
     expect(del).toHaveBeenCalledTimes(1);
     expect(del.mock.calls[0][0]).toEqual([`${base}/details/staging.png`]);
+    // Ruleaza dupa salvare: DB-ul cazut la verificare nu arunca si nu sterge nimic.
+    del.mockClear();
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const select = vi.spyOn(db, "select").mockImplementationOnce(() => { throw new Error("db down"); });
+    await expect(deleteStagingBlobs([`${base}/details/staging.png`], owner)).resolves.toBeUndefined();
+    expect(del).not.toHaveBeenCalled();
+    select.mockRestore(); error.mockRestore();
   });
 
   // "un membru eliminat nu trebuie să mai poată vedea imaginea" (lib/project-image-proxy.ts).

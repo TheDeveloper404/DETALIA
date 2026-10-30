@@ -36,7 +36,18 @@ export async function deleteStagingBlobs(urls: (string | null | undefined)[], us
     return new URL(url).pathname.startsWith(`/u/${userId}/details/`);
   });
   if (!candidates.length) return;
-  const referenced = new Set((await getBlobFileReferences(candidates)).map((ref) => ref.url));
+  // Best-effort, ca deleteBlobs: ruleaza dupa salvare, deci un esec aici nu trebuie sa para salvare esuata.
+  let refs;
+  try {
+    refs = await getBlobFileReferences(candidates);
+  } catch (err) {
+    console.error("[blobFileService] verificare staging esuata, fisierul ramane", {
+      count: candidates.length,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
+  const referenced = new Set(refs.map((ref) => ref.url));
   await deleteBlobs(candidates.filter((url) => !referenced.has(url)));
 }
 
