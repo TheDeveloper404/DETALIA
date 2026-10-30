@@ -204,6 +204,13 @@
       "when": 1793262381426,
       "tag": "0028_lazy_mindworm",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793349170654,
+      "tag": "0029_hard_sugar_man",
+      "breakpoints": true
     }
   ]
 }

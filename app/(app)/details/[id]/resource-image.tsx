@@ -1,11 +1,10 @@
 "use client";
 
-import { X } from "lucide-react";
+import { ImageIcon, X } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-// Resursă de tip Imagine — thumbnail mic în listă, click → lightbox (imaginea mărită), nu link extern
-// (2026-07-16: „trebuie să apară imaginea propriu-zisă, nu link preview ca și acum").
+// Resursa imagine: control compact; clickul pastreaza lightbox-ul existent.
 export function ResourceImage({ url, alt }: { url: string; alt: string }) {
   const [open, setOpen] = useState(false);
 
@@ -23,10 +22,11 @@ export function ResourceImage({ url, alt }: { url: string; alt: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="relative size-[52px] flex-none overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary"
+        className="inline-flex min-h-11 flex-none items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs font-semibold text-foreground/80 transition-colors hover:border-primary"
         aria-label={`Mărește imaginea: ${alt}`}
       >
-        <Image src={url} unoptimized={url.startsWith("/api/")} alt={alt} fill sizes="52px" className="object-cover" />
+        <ImageIcon className="size-3.5" strokeWidth={1.8} aria-hidden />
+        Imagine
       </button>
 
       {open && (

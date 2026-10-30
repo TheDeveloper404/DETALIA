@@ -195,16 +195,16 @@ export default async function DetailPage({
   const isDetailPublic = isPubliclyVisible(detail);
 
   const resourceItems = detail.resources.map((r) => {
-    // IMAGE: thumbnail + lightbox (imaginea propriu-zisă), NU chip cu link ca restul tipurilor.
+    // Imaginea pastreaza lightbox-ul; celelalte resurse pastreaza linkurile existente.
     if (r.type === "IMAGE" && r.url) {
       return <ResourceImage key={r.id} url={blobReadUrl(r.url, "resource", r.id)} alt={detail.title} />;
     }
     const Icon = RESOURCE_ICON[r.type as keyof typeof RESOURCE_ICON] ?? FileText;
     const label = r.type === "TEXT" ? r.body : (r.url ?? "resursă");
     const chip = (
-      <span className="inline-flex max-w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-[13px] font-semibold text-foreground/80">
+      <span title={label ?? undefined} className="inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs font-semibold text-foreground/80">
         <Icon className="size-3.5 flex-none text-[#5e6f8a]" strokeWidth={1.8} />
-        <span className="max-w-[28ch] truncate">{label}</span>
+        <span className="max-w-[28ch] truncate">{r.type === "TEXT" ? label : r.type === "LINK" ? "Link" : r.type}</span>
       </span>
     );
     return r.type === "TEXT" || !r.url ? (
@@ -213,6 +213,7 @@ export default async function DetailPage({
       <a
         key={r.id}
         href={blobReadUrl(r.url, "resource", r.id)}
+        aria-label={`${r.type === "LINK" ? "Link" : r.type}: ${label}`}
         target="_blank"
         rel="noopener noreferrer"
         className="max-w-full transition-colors hover:[&>span]:border-primary"
@@ -320,7 +321,7 @@ export default async function DetailPage({
             </details>
           )}
           {detail.resources.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2.5 max-sm:hidden">
+            <div className="flex flex-wrap items-center gap-2.5 max-sm:hidden md:hidden">
               <span className="mr-0.5 font-mono text-[11px] uppercase tracking-wider text-[#a59a88]">
                 Resurse
               </span>
@@ -331,6 +332,7 @@ export default async function DetailPage({
           {/* ===== WORKSPACE UNIFICAT (taburi: detaliu de bază + schițe) + dezbatere unificată ===== */}
           <DetailWorkspace
             detailId={detail.id}
+            resources={resourceItems.length > 0 ? resourceItems : undefined}
             // Pagina publică arată DOAR detalii PUBLISHED (getDetail) → imageUrl mereu setat.
             imageUrl={blobReadUrl(detail.imageUrl!, "detail", detail.id)}
             header={{

@@ -23,7 +23,9 @@ export type NotificationView = {
     | "MATERIAL_OFFER_EDITED"
     | "REFERRAL_JOINED"
     | "COMMENT_ADDED"
-    | "COMMENT_REPLIED";
+    | "COMMENT_REPLIED"
+    | "APPROVAL_RECEIVED";
+  approvalCount?: number;
   actorName: string | null;
   actorRole: string | null;
   actorSubRole: string | null;
@@ -35,6 +37,7 @@ export type NotificationView = {
 };
 
 const TYPE_STYLE = {
+  APPROVAL_RECEIVED: { sqBg: "#e9f2ea", sqBorder: "#cfe3d2", icon: <Check className="size-4 text-[#2f6b3f]" /> },
   COMMENT_ADDED: { sqBg: "#f6ede4", sqBorder: "#ecdcc8", icon: <FileText className="size-4 text-primary" /> },
   COMMENT_REPLIED: { sqBg: "#f6ede4", sqBorder: "#ecdcc8", icon: <FileText className="size-4 text-primary" /> },
   SKETCH_PROPOSED: {
@@ -83,6 +86,7 @@ const TYPE_STYLE = {
 // Titlul e `span`, NU link: rândul întreg e deja un <Link> spre același detaliu (evită <a> imbricat).
 function NotificationText({ n }: { n: NotificationView }) {
   const ref = <span className="font-semibold text-primary">«{n.detailTitle}»</span>;
+  if (n.type === "APPROVAL_RECEIVED") return <>Ai primit {n.approvalCount ?? 1} {(n.approvalCount ?? 1) === 1 ? "aprobare" : "aprobări"} la {ref}.</>;
 
   if (n.type === "COMMENT_ADDED") return <>Ai un comentariu nou la {ref}.</>;
   if (n.type === "COMMENT_REPLIED") return <>Ai un răspuns nou în discuția de la {ref}.</>;

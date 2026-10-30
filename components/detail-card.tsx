@@ -1,3 +1,5 @@
+"use client";
+
 // Card de detaliu în feed — layout orizontal: thumbnail (imaginea 2D) + conținut (titlu, text,
 // autor+rol, stats, acțiuni). Pe mobil se așază pe verticală.
 //
@@ -7,6 +9,7 @@
 import { Eye, Layers, MessageSquare, Scale } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 import type { FeedItem } from "@/server/repos/detailsRepo";
 import { blobReadUrl } from "@/lib/blob-read-url";
@@ -63,6 +66,7 @@ export function DetailCard({
   isSaved = false,
   searchQuery,
   tourAnchor = false,
+  sketchPreviews = [],
 }: {
   detail: FeedItem;
   currentUserId?: string | null;
@@ -71,11 +75,26 @@ export function DetailCard({
   searchQuery?: string | null;
   // Doar pe primul card din feed: ținta pasului „ce poți face pe un detaliu" din turul ghidat.
   tourAnchor?: boolean;
+  sketchPreviews?: { id: string; thumbnailUrl: string }[];
 }) {
   const href = `/details/${detail.id}`;
+  const [hovered, setHovered] = useState(false);
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    if (!hovered || sketchPreviews.length === 0) return;
+    const timer = setInterval(() => setFrame((current) => (current + 1) % (sketchPreviews.length + 1)), 1500);
+    return () => clearInterval(timer);
+  }, [hovered, sketchPreviews.length]);
+  const preview = frame > 0 ? sketchPreviews[frame - 1] : undefined;
+  const imageUrl = preview ? blobReadUrl(preview.thumbnailUrl, "sketch", preview.id)
+    : blobReadUrl(detail.imageUrl!, "detail", detail.id);
 
   return (
     <article
+      onPointerEnter={(event) => {
+        if (event.pointerType === "mouse" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) setHovered(true);
+      }}
+      onPointerLeave={() => { setHovered(false); setFrame(0); }}
       data-tour={tourAnchor ? "feed-first-card" : undefined}
       className="flex flex-col rounded-lg bg-card ring-1 ring-foreground/10 sm:min-h-[220px] sm:flex-row"
     >
@@ -84,8 +103,9 @@ export function DetailCard({
         <Link href={href} className="block size-full">
           <Image
             // Feed-ul arată DOAR detalii PUBLISHED (listFeed) → imageUrl mereu setat (DRAFT nu ajunge aici).
-            src={blobReadUrl(detail.imageUrl!, "detail", detail.id)}
-            unoptimized={detail.imageUrl!.includes(".private.blob.")}
+            src={imageUrl}
+            unoptimized={imageUrl.startsWith("/api/files/")}
+            onError={() => { setHovered(false); setFrame(0); }}
             alt={detail.title}
             fill
             sizes="(max-width: 640px) 100vw, 260px"

@@ -15,6 +15,7 @@ type NotificationPayload = {
   supplierName?: string | null;
   joinedUserId?: string;
   joinedUserName?: string | null;
+  actorIds?: string[];
 };
 
 export type NotificationRow = {
@@ -49,6 +50,7 @@ export function mapNotificationRows(rows: NotificationRow[]): NotificationView[]
       href: notificationHref(p),
       createdAt: n.createdAt.toISOString(),
       unread: n.readAt === null,
+      ...(n.type === "APPROVAL_RECEIVED" ? { approvalCount: p.actorIds?.length ?? 1 } : {}),
     };
   });
 }

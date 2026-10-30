@@ -3,7 +3,7 @@
 import { Activity, Check, MapPin, Pencil, Snowflake, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -101,6 +101,7 @@ export function DetailWorkspace({
   detailId,
   imageUrl,
   header,
+  resources,
   detailAuthor,
   authorRemovedFromProject = false,
   detailValidation,
@@ -123,6 +124,7 @@ export function DetailWorkspace({
   detailId: string;
   imageUrl: string;
   header: DetailHeader;
+  resources?: ReactNode;
   detailAuthor: Author;
   // Autorul detaliului mai e membru activ al proiectului în care a fost publicat? (doar detalii ÎNCĂ
   // private, projectId setat — vezi projectService.isDetailAuthorRemovedFromProject). Badge de
@@ -184,6 +186,7 @@ export function DetailWorkspace({
   // interiorul `{openAnnotation && ...}`, ref-ul ar deveni null când adnotarea se închide, iar submit-ul
   // din ConfirmDialog ar eșua tăcut (bugul din `detail-actions-menu.tsx`, 2026-07-16).
   const deleteAnnotationFormRef = useRef<HTMLFormElement>(null);
+  const drawingRef = useRef<HTMLDivElement>(null);
   // Adnotarea deschisă acum (sau null). Derivată, nu stare separată: dacă adnotarea deschisă e ștearsă,
   // lista revine fără ea de pe server și `find` întoarce undefined → UI-ul se închide singur, corect.
   const openAnnotation = annotations.find((a) => a.id === openAnnotationId) ?? null;
@@ -200,7 +203,10 @@ export function DetailWorkspace({
 
   // Mențiunile din comentarii selectează un tab de schiță după id.
   function selectSketch(sketchId: string) {
-    if (sketches.some((s) => s.id === sketchId)) setTabAndUrl(sketchId);
+    if (sketches.some((s) => s.id === sketchId)) {
+      setTabAndUrl(sketchId);
+      drawingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   // Eticheta unei schițe: „Nume" sau „Nume — schița N" când același autor are mai multe. Ordinalul e
@@ -367,20 +373,19 @@ export function DetailWorkspace({
     <div className="flex flex-col gap-7">
       {tourSeen !== undefined && <DetailProductTour seen={tourSeen} />}
       {/* id=schiteaza — ținta scurtăturii „Schițează peste" din cardul de feed. */}
-      <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card">
-        {/* ANTET detaliu (titlu/autor/params/descriere) în capul cardului + „Schițează peste" sus-dreapta */}
-        <div className="border-b border-[#eee6da] px-5 py-5 sm:px-6">
-          {/* Mobil: data publicării deasupra titlului, nu în rândul cu categoria. */}
-          <p className="mb-1.5 font-mono text-xs text-muted-foreground sm:hidden">
+      <section id="schiteaza" className="scroll-mt-24 overflow-hidden rounded-xl border border-border bg-card md:relative md:grid md:grid-cols-[minmax(220px,280px)_minmax(0,1fr)] md:gap-x-4 md:overflow-visible md:rounded-none md:border-0 md:bg-transparent lg:grid-cols-[300px_minmax(0,1fr)]">
+        {/* Desktop/tableta: informatiile stau in stanga, fara scroll intern sau text taiat. */}
+        <div data-testid="detail-information" className="min-w-0 border-b border-[#eee6da] px-5 py-5 sm:px-6 md:col-start-1 md:row-start-1 md:row-span-2 md:border-b-0 md:px-0 md:py-2">
+          <p data-testid="detail-publication-date" className="mb-1.5 font-mono text-xs text-muted-foreground sm:hidden md:block md:text-right">
             {formatDate(header.createdAt)}
           </p>
           <div className="flex items-start justify-between gap-4">
-            <h1 className="font-heading text-[22px] font-extrabold leading-[1.15] tracking-tight text-balance sm:text-[28px]">
+            <h1 className="min-w-0 break-words font-heading text-[22px] font-extrabold leading-[1.15] tracking-tight text-balance sm:text-[28px] md:text-[22px]">
               {header.title}
             </h1>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 md:mt-3 md:gap-x-2 md:gap-y-1.5">
             {/* Autor retras din detaliu: fără nume, poză sau link — doar rolul (din snapshot) rămâne,
                 ca discuția să păstreze contextul profesional. `id` null vine deja mascat de pe server. */}
             {detailAuthor.id ? (
@@ -388,8 +393,8 @@ export function DetailWorkspace({
                 href={`/profile/${detailAuthor.id}`}
                 className="flex items-center gap-2 no-underline"
               >
-                <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} />
-                <span className="font-heading text-[15.5px] font-bold hover:underline">
+                <AvatarInitials name={detailAuthor.name} imageUrl={detailAuthor.image} size={38} className="md:!size-7" />
+                <span className="font-heading text-[15.5px] font-bold hover:underline md:text-sm">
                   {detailAuthor.name ?? "Anonim"}
                 </span>
               </Link>
@@ -401,8 +406,8 @@ export function DetailWorkspace({
             )}
             {!detailAuthor.id && (
               <span className="flex items-center gap-2">
-                <AvatarInitials name={null} imageUrl={null} size={38} />
-                <span className="font-heading text-[15.5px] font-bold text-muted-foreground">
+                <AvatarInitials name={null} imageUrl={null} size={38} className="md:!size-7" />
+                <span className="font-heading text-[15.5px] font-bold text-muted-foreground md:text-sm">
                   {REMOVED_AUTHOR_LABEL}
                 </span>
               </span>
@@ -418,21 +423,23 @@ export function DetailWorkspace({
               <Link
                 key={c.id}
                 href={`/feed?cat=${c.id}`}
-                className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary"
+                className="rounded-md border border-[#ecdcc8] bg-[#f6ede4] px-2.5 py-1 font-mono text-[11px] uppercase tracking-wide text-primary md:px-2 md:py-0.5"
               >
                 {c.name}
               </Link>
             ))}
-            <span className="font-mono text-xs text-muted-foreground max-sm:hidden">
+            <span className="font-mono text-xs text-muted-foreground max-sm:hidden md:hidden">
               · publicat {formatDate(header.createdAt)}
             </span>
-            <span className="ml-auto">
+            {/* Fara z-index pe wrapper: confirmarile neportate trebuie sa poata acoperi headerul. */}
+            <span className="ml-auto md:absolute md:right-3 md:top-2.5">
               <DetailActionsMenu
                 detailId={detailId}
                 isAuthor={isDetailAuthor}
                 isSaved={header.isSaved}
                 canSendToCanvas={!!currentUserId}
                 activeSketchPublicId={isBase ? null : activeSketch!.id}
+                visibleStackIds={capturedStack}
                 canDeleteActiveSketch={canDeleteActive}
                 deletionMode={deletionMode}
                 sketchDeletionMode={activeDeletionMode}
@@ -451,7 +458,7 @@ export function DetailWorkspace({
 
           {/* Locație — doar dacă NU e România (implicit, nu adăugăm zgomot pt cazul normal). */}
           {header.location !== DEFAULT_LOCATION && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-2 md:gap-1.5">
               <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
                 <MapPin className="size-3 text-[#5e6f8a]" strokeWidth={2} />
                 {header.location}
@@ -465,7 +472,7 @@ export function DetailWorkspace({
             header.seismicTc !== "General" ||
             header.snowLoad !== "General" ||
             header.windLoad !== "General") && (
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-2 md:gap-1.5">
               {header.climateZone && (
                 <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
                   <Snowflake className="size-3 text-[#5e6f8a]" strokeWidth={2} />
@@ -492,8 +499,14 @@ export function DetailWorkspace({
           )}
 
           {header.description && (
-            <div className="mt-4 whitespace-pre-wrap text-[15.5px] leading-relaxed text-foreground/80 text-pretty">
+            <div className="mt-4 whitespace-pre-wrap break-words text-[15.5px] leading-relaxed text-foreground/80 text-pretty md:mt-3 md:text-sm md:leading-5">
               {header.description}
+            </div>
+          )}
+          {resources && (
+            <div data-testid="detail-resources" className="mt-3 hidden flex-wrap items-center gap-1.5 md:flex">
+              <span className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">Resurse</span>
+              {resources}
             </div>
           )}
         </div>
@@ -508,7 +521,7 @@ export function DetailWorkspace({
         {/* Rândul exterior separă taburile scrollabile (flex-1 min-w-0, pot face scroll orizontal) de
             slot-ul de vot (shrink-0, FIX — altfel ar putea ieși din ecran la scroll pe multe taburi,
             2026-08-16, raportat: săgețile mutate aici din coloana verticală de jos). */}
-        <div className="flex items-center gap-2 px-4 pb-1.5 pt-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-2 px-4 pb-1.5 pt-3 sm:px-5 md:col-start-2 md:row-start-1 md:mb-2 md:rounded-lg md:border md:border-border md:bg-card md:py-1.5 md:pl-3 md:pr-14">
           <div
             data-tour="detail-tabs"
             className="flex min-h-11 min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto"
@@ -661,8 +674,8 @@ export function DetailWorkspace({
         {/* viewport (tabul activ) — panoul separat din dreapta a fost scos 2026-07-06: autorul + rolul
             erau deja afișate în antet (tab bază) / lângă tab-ul activ (tab schiță, RolePill de mai sus);
             singura info netă din panou era rolul, mutat acolo. Imaginea folosește acum toată lățimea. */}
-        <div className="mt-3 border-t border-[#eee6da]">
-          <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6">
+        <div ref={drawingRef} data-testid="detail-drawing" className="mt-3 min-w-0 scroll-mt-24 border-t border-[#eee6da] md:col-start-2 md:row-start-2 md:row-span-2 md:mt-0 md:overflow-hidden md:rounded-lg md:border md:border-border">
+          <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6 md:min-h-0 md:p-2">
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
             <div data-tour="detail-actions" className="absolute bottom-3 right-3 z-[3] flex items-center gap-2">
               {/* „Ofertă" — DOAR pe tab-ul de bază (materialele țin de detaliu, nu de o schiță anume),
@@ -679,7 +692,7 @@ export function DetailWorkspace({
               )}
               {startSketchBtn}
             </div>
-            {/* grilă + cutie 4/3 IDENTICE pe ambele taburi — altfel viewport-ul „sare" la comutare */}
+            {/* Acelasi cadru pentru detaliu si schite; pe desktop/tableta imaginea ocupa latimea disponibila. */}
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0 opacity-50"
@@ -771,11 +784,11 @@ export function DetailWorkspace({
         {/* Nota scrisă a ADNOTĂRII DESCHISE (dacă autorul a lăsat una) — pe tabul de bază, legată de
             desenul ei. Apare și dispare odată cu desenul: e aceeași explicație, în cuvinte. */}
         {isBase && openAnnotation?.note && (
-          <div className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6">
+          <div data-testid="detail-explanation" className="min-w-0 animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6 md:col-start-1 md:row-start-3 md:self-end md:px-0 md:py-3">
             <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
               Adnotarea autorului
             </div>
-            <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
+            <p className="whitespace-pre-wrap break-words text-[14.5px] leading-relaxed text-foreground md:text-[13.5px] md:leading-5">
               {openAnnotation.note}
             </p>
           </div>
@@ -787,7 +800,7 @@ export function DetailWorkspace({
         {!isBase && stackLayers.length > 0 && (
           <div
             key={`stack-${activeSketch!.id}`}
-            className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6"
+            className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6 md:col-span-2 md:row-start-4"
           >
             <div className="mb-2 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
               Foi în teanc
@@ -837,12 +850,13 @@ export function DetailWorkspace({
         {!isBase && activeSketch!.note && (
           <div
             key={`note-${activeSketch!.id}`}
-            className="animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6"
+            data-testid="detail-explanation"
+            className="min-w-0 animate-in fade-in border-t border-[#eee6da] bg-[#faf7f1] px-5 py-4 duration-200 sm:px-6 md:col-start-1 md:row-start-3 md:self-end md:px-0 md:py-3"
           >
             <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wide text-muted-foreground">
               Explicație
             </div>
-            <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground">
+            <p className="whitespace-pre-wrap break-words text-[14.5px] leading-relaxed text-foreground md:text-[13.5px] md:leading-5">
               {activeSketch!.note}
             </p>
           </div>
@@ -853,7 +867,7 @@ export function DetailWorkspace({
         <div
           key={isBase ? "DETAIL" : activeSketch!.id}
           data-tour="detail-validation"
-          className="animate-in fade-in border-t border-[#eee6da] p-5 duration-200 sm:px-6"
+          className="animate-in fade-in border-t border-[#eee6da] p-5 duration-200 empty:hidden sm:px-6 md:col-span-2 md:row-start-5 md:mt-3"
         >
           <ValidationPanel
             key={isBase ? "DETAIL" : activeSketch!.id}

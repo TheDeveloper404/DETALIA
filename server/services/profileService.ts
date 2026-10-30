@@ -21,6 +21,7 @@ import {
 } from "@/server/domain/badges";
 import { COUNTIES } from "@/server/domain/counties";
 import { isUuid } from "@/server/domain/ids";
+import { ACTIVITY_EMAIL_MODES, type ActivityEmailMode } from "@/server/domain/notification";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import type { RoleSnapshot } from "@/server/domain/validation";
 import {
@@ -374,7 +375,7 @@ export type UpdateDetailsResult =
   | { ok: true }
   | {
       ok: false;
-      reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" | "INVALID_PHONE" | "INVALID_COUNTY";
+      reason: "EMPTY_NAME" | "NAME_TOO_LONG" | "INVALID_WEBSITE" | "INVALID_PHONE" | "INVALID_COUNTY" | "INVALID_EMAIL_MODE";
     };
 
 // SEC-03: telefonul ajunge direct într-un `href="tel:..."` (profile-view.tsx) — allowlist la INPUT,
@@ -402,11 +403,15 @@ export async function updateProfileDetails(
     phoneVisible: boolean;
     emailVisible: boolean;
     weeklyDigestEnabled: boolean;
+    activityEmailMode?: unknown;
   },
 ): Promise<UpdateDetailsResult> {
   const name = input.name.trim();
   if (name.length === 0) return { ok: false, reason: "EMPTY_NAME" };
   if (name.length > NAME_MAX) return { ok: false, reason: "NAME_TOO_LONG" };
+  if (input.activityEmailMode !== undefined && !(ACTIVITY_EMAIL_MODES as readonly unknown[]).includes(input.activityEmailMode)) {
+    return { ok: false, reason: "INVALID_EMAIL_MODE" };
+  }
 
   const websiteRes = normalizeWebsite(clip(input.website, WEBSITE_MAX));
   if (!websiteRes.ok) return { ok: false, reason: "INVALID_WEBSITE" };
@@ -431,6 +436,7 @@ export async function updateProfileDetails(
     phoneVisible: input.phoneVisible,
     emailVisible: input.emailVisible,
     weeklyDigestEnabled: input.weeklyDigestEnabled,
+    ...(input.activityEmailMode !== undefined ? { activityEmailMode: input.activityEmailMode as ActivityEmailMode } : {}),
   });
   return { ok: true };
 }

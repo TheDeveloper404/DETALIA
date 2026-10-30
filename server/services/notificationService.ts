@@ -1,21 +1,5 @@
-// Service Notificări — in-app (sursa principală) + email best-effort (cerut de la început).
-// Notificările in-app se scriu mereu; emailul se trimite dacă există credențiale (altfel no-op).
+// Notificari in-app si eligibilitatea pentru emailurile grupate din coada persistenta.
 
-import {
-  materialOfferEditedEmailHtml,
-  materialOfferEditedEmailText,
-  materialOfferSentEmailHtml,
-  materialOfferSentEmailText,
-  plainSubject,
-  referralJoinedEmailHtml,
-  referralJoinedEmailText,
-  sendEmail,
-  sketchDeletedEmailHtml,
-  sketchDeletedEmailText,
-  sketchProposedEmailHtml,
-  sketchProposedEmailText,
-} from "@/lib/email";
-import { siteUrl } from "@/lib/site-url";
 import {
   deleteReadNotificationsOlderThan,
   insertNotification,
@@ -23,53 +7,23 @@ import {
   markAllRead,
   markOneRead,
   type NotificationType,
+  upsertApprovalNotification,
 } from "@/server/repos/notificationsRepo";
 import { getThreadCommentForTarget } from "@/server/repos/commentsRepo";
 import type { TargetType } from "@/server/domain/validation";
 import { getDetailById, listProjectIdForDetails } from "@/server/repos/detailsRepo";
 import { getSketchById } from "@/server/repos/sketchesRepo";
-import { getUserContact } from "@/server/repos/usersRepo";
 import { isUuid } from "@/server/domain/ids";
 import { canAccessProjectDetail, getProjectAccess } from "@/server/services/projectService";
+import { cleanupEmailDeliveries } from "@/server/repos/notificationEmailsRepo";
 
-function detailUrl(detailId: string): string {
-  return `${siteUrl()}/details/${detailId}`;
-}
-
-function ownProfileUrl(): string {
-  return `${siteUrl()}/profile`;
-}
-
-// Emailurile de notificare sunt OPRITE implicit (decizie de produs 2026-07-03): notificarea in-app ajunge,
-// iar cota Resend free (100/zi) rămâne pentru magic link-uri (login/signup + admin), unde emailul e
-// singura cale de acces. Reversibil fără cod: NOTIFICATION_EMAILS_ENABLED=true în env le repornește
-// (motivul inițial „in-app + email pentru brand awareness" rămâne valabil când cota nu mai e o limită).
-const EMAILS_ENABLED = process.env.NOTIFICATION_EMAILS_ENABLED === "true";
-
-// Helper intern: notificare in-app + (opțional, vezi mai sus) email.
+// Notificarea si scadenta emailului se scriu atomic in repo; trimiterea este doar prin cron.
 async function notify(input: {
   recipientUserId: string;
   type: NotificationType;
   payloadJson: Record<string, unknown>;
-  emailSubject: string;
-  emailHtml: string;
-  emailText: string;
 }) {
-  await insertNotification({
-    recipientUserId: input.recipientUserId,
-    type: input.type,
-    payloadJson: input.payloadJson,
-  });
-  if (!EMAILS_ENABLED) return;
-  const contact = await getUserContact(input.recipientUserId);
-  if (contact?.email) {
-    await sendEmail({
-      to: contact.email,
-      subject: input.emailSubject,
-      html: input.emailHtml,
-      text: input.emailText,
-    });
-  }
+  await insertNotification(input);
 }
 
 const HIDDEN_TITLE = "un detaliu la care nu mai ai acces";
@@ -142,8 +96,6 @@ export async function notifySketchProposed(input: {
   sketchAuthorSubRole?: string | null;
   sketchAuthorVerified?: boolean;
 }) {
-  const who = input.sketchAuthorName ?? "Cineva";
-  const url = detailUrl(input.detailId);
   await notify({
     recipientUserId: input.recipientUserId,
     type: "SKETCH_PROPOSED",
@@ -156,9 +108,6 @@ export async function notifySketchProposed(input: {
       sketchAuthorSubRole: input.sketchAuthorSubRole ?? null,
       sketchAuthorVerified: input.sketchAuthorVerified ?? false,
     },
-    emailSubject: plainSubject(`${who} a schițat peste „${input.detailTitle}"`),
-    emailHtml: sketchProposedEmailHtml(who, input.detailTitle, url),
-    emailText: sketchProposedEmailText(who, input.detailTitle, url),
   });
 }
 
@@ -168,7 +117,6 @@ export async function notifySketchDeleted(input: {
   detailId: string;
   detailTitle: string;
 }) {
-  const url = detailUrl(input.detailId);
   await notify({
     recipientUserId: input.recipientUserId,
     type: "SKETCH_DELETED",
@@ -176,9 +124,6 @@ export async function notifySketchDeleted(input: {
       detailId: input.detailId,
       detailTitle: input.detailTitle,
     },
-    emailSubject: plainSubject(`Schița ta la „${input.detailTitle}" a fost eliminată`),
-    emailHtml: sketchDeletedEmailHtml(input.detailTitle, url),
-    emailText: sketchDeletedEmailText(input.detailTitle, url),
   });
 }
 
@@ -187,9 +132,8 @@ export async function notifyMaterialOfferSent(input: {
   detailId: string;
   detailTitle: string;
   supplierName: string | null;
+  offerId?: string;
 }) {
-  const who = input.supplierName ?? "Un furnizor";
-  const url = detailUrl(input.detailId);
   await notify({
     recipientUserId: input.recipientUserId,
     type: "MATERIAL_OFFER_SENT",
@@ -197,12 +141,8 @@ export async function notifyMaterialOfferSent(input: {
       detailId: input.detailId,
       detailTitle: input.detailTitle,
       supplierName: input.supplierName,
+      ...(input.offerId ? { offerId: input.offerId } : {}),
     },
-    emailSubject: plainSubject(
-      `${who} ți-a trimis o ofertă de materiale pentru „${input.detailTitle}"`,
-    ),
-    emailHtml: materialOfferSentEmailHtml(who, input.detailTitle, url),
-    emailText: materialOfferSentEmailText(who, input.detailTitle, url),
   });
 }
 
@@ -211,9 +151,8 @@ export async function notifyMaterialOfferEdited(input: {
   detailId: string;
   detailTitle: string;
   supplierName: string | null;
+  offerId?: string;
 }) {
-  const who = input.supplierName ?? "Un furnizor";
-  const url = detailUrl(input.detailId);
   await notify({
     recipientUserId: input.recipientUserId,
     type: "MATERIAL_OFFER_EDITED",
@@ -221,12 +160,8 @@ export async function notifyMaterialOfferEdited(input: {
       detailId: input.detailId,
       detailTitle: input.detailTitle,
       supplierName: input.supplierName,
+      ...(input.offerId ? { offerId: input.offerId } : {}),
     },
-    emailSubject: plainSubject(
-      `${who} a actualizat oferta de materiale pentru „${input.detailTitle}"`,
-    ),
-    emailHtml: materialOfferEditedEmailHtml(who, input.detailTitle, url),
-    emailText: materialOfferEditedEmailText(who, input.detailTitle, url),
   });
 }
 
@@ -235,21 +170,17 @@ export async function notifyReferralJoined(input: {
   joinedUserId: string;
   joinedUserName: string | null;
 }) {
-  const who = input.joinedUserName ?? "Cineva";
-  const url = ownProfileUrl();
   await notify({
     recipientUserId: input.recipientUserId,
     type: "REFERRAL_JOINED",
     payloadJson: { joinedUserId: input.joinedUserId, joinedUserName: input.joinedUserName },
-    emailSubject: plainSubject(`${who} s-a alăturat prin linkul tău de referral`),
-    emailHtml: referralJoinedEmailHtml(who, url),
-    emailText: referralJoinedEmailText(who, url),
   });
 }
 
 // Retenție (cron, vezi app/api/cron/cleanup-notifications): șterge notificările CITITE mai vechi de
 // `retentionDays` — cele necitite rămân (userul trebuie să le vadă măcar o dată).
 export async function cleanupOldNotifications(retentionDays: number): Promise<number> {
+  await cleanupEmailDeliveries(retentionDays);
   return deleteReadNotificationsOlderThan(retentionDays);
 }
 
@@ -301,4 +232,15 @@ export async function notifyCommentAdded(input: {
         }),
       ),
   );
+}
+
+export async function notifyApprovalReceived(input: { actorId: string; targetType: TargetType; targetId: string }) {
+  const sketch = input.targetType === "SKETCH" ? await getSketchById(input.targetId) : null;
+  if (input.targetType === "SKETCH" && (!sketch || sketch.status !== "PUBLISHED" || sketch.hiddenAfterRelease || sketch.authorRemoved)) return;
+  const detail = await getDetailById(sketch?.detailId ?? input.targetId);
+  if (!detail || (!sketch && detail.isAnonymized)) return;
+  const recipientUserId = sketch?.authorId ?? detail.ownerId;
+  if (recipientUserId === input.actorId) return;
+  if (detail.projectId && !await canAccessProjectDetail({ projectId: detail.projectId, userId: recipientUserId })) return;
+  await upsertApprovalNotification({ ...input, recipientUserId, detailId: detail.id, detailTitle: detail.title });
 }

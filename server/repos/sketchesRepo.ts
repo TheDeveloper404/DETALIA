@@ -290,6 +290,18 @@ export function listPublishedByDetail(detailId: string) {
   return listByDetailAndStatus(detailId, "PUBLISHED");
 }
 
+// Miniaturi pentru cardurile paginii de feed, intr-un singur query, fara trasee vectoriale.
+export async function listFeedSketchPreviews(detailIds: string[]) {
+  if (detailIds.length === 0) return [];
+  return db.select({ id: sketches.id, detailId: sketches.detailId, thumbnailUrl: sketches.thumbnailUrl })
+    .from(sketches)
+    .innerJoin(details, eq(details.id, sketches.detailId))
+    .where(and(inArray(sketches.detailId, detailIds), eq(sketches.status, "PUBLISHED"),
+      eq(sketches.isAnnotation, false), eq(sketches.hiddenAfterRelease, false),
+      eq(details.status, "PUBLISHED"), isNull(details.projectId)))
+    .orderBy(asc(sketches.createdAt), asc(sketches.id));
+}
+
 // O singură schiță din teancul detaliului (aceleași condiții ca `listPublishedByDetail`), pt export.
 export async function getPublishedTeancSketch(detailId: string, sketchId: string) {
   const [row] = await selectSketchesWithAuthor()

@@ -1,0 +1,7 @@
+export const ACTIVITY_EMAIL_MODES = ["IN_APP", "IMPORTANT", "DAILY"] as const;
+export type ActivityEmailMode = (typeof ACTIVITY_EMAIL_MODES)[number];
+
+export const ACTIVITY_EMAIL_TYPES = [
+  "SKETCH_PROPOSED", "SKETCH_DELETED", "COMMENT_ADDED", "COMMENT_REPLIED",
+  "MATERIAL_OFFER_SENT", "MATERIAL_OFFER_EDITED",
+] as const;

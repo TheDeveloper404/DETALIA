@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // SEC-001 (2026-08-09, security-engineer review PR #215): regresie pentru bug-ul unde delogarea reală
 // depindea EXCLUSIV de un `useEffect` client pe /logout — dacă tab-ul se închidea sau POST-ul eșua,
@@ -55,7 +55,10 @@ vi.mock("@/server/services/profileService", () => ({
   updateProfileDetails: vi.fn(),
 }));
 
-import { deleteAccountAction, signOutAction } from "./actions";
+import { deleteAccountAction, signOutAction, updateProfileDetailsAction } from "./actions";
+import { requireActiveUserId } from "@/lib/require-active-user";
+import { checkLimit } from "@/lib/rate-limit";
+import { updateProfileDetails } from "@/server/services/profileService";
 
 async function runExpectingRedirect(fn: () => Promise<void>): Promise<string> {
   try {
@@ -67,6 +70,27 @@ async function runExpectingRedirect(fn: () => Promise<void>): Promise<string> {
     throw err;
   }
 }
+
+describe("preferinta email — identitatea din sesiune", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireActiveUserId).mockResolvedValue("session-user");
+    vi.mocked(checkLimit).mockResolvedValue({ ok: true } as never);
+    vi.mocked(updateProfileDetails).mockResolvedValue({ ok: true });
+  });
+  // "Preferinta din sesiune, enum validat server-side" — un userId din formular nu este autoritate.
+  it("trimite modul doar pentru userul autentificat, ignorand identitatea falsa din formular", async () => {
+    const form = new FormData(); form.set("userId", "victim"); form.set("activityEmailMode", "DAILY");
+    await updateProfileDetailsAction({ error: null, ok: false }, form);
+    expect(updateProfileDetails).toHaveBeenCalledWith("session-user", expect.objectContaining({ activityEmailMode: "DAILY" }));
+  });
+  // "Un cont suspendat nu poate ... Server Actions"; sesiunea se verifica server-side.
+  it("sesiunea expirata ori suspendata nu poate schimba preferinta", async () => {
+    vi.mocked(requireActiveUserId).mockRejectedValueOnce(new Error("expired-session"));
+    await expect(updateProfileDetailsAction({ error: null, ok: false }, new FormData())).rejects.toThrow("expired-session");
+    expect(updateProfileDetails).not.toHaveBeenCalled();
+  });
+});
 
 describe("signOutAction / deleteAccountAction — SEC-001", () => {
   afterEach(() => {

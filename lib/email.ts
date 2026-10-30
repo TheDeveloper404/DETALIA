@@ -300,9 +300,12 @@ export async function sendEmail(input: {
   subject: string;
   html: string;
   text?: string;
+  idempotencyKey?: string;
+  from?: string;
+  signal?: AbortSignal;
 }): Promise<boolean> {
   const key = process.env.AUTH_RESEND_KEY;
-  const from = process.env.EMAIL_FROM;
+  const from = input.from ?? process.env.EMAIL_FROM;
   if (!key || !from) {
     // Misconfigurare (chei de mediu lipsă) → vizibil în loguri, nu tăcut. Fără PII.
     console.warn("Resend: chei de mediu absente — mesajul NU se trimite.");
@@ -317,7 +320,9 @@ export async function sendEmail(input: {
       headers: {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
+        ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
       },
+      ...(input.signal ? { signal: input.signal } : {}),
       body: JSON.stringify({
         from,
         to: input.to,
@@ -335,6 +340,26 @@ export async function sendEmail(input: {
     );
     return false;
   }
+}
+
+export type ActivityEmailData = {
+  items: { title: string; url: string; events: string[] }[];
+  unsubscribeUrl: string;
+};
+
+export function activityEmailHtml(data: ActivityEmailData): string {
+  return emailLayout(`
+    <h1 style="margin:0 0 18px;font-size:22px;color:${BRAND.text};">Noutăți în discuțiile tale</h1>
+    ${data.items.map((item) => `<h2 style="margin:20px 0 8px;font-size:17px;color:${BRAND.text};">${esc(item.title)}</h2>
+      <ul style="padding-left:20px;color:${BRAND.muted};line-height:1.6;">${item.events.map((event) => `<li>${esc(event)}</li>`).join("")}</ul>
+      ${emailButton(item.url, "Vezi discuția")}`).join("")}
+    <p style="margin-top:24px;font-size:12px;color:${BRAND.muted};">Primești acest mesaj pentru activitatea importantă necitită.
+      <a href="${esc(data.unsubscribeUrl)}" style="color:${BRAND.accent};">Oprește emailurile de activitate</a>.</p>
+  `);
+}
+
+export function activityEmailText(data: ActivityEmailData): string {
+  return `Noutăți în discuțiile tale\n\n${data.items.map((item) => `${item.title}\n${item.events.join("\n")}\n${item.url}`).join("\n\n")}\n\nOprește emailurile de activitate:\n${data.unsubscribeUrl}`;
 }
 
 // Trimitere în lot (Resend `/emails/batch`, max 100/apel) — folosit de digestul săptămânal ca să nu

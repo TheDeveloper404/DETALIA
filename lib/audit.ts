@@ -21,6 +21,8 @@ export type AuditSeverity = "info" | "warning" | "error";
 
 // Evenimente cunoscute (extinde pe măsură ce apar fluxuri: suspendări, decizii admin etc.).
 export type AuditEvent =
+  | "activity_emails_processed"
+  | "activity_emails_failed"
   | "rate_limited" // cotă depășită (auth/mutație/upload/creare detaliu) — semnal de abuz/volum anormal
   | "rate_limit_unavailable" // Redis indisponibil/outage — limiterul nu a putut decide (fail-open/closed după mediu)
   | "rate_limit_disabled_in_prod" // RATE_LIMIT_FAIL_OPEN=true activ în producție — toate limiterele sunt no-op

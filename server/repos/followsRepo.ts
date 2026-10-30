@@ -1,7 +1,18 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, categoryFollows, userFollows, users } from "@/db/schema";
+import { categories, categoryFollows, roles, userFollows, users } from "@/db/schema";
 export type FollowKind = "USER" | "CATEGORY";
+
+export async function listFollowedUsersPage(userId: string, cursor: string | null) {
+  return db
+    .select({ id: users.id, name: users.name, image: users.image, roleMain: roles.roleMain, subRole: roles.subRole, verification: roles.verificationStatus })
+    .from(userFollows)
+    .innerJoin(users, eq(users.id, userFollows.followedUserId))
+    .leftJoin(roles, eq(roles.userId, users.id))
+    .where(and(eq(userFollows.followerUserId, userId), cursor ? gt(userFollows.followedUserId, cursor) : undefined))
+    .orderBy(asc(userFollows.followedUserId))
+    .limit(21);
+}
 
 export async function followTargetExists(kind: FollowKind, targetId: string) {
   if (kind === "USER") {

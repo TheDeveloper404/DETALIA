@@ -1,5 +1,9 @@
 # DETALIA — Schema de date (proiectare concretă)
 
+## Emailuri de activitate — 2026-10-30 (migrare 0029)
+`users.activity_email_mode`: enum `IN_APP | IMPORTANT | DAILY`, implicit IMPORTANT; distinct de `weekly_digest_enabled`. `notifications`: `email_due_at`, `email_delivery_id` (FK, SET NULL), `group_key` unic pentru aprobari; enumul include APPROVAL_RECEIVED. Istoricul ramane fara scadenta email.
+`notification_email_deliveries`: destinatar (FK CASCADE), detaliu optional (FK SET NULL), mod/cutoff unic zilnic, stare, scadenta retry, lease/token, prima incercare, snapshot JSON si creare. Indici pentru destinatari, detalii, claim si notificari pending; stari terminale sterg snapshotul si scadenta notificarii. Detalii si operare: `ACTIVITY-EMAILS.md`; codul ramane sursa de adevar.
+
 > **🔵 SURSA DE ADEVĂR = CODUL** (`db/schema.ts` + migrații). Acest fișier e *design doc*: la orice divergență,
 > **codul câștigă**. Când schimbi schema în cod, actualizează aici sau marchează secțiunea ca „verifică în cod".
 > _Ultima verificare față de cod: 2026-08-25 — resincronizat cu `db/schema.ts` (adăugate tabelele

@@ -56,6 +56,7 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
 import { listTopAuthors, listUsersByRole } from "@/server/repos/usersRepo";
 import { COUNTIES } from "@/server/domain/counties";
+import { listFeedSketchPreviews } from "@/server/repos/sketchesRepo";
 import { isUuid } from "@/server/domain/ids";
 import { userHasRole } from "@/server/services/roleService";
 import {
@@ -694,7 +695,16 @@ export async function getFeed(options?: {
     offset: feedOffset(page, limit),
   });
 
-  return { details, total, page, totalPages: feedTotalPages(total, limit) };
+  const previews = await listFeedSketchPreviews(details.map((detail) => detail.id));
+  const byDetail = new Map<string, { id: string; thumbnailUrl: string }[]>();
+  for (const preview of previews) {
+    if (!preview.thumbnailUrl) continue;
+    const list = byDetail.get(preview.detailId) ?? [];
+    list.push({ id: preview.id, thumbnailUrl: preview.thumbnailUrl });
+    byDetail.set(preview.detailId, list);
+  }
+  return { details: details.map((detail) => ({ ...detail, sketchPreviews: byDetail.get(detail.id) ?? [] })),
+    total, page, totalPages: feedTotalPages(total, limit) };
 }
 
 // „Toate detaliile" din sidebar — numărătoare directă, cu ACEEAȘI vizibilitate ca `getFeed` (fără

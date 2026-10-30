@@ -1,13 +1,13 @@
 "use client";
 
-import { Pencil, PenLine } from "lucide-react";
+import { Pencil, PenLine, X } from "lucide-react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { startTransition, useActionState, useOptimistic, useState } from "react";
 
 import { AvatarInitials } from "@/components/avatar-initials";
+import { DialogOverlay } from "@/components/dialog-overlay";
 import { RolePill } from "@/components/role-pill";
-import { ShowMoreButton } from "@/components/show-more-button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { VoteTriangle } from "@/components/vote-triangle";
@@ -19,11 +19,6 @@ import type { TargetPosition } from "@/server/repos/validationsRepo";
 import { approveAction, disapproveAction, retractAction, type DisapproveState } from "./validation-actions";
 
 const initialState: DisapproveState = { error: null };
-
-// Pozițiile celorlalți — tăiate la un plafon fix, „Vezi mai multe" pentru rest (2026-08-16, raportat:
-// cu 50 de useri, lista devenea un perete înainte de comentarii). Vezi UI-REGISTRY.md
-// §„Vezi mai multe".
-const VISIBLE_POSITIONS = 6;
 
 export function ValidationPanel({
   targetType,
@@ -105,8 +100,8 @@ export function ValidationPanel({
     setMode(allowSketch ? "choose" : "text");
   }
 
-  const [positionsExpanded, setPositionsExpanded] = useState(false);
-  const visiblePositions = positionsExpanded ? positions : positions.slice(0, VISIBLE_POSITIONS);
+  const [positionsTab, setPositionsTab] = useState<ValidationPosition | null>(null);
+  const visiblePositions = positions.filter((p) => p.position === positionsTab);
 
   // Câmpurile ascunse comune (țintă + pagina de revalidat).
   const hidden = (
@@ -115,6 +110,20 @@ export function ValidationPanel({
       <input type="hidden" name="targetId" value={targetId} />
       <input type="hidden" name="detailId" value={detailId} />
     </>
+  );
+
+  const positionsButton = (
+    <button
+      type="button"
+      onClick={() => setPositionsTab("APPROVE")}
+      aria-label="Vezi validările"
+      aria-haspopup="dialog"
+      aria-expanded={positionsTab !== null}
+      title="Vezi validările"
+      className="min-h-11 min-w-6 font-mono text-sm font-bold text-foreground underline decoration-dotted underline-offset-4 hover:text-primary"
+    >
+      {totalValidari}
+    </button>
   );
 
   // Widget orizontal stil StackOverflow: săgeată stânga (Aprob) / count / săgeată dreapta (Dezaprob).
@@ -137,7 +146,7 @@ export function ValidationPanel({
       >
         <VoteTriangle direction="up" size={11} />
       </button>
-      <span className="font-mono text-sm font-bold text-foreground">{totalValidari}</span>
+      {positionsButton}
       <button
         type="button"
         onClick={myPos && !approved ? onRetract : approved ? undefined : onPickDisapprove}
@@ -158,6 +167,7 @@ export function ValidationPanel({
   return (
     <>
       {canValidate && voteSlot && createPortal(voteButtons, voteSlot)}
+      {(!embedded || (canValidate && (!voteSlot || mode !== "none")) || meta || (!canValidate && positions.length > 0)) && (
       <section
         className={cn(
           "text-card-foreground",
@@ -264,15 +274,37 @@ export function ValidationPanel({
           </div>
         )}
 
-        {/* Pozițiile celorlalți — nume + rol, transparent (input real, util în dezbatere). Tăiate la
-            `VISIBLE_POSITIONS`, „Vezi mai multe" pentru rest — vezi UI-REGISTRY.md. */}
-        {positions.length > 0 && (
-          <>
-            <ul data-testid="validation-positions-list" className="mt-4 flex flex-col gap-2.5 border-t border-[#eee6da] pt-4">
+        {!canValidate && positions.length > 0 && positionsButton}
+      </section>
+      )}
+      {positionsTab !== null && createPortal(
+        <DialogOverlay
+          onClose={() => setPositionsTab(null)}
+          ariaLabel="Validări"
+          backdropClassName="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+          panelClassName="fixed left-1/2 top-1/2 z-50 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-border bg-card shadow-xl"
+        >
+          <div className="flex items-center justify-between border-b border-border px-4 py-2">
+            <h2 className="text-sm font-semibold">Validări</h2>
+            <button type="button" onClick={() => setPositionsTab(null)} aria-label="Închide validările" className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted">
+              <X className="size-4" aria-hidden />
+            </button>
+          </div>
+          <div role="group" aria-label="Tip validare" className="flex gap-2 border-b border-border px-4 py-2">
+            {(["APPROVE", "DISAPPROVE"] as const).map((position) => (
+              <button key={position} type="button" aria-pressed={positionsTab === position} onClick={() => setPositionsTab(position)} className={cn("min-h-11 rounded-lg px-3 text-sm font-semibold", positionsTab === position ? "bg-secondary text-foreground" : "text-muted-foreground hover:bg-secondary")}>
+                {position === "APPROVE" ? `Aprobări (${opt.approve})` : `Dezaprobări (${opt.disapprove})`}
+              </button>
+            ))}
+          </div>
+          {visiblePositions.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted-foreground">{positionsTab === "APPROVE" ? "Nicio aprobare încă." : "Nicio dezaprobare încă."}</p>
+          ) : (
+            <ul data-testid="validation-positions-list" className="max-h-[60dvh] space-y-2.5 overflow-y-auto p-4">
               {visiblePositions.map((p) => (
                 <li key={p.userId} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                   <span className="flex min-w-0 items-center gap-2">
-                    <Link href={`/profile/${p.userId}`} className="flex min-w-0 items-center gap-2 no-underline">
+                    <Link href={`/profile/${p.userId}`} onClick={() => setPositionsTab(null)} className="flex min-w-0 items-center gap-2 no-underline">
                       <AvatarInitials name={p.userName} imageUrl={p.userImage} size={28} />
                       <span className="truncate text-sm font-semibold hover:underline">{p.userName ?? "Anonim"}</span>
                     </Link>
@@ -289,12 +321,10 @@ export function ValidationPanel({
                 </li>
               ))}
             </ul>
-            {!positionsExpanded && positions.length > VISIBLE_POSITIONS && (
-              <ShowMoreButton onClick={() => setPositionsExpanded(true)} />
-            )}
-          </>
-        )}
-      </section>
+          )}
+        </DialogOverlay>,
+        document.body,
+      )}
     </>
   );
 }

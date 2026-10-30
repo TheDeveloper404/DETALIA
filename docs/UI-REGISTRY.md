@@ -18,12 +18,35 @@
 - **După UI nou reutilizabil:** adaugă o secțiune scurtă (10-15 linii) — nu documentezi orice `<div>`,
   doar pattern-uri care s-ar putea repeta (modal, card de listă, badge, stare goală/eroare).
 
+## Cardul detaliului din feed
+
+`DetailCard` pastreaza formatul existent. La hover cu mouse-ul pe card, imaginea alterneaza la 1,5 secunde intre detaliu si miniaturile schitelor publicate, cronologic. Iesirea cursorului sau o eroare opreste succesiunea si revine la detaliu. Touch si reduced-motion pastreaza imaginea statica. Fara miniaturi disponibile nu porneste temporizatorul; celelalte liste nu primesc preview-uri.
+`getFeed` aduce metadatele miniaturilor intr-un singur lot pentru pagina, fara stroke-uri sau request pe fiecare card; nu modifica paginarea. Ciornele, adnotarile, foile ascunse si detaliile de proiect sunt excluse ca in feed.
+
+## Pagina detaliului pe desktop/tableta
+
+`app/(app)/details/[id]/detail-workspace.tsx`: de la 768 px, doua coloane; informatii de 220–300 px in stanga, taburi si imagine in dreapta. Data sta deasupra titlului, aliniata la dreapta; resursele sunt in coloana de informatii.
+Titlul de 22 px, descrierea de 14 px si spatierea compacta reduc scroll-ul paginii. Explicatia schitei/adnotarii active sta jos in stanga; fara scroll intern, trunchiere sau inaltime fixa: continutul lung poate extinde pagina.
+Taburile, voturile si CTA-ul suprapus „Schiteaza” folosesc componentele existente; meniul unic sta vizual langa voturi. Sub 768 px, structura anterioara ramane. Viewer-ul nu mai are plafon de latime pe desktop/tableta, iar marginea grilei scade la 8 px.
+
 ## Zoom in pagina detaliului
 
+Mentiunile de schita din comentarii se afiseaza „Vezi schita - Nume” (cu numerotarea existenta cand este cazul); clickul selecteaza foaia si deruleaza la desen, cu spatiu pentru header. Taburile nu declanseaza aceasta derulare.
+
 `components/detail-image-viewer.tsx`: cadru 4:3 cu imaginea si overlay-urile sub aceeasi transformare. Controalele - / procent (reset) / + stau in dreapta sus, cu tinte de 44 px, fara a intra in editare.
-Marire 100–300%, Ctrl+rotita pe desktop, pinch cu doua degete pe touch si drag la marire; la 100%, scroll vertical al paginii. Sursa originala se cere la marire; taburile pastreaza imaginea si zoom-ul montate.
+Marire 100–350%, Ctrl+rotita pe desktop, pinch cu doua degete pe touch si drag la marire; la 100%, scroll vertical al paginii. Sursa originala se cere la marire; taburile pastreaza imaginea si zoom-ul montate.
 `SketchViewer.resolutionScale` urmareste zoom-ul: rezolutia canvasului creste, dimensiunile CSS raman aceleasi. Exportul PDF fara thumbnail foloseste acelasi viewer peste imaginea de baza, cu rezolutie 3x.
 `SketchPrintContent` pastreaza „Salveaza PDF” dezactivat pana cand imaginea de baza si overlay-ul sunt gata; o eroare de incarcare afiseaza mesaj si pastreaza butonul blocat.
+
+## Export PDF din schita
+
+`StackPrintDocument` este comun detaliului si schitei: logo oficial, slogan, titlu, autor detaliu si autori deduplicati, apoi desenul mare si explicatiile foilor capturate. „Export PDF” captureaza aceleasi ID-uri ordonate ca „Schiteaza peste”, in query-ul `stack`; foile inchise nu intra, adnotarea deschisa intra. Desenul se recompune vectorial 3x, fara thumbnail-ul vechi. Fara query, linkul direct al schitei foloseste reteta salvata; detaliul de baza ramane curat.
+`SketchPrintContent` actualizeaza data si ora cu `beforeprint` + `flushSync`, in `Europe/Bucharest`, inclusiv la exporturi repetate sau print din browser; `<time>` pastreaza momentul ISO. A4 cu margini de 15mm, linkuri cu etichete scurte; instructiunile cer dezactivarea anteturilor/subsolurilor browserului.
+
+## Resurse compacte si lista validarilor
+
+Pe detaliu, resursele sunt controale scurte PDF / CAD / Link / Imagine, alaturi de eticheta „Resurse”; URL-ul complet ramane in tooltip si numele accesibil al linkului. `resource-image.tsx` deschide acelasi lightbox, fara thumbnail permanent.
+`validation-panel.tsx`: numarul dintre sageti deschide „Validari”, cu filtre Aprobari / Dezaprobari, nume, roluri si linkuri de profil; lista nu mai apare sub desen. Modalul foloseste `DialogOverlay` si portal in `document.body`, pentru focus, Escape si suprapunere peste header. Actiunile de vot si datele raman cele existente.
 
 ## Filtru multiplu de categorii
 
@@ -107,8 +130,8 @@ fișierului. Orice badge nou de „categorie/status colorat" ar trebui să urmez
 
 **Componentă canonică:** [`components/show-more-button.tsx`](../components/show-more-button.tsx).
 
-Pentru orice listă care ar putea crește nelimitat (validatori, detalii/schițe/activitate pe profil):
-afișează primele N (constantă locală, ex. `TAB_PAGE_SIZE`/`VISIBLE_POSITIONS`), plus `ShowMoreButton`
+Pentru listele din pagina care ar putea crește nelimitat (detalii/schițe/activitate pe profil):
+afișează primele N (constantă locală, ex. `TAB_PAGE_SIZE`), plus `ShowMoreButton`
 care comută `expanded` la `true` — client-side, fără paginare reală pe server (potrivit doar pentru
 liste mărginite realist, nu pentru mii de rânduri). Nu construi un alt „Vezi mai multe" ad-hoc.
 
@@ -276,7 +299,11 @@ Stări goale/loading/eroare, tabele, dropdown/meniu contextual, tabs, toast/noti
 
 
 ## Urmarire si filtre avansate
-- `components/follow-button.tsx`: pastila soft — „Urmărește" (fundal teracota deschis) / „Anulează urmărirea" (alb; hover rosu discret); pe profil sub „Membru din", in feed langa numele categoriei selectate.
+### Preferinte de email
+In `/profile/edit`, `EditDetailsForm` are selectul „Emailuri de activitate”: Doar in aplicatie / Interactiuni importante / Rezumat zilnic. Setarea este privata, validata server-side si distincta de bifa digestului saptamanal. Clopotelul si pagina notificarilor afiseaza aprobarile grupate cu numarul actorilor distincti; nu este un contor live al voturilor.
+
+- `components/following-users-button.tsx`: „Persoane urmarite” apare doar pe profilul propriu; deschide `DialogOverlay` prin portal, cu avatar/nume/rol si link la profil. Stari incarcare/gol/eroare cu reincercare; pagini de 20 prin „Vezi mai multe”, fara plafon total. Server Action foloseste exclusiv identitatea din sesiune; nu trimite email/telefon.
+- `components/follow-button.tsx`: pe profil, „Urmareste” teracota plin cu `UserPlus`, colturi `rounded-lg`, 44 px; „Anuleaza urmarirea” ramane alb cu hover rosu. In `ProfileView`, rolul sta sub nume, iar urmarirea si „Date de contact” sunt pe acelasi rand, aliniate sus si cu aceeasi inaltime/padding/font, pe mobil/tableta/desktop. Urmarirea categoriilor din feed pastreaza pastila soft.
 - `components/feed-filters.tsx`: bara feed-ului (slot-uri `search` + `categoryFilter`) cu butonul „Filtre · N"; panoul (`DialogOverlay`: de jos pe telefon, popover de la `sm`) are „Ce vezi" (Doar ce urmăresc, Așteaptă ajutor), „Autor" (rol), „Locație" (județ). Lucreaza pe o ciorna: se aplica la „Aplică"/„Arată detaliile", Esc/click afara = fara schimbari. Fara rand de chip-uri sub bara (feed-ul nu se misca); filtrele active = numarul de pe buton + starea panoului. Numararea/resetarea in `lib/feed-filters.ts`.
 - `components/dialog-overlay.tsx`: focusul intra in panou la deschidere, Tab ramane in dialog, revine pe elementul de dinainte la inchidere; click oriunde in afara panoului (inclusiv header-ul) il inchide.
 - **Regula meniuri:** orice meniu dropdown foloseste `components/use-dismiss.ts` (click in afara / Escape → se inchide), nu un backdrop transparent — backdrop-ul ramane sub header (`z-50`) si lasa doua meniuri deschise simultan.

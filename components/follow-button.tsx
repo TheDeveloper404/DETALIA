@@ -1,5 +1,5 @@
 "use client";
-import { Check, Plus, X } from "lucide-react";
+import { Check, Plus, UserPlus, X } from "lucide-react";
 import { useState, useTransition } from "react";
 import { setFollowAction } from "@/app/(app)/following/actions";
 
@@ -20,10 +20,12 @@ export function FollowButton({
         type="button"
         aria-pressed={followed}
         disabled={pending}
-        className={`group inline-flex h-10 items-center gap-1.5 self-start rounded-full border px-4 text-[13.5px] font-semibold transition-colors disabled:opacity-50 ${
+        className={`group inline-flex items-center gap-1.5 self-start border px-4 font-semibold transition-colors disabled:opacity-50 ${kind === "USER" ? "h-11 rounded-lg text-sm" : "h-10 rounded-full text-[13.5px]"} ${
           followed
             ? "border-border bg-card text-foreground/80 hover:border-destructive/40 hover:bg-[#fbeeec] hover:text-destructive"
-            : "border-[#ecd3c4] bg-[#fbf1ea] text-[#8a4428] hover:border-primary/50 hover:bg-[#f7e6da]"
+            : kind === "USER"
+              ? "border-[var(--primary-button-border)] bg-primary text-primary-foreground hover:bg-[var(--primary-button-border)]"
+              : "border-[#ecd3c4] bg-[#fbf1ea] text-[#8a4428] hover:border-primary/50 hover:bg-[#f7e6da]"
         }`}
         onClick={() =>
           startTransition(async () => {
@@ -43,7 +45,7 @@ export function FollowButton({
             <X className="hidden size-3.5 group-hover:block" strokeWidth={2.2} aria-hidden />
           </>
         ) : (
-          <Plus className="size-3.5" strokeWidth={2.2} aria-hidden />
+          kind === "USER" ? <UserPlus className="size-4" strokeWidth={2.2} aria-hidden /> : <Plus className="size-3.5" strokeWidth={2.2} aria-hidden />
         )}
         {pending ? "Se salvează…" : followed ? "Anulează urmărirea" : "Urmărește"}
       </button>

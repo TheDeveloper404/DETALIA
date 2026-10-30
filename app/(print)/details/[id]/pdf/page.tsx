@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { blobReadUrl } from "@/lib/blob-read-url";
-import { isOwnBlobUrl } from "@/lib/blob-url";
 import { siteUrl } from "@/lib/site-url";
 import { getDetail } from "@/server/services/detailService";
-import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
-import { REMOVED_AUTHOR_LABEL } from "@/server/domain/sketch";
-import { PrintButton } from "./print-button";
+import { getPrintStack } from "@/server/services/sketchService";
+import { StackPrintDocument } from "./stack-print-document";
 import "./print.css";
 
 export const metadata: Metadata = { title: "Export PDF", robots: { index: false, follow: false } };
@@ -18,47 +15,21 @@ function printableUrl(url: string): string {
   return url.startsWith("/") ? siteUrl() + url : url;
 }
 
-export default async function DetailPdfPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DetailPdfPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ stack?: string | string[] }> }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const { id } = await params;
   const detail = await getDetail(id, session.user.id);
   if (!detail) notFound();
+  const query = await searchParams;
+  const stack = query?.stack === undefined
+    ? { activeSketch: null, layers: [], printStrokes: [] }
+    : await getPrintStack(detail.id, typeof query.stack === "string" ? query.stack.split(",") : query.stack);
+  if (!stack) notFound();
   return (
-    <main className="detail-print mx-auto w-full max-w-4xl p-6 sm:p-10">
-      <div className="print-controls mb-6 flex flex-wrap items-center gap-3">
-        <Link
-          href={"/details/" + detail.id}
-          className="min-h-11 rounded-lg border border-border px-4 py-3 text-sm hover:bg-secondary"
-        >
-          Înapoi la detaliu
-        </Link>
-        <PrintButton />
-        <p className="w-full text-sm text-muted-foreground">
-          În fereastra de tipărire alege „Save as PDF” / „Salvează ca PDF”. Exportul include
-          detaliul de bază și resursele, fără discuții sau schițe.
-        </p>
-      </div>
-      <article className="flex flex-col gap-4">
-        <p className="text-sm font-semibold text-primary">DETALIA</p>
-        <h1 className="text-3xl font-bold">{detail.title}</h1>
-        <p>
-          {detail.authorRemovedFromProject ? REMOVED_AUTHOR_LABEL : (detail.authorName ?? "Anonim")}{" "}
-          ·{" "}
-          {detail.authorSubRole ??
-            ROLE_MAIN_LABELS[detail.authorRoleMain as RoleMain] ??
-            "Rol nedeclarat"}
-          {detail.authorVerification === "VERIFIED" ? " · Verificat" : ""}
-        </p>
-        <p className="text-sm">{detail.categories.map((c) => c.name).join(" · ")}</p>
-        {detail.description && <p className="whitespace-pre-wrap">{detail.description}</p>}
-        {detail.imageUrl /* eslint-disable-next-line @next/next/no-img-element -- full-size printable original */ && (
-          <img
-            src={blobReadUrl(detail.imageUrl, "detail", detail.id)}
-            alt={detail.title}
-            className="max-h-[220mm] w-full object-contain"
-          />
-        )}
+    <StackPrintDocument detail={detail} stack={stack}>
+      {detail.categories.length > 0 && <p className="text-sm">{detail.categories.map((c) => c.name).join(" · ")}</p>}
+      {detail.description && <section><h2 className="mb-1 text-lg font-semibold">Descriere detaliu</h2><p className="whitespace-pre-wrap break-words">{detail.description}</p></section>}
         <dl className="grid grid-cols-2 gap-2 text-sm">
           {[
             ["Localitate", detail.location],
@@ -85,7 +56,7 @@ export default async function DetailPdfPage({ params }: { params: Promise<{ id: 
                   {r.body && <p className="whitespace-pre-wrap">{r.body}</p>}
                   {r.url && (
                     <a href={printableUrl(blobReadUrl(r.url, "resource", r.id))} rel="noreferrer">
-                      {isOwnBlobUrl(r.url) ? new URL(r.url).pathname.split("/").pop() : r.url}
+                      {({ IMAGE: "Imagine", PDF: "PDF", CAD: "CAD", LINK: "Link", TEXT: "Resursă" })[r.type]}
                     </a>
                   )}
                 </li>
@@ -93,10 +64,6 @@ export default async function DetailPdfPage({ params }: { params: Promise<{ id: 
             </ul>
           </section>
         )}
-        <p className="break-all border-t border-border pt-3 text-sm">
-          Detaliu: {siteUrl()}/details/{detail.id}
-        </p>
-      </article>
-    </main>
+    </StackPrintDocument>
   );
 }

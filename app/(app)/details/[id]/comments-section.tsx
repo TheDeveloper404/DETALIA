@@ -504,7 +504,7 @@ function CommentBody({
             onClick={() => onSelectSketch(seg.sketchId)}
             className="rounded font-medium text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:decoration-primary"
           >
-            @{seg.name}
+            Vezi schița - {seg.name}
           </button>
         );
       })}

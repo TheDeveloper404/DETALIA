@@ -95,6 +95,51 @@ test.afterEach(async () => {
   detailIds = [];
 });
 
+// "La hover peste un detaliu in feed sa fie o succesiune a schitelor din interiorul detaliului in loop"
+test("hover in feed: succesiune schite si revenire la detaliu", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await db.update(sketches).set({ thumbnailUrl: "/pwa-512.png", createdAt: new Date("2026-10-30T10:00:00Z") })
+    .where(eq(sketches.detailId, detailIds[0]));
+  await db.insert(sketches).values({ detailId: detailIds[0], authorId,
+    status: "PUBLISHED", thumbnailUrl: "/landing/terrace-sketch.webp", createdAt: new Date("2026-10-30T11:00:00Z") });
+  await page.goto("/feed?q=" + encodeURIComponent(title));
+  const card = page.locator("article").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+  const image = card.getByRole("img", { name: title, exact: true });
+  await expect(image).toHaveAttribute("src", /pwa-192\.png/);
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.currentSrc.includes("pwa-192.png"))).toBe(true);
+  await card.hover();
+  await expect(image).toHaveAttribute("src", /pwa-512\.png/);
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.currentSrc.includes("pwa-512.png"))).toBe(true);
+  await expect(image).toHaveAttribute("src", /terrace-sketch\.webp/);
+  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.currentSrc.includes("terrace-sketch.webp"))).toBe(true);
+  await expect(image).toHaveAttribute("src", /pwa-192\.png/);
+  await page.mouse.move(1, 1);
+  await expect(image).toHaveAttribute("src", /pwa-192\.png/);
+  await page.waitForTimeout(1700);
+  await expect(image).toHaveAttribute("src", /pwa-192\.png/);
+  await card.getByRole("heading", { name: title, exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/details/${detailIds[0]}$`));
+});
+
+// "Denumirea link-ului schitei in comentariu trebuie sa fie \"Vezi schita - Eduard Nemes\""
+// "La click pe link schita trebuie sa ma duca sus la schita prin scroll automat."
+test("link schita din comentariu: eticheta explicita si scroll la desen", async ({ page }) => {
+  await page.setViewportSize({ width: 834, height: 700 });
+  const [sketch] = await db.select({ id: sketches.id }).from(sketches).where(eq(sketches.detailId, detailIds[0]));
+  const result = await addComment({ targetType: "DETAIL", targetId: detailIds[0], userId: getSeed().testerUserId,
+    body: `Observatie pentru @[Autor schita](sid:${sketch.id})` });
+  expect(result.ok).toBe(true);
+  await page.goto("/details/" + detailIds[0]);
+  const mention = page.getByRole("button", { name: "Vezi schița - Autor schita", exact: true });
+  await expect(mention).toBeVisible();
+  await mention.scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await mention.click();
+  await expect(page).toHaveURL(new RegExp(`sketch=${sketch.id}`));
+  await expect.poll(async () => (await page.getByTestId("detail-drawing").boundingBox())?.y ?? -1).toBeGreaterThanOrEqual(0);
+  await expect.poll(async () => (await page.getByTestId("detail-drawing").boundingBox())?.y ?? 1000).toBeLessThan(180);
+});
+
 for (const viewport of ["mobile", "tableta", "desktop"] as const) {
   // Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate.
   test(`utilizatori dupa rol pe ${viewport}: rezumat, modal complet si profil fara postari`, async ({ page }) => {
@@ -203,6 +248,26 @@ test("follow/unfollow user si categorie controleaza feed-ul Urmariti", async ({ 
   await page.goto("/profile/" + authorId);
   await follow.click();
   await expect(unfollow).toBeVisible();
+  // "Doar eu, in profilul meu (recomandat)"
+  await expect(page.getByRole("button", { name: "Persoane urmărite", exact: true })).toHaveCount(0);
+  await page.goto("/profile");
+  const badge = page.getByRole("dialog", { name: "Badge nou primit", exact: true });
+  if (await badge.isVisible()) await badge.getByRole("button", { name: "Super!", exact: true }).click();
+  const followingButton = page.getByRole("button", { name: "Persoane urmărite", exact: true });
+  await followingButton.click();
+  const followingDialog = page.getByRole("dialog", { name: "Persoane urmărite", exact: true });
+  const followingList = followingDialog.getByRole("list");
+  await expect(followingList).toBeVisible();
+  const followedProfile = followingList.locator(`a[href="/profile/${authorId}"]`);
+  while (await followedProfile.count() === 0) {
+    const previous = await followingList.locator("li").count();
+    await followingDialog.getByRole("button", { name: "Vezi mai multe", exact: true }).click();
+    await expect.poll(() => followingList.locator("li").count()).toBeGreaterThan(previous);
+  }
+  await expect(followedProfile).toContainText(authorName);
+  await page.keyboard.press("Escape");
+  await expect(followingDialog).not.toBeVisible();
+  await expect(followingButton).toBeFocused();
   await page.goto("/feed?following=1&q=" + encodeURIComponent(title));
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: otherTitle, exact: true })).toHaveCount(0);
@@ -413,15 +478,31 @@ test("pagina PDF reda detaliul, butonul cere print si controalele dispar la tipa
 
 for (const viewport of ["tableta", "desktop"] as const) {
   // **Export PDF din schiță:** pe tabul unei schite din teanc, acelasi „Export PDF” exporta schita activa (imaginea compusa la publicare, autorul si nota), fara discutii. Doar schitele PUBLISHED ale detaliului, cu accesul la detaliu si mascarea autorului retras.
+  // "Logo Detalia"; "Slogan \"Detaliile bune se construiesc impreuna\""; "Autor Detaliu"
+  // "Lista autori schite: Daca in teanc sunt mai multe schite. Daca este o singura schita, autorul ei."
+  // "Descrierea tuturor schitelor din teanc cu numele autorilor atasat langa descrieri"; "Data si ora salvarii"
   test(`export PDF din tabul schitei pe ${viewport}: pagina schitei, print fara controale`, async ({ page }) => {
     await page.setViewportSize({ width: viewport === "tableta" ? 834 : 1280, height: 900 });
     const [sketch] = await db
       .select({ id: sketches.id })
       .from(sketches)
       .where(eq(sketches.detailId, detailIds[0]));
-    await db.update(sketches).set({ thumbnailUrl: null, strokesJson: [
+    const [sketchAuthor] = await db.select({ name: users.name }).from(users).where(eq(users.id, getSeed().testerUserId));
+    const sketchAuthorName = sketchAuthor.name ?? "Anonim";
+    let baseLayerId: string | null = null;
+    await db.update(sketches).set({ thumbnailUrl: null, note: "Nota schitei active Discovery", strokesJson: [
       { kind: "line", color: "#ff0000", size: 10, points: [[0.2, 0.2], [0.8, 0.8]] },
     ] }).where(eq(sketches.id, sketch.id));
+    if (viewport === "desktop") {
+      const base = { detailId: detailIds[0], authorId, status: "PUBLISHED" as const };
+      const [background] = await db.insert(sketches).values([
+        { ...base, note: "Nota celeilalte schite Discovery", strokesJson: [{ kind: "line", color: "#0000ff", size: 10, points: [[0.2, 0.8], [0.8, 0.2]] }] },
+        { ...base, status: "DRAFT", note: "Nota privata ciorna Discovery" },
+        { ...base, hiddenAfterRelease: true, note: "Nota ascunsa Discovery" },
+      ]).returning({ id: sketches.id });
+      baseLayerId = background.id;
+      await db.update(sketches).set({ baseSketchIds: [baseLayerId] }).where(eq(sketches.id, sketch.id));
+    }
     await page.goto("/details/" + detailIds[0] + "?sketch=" + sketch.id);
     await page.getByRole("button", { name: "Acțiuni detaliu", exact: true }).click();
     let releaseImage!: () => void;
@@ -435,9 +516,25 @@ for (const viewport of ["tableta", "desktop"] as const) {
     const pdf = await popupPromise;
     // RegExp, nu predicat: predicatul trece prin waitForURL, care asteapta si `load`, iar imaginea e
     // tinuta intentionat pana mai jos (verificam butonul dezactivat cat timp desenul nu e gata).
-    await expect(pdf).toHaveURL(new RegExp(`/details/${detailIds[0]}/sketch/${sketch.id}/pdf$`));
+    await expect(pdf).toHaveURL(new RegExp(`/details/${detailIds[0]}/sketch/${sketch.id}/pdf\\?stack=`));
+    expect(new URL(pdf.url()).searchParams.get("stack")?.split(",")).toEqual(baseLayerId ? [baseLayerId, sketch.id] : [sketch.id]);
     const heading = pdf.getByRole("heading", { name: "Schiță peste „" + title + "”", exact: true });
     await expect(heading).toBeVisible();
+    const article = pdf.locator("article");
+    const logo = article.getByRole("img", { name: "DETALIA", exact: true });
+    await expect(logo).toBeVisible();
+    await expect.poll(() => logo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+    await expect(article).toContainText("Detaliile bune se construiesc impreuna");
+    await expect(article).toContainText("Autor detaliu: " + authorName);
+    await expect(article.getByRole("listitem")).toHaveCount(viewport === "desktop" ? 2 : 1);
+    const notes = article.getByRole("heading", { name: "Descrierile schițelor din teanc", exact: true }).locator("..");
+    await expect(notes.getByRole("heading", { level: 3 })).toHaveCount(viewport === "desktop" ? 2 : 1);
+    await expect(notes.locator("div").filter({ hasText: "Nota schitei active Discovery" })).toContainText(sketchAuthorName);
+    if (viewport === "desktop") {
+      await expect(notes.locator("div").filter({ hasText: "Nota celeilalte schite Discovery" })).toContainText(authorName);
+      await expect(article).not.toContainText("Nota privata ciorna Discovery");
+      await expect(article).not.toContainText("Nota ascunsa Discovery");
+    }
     const print = pdf.getByRole("button", { name: "Salvează PDF", exact: true });
     try { await expect(print).toBeDisabled(); } finally { releaseImage(); }
     const drawing = pdf.getByTestId("sketch-print-fallback").locator("canvas");
@@ -447,22 +544,62 @@ for (const viewport of ["tableta", "desktop"] as const) {
       const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
       return pixels.some((r, i) => i % 4 === 0 && r > 180 && pixels[i + 1] < 100 && pixels[i + 2] < 100);
     })).toBe(true);
+    if (baseLayerId) {
+      // "Tot teancul ... asa cum la Schiteaza ramane inghetat tot teancul deschis".
+      await expect.poll(() => drawing.evaluate((canvas: HTMLCanvasElement) => {
+        const pixels = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixels.some((b, i) => i % 4 === 2 && b > 180 && pixels[i - 1] < 100 && pixels[i - 2] < 100);
+      })).toBe(true);
+    }
     await expect(print).toBeEnabled();
+    await expect(article.locator("time")).toHaveCount(0);
+    await pdf.clock.setFixedTime(new Date("2026-10-30T12:34:56Z"));
     await pdf.evaluate(() => {
       window.print = () => {
+        window.dispatchEvent(new Event("beforeprint"));
+        document.documentElement.dataset.printTimestamp = document.querySelector("article time")?.getAttribute("datetime") ?? "";
         document.documentElement.dataset.printRequested = "yes";
       };
     });
     await pdf.getByRole("button", { name: "Salvează PDF", exact: true }).click();
     await expect(pdf.locator("html")).toHaveAttribute("data-print-requested", "yes");
+    await expect(pdf.locator("html")).toHaveAttribute("data-print-timestamp", "2026-10-30T12:34:56.000Z");
+    await expect(article.locator("time")).toHaveText("30.10.2026, 14:34:56");
+    await pdf.clock.setFixedTime(new Date("2026-10-30T12:35:56Z"));
+    await print.click();
+    await expect(pdf.locator("html")).toHaveAttribute("data-print-timestamp", "2026-10-30T12:35:56.000Z");
     await pdf.emulateMedia({ media: "print" });
     await expect(pdf.getByRole("button", { name: "Salvează PDF", exact: true })).toBeHidden();
     await expect(heading).toBeVisible();
+    await expect(logo).toBeVisible();
+    await expect(notes).toBeVisible();
+    await expect(article.locator("time")).toHaveAttribute("datetime", "2026-10-30T12:35:56.000Z");
     await expect(drawing).toBeVisible();
     await expect.poll(() => drawing.evaluate((canvas: HTMLCanvasElement) => {
       const pixels = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
       return pixels.some((r, i) => i % 4 === 0 && r > 180 && pixels[i + 1] < 100 && pixels[i + 2] < 100);
     })).toBe(true);
+    if (baseLayerId) {
+      await pdf.close();
+      const toggle = page.getByTestId(`stack-layer-${baseLayerId}`);
+      await toggle.click(); await expect(toggle).toHaveAttribute("aria-pressed", "false");
+      await page.getByRole("button", { name: "Acțiuni detaliu", exact: true }).click();
+      const nextPopup = page.waitForEvent("popup");
+      await page.getByRole("menuitem", { name: "Export PDF", exact: true }).click();
+      const hidden = await nextPopup;
+      await expect(hidden).toHaveURL(new RegExp(`/sketch/${sketch.id}/pdf\\?stack=${sketch.id}$`));
+      // Schimbarea ulterioara a bifelor in pagina originala nu schimba documentul deja deschis.
+      await toggle.click(); await expect(toggle).toHaveAttribute("aria-pressed", "true");
+      await expect(hidden.getByRole("button", { name: "Salvează PDF", exact: true })).toBeEnabled();
+      await expect(hidden.locator("article").getByRole("listitem")).toHaveCount(1);
+      await expect(hidden.locator("article")).not.toContainText("Nota celeilalte schite Discovery");
+      const hiddenDrawing = hidden.getByTestId("sketch-print-fallback").locator("canvas");
+      expect(await hiddenDrawing.evaluate((canvas: HTMLCanvasElement) => {
+        const pixels = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data;
+        return pixels.some((b, i) => i % 4 === 2 && b > 180 && pixels[i - 1] < 100 && pixels[i - 2] < 100);
+      })).toBe(false);
+      await hidden.close();
+    }
   });
 }
 

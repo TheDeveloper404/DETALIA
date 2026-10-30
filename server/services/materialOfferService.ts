@@ -105,6 +105,7 @@ export async function sendOrUpdateMaterialOffer(input: {
       detailId: input.detailId,
       detailTitle: detail.title,
       supplierName: actor?.name ?? null,
+      offerId,
     });
   } catch (err) {
     console.error("[materialOfferService] notificare eșuată (non-fatal)", {
