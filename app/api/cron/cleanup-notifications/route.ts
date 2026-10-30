@@ -3,6 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { audit } from "@/lib/audit";
+import { deleteExpiredSessions } from "@/server/repos/sessionsRepo";
 import { cleanupOldNotifications } from "@/server/services/notificationService";
 
 // Retenție notificări: șterge notificările CITITE mai vechi de 15 zile (decizie de produs 2026-07-03).
@@ -29,7 +30,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const deleted = await cleanupOldNotifications(RETENTION_DAYS);
-  audit("notifications_retention_cleanup", { deletedCount: deleted, retentionDays: RETENTION_DAYS }, "info");
+  const expiredSessions = await deleteExpiredSessions();
+  audit("notifications_retention_cleanup", { deletedCount: deleted, retentionDays: RETENTION_DAYS, expiredSessions }, "info");
 
   return NextResponse.json({ ok: true, deleted });
 }

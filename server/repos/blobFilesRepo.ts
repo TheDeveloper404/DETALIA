@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -65,6 +65,7 @@ export type BlobFileRow = {
   sketchAuthorId?: string;
   hidden?: boolean;
   supplierId?: string;
+  ownerWithdrawn?: boolean;
   fileName?: string;
 };
 
@@ -118,6 +119,7 @@ export async function getBlobFile(kind: BlobFileKind, id: string): Promise<BlobF
         .select({
           url: materialOfferFiles.url,
           ownerId: details.authorId,
+          ownerWithdrawn: sql<boolean>`${details.anonymizedAt} is not null`,
           supplierId: materialOffers.supplierId,
           fileName: materialOfferFiles.fileName,
         })

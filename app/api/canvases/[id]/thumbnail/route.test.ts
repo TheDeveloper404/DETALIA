@@ -46,7 +46,7 @@ beforeEach(() => {
   mocks.limit.mockResolvedValue({ ok: true });
   mocks.canvas.mockResolvedValue({ id: CANVAS, ownerId: OWNER, thumbnailUrl: OLD });
   mocks.process.mockResolvedValue({ ok: true, url: CLEAN });
-  mocks.update.mockResolvedValue(true);
+  mocks.update.mockResolvedValue({ previousUrl: OLD });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -124,7 +124,7 @@ it("esecul decodarii nu modifica thumbnail-ul existent", async () => {
 
 // Regula aprobata: "on false cleanup new file; after success cleanup old".
 it("disparitia plansei la UPDATE curata numai imaginea noua", async () => {
-  mocks.update.mockResolvedValue(false);
+  mocks.update.mockResolvedValue(null);
   expect((await request()).status).toBe(404);
   expect(mocks.remove).toHaveBeenCalledExactlyOnceWith([CLEAN]);
 });

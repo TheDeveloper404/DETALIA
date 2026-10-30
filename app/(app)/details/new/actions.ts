@@ -9,7 +9,7 @@ import { reprocessBlobImage } from "@/lib/image-processing";
 import { checkLimit, limiters } from "@/lib/rate-limit";
 import { captureServerEvent, flushPostHogEvents } from "@/lib/posthog-server";
 import { requireActiveUserId } from "@/lib/require-active-user";
-import { canUseBlobUrls } from "@/server/services/blobFileService";
+import { canUseBlobUrls, deleteStagingBlobs } from "@/server/services/blobFileService";
 import { type DetailResourceInput, isValidResourceType } from "@/server/domain/detail";
 import { createDetail, createDetailDraft } from "@/server/services/detailService";
 import { createAnnotation } from "@/server/services/sketchService";
@@ -132,7 +132,7 @@ export async function createDetailAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
-  await deleteBlobs([imageUrl]);
+  await deleteStagingBlobs([imageUrl], userId);
 
   // ADNOTAREA opțională a autorului peste propria imagine (desenată în formular). Detaliul e DEJA
   // publicat aici → o adnotare care eșuează NU trebuie să-l piardă: încercăm, și mergem mai departe
@@ -244,6 +244,6 @@ export async function saveNewDetailDraftAction(
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };
   }
 
-  if (rawImageUrl) await deleteBlobs([rawImageUrl]);
+  if (rawImageUrl) await deleteStagingBlobs([rawImageUrl], userId);
   redirect(`/details/${result.detailId}/edit`);
 }

@@ -8,7 +8,7 @@ vi.mock("@/db", async () => {
 
 const { db } = await import("@/db");
 const { users, sessions } = await import("@/db/schema");
-const { insertUserSession, hasValidUserSession, revokeUserSession } = await import("./sessionsRepo");
+const { insertUserSession, hasValidUserSession, revokeUserSession, deleteExpiredSessions } = await import("./sessionsRepo");
 const { getUserGateInfo } = await import("./usersRepo");
 const { eq } = await import("drizzle-orm");
 
@@ -38,6 +38,17 @@ describe("registru sesiuni", () => {
     expect(await hasValidUserSession(sid, userId)).toBe(false);
     const [row] = await db.select().from(sessions).where(eq(sessions.sessionToken, sid));
     expect(row.expires).toEqual(expires);
+  });
+
+  // Regula (sessionsRepo.ts): "Rândurile expirate nu mai autentifică pe nimeni (hasValidUserSession cere expires > now); cron-ul zilnic le curăță."
+  it("curatarea sterge doar sesiunile expirate", async () => {
+    const userId = randomUUID(), expired = randomUUID(), valid = randomUUID();
+    await db.insert(users).values({ id: userId, email: `${userId}@test.local` });
+    await insertUserSession(expired, userId, new Date(Date.now() - 1_000));
+    await insertUserSession(valid, userId, new Date(Date.now() + 60_000));
+    expect(await deleteExpiredSessions()).toBeGreaterThanOrEqual(1);
+    expect(await db.select().from(sessions).where(eq(sessions.sessionToken, expired))).toHaveLength(0);
+    expect(await hasValidUserSession(valid, userId)).toBe(true);
   });
 
   // Regula: "Proxy-ul combina sesiunea valida, utilizatorul, statutul actual si rolul in query-ul portii existente."

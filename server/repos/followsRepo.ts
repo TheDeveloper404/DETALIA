@@ -9,7 +9,7 @@ export async function listFollowedUsersPage(userId: string, cursor: string | nul
     .from(userFollows)
     .innerJoin(users, eq(users.id, userFollows.followedUserId))
     .leftJoin(roles, eq(roles.userId, users.id))
-    .where(and(eq(userFollows.followerUserId, userId), cursor ? gt(userFollows.followedUserId, cursor) : undefined))
+    .where(and(eq(userFollows.followerUserId, userId), eq(users.status, "ACTIVE"), cursor ? gt(userFollows.followedUserId, cursor) : undefined))
     .orderBy(asc(userFollows.followedUserId))
     .limit(21);
 }

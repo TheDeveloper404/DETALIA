@@ -45,6 +45,24 @@ it("citeste miniaturile publice ale paginii, fara ciorne, adnotari, foi ascunse 
   expect(await listFeedSketchPreviews([])).toEqual([]);
 });
 
+// Limita de preview-uri pe card: cel mult 5 per detaliu, numai schite cu miniatura, cele mai vechi primele.
+it("aduce cel mult 5 miniaturi per detaliu si sare peste schitele fara miniatura", async () => {
+  const { listFeedSketchPreviews } = await import("./sketchesRepo");
+  const [author] = await db.insert(users).values({ email: "hover-cap@test.local" }).returning();
+  const [many, few] = await db.insert(details).values([
+    { title: "Multe", authorId: author.id, status: "PUBLISHED" },
+    { title: "Putine", authorId: author.id, status: "PUBLISHED" },
+  ]).returning();
+  const at = (minute: number) => new Date(Date.UTC(2026, 9, 30, 12, minute));
+  const rows = await db.insert(sketches).values([
+    { authorId: author.id, detailId: many.id, status: "PUBLISHED" as const, thumbnailUrl: null, createdAt: at(0) },
+    ...Array.from({ length: 7 }, (_, i) => ({ authorId: author.id, detailId: many.id, status: "PUBLISHED" as const, thumbnailUrl: `/m${i}.png`, createdAt: at(i + 1) })),
+    { authorId: author.id, detailId: few.id, status: "PUBLISHED" as const, thumbnailUrl: "/f.png", createdAt: at(30) },
+  ]).returning();
+  const result = await listFeedSketchPreviews([many.id, few.id]);
+  expect(result.map((row) => row.id)).toEqual([...rows.slice(1, 6), rows[8]].map((row) => row.id));
+});
+
 // **Export PDF din schiță:** pe tabul unei schite din teanc, acelasi „Export PDF” exporta schita activa (imaginea compusa la publicare, autorul si nota), fara discutii. Doar schitele PUBLISHED ale detaliului, cu accesul la detaliu si mascarea autorului retras.
 it("intoarce doar schita publicata din teancul detaliului, cu autorul retras mascat", async () => {
   const [author] = await db.insert(users).values({ name: "Autor real", email: "teanc@test.local" }).returning();

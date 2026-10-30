@@ -149,6 +149,6 @@ export async function getMyMaterialOffer(userId: string, detailId: string) {
 export async function getMaterialOffersForOwner(userId: string, detailId: string) {
   if (!isUuid(detailId)) return [];
   const detail = await getDetailById(detailId);
-  if (!detail || detail.ownerId !== userId) return [];
+  if (!detail || detail.ownerId !== userId || detail.isAnonymized) return [];
   return listMaterialOffersForDetail(detailId);
 }

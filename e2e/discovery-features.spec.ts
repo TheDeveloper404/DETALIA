@@ -108,14 +108,23 @@ test("hover in feed: succesiune schite si revenire la detaliu", async ({ page })
   await expect(image).toHaveAttribute("src", /pwa-192\.png/);
   await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.currentSrc.includes("pwa-192.png"))).toBe(true);
   await card.hover();
-  await expect(image).toHaveAttribute("src", /pwa-512\.png/);
-  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.currentSrc.includes("pwa-512.png"))).toBe(true);
-  await expect(image).toHaveAttribute("src", /terrace-sketch\.webp/);
-  await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0 && img.currentSrc.includes("terrace-sketch.webp"))).toBe(true);
-  await expect(image).toHaveAttribute("src", /pwa-192\.png/);
+  // Banda [baza, ...schite, baza] gliseaza; copia bazei de la final duce loop-ul inapoi la inceput.
+  const track = image.locator("xpath=../..");
+  const slides = track.locator("img");
+  await expect(slides).toHaveCount(4);
+  await expect(slides.nth(1)).toHaveAttribute("src", /pwa-512\.png/);
+  await expect(slides.nth(2)).toHaveAttribute("src", /terrace-sketch\.webp/);
+  for (const index of [1, 2]) {
+    await expect.poll(() => slides.nth(index).evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  }
+  await expect(track).toHaveAttribute("style", /translateX\(-100%\)/);
+  await expect(track).toHaveAttribute("style", /translateX\(-200%\)/);
+  await expect(track).toHaveAttribute("style", /translateX\(-0%\)/);
+  await expect(track).toHaveAttribute("style", /translateX\(-100%\)/);
   await page.mouse.move(1, 1);
-  await expect(image).toHaveAttribute("src", /pwa-192\.png/);
+  await expect(track).toHaveAttribute("style", /translateX\(-0%\)/);
   await page.waitForTimeout(1700);
+  await expect(track).toHaveAttribute("style", /translateX\(-0%\)/);
   await expect(image).toHaveAttribute("src", /pwa-192\.png/);
   await card.getByRole("heading", { name: title, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/details/${detailIds[0]}$`));

@@ -61,19 +61,20 @@ export async function updateDocumentOwned(
   return rows.length > 0;
 }
 
-// Actualizează thumbnail-ul (condiționat pe owner). Întoarce true dacă a modificat un rând.
-// URL-ul vechi (pt curățarea blob-ului orfan) îl citește serviciul din getCanvasById înainte de update.
+// Actualizează thumbnail-ul (condiționat pe owner). Întoarce URL-ul înlocuit, null dacă nu există rândul.
+// Un singur statement cu rândul blocat: două salvări simultane primesc fiecare exact URL-ul pe care l-a înlocuit.
 export async function updateThumbnailOwned(
   id: string,
   ownerId: string,
   thumbnailUrl: string,
-): Promise<boolean> {
-  const rows = await db
-    .update(canvases)
-    .set({ thumbnailUrl })
-    .where(and(eq(canvases.id, id), eq(canvases.ownerId, ownerId)))
-    .returning({ id: canvases.id });
-  return rows.length > 0;
+): Promise<{ previousUrl: string | null } | null> {
+  const result = await db.execute<{ previous_url: string | null }>(sql`
+    with old as (select id, thumbnail_url from canvases where id = ${id} and owner_id = ${ownerId} for update)
+    update canvases c set thumbnail_url = ${thumbnailUrl}, updated_at = now() from old where c.id = old.id
+    returning old.thumbnail_url as previous_url
+  `);
+  const [row] = result.rows;
+  return row ? { previousUrl: row.previous_url } : null;
 }
 
 // Șterge o planșă condiționat pe owner (cascadă FK pe canvas_items). Întoarce thumbnailUrl (curățare blob).

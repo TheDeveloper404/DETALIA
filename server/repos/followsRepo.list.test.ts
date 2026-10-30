@@ -5,6 +5,7 @@ vi.mock("@/db", async () => {
 });
 const { db } = await import("@/db");
 const { users, userFollows } = await import("@/db/schema");
+const { eq } = await import("drizzle-orm");
 const { getFollowedUsers, setFollow } = await import("@/server/services/followService");
 let owner: string, other: string, followed: string[], foreign: string;
 beforeAll(async () => {
@@ -41,4 +42,21 @@ it("paginarea ajunge la toate relatiile, fara a include lista altui user sau con
 // "Număr de urmăriri nelimitat."
 it("adaugarea altor urmariri nu este blocata dupa mai multe pagini", async () => {
   expect(await setFollow({ userId: owner, kind: "USER", targetId: foreign, followed: true })).toEqual({ ok: true, followed: true });
+});
+
+// Aceeasi regula ca followTargetExists: se urmaresc doar useri ACTIVE.
+it("userul sters sau suspendat dispare din lista de persoane urmarite", async () => {
+  await db.update(users).set({ status: "DELETED" }).where(eq(users.id, followed[0]));
+  await db.update(users).set({ status: "SUSPENDED" }).where(eq(users.id, followed[1]));
+  const found: string[] = [];
+  let cursor: string | null = null;
+  do {
+    const page = await getFollowedUsers(owner, cursor);
+    if (!page.ok) throw new Error("pagina refuzata");
+    found.push(...page.users.map((user) => user.id));
+    cursor = page.nextCursor;
+  } while (cursor);
+  expect(found).not.toContain(followed[0]);
+  expect(found).not.toContain(followed[1]);
+  expect(found).toContain(followed[2]);
 });

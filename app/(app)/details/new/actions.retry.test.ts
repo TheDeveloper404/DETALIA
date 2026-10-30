@@ -24,7 +24,10 @@ vi.mock("@/lib/posthog-server", () => ({
   captureServerEvent: vi.fn(),
   flushPostHogEvents: async () => {},
 }));
-vi.mock("@/server/services/blobFileService", () => ({ canUseBlobUrls: async () => true }));
+vi.mock("@/server/services/blobFileService", () => ({
+  canUseBlobUrls: async () => true,
+  deleteStagingBlobs: (urls: string[]) => mocks.remove(urls),
+}));
 vi.mock("@/server/services/detailService", () => ({
   createDetail: mocks.create,
   createDetailDraft: mocks.draft,
