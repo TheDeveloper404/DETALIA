@@ -2,11 +2,11 @@ import { expect, test } from "@playwright/test";
 import { eq } from "drizzle-orm";
 
 import { db } from "../db";
-import { users, details, comments, sketches, validations } from "../db/schema";
+import { users, roles, details, comments, sketches, validations } from "../db/schema";
 import { countCommentsOnOwnDetails, countSketchesOnOwnDetails, countValidationsOnOwnDetails } from "../server/repos/digestRepo";
 import { createSignedToken, verifySignedToken } from "../lib/signed-token";
 import { setWeeklyDigestEnabled } from "../server/repos/usersRepo";
-import { DIGEST_UNSUBSCRIBE_PURPOSE } from "../server/services/digestService";
+import { buildWeeklyDigests, DIGEST_UNSUBSCRIBE_PURPOSE } from "../server/services/digestService";
 import { getSeed } from "./seed";
 
 // Digest săptămânal — dezabonarea prin linkul semnat din email, la nivel de INTEGRARE (token HMAC +
@@ -22,6 +22,32 @@ async function digestFlag(userId: string): Promise<boolean | undefined> {
     .limit(1);
   return row?.v;
 }
+
+// "mai bine primeste mail lunea doar cine a avut activitate" — "daca la un user s-a raspuns la comentarii, schite etc"
+test("digest numai dupa un raspuns pe detaliul altcuiva; dezabonarea ramane respectata", async () => {
+  const { testerUserId } = getSeed();
+  const [recipient] = await db.insert(users).values({ email: `digest-reply-${crypto.randomUUID()}@detalia.test` }).returning();
+  await db.insert(roles).values({ userId: recipient.id, roleMain: "EXECUTANT" });
+  let detailId: string | undefined;
+  try {
+    const [detail] = await db.insert(details).values({ authorId: testerUserId, title: "E2E digest raspuns extern" }).returning();
+    detailId = detail.id;
+    const [root] = await db.insert(comments).values({ authorId: recipient.id, targetType: "DETAIL", targetId: detail.id, body: "Comentariul meu" }).returning();
+    expect((await buildWeeklyDigests()).some((digest) => digest.userId === recipient.id)).toBe(false);
+    await db.insert(comments).values({ authorId: testerUserId, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, replyToCommentId: root.id, body: "Raspuns primit" });
+    const digest = (await buildWeeklyDigests()).find((item) => item.userId === recipient.id);
+    expect(digest?.data.mine).toEqual({ comments: 1, sketches: 0, validations: 0 });
+    await setWeeklyDigestEnabled(recipient.id, false);
+    expect((await buildWeeklyDigests()).some((item) => item.userId === recipient.id)).toBe(false);
+  } finally {
+    if (detailId) {
+      await db.delete(comments).where(eq(comments.targetId, detailId));
+      await db.delete(details).where(eq(details.id, detailId));
+    }
+    await db.delete(roles).where(eq(roles.userId, recipient.id));
+    await db.delete(users).where(eq(users.id, recipient.id));
+  }
+});
 
 test("token de unsubscribe valid → verifică userId și pune weekly_digest_enabled pe false", async () => {
   const { testerUserId } = getSeed();

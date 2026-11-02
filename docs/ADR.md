@@ -1,5 +1,10 @@
 # DETALIA — Decizii de arhitectura (ADR — forma scurta)
 
+## ADR-033 — Digest conditionat de activitate primita (2026-11-02)
+**Context:** raspunsurile la comentarii si derivarile din schitele proprii pot exista pe detaliile altora, fara activitate pe detaliile proprii.
+**Decizie:** extindem agregarile existente pe destinatar, folosind contributiile reale si accesul actual; digestul pleaca numai la activitate primita in 7 zile. Pastram Resend si fluxul separat pentru notificari necitite.
+**Consecinte:** fara schema, backfill sau schimbarea preferintelor/dezabonarilor; fiecare eveniment conteaza o singura data per destinatar, fara actiuni proprii. Activitatea citita ramane inclusa in rezumatul saptamanal.
+
 ## ADR-032 — Emailuri de activitate din coada persistenta (2026-10-30)
 **Context:** activitatea importanta necitita necesita grupare si retry fara emailuri duplicate ori continut cu acces revocat.
 **Decizie:** notificarea retine scadenta si batch-ul; un singur tabel de livrari pastreaza snapshotul, lease/token si cheia Resend. CTE-uri atomice prin Neon HTTP; IMPORTANT dupa 30 min, DAILY la 07:00 UTC, preferinta separata de digestul saptamanal.

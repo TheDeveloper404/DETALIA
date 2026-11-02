@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { eq } from "drizzle-orm";
 
 // SQL real (PGlite) pentru digestRepo — mock-ul nu poate garanta că `listNewCommunityDetails` chiar
 // exclude detaliile de proiect (invariantul transversal din CLAUDE.md) sau că numărătorile grupează
@@ -9,9 +10,15 @@ vi.mock("@/db", async () => {
   const { db } = await createTestDb();
   return { db, schema };
 });
+vi.mock("@/lib/email", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/email")>(),
+  sendEmailBatch: vi.fn(async (messages: { to: string }[]) => messages.length),
+}));
 
 const { db } = await import("@/db");
-const { users, roles, details, projects, comments, validations, sketches } = await import("@/db/schema");
+const { sendEmailBatch } = await import("@/lib/email");
+const { sendWeeklyDigests } = await import("@/server/services/digestService");
+const { users, roles, details, projects, projectMembers, comments, validations, sketches } = await import("@/db/schema");
 const { listDigestRecipients, countCommentsOnOwnDetails, countSketchesOnOwnDetails, countValidationsOnOwnDetails, listNewCommunityDetails } = await import(
   "./digestRepo"
 );
@@ -94,6 +101,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  vi.unstubAllEnvs();
   await db.delete(sketches);
   await db.delete(comments);
   await db.delete(validations);
@@ -142,4 +150,88 @@ describe("listNewCommunityDetails", () => {
     const rows = await listNewCommunityDetails(since, 10);
     expect(rows.map((r) => r.title)).toEqual(["Detaliu public"]);
   });
+});
+
+// "mai bine primeste mail lunea doar cine a avut activitate" — "daca la un user s-a raspuns la comentarii, schite etc"
+it("numara o singura data raspunsurile la comentariile proprii pe detaliile altora, fara actiuni proprii sau continut ascuns", async () => {
+  const host = await makeUser("digest-thread-host@test.local", { digest: false });
+  const recipient = await makeUser("digest-thread-recipient@test.local", { digest: false });
+  const [detail] = await db.insert(details).values({ authorId: host, title: "Fir extern", createdAt: old }).returning();
+  const [root] = await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, body: "Radacina", createdAt: old }).returning();
+  const [reply] = await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, replyToCommentId: root.id, body: "Raspuns", createdAt: recent }).returning();
+  await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, body: "Propriu", createdAt: recent });
+  expect((await countCommentsOnOwnDetails(since)).get(recipient)).toBe(1);
+  await db.update(comments).set({ hiddenAfterRelease: true }).where(eq(comments.id, reply.id));
+  expect((await countCommentsOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+  await db.update(comments).set({ hiddenAfterRelease: false }).where(eq(comments.id, reply.id));
+  await db.update(comments).set({ hiddenAfterRelease: true }).where(eq(comments.id, root.id));
+  expect((await countCommentsOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+});
+
+// "daca la un user s-a raspuns la comentarii, schite etc" — parintele direct primeste derivarea, nu toti stramosii.
+it("include comentariile pe schita proprie si derivarile directe, respectand retragerea autorului", async () => {
+  const host = await makeUser("digest-sketch-host@test.local", { digest: false });
+  const recipient = await makeUser("digest-sketch-recipient@test.local", { digest: false });
+  const [detail] = await db.insert(details).values({ authorId: host, title: "Schita externa", createdAt: old }).returning();
+  const [base] = await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", createdAt: old }).returning();
+  const [child] = await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent }).returning();
+  await db.insert(sketches).values({ authorId: host, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id, child.id], createdAt: recent });
+  await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent });
+  await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, sketchContextId: base.id, body: "Pe schita", createdAt: recent });
+  expect((await countSketchesOnOwnDetails(since)).get(recipient)).toBe(1);
+  expect((await countCommentsOnOwnDetails(since)).get(recipient)).toBe(1);
+  await db.update(sketches).set({ authorRemoved: true }).where(eq(sketches.id, base.id));
+  expect((await countSketchesOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+  expect((await countCommentsOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+});
+
+// "daca la un user s-a raspuns la comentarii" — inclusiv un reply propriu intr-un fir inceput de altcineva.
+it("include raspunsul adresat autorului unui reply, separat de autorul radacinii", async () => {
+  const host = await makeUser("digest-target-host@test.local", { digest: false });
+  const recipient = await makeUser("digest-target-recipient@test.local", { digest: false });
+  const [detail] = await db.insert(details).values({ authorId: host, title: "Reply adresat", createdAt: old }).returning();
+  const [root] = await db.insert(comments).values({ authorId: host, targetType: "DETAIL", targetId: detail.id, body: "Radacina", createdAt: old }).returning();
+  const [target] = await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, body: "Reply propriu", createdAt: old }).returning();
+  await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, replyToCommentId: target.id, body: "Raspuns adresat", createdAt: recent });
+  expect((await countCommentsOnOwnDetails(since)).get(recipient)).toBe(1);
+  expect((await countCommentsOnOwnDetails(since)).get(host)).toBe(1);
+});
+
+// "daca la un user s-a raspuns la comentarii, schite etc"; accesul DESTINATARULUI se verifica la trimitere.
+it("exclude activitatea dintr-un proiect dupa retragerea accesului destinatarului", async () => {
+  const host = await makeUser("digest-project-host@test.local", { digest: false });
+  const recipient = await makeUser("digest-project-recipient@test.local", { digest: false });
+  const [project] = await db.insert(projects).values({ ownerId: host, name: "Proiect digest", inviteToken: crypto.randomUUID() }).returning();
+  await db.insert(projectMembers).values({ projectId: project.id, userId: recipient });
+  const [detail] = await db.insert(details).values({ authorId: host, projectId: project.id, title: "Privat", createdAt: old }).returning();
+  const [root] = await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, body: "Radacina privata", createdAt: old }).returning();
+  const [base] = await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", createdAt: old }).returning();
+  await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, body: "Raspuns privat", createdAt: recent });
+  await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent });
+  expect((await countCommentsOnOwnDetails(since)).get(recipient)).toBe(1);
+  expect((await countSketchesOnOwnDetails(since)).get(recipient)).toBe(1);
+  await db.update(projectMembers).set({ removedAt: now }).where(eq(projectMembers.projectId, project.id));
+  expect((await countCommentsOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+  expect((await countSketchesOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+});
+
+// "mai bine primeste mail lunea doar cine a avut activitate"; "Activeaza implicit, pastreaza dezabonarile"
+it("DB → agregare → template → lot: raspunsul extern declanseaza digestul, dezabonarea il opreste", async () => {
+  vi.stubEnv("AUTH_SECRET", "digest-integration-fixture-not-a-real-secret");
+  const recipient = await makeUser("digest-delivery-recipient@test.local");
+  const [detail] = await db.insert(details).values({ authorId: other, title: "Integrare digest", createdAt: old }).returning();
+  const [root] = await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, body: "Contributie", createdAt: old }).returning();
+  vi.mocked(sendEmailBatch).mockClear();
+  await sendWeeklyDigests(now);
+  expect(vi.mocked(sendEmailBatch).mock.calls.flatMap(([messages]) => messages).some((message) => message.to === "digest-delivery-recipient@test.local")).toBe(false);
+  await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, body: "Raspuns extern", createdAt: recent });
+  vi.mocked(sendEmailBatch).mockClear();
+  await sendWeeklyDigests(now);
+  const message = vi.mocked(sendEmailBatch).mock.calls.flatMap(([messages]) => messages).find((item) => item.to === "digest-delivery-recipient@test.local");
+  expect(message?.html).toContain("un comentariu nou");
+  expect(message?.text).toContain("comentariile sau schițele tale");
+  await db.update(users).set({ weeklyDigestEnabled: false }).where(eq(users.id, recipient));
+  vi.mocked(sendEmailBatch).mockClear();
+  await sendWeeklyDigests(now);
+  expect(vi.mocked(sendEmailBatch).mock.calls.flatMap(([messages]) => messages).some((item) => item.to === "digest-delivery-recipient@test.local")).toBe(false);
 });

@@ -2,7 +2,7 @@
 // Invocat de `/api/cron/weekly-digest` (Vercel Cron, luni). Notificarea in-app rămâne canalul
 // principal pentru evenimente individuale; digestul e re-engagement, best-effort.
 //
-// Regulă de produs: dacă secțiunea „La tine" (activitate pe detaliile tale) e goală, userul e OMIS —
+// Regulă de produs: dacă activitatea primita pe detalii, comentarii si schite este zero, userul e OMIS —
 // secțiunea globală „Nou pe DETALIA" singură nu justifică un email (altfel devine spam săptămânal).
 import {
   type WeeklyDigestData,
@@ -60,7 +60,7 @@ export async function buildWeeklyDigests(now: Date = new Date()): Promise<Weekly
         unsubscribeUrl: `${base}/api/digest/unsubscribe?token=${encodeURIComponent(
           createSignedToken(DIGEST_UNSUBSCRIBE_PURPOSE, r.id),
         )}`,
-        profileUrl: `${base}/profile`,
+        profileUrl: `${base}/notifications`,
       },
     });
   }

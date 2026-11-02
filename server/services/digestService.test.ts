@@ -43,6 +43,7 @@ beforeEach(() => {
 });
 
 describe("buildWeeklyDigests", () => {
+  // "mai bine primeste mail lunea doar cine a avut activitate"
   it("include doar userul cu activitate pe detaliile lui; omite userul fără activitate", async () => {
     const digests = await buildWeeklyDigests(new Date("2026-09-07T09:00:00Z"));
     expect(digests.map((d) => d.userId)).toEqual([A]);
@@ -53,6 +54,16 @@ describe("buildWeeklyDigests", () => {
     const [d] = await buildWeeklyDigests();
     expect(d.data.community).toHaveLength(1);
     expect(d.data.community[0].url).toContain("/details/d1");
+  });
+
+  // "daca la un user s-a raspuns la comentarii, schite etc,, atunci primeste, daca nu, nu are sens"
+  it("construieste digestul numai pentru destinatarul raspunsului sau schitei primite", async () => {
+    repo.countCommentsOnOwnDetails.mockResolvedValue(new Map([[B, 1]]));
+    repo.countValidationsOnOwnDetails.mockResolvedValue(new Map());
+    expect((await buildWeeklyDigests()).map((digest) => digest.userId)).toEqual([B]);
+    repo.countCommentsOnOwnDetails.mockResolvedValue(new Map());
+    repo.countSketchesOnOwnDetails.mockResolvedValue(new Map([[B, 1]]));
+    expect((await buildWeeklyDigests()).map((digest) => digest.userId)).toEqual([B]);
   });
 
   it("fereastra e de 7 zile înainte de `now`", async () => {
@@ -72,7 +83,8 @@ describe("sendWeeklyDigests", () => {
     expect(res).toEqual({ built: 1, sent: 1 });
   });
 
-  it("nimeni de notificat → nu apelează trimiterea", async () => {
+  // "daca nu, nu are sens" — noutatile comunitatii singure nu declanseaza emailul.
+  it("fara activitate primita nu trimite, chiar daca exista noutati in comunitate", async () => {
     repo.countCommentsOnOwnDetails.mockResolvedValue(new Map());
     repo.countValidationsOnOwnDetails.mockResolvedValue(new Map());
     const res = await sendWeeklyDigests();

@@ -216,7 +216,7 @@ export function referralJoinedEmailText(who: string, profileUrl: string): string
 // ── Digest săptămânal (2026-09-03) ──────────────────────────────────────────────────────────────
 export type WeeklyDigestData = {
   recipientName: string | null;
-  // Activitate de la alții pe detaliile destinatarului, în ultimele 7 zile.
+  // Activitate primita pe detaliile, comentariile si schitele destinatarului, in ultimele 7 zile.
   mine: { comments: number; sketches: number; validations: number };
   // Detalii publice noi ale săptămânii (egal pentru toți).
   community: { title: string; url: string }[];
@@ -249,9 +249,9 @@ export function weeklyDigestEmailHtml(data: WeeklyDigestData): string {
   const mine = digestMineLines(data.mine);
   const mineHtml =
     mine.length > 0
-      ? `<p style="margin:0 0 10px;font-size:15px;line-height:1.55;color:${BRAND.text};font-weight:700;">La tine pe detalii</p>
+      ? `<p style="margin:0 0 10px;font-size:15px;line-height:1.55;color:${BRAND.text};font-weight:700;">Activitate pentru tine</p>
          <p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:${BRAND.muted};">
-           Ai ${mine.join(", ")} pe detaliile tale săptămâna asta.
+           Ai primit ${mine.join(", ")} la detaliile, comentariile sau schițele tale săptămâna asta.
          </p>
          ${emailButton(data.profileUrl, "Vezi activitatea")}`
       : "";
@@ -283,7 +283,7 @@ export function weeklyDigestEmailText(data: WeeklyDigestData): string {
   const parts: string[] = ["Săptămâna ta pe DETALIA", ""];
   const mine = digestMineLines(data.mine);
   if (mine.length > 0) {
-    parts.push(`La tine pe detalii: ai ${mine.join(", ")} pe detaliile tale săptămâna asta.`);
+    parts.push(`Activitate pentru tine: ai primit ${mine.join(", ")} la detaliile, comentariile sau schițele tale săptămâna asta.`);
     parts.push(`Vezi activitatea: ${data.profileUrl}`, "");
   }
   if (data.community.length > 0) {

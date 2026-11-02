@@ -11,6 +11,9 @@ Politica de produs: `CONTEXT.md`; decizia de implementare: ADR-032.
 
 `IMPORTANT`: cand primul eveniment a asteptat 30 min, mesajul include si evenimentele necitite mai recente pentru acelasi detaliu. `DAILY`: un batch per destinatar/cutoff 07:00 UTC; restul ramane pentru ziua urmatoare. Preferinta de activitate si bifa digestului saptamanal sunt independente.
 
+Defaults existente: `weekly_digest_enabled=true` si `activity_email_mode=IMPORTANT`; activarea nu rescrie `false`, `IN_APP` sau `DAILY`. Digestul de luni ramane conditionat de activitate primita in 7 zile, inclusiv raspunsuri la comentarii si derivari pe schitele proprii de pe detaliile altora (ADR-033). Fara activitate, nu trimite.
+Capacitate: Resend Free are 100 emailuri/zi UTC si 3000/luna, comune digestului, activitatii si autentificarii. Filtrarea digestului nu rezerva capacitate pentru login; verifica utilizarea/planul inainte de activare. Nu este necesara o modificare SQL pentru aceste defaults.
+
 ## Trimitere si retry
 
 Notificarea este randul de coada; scadenta se scrie atomic cu ea. Claim-ul creeaza batch-uri si leaga notificarile intr-un singur CTE, cu mutex per destinatar si `SKIP LOCKED`. Se proceseaza maximum 50 de batch-uri pe rulare, in grupuri de 5 cu pauza de o secunda; restul ramane in coada. Limita publica Resend este comuna echipei, inclusiv login-ului: [documentatia Resend](https://resend.com/docs/api-reference/rate-limit).
