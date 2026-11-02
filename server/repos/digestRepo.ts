@@ -2,11 +2,11 @@
 // (`/api/cron/weekly-digest`). Citiri agregate pe o fereastră de 7 zile; nicio mutație aici
 // (dezabonarea stă în usersRepo). Comentariile si schitele se grupeaza pe destinatarul activitatii,
 // inclusiv contributiile proprii aflate pe detaliile altora.
-import { and, count, desc, eq, gte, isNull, ne, or, sql } from "drizzle-orm";
+import { and, count, desc, eq, exists, gte, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { comments, details, roles, sketches, users, validations } from "@/db/schema";
+import { comments, details, notifications, roles, sketches, users, validations } from "@/db/schema";
 import { hasProjectAccessForUser } from "./detailsRepo";
 
 // Destinatarii: cont ACTIV, cu rol declarat, cu flagul de digest pe true. `email` e NOT NULL în schemă.
@@ -41,7 +41,7 @@ export async function countCommentsOnOwnDetails(since: Date): Promise<Map<string
       or(
         and(eq(users.id, details.authorId), isNull(details.anonymizedAt)),
         eq(users.id, root.authorId),
-        eq(users.id, replyTo.authorId),
+        and(eq(users.id, replyTo.authorId), eq(replyTo.hiddenAfterRelease, false)),
         and(eq(users.id, context.authorId), eq(context.authorRemoved, false)),
       ),
     )
@@ -93,12 +93,29 @@ export async function countSketchesOnOwnDetails(since: Date): Promise<Map<string
           eq(parent.authorRemoved, false),
           eq(parent.status, "PUBLISHED"),
           eq(parent.hiddenAfterRelease, false),
+          // Publicarea poate elimina un parinte disparut din reteta. Evenimentul retine destinatarul
+          // ales atunci, fara promovarea unui stramos; citirea lui nu anuleaza rezumatul saptamanal.
+          exists(
+            db
+              .select({ id: notifications.id })
+              .from(notifications)
+              .where(
+                and(
+                  eq(notifications.recipientUserId, users.id),
+                  eq(notifications.type, "SKETCH_PROPOSED"),
+                  sql`${notifications.payloadJson}->>'sketchId' = ${sketches.id}::text`,
+                ),
+              ),
+          ),
         ),
       ),
     )
     .where(
       and(
-        gte(sketches.createdAt, since),
+        or(
+          gte(sketches.acceptedAt, since),
+          and(isNull(sketches.acceptedAt), gte(sketches.createdAt, since)),
+        ),
         eq(sketches.hiddenAfterRelease, false),
         eq(sketches.status, "PUBLISHED"),
         eq(sketches.isAnnotation, false),

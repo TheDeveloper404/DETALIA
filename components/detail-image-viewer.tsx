@@ -177,7 +177,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
       ref={viewportRef}
       data-testid="detail-image-viewport"
       data-zoom={view.zoom}
-      className={`relative z-[1] aspect-[4/3] max-h-[65dvh] w-full max-w-3xl overflow-hidden md:aspect-auto md:h-[min(680px,calc(100dvh-16rem))] md:max-h-none md:max-w-none ${view.zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+      className={`relative z-[1] aspect-[4/3] min-h-32 max-h-[65dvh] w-full max-w-3xl overflow-hidden md:aspect-auto md:h-[min(680px,calc(100dvh-16rem))] md:min-h-0 md:max-h-none md:max-w-none ${view.zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
       style={{ touchAction: view.zoom > 1 ? "none" : "auto", aspectRatio: imageAspect ?? undefined }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

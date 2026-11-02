@@ -28,7 +28,7 @@
 `app/(app)/details/[id]/detail-workspace.tsx`: de la 768 px, doua coloane; informatii de 220–300 px in stanga, taburi si imagine in dreapta. Data sta deasupra titlului, aliniata la dreapta; resursele sunt in coloana de informatii.
 Titlul de 22 px, descrierea de 14 px si spatierea compacta reduc scroll-ul paginii. Explicatia schitei/adnotarii active sta jos in stanga; fara scroll intern, trunchiere sau inaltime fixa: continutul lung poate extinde pagina.
 Descrierea detaliului are maximum 8 randuri vizibile, apoi scroll vertical in aceeasi zona, accesibil si din tastatura. Comentariile si raspunsurile se restrang la 8 randuri; doar cele care depasesc pragul afiseaza „Vezi mai mult” / „Vezi mai puțin”, dupa inaltimea reala la latimea curenta.
-Taburile, voturile si CTA-ul suprapus „Schiteaza” folosesc componentele existente; meniul unic sta vizual langa voturi. Viewer-ul nu are plafon de latime pe desktop/tableta; inaltimea este limitata la 680 px sau inaltimea ecranului minus 256 px, cu loc pentru breadcrumb si header. Pe mobil, cadrul urmeaza proportiile imaginii, pana la 65% din inaltimea ecranului. Grila are padding de 8 px pe toate dimensiunile.
+Taburile, voturile si CTA-ul suprapus „Schiteaza” folosesc componentele existente; meniul unic sta vizual langa voturi. Viewer-ul nu are plafon de latime pe desktop/tableta; inaltimea este limitata la 680 px sau inaltimea ecranului minus 256 px, cu loc pentru breadcrumb si header. Pe mobil, cadrul urmeaza proportiile imaginii, pana la 65% din inaltimea ecranului, cu minimum 128 px pentru a pastra separate comenzile zoom si Schiteaza pe imagini panoramice. Grila are padding de 8 px pe toate dimensiunile.
 
 ## Zoom in pagina detaliului
 

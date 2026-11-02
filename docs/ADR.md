@@ -3,7 +3,7 @@
 ## ADR-033 — Digest conditionat de activitate primita (2026-11-02)
 **Context:** raspunsurile la comentarii si derivarile din schitele proprii pot exista pe detaliile altora, fara activitate pe detaliile proprii.
 **Decizie:** extindem agregarile existente pe destinatar, folosind contributiile reale si accesul actual; digestul pleaca numai la activitate primita in 7 zile. Pastram Resend si fluxul separat pentru notificari necitite.
-**Consecinte:** fara schema, backfill sau schimbarea preferintelor/dezabonarilor; fiecare eveniment conteaza o singura data per destinatar, fara actiuni proprii. Activitatea citita ramane inclusa in rezumatul saptamanal.
+**Consecinte:** fara schema, backfill sau schimbarea preferintelor/dezabonarilor; fiecare eveniment conteaza o singura data per destinatar, fara actiuni proprii. Pentru derivari, destinatarul parinte este confirmat de evenimentul de publicare, chiar daca a fost citit; fereastra foloseste data publicarii, cu fallback istoric la creare.
 
 ## ADR-032 — Emailuri de activitate din coada persistenta (2026-10-30)
 **Context:** activitatea importanta necitita necesita grupare si retry fara emailuri duplicate ori continut cu acces revocat.

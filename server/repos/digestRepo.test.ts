@@ -18,7 +18,7 @@ vi.mock("@/lib/email", async (importOriginal) => ({
 const { db } = await import("@/db");
 const { sendEmailBatch } = await import("@/lib/email");
 const { sendWeeklyDigests } = await import("@/server/services/digestService");
-const { users, roles, details, projects, projectMembers, comments, validations, sketches } = await import("@/db/schema");
+const { users, roles, details, projects, projectMembers, comments, validations, sketches, notifications } = await import("@/db/schema");
 const { listDigestRecipients, countCommentsOnOwnDetails, countSketchesOnOwnDetails, countValidationsOnOwnDetails, listNewCommunityDetails } = await import(
   "./digestRepo"
 );
@@ -102,6 +102,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   vi.unstubAllEnvs();
+  await db.delete(notifications);
   await db.delete(sketches);
   await db.delete(comments);
   await db.delete(validations);
@@ -175,6 +176,7 @@ it("include comentariile pe schita proprie si derivarile directe, respectand ret
   const [detail] = await db.insert(details).values({ authorId: host, title: "Schita externa", createdAt: old }).returning();
   const [base] = await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", createdAt: old }).returning();
   const [child] = await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent }).returning();
+  await db.insert(notifications).values({ recipientUserId: recipient, type: "SKETCH_PROPOSED", payloadJson: { detailId: detail.id, sketchId: child.id }, createdAt: recent });
   await db.insert(sketches).values({ authorId: host, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id, child.id], createdAt: recent });
   await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent });
   await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, sketchContextId: base.id, body: "Pe schita", createdAt: recent });
@@ -207,7 +209,8 @@ it("exclude activitatea dintr-un proiect dupa retragerea accesului destinatarulu
   const [root] = await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, body: "Radacina privata", createdAt: old }).returning();
   const [base] = await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", createdAt: old }).returning();
   await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, body: "Raspuns privat", createdAt: recent });
-  await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent });
+  const [child] = await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent }).returning();
+  await db.insert(notifications).values({ recipientUserId: recipient, type: "SKETCH_PROPOSED", payloadJson: { detailId: detail.id, sketchId: child.id }, createdAt: recent });
   expect((await countCommentsOnOwnDetails(since)).get(recipient)).toBe(1);
   expect((await countSketchesOnOwnDetails(since)).get(recipient)).toBe(1);
   await db.update(projectMembers).set({ removedAt: now }).where(eq(projectMembers.projectId, project.id));
@@ -234,4 +237,44 @@ it("DB → agregare → template → lot: raspunsul extern declanseaza digestul,
   vi.mocked(sendEmailBatch).mockClear();
   await sendWeeklyDigests(now);
   expect(vi.mocked(sendEmailBatch).mock.calls.flatMap(([messages]) => messages).some((item) => item.to === "digest-delivery-recipient@test.local")).toBe(false);
+});
+
+// "Daca acel candidat a disparut, nu notifica urmatorul stramos ca si cum ar fi parintele direct."
+it("nu atribuie derivarea stramosului promovat in reteta dupa disparitia parintelui direct", async () => {
+  const host = await makeUser("digest-gone-host@test.local", { digest: false });
+  const ancestor = await makeUser("digest-gone-ancestor@test.local", { digest: false });
+  const [detail] = await db.insert(details).values({ authorId: host, title: "Parinte disparut", createdAt: old }).returning();
+  const [base] = await db.insert(sketches).values({ authorId: ancestor, detailId: detail.id, status: "PUBLISHED", createdAt: old }).returning();
+  // finalizeStackBases a eliminat deja parintele disparut; la publicare numai host a fost notificat.
+  const [child] = await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: recent }).returning();
+  await db.insert(notifications).values({ recipientUserId: host, type: "SKETCH_PROPOSED", payloadJson: { detailId: detail.id, sketchId: child.id }, createdAt: recent });
+  const counts = await countSketchesOnOwnDetails(since);
+  expect(counts.get(ancestor) ?? 0).toBe(0);
+  expect(counts.get(host)).toBe(1);
+});
+
+// "publicare recenta omisa" — "o ciorna veche publicata ieri este evaluata dupa data crearii"
+it("foloseste publicarea pentru ciorne vechi si include notificarea parintelui deja citita", async () => {
+  const host = await makeUser("digest-publication-host@test.local", { digest: false });
+  const recipient = await makeUser("digest-publication-parent@test.local", { digest: false });
+  const [detail] = await db.insert(details).values({ authorId: host, title: "Publicare recenta", createdAt: old }).returning();
+  const [base] = await db.insert(sketches).values({ authorId: recipient, detailId: detail.id, status: "PUBLISHED", createdAt: old }).returning();
+  const [child] = await db.insert(sketches).values({ authorId: other, detailId: detail.id, status: "PUBLISHED", baseSketchIds: [base.id], createdAt: old, acceptedAt: recent }).returning();
+  await db.insert(notifications).values({ recipientUserId: recipient, type: "SKETCH_PROPOSED", payloadJson: { detailId: detail.id, sketchId: child.id }, createdAt: recent, readAt: now });
+  expect((await countSketchesOnOwnDetails(since)).get(recipient)).toBe(1);
+  await db.update(sketches).set({ acceptedAt: old, createdAt: recent }).where(eq(sketches.id, child.id));
+  expect((await countSketchesOnOwnDetails(since)).get(recipient) ?? 0).toBe(0);
+});
+
+// "autorul lui poate primi digest pentru un raspuns adresat contributiei acum ascunse"
+it("exclude destinatarul tintei ascunse fara a elimina autorul legitim al radacinii vizibile", async () => {
+  const host = await makeUser("digest-hidden-target-host@test.local", { digest: false });
+  const recipient = await makeUser("digest-hidden-target-user@test.local", { digest: false });
+  const [detail] = await db.insert(details).values({ authorId: other, title: "Tinta ascunsa", createdAt: old }).returning();
+  const [root] = await db.insert(comments).values({ authorId: host, targetType: "DETAIL", targetId: detail.id, body: "Radacina vizibila", createdAt: old }).returning();
+  const [target] = await db.insert(comments).values({ authorId: recipient, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, body: "Contributie ascunsa", hiddenAfterRelease: true, createdAt: old }).returning();
+  await db.insert(comments).values({ authorId: other, targetType: "DETAIL", targetId: detail.id, parentCommentId: root.id, replyToCommentId: target.id, body: "Raspuns vizibil", createdAt: recent });
+  const counts = await countCommentsOnOwnDetails(since);
+  expect(counts.get(recipient) ?? 0).toBe(0);
+  expect(counts.get(host)).toBe(1);
 });

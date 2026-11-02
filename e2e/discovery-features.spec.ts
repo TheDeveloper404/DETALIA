@@ -150,6 +150,29 @@ test("cadru detaliu compact pe desktop si adaptat imaginii pe telefon", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
+// Corectie aprobata: "comenzi zoom taiate pe imaginile panoramice".
+test("imagine panoramica pe telefon: zoom complet vizibil si separat de Schiteaza", async ({ page }) => {
+  const [original] = await db.select({ imageUrl: details.imageUrl }).from(details).where(eq(details.id, detailIds[0]));
+  const panoramic = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="200"><rect width="1600" height="200" fill="#ddd"/></svg>');
+  try {
+    await db.update(details).set({ imageUrl: panoramic }).where(eq(details.id, detailIds[0]));
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/details/" + detailIds[0]);
+    const image = page.getByRole("img", { name: title, exact: true });
+    await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.naturalWidth)).toBe(1600);
+    const frame = (await page.getByTestId("detail-image-viewport").boundingBox())!;
+    const zoom = (await page.getByRole("group", { name: "Zoom imagine", exact: true }).boundingBox())!;
+    const sketch = (await page.getByRole("button", { name: "Schițează", exact: true }).boundingBox())!;
+    expect(zoom.y).toBeGreaterThanOrEqual(frame.y);
+    expect(zoom.y + zoom.height).toBeLessThanOrEqual(frame.y + frame.height);
+    expect(zoom.y + zoom.height).toBeLessThanOrEqual(sketch.y);
+    await page.getByRole("button", { name: "Mărește imaginea", exact: true }).click();
+    await expect(page.getByTestId("detail-image-viewport")).toHaveAttribute("data-zoom", "1.1");
+  } finally {
+    await db.update(details).set({ imageUrl: original.imageUrl }).where(eq(details.id, detailIds[0]));
+  }
+});
+
 // "Denumirea link-ului schitei in comentariu trebuie sa fie \"Vezi schita - Eduard Nemes\""
 // "La click pe link schita trebuie sa ma duca sus la schita prin scroll automat."
 test("link schita din comentariu: eticheta explicita si scroll la desen", async ({ page }) => {
