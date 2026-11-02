@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   useActionState,
   useEffect,
+  useId,
   useMemo,
   useOptimistic,
   useRef,
@@ -485,30 +486,67 @@ function CommentBody({
   onSelectSketch?: (sketchId: string) => void;
 }) {
   const segments = useMemo(() => parseMentions(body), [body]);
+  const bodyRef = useRef<HTMLParagraphElement>(null);
+  const bodyId = useId();
+  const [expanded, setExpanded] = useState(false);
+  const [isLong, setIsLong] = useState(false);
+
+  useEffect(() => {
+    const element = bodyRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
+      setIsLong(element.scrollHeight > lineHeight * 8 + 1);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [body, validSketchIds, onSelectSketch]);
+
   return (
-    <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed text-foreground/80">
-      {segments.map((seg, i) => {
-        if (seg.type === "text") return <span key={i}>{seg.value}</span>;
-        const exists = validSketchIds.has(seg.sketchId) && !!onSelectSketch;
-        if (!exists) {
+    <div>
+      <p
+        ref={bodyRef}
+        id={bodyId}
+        onFocusCapture={() => setExpanded(true)}
+        className={cn(
+          "whitespace-pre-wrap break-words text-[14.5px] leading-relaxed text-foreground/80",
+          !expanded && "line-clamp-8",
+        )}
+      >
+        {segments.map((seg, i) => {
+          if (seg.type === "text") return <span key={i}>{seg.value}</span>;
+          const exists = validSketchIds.has(seg.sketchId) && !!onSelectSketch;
+          if (!exists) {
+            return (
+              <span key={i} className="font-medium text-muted-foreground">
+                @{seg.name}
+              </span>
+            );
+          }
           return (
-            <span key={i} className="font-medium text-muted-foreground">
-              @{seg.name}
-            </span>
+            <button
+              key={i}
+              type="button"
+              onClick={() => onSelectSketch(seg.sketchId)}
+              className="rounded font-medium text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:decoration-primary"
+            >
+              Vezi schița - {seg.name}
+            </button>
           );
-        }
-        return (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onSelectSketch(seg.sketchId)}
-            className="rounded font-medium text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:decoration-primary"
-          >
-            Vezi schița - {seg.name}
-          </button>
-        );
-      })}
-    </p>
+        })}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={bodyId}
+          onClick={() => setExpanded(!expanded)}
+          className="min-h-11 rounded font-mono text-[11px] text-muted-foreground underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {expanded ? "Vezi mai puțin" : "Vezi mai mult"}
+        </button>
+      )}
+    </div>
   );
 }
 

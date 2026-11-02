@@ -1,12 +1,13 @@
 // Repo digest săptămânal — singurul loc cu acces Drizzle pentru datele emailului de digest
 // (`/api/cron/weekly-digest`). Citiri agregate pe o fereastră de 7 zile; nicio mutație aici
-// (dezabonarea stă în usersRepo). Toate query-urile de „activitate pe detaliile tale" grupează pe
-// `details.authorId` — comparațiile `<>` sunt condiții de JOIN pe coloane reale, calificate de
-// Drizzle (nu subquery-uri corelate, deci nu capcana din CLAUDE.md).
-import { and, count, desc, eq, gte, isNull, ne } from "drizzle-orm";
+// (dezabonarea stă în usersRepo). Comentariile si schitele se grupeaza pe destinatarul activitatii,
+// inclusiv contributiile proprii aflate pe detaliile altora.
+import { and, count, desc, eq, exists, gte, isNull, ne, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
-import { comments, details, roles, sketches, users, validations } from "@/db/schema";
+import { comments, details, notifications, roles, sketches, users, validations } from "@/db/schema";
+import { hasProjectAccessForUser } from "./detailsRepo";
 
 // Destinatarii: cont ACTIV, cu rol declarat, cu flagul de digest pe true. `email` e NOT NULL în schemă.
 export async function listDigestRecipients(): Promise<
@@ -19,49 +20,111 @@ export async function listDigestRecipients(): Promise<
     .where(and(eq(users.status, "ACTIVE"), eq(users.weeklyDigestEnabled, true)));
 }
 
-// Nr. de comentarii NOI (de la alții, fără justificări de dezaprobare) pe detaliile PUBLICATE ale
-// fiecărui autor, în fereastra dată. Map ownerId→count.
+// Activitate primita pe detaliu, in firul propriu ori pe schita proprie. Numele istoric al functiei
+// este pastrat; cheia hartii este destinatarul, care poate fi diferit de autorul detaliului.
 export async function countCommentsOnOwnDetails(since: Date): Promise<Map<string, number>> {
+  const root = alias(comments, "digest_root");
+  const replyTo = alias(comments, "digest_reply_to");
+  const context = alias(sketches, "digest_context");
   const rows = await db
-    .select({ ownerId: details.authorId, cnt: count() })
+    .select({ ownerId: users.id, cnt: count() })
     .from(comments)
     .innerJoin(details, and(eq(comments.targetType, "DETAIL"), eq(comments.targetId, details.id)))
+    .leftJoin(root, eq(root.id, comments.parentCommentId))
+    .leftJoin(replyTo, eq(replyTo.id, comments.replyToCommentId))
+    .leftJoin(
+      context,
+      and(eq(context.id, comments.sketchContextId), eq(context.detailId, details.id)),
+    )
+    .innerJoin(
+      users,
+      or(
+        and(eq(users.id, details.authorId), isNull(details.anonymizedAt)),
+        eq(users.id, root.authorId),
+        and(eq(users.id, replyTo.authorId), eq(replyTo.hiddenAfterRelease, false)),
+        and(eq(users.id, context.authorId), eq(context.authorRemoved, false)),
+      ),
+    )
     .where(
       and(
         gte(comments.createdAt, since),
         eq(comments.hiddenAfterRelease, false),
-        ne(comments.authorId, details.authorId),
-        isNull(details.anonymizedAt),
+        ne(comments.authorId, users.id),
+        or(isNull(comments.parentCommentId), eq(root.hiddenAfterRelease, false)),
+        or(
+          isNull(comments.sketchContextId),
+          and(eq(context.status, "PUBLISHED"), eq(context.hiddenAfterRelease, false)),
+        ),
+        hasProjectAccessForUser(users.id),
         // Doar detalii PUBLICATE — un detaliu întors în DRAFT nu mai trebuie să tragă digestul (CTA-ul
         // duce la /profile unde activitatea pe ciornă nici nu se vede).
         eq(details.status, "PUBLISHED"),
         // O dezaprobare scrie ȘI un comentariu (cu `originValidationId`) ȘI un rând în `validations` —
         // altfel aceeași acțiune s-ar număra de două ori (aici + `countValidationsOnOwnDetails`).
-        isNull(comments.originValidationId),
+        // Pe detaliul propriu justificarea este deja numarata ca pozitie. Pentru autorul firului
+        // sau schitei de pe detaliul altcuiva ramane un raspuns primit.
+        or(isNull(comments.originValidationId), ne(users.id, details.authorId)),
       ),
     )
-    .groupBy(details.authorId);
+    .groupBy(users.id);
   return new Map(rows.map((r) => [r.ownerId, Number(r.cnt)]));
 }
 
-// Nr. de schițe NOI (de la alții, publicate, non-adnotare) pe detaliile fiecărui autor.
+// Schite primite de autorul detaliului si de autorul parintelui direct, fara dubluri/autonotificare.
 export async function countSketchesOnOwnDetails(since: Date): Promise<Map<string, number>> {
+  const parent = alias(sketches, "digest_parent");
   const rows = await db
-    .select({ ownerId: details.authorId, cnt: count() })
+    .select({ ownerId: users.id, cnt: count() })
     .from(sketches)
     .innerJoin(details, eq(sketches.detailId, details.id))
+    .leftJoin(
+      parent,
+      and(
+        eq(parent.id, sql`(${sketches.baseSketchIds}->>-1)::uuid`),
+        eq(parent.detailId, details.id),
+      ),
+    )
+    .innerJoin(
+      users,
+      or(
+        and(eq(users.id, details.authorId), isNull(details.anonymizedAt)),
+        and(
+          eq(users.id, parent.authorId),
+          eq(parent.authorRemoved, false),
+          eq(parent.status, "PUBLISHED"),
+          eq(parent.hiddenAfterRelease, false),
+          // Publicarea poate elimina un parinte disparut din reteta. Evenimentul retine destinatarul
+          // ales atunci, fara promovarea unui stramos; citirea lui nu anuleaza rezumatul saptamanal.
+          exists(
+            db
+              .select({ id: notifications.id })
+              .from(notifications)
+              .where(
+                and(
+                  eq(notifications.recipientUserId, users.id),
+                  eq(notifications.type, "SKETCH_PROPOSED"),
+                  sql`${notifications.payloadJson}->>'sketchId' = ${sketches.id}::text`,
+                ),
+              ),
+          ),
+        ),
+      ),
+    )
     .where(
       and(
-        gte(sketches.createdAt, since),
+        or(
+          gte(sketches.acceptedAt, since),
+          and(isNull(sketches.acceptedAt), gte(sketches.createdAt, since)),
+        ),
         eq(sketches.hiddenAfterRelease, false),
         eq(sketches.status, "PUBLISHED"),
         eq(sketches.isAnnotation, false),
-        ne(sketches.authorId, details.authorId),
-        isNull(details.anonymizedAt),
+        ne(sketches.authorId, users.id),
+        hasProjectAccessForUser(users.id),
         eq(details.status, "PUBLISHED"),
       ),
     )
-    .groupBy(details.authorId);
+    .groupBy(users.id);
   return new Map(rows.map((r) => [r.ownerId, Number(r.cnt)]));
 }
 
@@ -70,7 +133,10 @@ export async function countValidationsOnOwnDetails(since: Date): Promise<Map<str
   const rows = await db
     .select({ ownerId: details.authorId, cnt: count() })
     .from(validations)
-    .innerJoin(details, and(eq(validations.targetType, "DETAIL"), eq(validations.targetId, details.id)))
+    .innerJoin(
+      details,
+      and(eq(validations.targetType, "DETAIL"), eq(validations.targetId, details.id)),
+    )
     .where(
       and(
         gte(validations.createdAt, since),

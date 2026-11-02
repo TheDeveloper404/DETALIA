@@ -115,10 +115,11 @@ export function ProfileView({
   const contactButton = (
     <button
       type="button"
+      aria-label="Date de contact"
       onClick={() => setContactOpen(true)}
-      className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
+      className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary sm:w-auto sm:gap-1.5 sm:px-2.5"
     >
-      <Contact /> Date de contact
+      <Contact /> <span className="hidden sm:inline">Date de contact</span>
     </button>
   );
 
@@ -197,16 +198,19 @@ export function ProfileView({
                   <Star className="text-[#d99a2b]" /> Verificat
                 </span>
               )}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex rounded-full bg-primary px-2.5 py-1 font-mono text-xs text-primary-foreground">
+                  {data.roleLabel}
+                </span>
+                {contactButton}
+                {data.viewerIsOwner && <FollowingUsersButton />}
+              </div>
             </div>
-            <span className="mt-2 inline-flex rounded-full bg-primary px-3 py-1 font-mono text-[13.5px] text-primary-foreground">
-              {data.roleLabel}
-            </span>
-            {/* Aceeasi asezare pe mobil, tableta si desktop; erorile nu deplaseaza butonul de contact. */}
-            <div className="mt-3.5 flex flex-wrap items-start gap-2">
-              {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
-              {contactButton}
-              {data.viewerIsOwner && <FollowingUsersButton />}
-            </div>
+            {follow && (
+              <div className="mt-3.5">
+                <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />
+              </div>
+            )}
           </div>
 
           {data.viewerIsOwner && (

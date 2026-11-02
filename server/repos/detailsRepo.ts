@@ -1067,7 +1067,7 @@ export async function listSavedDetailIds(userId: string, detailIds: string[]): P
 // membru activ al proiectului lui. Un detaliu în comunitate (projectId null) trece mereu. Diferit de
 // listFeed/listTopDebated/listRelatedDetails (acelea sunt PUBLICE, orice detaliu de proiect e exclus
 // necondiționat, indiferent de viewer) — aici viewerul e chiar proprietarul listei.
-export function hasProjectAccessForUser(userId: string) {
+export function hasProjectAccessForUser(userId: string | PgColumn) {
   return or(
     isNull(details.projectId),
     exists(

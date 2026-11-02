@@ -27,7 +27,7 @@ const frame = { width: 600, height: 450 };
 const image = { width: 1200, height: 900 };
 const base = { zoom: 1, x: 0, y: 0 };
 type Props = {
-  children?: ReactNode; ref?: { current: unknown }; style?: { transform?: string; touchAction?: string };
+  children?: ReactNode; ref?: { current: unknown }; style?: { transform?: string; touchAction?: string; aspectRatio?: number };
   "data-testid"?: string; "data-zoom"?: number; "aria-label"?: string; unoptimized?: boolean;
   onLoad?: (event: unknown) => void; onClick?: () => void;
   onPointerDown?: (event: unknown) => void; onPointerMove?: (event: unknown) => void;
@@ -91,6 +91,15 @@ describe("geometria zoom-ului imaginii", () => {
 });
 
 describe("interactiunea viewer-ului, fara browser", () => {
+  it.each([[1200, 800], [300, 600]])("adapteaza cadrul la imaginea incarcata %i x %i fara sa modifice zoom-ul", (width, height) => {
+    let tree = render();
+    find(tree, (node) => !!node.props.onLoad)!.props.onLoad!({ currentTarget: { naturalWidth: width, naturalHeight: height } });
+    tree = render();
+    expect(tree.props.style?.aspectRatio).toBe(width / height);
+    expect(tree.props["data-zoom"]).toBe(1);
+    expect(find(tree, (node) => node.props["data-testid"] === "overlay")).toBeTruthy();
+  });
+
   // Pe pagina detaliului, imaginea, adnotarile si schita vizibila au zoom si deplasare comune, doar pentru vizualizare. Controalele +, - si reset sunt in imagine; Ctrl+rotita mareste pe desktop, pinch cu doua degete pe touch. Scroll-ul paginii ramane disponibil la dimensiunea initiala, iar Schiteaza este o actiune separata.
   it("butoanele maresc imaginea si overlay-ul impreuna si cer sursa originala", () => {
     let tree = render();
