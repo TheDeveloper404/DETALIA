@@ -16,8 +16,8 @@ export function FollowingUsersButton() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary">
-        <Users className="size-4" aria-hidden /> Persoane urmărite
+      <button type="button" onClick={() => setOpen(true)} aria-label="Persoane urmărite" aria-haspopup="dialog" aria-expanded={open} className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary sm:w-auto sm:gap-1.5 sm:px-2.5">
+        <Users className="size-4" aria-hidden /> <span className="hidden sm:inline">Persoane urmărite</span>
       </button>
       {open && createPortal(<FollowingUsersModal onClose={() => setOpen(false)} />, document.body)}
     </>

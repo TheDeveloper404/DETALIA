@@ -36,6 +36,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
   children?: ReactNode | ((zoom: number) => ReactNode);
 }) {
   const [view, setView] = useState<ImageView>({ zoom: 1, x: 0, y: 0 });
+  const [imageAspect, setImageAspect] = useState<number | null>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const geometryRef = useRef({ frame: { width: 1, height: 1 }, image: { width: 1, height: 1 } });
@@ -176,8 +177,8 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
       ref={viewportRef}
       data-testid="detail-image-viewport"
       data-zoom={view.zoom}
-      className={`relative z-[1] aspect-[4/3] w-full max-w-3xl overflow-hidden md:max-w-none ${view.zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
-      style={{ touchAction: view.zoom > 1 ? "none" : "auto" }}
+      className={`relative z-[1] aspect-[4/3] max-h-[65dvh] w-full max-w-3xl overflow-hidden md:aspect-auto md:h-[min(680px,calc(100dvh-16rem))] md:max-h-none md:max-w-none ${view.zoom > 1 ? "cursor-grab active:cursor-grabbing" : ""}`}
+      style={{ touchAction: view.zoom > 1 ? "none" : "auto", aspectRatio: imageAspect ?? undefined }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
@@ -199,6 +200,7 @@ export function DetailImageViewer({ imageUrl, alt, children }: {
             if (!rect) return;
             const frame = { width: rect.width, height: rect.height };
             const image = { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight };
+            setImageAspect(image.width / image.height);
             geometryRef.current = { frame, image };
             setView((current) => constrainImageView(current, frame, image));
           }}

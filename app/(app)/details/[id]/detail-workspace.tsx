@@ -499,7 +499,12 @@ export function DetailWorkspace({
           )}
 
           {header.description && (
-            <div className="mt-4 whitespace-pre-wrap break-words text-[15.5px] leading-relaxed text-foreground/80 text-pretty md:mt-3 md:text-sm md:leading-5">
+            <div
+              role="region"
+              aria-label="Descriere detaliu"
+              tabIndex={0}
+              className="mt-4 max-h-[8lh] overflow-y-auto whitespace-pre-wrap break-words text-[15.5px] leading-relaxed text-foreground/80 text-pretty focus-visible:outline-2 focus-visible:outline-ring md:mt-3 md:text-sm md:leading-5"
+            >
               {header.description}
             </div>
           )}
@@ -675,7 +680,7 @@ export function DetailWorkspace({
             erau deja afișate în antet (tab bază) / lângă tab-ul activ (tab schiță, RolePill de mai sus);
             singura info netă din panou era rolul, mutat acolo. Imaginea folosește acum toată lățimea. */}
         <div ref={drawingRef} data-testid="detail-drawing" className="mt-3 min-w-0 scroll-mt-24 border-t border-[#eee6da] md:col-start-2 md:row-start-2 md:row-span-2 md:mt-0 md:overflow-hidden md:rounded-lg md:border md:border-border">
-          <div className="relative flex min-h-[420px] items-center justify-center bg-[#faf7f1] p-6 md:min-h-0 md:p-2">
+          <div className="relative flex items-center justify-center bg-[#faf7f1] p-2">
             {/* CTA suprapus peste imagine, colț dreapta-jos (nu bară separată). */}
             <div data-tour="detail-actions" className="absolute bottom-3 right-3 z-[3] flex items-center gap-2">
               {/* „Ofertă" — DOAR pe tab-ul de bază (materialele țin de detaliu, nu de o schiță anume),

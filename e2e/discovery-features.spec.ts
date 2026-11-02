@@ -130,6 +130,26 @@ test("hover in feed: succesiune schite si revenire la detaliu", async ({ page })
   await expect(page).toHaveURL(new RegExp(`/details/${detailIds[0]}$`));
 });
 
+// "ca sa vad tot detaliul, trebuie sa dau scroll, ceea ce nu as vrea."
+test("cadru detaliu compact pe desktop si adaptat imaginii pe telefon", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await page.goto("/details/" + detailIds[0]);
+  const image = page.getByRole("img", { name: title, exact: true });
+  await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
+  const viewport = page.getByTestId("detail-image-viewport");
+  const desktop = (await viewport.boundingBox())!;
+  expect(desktop.y).toBeGreaterThanOrEqual(80);
+  expect(desktop.y + desktop.height).toBeLessThanOrEqual(768);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => viewport.evaluate((el) => el.clientHeight)).toBeGreaterThan(0);
+  const mobile = (await viewport.boundingBox())!;
+  // Imaginea fixture-ului este patrata: cadrul o urmeaza, fara spatiu vertical gol.
+  expect(Math.abs(mobile.height - mobile.width)).toBeLessThan(2);
+  const drawing = (await page.getByTestId("detail-drawing").boundingBox())!;
+  expect(drawing.width - mobile.width).toBeLessThanOrEqual(20);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
 // "Denumirea link-ului schitei in comentariu trebuie sa fie \"Vezi schita - Eduard Nemes\""
 // "La click pe link schita trebuie sa ma duca sus la schita prin scroll automat."
 test("link schita din comentariu: eticheta explicita si scroll la desen", async ({ page }) => {
@@ -259,10 +279,29 @@ test("follow/unfollow user si categorie controleaza feed-ul Urmariti", async ({ 
   await expect(unfollow).toBeVisible();
   // "Doar eu, in profilul meu (recomandat)"
   await expect(page.getByRole("button", { name: "Persoane urmărite", exact: true })).toHaveCount(0);
+  await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/profile");
   const badge = page.getByRole("dialog", { name: "Badge nou primit", exact: true });
   if (await badge.isVisible()) await badge.getByRole("button", { name: "Super!", exact: true }).click();
   const followingButton = page.getByRole("button", { name: "Persoane urmărite", exact: true });
+  // "in pagina de profil.. muta pill cu rol in drept cu numel, la fel multa si date de contact si persoane urmarite"
+  const nameBox = (await page.getByRole("heading", { level: 1 }).boundingBox())!;
+  for (const button of [page.getByRole("button", { name: "Date de contact", exact: true }), followingButton]) {
+    const box = (await button.boundingBox())!;
+    expect(Math.abs(box.y + box.height / 2 - nameBox.y - nameBox.height / 2)).toBeLessThan(4);
+  }
+  // "pe mobile cele doua butoane persoane urmarite si date de contact, langa pill de rol, dar dar icon fara denumire - denumirea doar cand apasa pe ele"
+  await page.setViewportSize({ width: 390, height: 844 });
+  const contactButton = page.getByRole("button", { name: "Date de contact", exact: true });
+  expect(await contactButton.innerText()).toBe("");
+  expect(await followingButton.innerText()).toBe("");
+  const contactBox = (await contactButton.boundingBox())!;
+  const followingBox = (await followingButton.boundingBox())!;
+  expect(Math.abs(contactBox.y - followingBox.y)).toBeLessThan(2);
+  await contactButton.click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: "Date de contact", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Închide", exact: true }).click();
+  await page.setViewportSize({ width: 1366, height: 768 });
   await followingButton.click();
   const followingDialog = page.getByRole("dialog", { name: "Persoane urmărite", exact: true });
   const followingList = followingDialog.getByRole("list");
