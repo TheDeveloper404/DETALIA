@@ -574,6 +574,9 @@ for (const viewport of ["tableta", "desktop"] as const) {
       baseLayerId = background.id;
       await db.update(sketches).set({ baseSketchIds: [baseLayerId] }).where(eq(sketches.id, sketch.id));
     }
+    // Ceasul se fixeaza inainte de orice navigare: instalat pe o pagina deja incarcata, pagina intra in bucla
+    // (RangeError: Maximum call stack) si click-urile nu se mai termina. E pe context, deci acopera si popup-ul PDF.
+    await page.context().clock.setFixedTime(new Date("2026-10-30T12:34:56Z"));
     await page.goto("/details/" + detailIds[0] + "?sketch=" + sketch.id);
     await page.getByRole("button", { name: "Acțiuni detaliu", exact: true }).click();
     let releaseImage!: () => void;
@@ -624,7 +627,6 @@ for (const viewport of ["tableta", "desktop"] as const) {
     }
     await expect(print).toBeEnabled();
     await expect(article.locator("time")).toHaveCount(0);
-    await pdf.clock.setFixedTime(new Date("2026-10-30T12:34:56Z"));
     await pdf.evaluate(() => {
       window.print = () => {
         window.dispatchEvent(new Event("beforeprint"));

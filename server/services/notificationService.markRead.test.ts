@@ -11,14 +11,10 @@ vi.mock("@/server/repos/notificationsRepo", () => ({
   insertNotification: vi.fn(),
   deleteReadNotificationsOlderThan: vi.fn(),
 }));
-vi.mock("@/server/repos/usersRepo", () => ({ getUserContact: vi.fn() }));
+vi.mock("@/server/repos/usersRepo", () => ({}));
 vi.mock("@/lib/email", () => ({
   plainSubject: vi.fn(),
   sendEmail: vi.fn(),
-  sketchDeletedEmailHtml: vi.fn(),
-  sketchDeletedEmailText: vi.fn(),
-  sketchProposedEmailHtml: vi.fn(),
-  sketchProposedEmailText: vi.fn(),
 }));
 
 import { markNotificationRead } from "./notificationService";

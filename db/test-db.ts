@@ -17,5 +17,3 @@ export async function createTestDb() {
   await migrate(db, { migrationsFolder: "./db/migrations" });
   return { db, client };
 }
-
-export type TestDb = Awaited<ReturnType<typeof createTestDb>>["db"];

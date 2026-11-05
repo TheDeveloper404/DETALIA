@@ -352,16 +352,6 @@ export async function deleteUserAuth(userId: string) {
   await db.delete(accounts).where(eq(accounts.userId, userId));
 }
 
-// Email + nume pentru notificări (email = PII, NU se loghează).
-export async function getUserContact(userId: string) {
-  const [row] = await db
-    .select({ email: users.email, name: users.name })
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
-  return row ?? null;
-}
-
 // Digest săptămânal — dezabonare din linkul semnat din email (fără sesiune). Idempotent.
 export async function setWeeklyDigestEnabled(userId: string, enabled: boolean): Promise<void> {
   await db.update(users).set({ weeklyDigestEnabled: enabled }).where(eq(users.id, userId));

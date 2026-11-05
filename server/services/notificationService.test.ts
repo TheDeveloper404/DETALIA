@@ -7,14 +7,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@/server/repos/notificationsRepo", () => ({ listByRecipient: vi.fn() }));
 vi.mock("@/server/repos/detailsRepo", () => ({ listProjectIdForDetails: vi.fn() }));
 vi.mock("@/server/services/projectService", () => ({ getProjectAccess: vi.fn() }));
-vi.mock("@/server/repos/usersRepo", () => ({ getUserContact: vi.fn() }));
+vi.mock("@/server/repos/usersRepo", () => ({}));
 vi.mock("@/lib/email", () => ({
   plainSubject: vi.fn(),
   sendEmail: vi.fn(),
-  sketchDeletedEmailHtml: vi.fn(),
-  sketchDeletedEmailText: vi.fn(),
-  sketchProposedEmailHtml: vi.fn(),
-  sketchProposedEmailText: vi.fn(),
 }));
 
 import { listProjectIdForDetails } from "@/server/repos/detailsRepo";
