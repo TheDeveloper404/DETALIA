@@ -6,7 +6,7 @@ vi.mock("@/lib/invite-token", () => ({
   generateInviteToken: vi.fn(() => "new-token-abc"),
   isInviteTokenExpired: vi.fn(() => false),
 }));
-vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn(), uploadProjectCanvasShare: vi.fn() }));
+vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 vi.mock("@/lib/image-processing", () => ({ reprocessBlobImage: vi.fn() }));
 // Spy, nu mock complet — audit() rulează real (console.log, best-effort), doar urmărim apelurile.
 vi.mock("@/lib/audit", async (importOriginal) => {

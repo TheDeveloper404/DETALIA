@@ -582,6 +582,8 @@ for (const viewport of ["tableta", "desktop"] as const) {
       await imageGate;
       await route.continue();
     });
+    // Ceasul se fixeaza inainte ca popup-ul PDF sa se incarce; fixat dupa load, stub-ul de print nu mai e apelat.
+    await page.context().clock.setFixedTime(new Date("2026-10-30T12:34:56Z"));
     const popupPromise = page.waitForEvent("popup");
     await page.getByRole("menuitem", { name: "Export PDF", exact: true }).click();
     const pdf = await popupPromise;
@@ -624,7 +626,6 @@ for (const viewport of ["tableta", "desktop"] as const) {
     }
     await expect(print).toBeEnabled();
     await expect(article.locator("time")).toHaveCount(0);
-    await pdf.clock.setFixedTime(new Date("2026-10-30T12:34:56Z"));
     await pdf.evaluate(() => {
       window.print = () => {
         window.dispatchEvent(new Event("beforeprint"));

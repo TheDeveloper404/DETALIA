@@ -27,11 +27,6 @@ export async function uploadCanvasThumbnail(blob: Blob, userId: string): Promise
   return uploadImage(blob, "canvases", userId);
 }
 
-// Copie independenta pentru proiect: stergerea plansei sursa nu o afecteaza.
-export async function uploadProjectCanvasShare(blob: Blob, userId: string): Promise<UploadImageResult> {
-  return uploadImage(blob, "project-shares", userId);
-}
-
 // Stergere best-effort dupa mutatia DB; acceptam numai URL-uri din store-urile proprii.
 export async function deleteBlobs(urls: (string | null | undefined)[]): Promise<void> {
   const valid = urls.filter((u): u is string => !!u && isOwnBlobUrl(u));
