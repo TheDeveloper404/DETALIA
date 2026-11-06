@@ -22,9 +22,6 @@ next-env.d.ts
 # === Vercel ===
 .vercel/
 
-# Brosura independenta, pastrata local si publicata separat pe Vercel.
-/exhibition-brochure/
-
 # === Loguri & temporare ===
 *.log
 npm-debug.log*

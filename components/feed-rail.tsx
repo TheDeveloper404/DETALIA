@@ -39,8 +39,8 @@ export function FeedRail({
   debated: RailDebated[];
 }) {
   return (
-    // mt-2: aliniază cu containerul „Detalii în dezbatere" din main și cu sidebar-ul din stânga.
-    <aside className="mt-2 hidden flex-col gap-[18px] xl:flex">
+    // Aliniere, sticky si max-h identice cu coloana din stanga (comentariul din feed-sidebar.tsx).
+    <aside className="mt-1 hidden flex-col gap-[18px] xl:sticky xl:top-[112px] xl:-mx-1 xl:flex xl:max-h-[calc(100dvh-128px)] xl:overflow-y-auto xl:p-1">
       {/* Autori activi. */}
       {authors.length > 0 && (
         <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">

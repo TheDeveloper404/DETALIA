@@ -1,6 +1,6 @@
 // Repo users — extensii DETALIA peste tabelul gestionat de Auth.js. Singurul loc cu acces Drizzle pe `users`.
 // Auth.js gestionează crearea/sesiunile; aici doar actualizăm câmpuri de profil (ex: poza).
-import { and, desc, eq, gt, isNull, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/db";
@@ -233,7 +233,14 @@ export async function listTopAuthors(limit: number) {
 // Utilizatorii ACTIVI ai rolului ales, inclusiv fara postari. Contorul respecta vizibilitatea profilului
 // public. Un singur LEFT JOIN agregat, nu un count corelat per user. Cu județ ales: doar cei care l-au
 // setat în profil.
-export async function listUsersByRole(roleMain: RoleMain, county: string | null = null) {
+// `after` = ultimul user afisat: pagina urmatoare continua dupa el in ordinea (nume, id), cu numele lipsa la
+// final (ASC NULLS LAST, implicit in Postgres), ca inscrierile/plecarile dintre pagini sa nu dubleze/sara useri.
+export async function listUsersByRole(
+  roleMain: RoleMain,
+  county: string | null,
+  page: { limit: number; after?: { name: string | null; id: string } | null },
+) {
+  const after = page.after;
   return db
     .select({
       id: users.id,
@@ -258,10 +265,35 @@ export async function listUsersByRole(roleMain: RoleMain, county: string | null 
         eq(roles.roleMain, roleMain),
         eq(users.status, "ACTIVE"),
         county ? eq(users.county, county) : undefined,
+        after
+          ? after.name === null
+            ? and(isNull(users.name), gt(users.id, after.id))
+            : or(
+                gt(users.name, after.name),
+                and(eq(users.name, after.name), gt(users.id, after.id)),
+                isNull(users.name),
+              )
+          : undefined,
       ),
     )
     .groupBy(users.id, roles.subRole)
-    .orderBy(users.name, users.id);
+    .orderBy(users.name, users.id)
+    .limit(page.limit);
+}
+
+export async function countUsersByRole(roleMain: RoleMain, county: string | null) {
+  const [row] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(users)
+    .innerJoin(roles, eq(roles.userId, users.id))
+    .where(
+      and(
+        eq(roles.roleMain, roleMain),
+        eq(users.status, "ACTIVE"),
+        county ? eq(users.county, county) : undefined,
+      ),
+    );
+  return row?.total ?? 0;
 }
 
 // Listă useri pentru panoul de admin: nume, prenume, email, rol (+ subrol), data creării.

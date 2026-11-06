@@ -194,12 +194,13 @@ test("link schita din comentariu: eticheta explicita si scroll la desen", async 
 
 for (const viewport of ["mobile", "tableta", "desktop"] as const) {
   // Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate.
+  // "Directorul de utilizatori din feed — count + primele 6 la filtrare; lista completa incarcata paginat doar la deschiderea modalului."
   test(`utilizatori dupa rol pe ${viewport}: rezumat, modal complet si profil fara postari`, async ({ page }) => {
     const width = viewport === "mobile" ? 390 : viewport === "tableta" ? 834 : 1280;
     await page.setViewportSize({ width, height: 900 });
     const suffix = crypto.randomUUID();
-    const directory = await db.insert(users).values(Array.from({ length: 7 }, (_, i) => ({
-      name: `Role Directory ${suffix} ${i}`,
+    const directory = await db.insert(users).values(Array.from({ length: 21 }, (_, i) => ({
+      name: `Role Directory ${suffix} ${String(i).padStart(2, "0")}`,
       email: `${i}-${suffix}@e2e-directory.test`,
       seenDetailTour: true,
     }))).returning();
@@ -221,17 +222,31 @@ for (const viewport of ["mobile", "tableta", "desktop"] as const) {
     const trigger = region.getByRole("button", { name: "Afișează", exact: true });
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: title, exact: true });
+    const links = dialog.getByRole("link");
+    const more = dialog.getByRole("button", { name: "Vezi mai multe", exact: true });
+    const loadAll = async () => {
+      await expect(links.first()).toBeVisible();
+      await expect(links).toHaveCount(20);
+      let shown = 20;
+      while (await more.isVisible()) {
+        await more.click();
+        await expect(links).not.toHaveCount(shown);
+        shown = await links.count();
+      }
+    };
     await expect(dialog).toBeVisible();
+    await loadAll();
     for (const user of directory) {
-      const row = dialog.getByRole("link").filter({ hasText: user.name! });
+      const row = links.filter({ hasText: user.name! });
       await expect(row).toHaveCount(1);
       await expect(row).toContainText("0 detalii");
     }
     await dialog.getByRole("button", { name: "Închide", exact: true }).click();
     await expect(dialog).toHaveCount(0);
     await trigger.click();
-    await dialog.getByRole("link").filter({ hasText: directory[6].name! }).click();
-    await expect(page).toHaveURL((url) => url.pathname === `/profile/${directory[6].id}`);
+    await loadAll();
+    await links.filter({ hasText: directory[20].name! }).click();
+    await expect(page).toHaveURL((url) => url.pathname === `/profile/${directory[20].id}`);
   });
 }
 
@@ -263,6 +278,8 @@ for (const viewport of ["mobile", "desktop"] as const) {
     const list = viewport === "mobile"
       ? page.getByRole("dialog", { name: "Filtru categorii", exact: true })
       : page.getByRole("navigation", { name: "Filtru categorii", exact: true });
+    // Pe desktop sectiunile pornesc inchise (varianta B aprobata: „2×2, inchise, una”).
+    if (viewport !== "mobile") await list.getByRole("button", { name: categoryName, exact: true }).click();
 
     for (let i = 0; i < 3; i++) {
       await list.getByRole("link").filter({ hasText: names[i] }).click();

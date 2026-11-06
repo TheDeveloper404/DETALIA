@@ -17,7 +17,7 @@ export default function ConfidentialitatePage() {
       </p>
 
       <h1 className="mb-2 font-heading text-3xl font-extrabold tracking-tight">Notă de confidențialitate</h1>
-      <p className="mb-8 text-sm text-muted-foreground">Ultima actualizare: 2026-07-07</p>
+      <p className="mb-8 text-sm text-muted-foreground">Ultima actualizare: 2026-11-06</p>
 
       <div className="flex flex-col gap-8 text-[15px] leading-relaxed text-foreground/90">
         <section>
@@ -48,7 +48,10 @@ export default function ConfidentialitatePage() {
               <tbody className="text-muted-foreground">
                 <tr className="border-b border-border/60">
                   <td className="py-2 pr-4">Email</td>
-                  <td className="py-2 pr-4">autentificare (link de conectare), notificări</td>
+                  <td className="py-2 pr-4">
+                    autentificare (link de conectare), emailuri de activitate și rezumatul săptămânal
+                    (le poți dezactiva din profil)
+                  </td>
                   <td className="py-2 pr-4">execuția serviciului</td>
                   <td className="py-2">cât e contul activ</td>
                 </tr>
@@ -57,6 +60,27 @@ export default function ConfidentialitatePage() {
                   <td className="py-2 pr-4">afișare transparentă lângă contribuțiile tale</td>
                   <td className="py-2 pr-4">execuția serviciului</td>
                   <td className="py-2">cât e contul activ</td>
+                </tr>
+                <tr className="border-b border-border/60">
+                  <td className="py-2 pr-4">
+                    Date de profil opționale (poză, copertă, județ, localitate, firmă, website, telefon,
+                    descriere)
+                  </td>
+                  <td className="py-2 pr-4">profilul tău public; telefonul și emailul apar doar dacă alegi</td>
+                  <td className="py-2 pr-4">consimțământ (le completezi tu)</td>
+                  <td className="py-2">până le ștergi sau îți ștergi contul</td>
+                </tr>
+                <tr className="border-b border-border/60">
+                  <td className="py-2 pr-4">Persoane și categorii urmărite</td>
+                  <td className="py-2 pr-4">filtrarea feed-ului tău; lista e vizibilă doar ție</td>
+                  <td className="py-2 pr-4">execuția serviciului</td>
+                  <td className="py-2">cât e contul activ</td>
+                </tr>
+                <tr className="border-b border-border/60">
+                  <td className="py-2 pr-4">Mesaje trimise la „Ajutor”</td>
+                  <td className="py-2 pr-4">răspuns la cererea ta de suport</td>
+                  <td className="py-2 pr-4">execuția serviciului</td>
+                  <td className="py-2">cât e necesar pentru rezolvarea cererii</td>
                 </tr>
                 <tr className="border-b border-border/60">
                   <td className="py-2 pr-4">Dovezi verificare rol</td>
@@ -76,9 +100,18 @@ export default function ConfidentialitatePage() {
                   <td className="py-2 pr-4">execuția serviciului</td>
                   <td className="py-2">o singură folosire, expiră rapid</td>
                 </tr>
+                <tr className="border-b border-border/60">
+                  <td className="py-2 pr-4">
+                    Date de utilizare (pagini vizitate, acțiuni în interfață, erori; pot include
+                    înregistrări ale sesiunii)
+                  </td>
+                  <td className="py-2 pr-4">îmbunătățirea platformei, depanare</td>
+                  <td className="py-2 pr-4">interes legitim</td>
+                  <td className="py-2">limitată; emailul și tokenurile de conectare sunt mascate</td>
+                </tr>
                 <tr>
-                  <td className="py-2 pr-4">Date tehnice (loguri, erori)</td>
-                  <td className="py-2 pr-4">securitate, depanare</td>
+                  <td className="py-2 pr-4">Date tehnice (adresă IP, loguri, erori)</td>
+                  <td className="py-2 pr-4">securitate, protecție anti-abuz, depanare</td>
                   <td className="py-2 pr-4">interes legitim</td>
                   <td className="py-2">termen scurt; fără date personale sensibile în loguri</td>
                 </tr>
@@ -91,9 +124,16 @@ export default function ConfidentialitatePage() {
           <h2 className="mb-2 text-lg font-bold">3. Cu cine partajăm datele</h2>
           <p>
             Nu vindem și nu partajăm datele tale cu terți în scop de marketing. Folosim un număr limitat de
-            furnizori tehnici (procesatori de date), strict pentru a face platforma să funcționeze — găzduire,
-            bază de date, trimitere de emailuri de conectare și stocare de imagini.
+            furnizori tehnici (procesatori de date), strict pentru a face platforma să funcționeze:
           </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            <li>Vercel — găzduirea aplicației și stocarea fișierelor;</li>
+            <li>Neon — baza de date;</li>
+            <li>Resend — trimiterea emailurilor;</li>
+            <li>PostHog (regiune UE) — statistici de utilizare și raportarea erorilor;</li>
+            <li>Cloudflare Turnstile — verificarea anti-bot la conectare și înregistrare;</li>
+            <li>Slack — primirea mesajelor trimise la „Ajutor”.</li>
+          </ul>
         </section>
 
         <section>
@@ -125,7 +165,8 @@ export default function ConfidentialitatePage() {
         <section>
           <h2 className="mb-2 text-lg font-bold">6. Cookie-uri</h2>
           <p>
-            Folosim un singur cookie, strict necesar pentru menținerea sesiunii tale de conectare. Nu folosim
+            Folosim doar cookie-uri strict necesare pentru conectare și securitatea sesiunii tale. Statisticile
+            de utilizare (PostHog) nu folosesc cookie-uri și nu salvează date în browser. Nu folosim
             cookie-uri de tracking sau marketing.
           </p>
         </section>

@@ -51,9 +51,8 @@ const SECTIONS: Section[] = [
           în care comunitatea îți evaluează perspectiva.
         </p>
         <p>
-          Rolul e <strong>funcțional imediat, neverificat</strong>. Din profil poți porni oricând o{" "}
-          <strong>verificare de rol</strong> (opțională) — odată aprobată manual, primești un badge
-          care arată că rolul tău a fost confirmat, nu doar declarat.
+          Rolul e <strong>funcțional imediat, neverificat</strong>. Verificarea rolului (cu badge de
+          rol confirmat) nu este disponibilă momentan.
         </p>
       </>
     ),
@@ -62,13 +61,19 @@ const SECTIONS: Section[] = [
     id: "gaseste",
     title: "Găsește detaliul de care ai nevoie",
     body: (
-      <p>
-        Nu trebuie să ai ceva de publicat ca să începi. Explorează detalii, urmărește argumentele și
-        salvează ce îți este util. În feed poți <strong>căuta</strong> după cuvinte din titlu sau
-        descriere, poți filtra pe <strong>categorii</strong> și poți alege din{" "}
-        <strong>Filtre</strong> „Așteaptă ajutor” — detaliile la care nimeni n-a propus încă o schiță
-        sau n-a luat o poziție.
-      </p>
+      <>
+        <p>
+          Nu trebuie să ai ceva de publicat ca să începi. Explorează detalii, urmărește argumentele și
+          salvează ce îți este util. În feed poți <strong>căuta</strong> după cuvinte din titlu sau
+          descriere și poți filtra pe una sau mai multe <strong>categorii</strong>.
+        </p>
+        <p>
+          Din <strong>Filtre</strong> poți alege „Așteaptă ajutor” (detaliile la care nimeni n-a propus
+          încă o schiță sau n-a luat o poziție), „Oameni urmăriți”, „Categorii urmărite”, rolul
+          autorului și județul. Poți <strong>urmări</strong> o persoană din profilul ei, iar o
+          categorie din feed, când o selectezi singură; lista persoanelor urmărite e vizibilă doar ție.
+        </p>
+      </>
     ),
   },
   {
@@ -194,15 +199,21 @@ const SECTIONS: Section[] = [
         </p>
         <p>
           Primești o <strong>notificare</strong> (în platformă) când cineva schițează peste unul
-          dintre detaliile tale, îți trimite sau îți completează o ofertă de materiale, îți șterge o
-          schiță, sau se înscrie prin linkul tău de invitație — nimic nu se întâmplă pe conturile
-          tale în tăcere.
+          dintre detaliile tale, comentează sau îți răspunde, îți aprobă contribuția, îți trimite sau
+          îți completează o ofertă de materiale, îți șterge o schiță, sau se înscrie prin linkul tău de
+          invitație — nimic nu se întâmplă pe conturile tale în tăcere.
         </p>
         <p>
-          Lunea primești pe email un <strong>rezumat săptămânal</strong>: ce s-a întâmplat pe
-          detaliile tale și câteva detalii noi din comunitate. Îl primești doar dacă ai avut
-          activitate pe detaliile tale. Te poți dezabona din linkul din email și îl poți reactiva din
-          editarea profilului.
+          Interacțiunile importante pe care nu le-ai citit în 30 de minute îți vin și pe{" "}
+          <strong>email</strong>, grupate. Din editarea profilului alegi „Interacțiuni importante”,
+          „Rezumat zilnic” sau „Doar notificări în aplicație”.
+        </p>
+        <p>
+          Lunea primești pe email un <strong>rezumat săptămânal</strong>: activitatea primită pe
+          detaliile tale, răspunsurile la comentariile tale și schițele construite peste ale tale,
+          plus câteva detalii noi din comunitate. Dacă n-ai primit nimic în săptămâna respectivă, nu
+          ți se trimite. Te poți dezabona din linkul din email și îl poți reactiva din editarea
+          profilului.
         </p>
       </>
     ),
@@ -270,8 +281,9 @@ const SECTIONS: Section[] = [
     title: "Ai nevoie de ajutor?",
     body: (
       <p>
-        Scrie-ne oricând la <a href="mailto:support@detalia.ro">support@detalia.ro</a> — pentru
-        probleme tehnice, întrebări despre cum funcționează ceva, sau cereri legate de rol/cont.
+        Din meniul contului, la „Ajutor”, ne poți trimite un mesaj direct din platformă. Sau scrie-ne
+        oricând la <a href="mailto:support@detalia.ro">support@detalia.ro</a> — pentru probleme
+        tehnice, întrebări despre cum funcționează ceva, sau cereri legate de rol/cont.
       </p>
     ),
   },

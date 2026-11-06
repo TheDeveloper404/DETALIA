@@ -23,8 +23,8 @@ import {
   getMySavedDetailIds,
   getPublishedDetailsCount,
   getSavedDetailsCount,
+  getRoleDirectoryPreview,
   getTopDebated,
-  getUsersByRole,
 } from "@/server/services/detailService";
 import { getUserRole } from "@/server/services/roleService";
 import { getPlatformState } from "@/server/services/settingsService";
@@ -96,7 +96,7 @@ export default async function FeedPage({
       getPlatformState(),
       getTopDebated(7),
       getSavedDetailsCount(session.user.id),
-      authorRole ? getUsersByRole(authorRole as RoleMain, county) : Promise.resolve([]),
+      authorRole ? getRoleDirectoryPreview(authorRole as RoleMain, county) : Promise.resolve(null),
     ]);
 
   // Banner de ANUNȚ (in-app) — vizibil userilor logați cât anunțul e ON. Mesaj custom sau text implicit cu data.
@@ -157,12 +157,9 @@ export default async function FeedPage({
             profile={{
               name: media?.name ?? session.user.name ?? null,
               image: media?.image ?? session.user.image ?? null,
-              coverImage: media?.coverImage ?? null,
-              coverPosition: media?.coverPosition ?? null,
               location: media?.location ?? null,
               roleLabel,
               verified: role?.verificationStatus === "VERIFIED",
-              about: media?.about ?? null,
             }}
             categories={categories}
             activeIds={activeIds}
@@ -203,8 +200,14 @@ export default async function FeedPage({
                 />
               }
             />
-            {authorRole && (
-              <FeedRoleUsers roleLabel={ROLE_MAIN_LABELS[authorRole as RoleMain]} county={county} users={roleUsers} />
+            {authorRole && roleUsers && (
+              <FeedRoleUsers
+                role={authorRole}
+                roleLabel={ROLE_MAIN_LABELS[authorRole as RoleMain]}
+                county={county}
+                total={roleUsers.total}
+                users={roleUsers.users}
+              />
             )}
             {activeCategory && (
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

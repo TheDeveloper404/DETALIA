@@ -26,8 +26,14 @@ const { setFollow, getFollowState } = await import("./followService");
 const { listFeedWithTotal } = await import("@/server/repos/detailsRepo");
 const { addComment, getComments } = await import("./commentService");
 const { getNotifications, notifyCommentAdded } = await import("./notificationService");
-const { getDetail, getUsersByRole } = await import("./detailService");
+const { getDetail, getRoleDirectoryPage, getRoleDirectoryPreview } = await import("./detailService");
 const { disapprove } = await import("./validationService");
+
+async function roleDirectoryIds(role: string, county: string | null = null) {
+  const page = await getRoleDirectoryPage(role, county, null);
+  if (!page.ok) throw new Error("pagina invalida");
+  return page.users.map((u) => u.id);
+}
 let owner: string,
   reader: string,
   actor: string,
@@ -224,8 +230,14 @@ it("lista rolului include utilizatori fara postari si peste sase, fara detalii p
     { title: `${term} anonim`, authorId: directory[1].id, anonymizedAt: new Date(), imageUrl: "/pwa-192.png", authorRoleSnapshot: { roleMain: "BENEFICIAR", verificationStatus: "DECLARED" } },
   ]);
 
-  const result = await getUsersByRole("BENEFICIAR");
+  const page = await getRoleDirectoryPage("BENEFICIAR", null, null);
+  if (!page.ok) throw new Error("pagina invalida");
+  expect(page.nextCursor).toBeNull();
+  const result = page.users;
   expect(result).toHaveLength(7);
+  const preview = await getRoleDirectoryPreview("BENEFICIAR");
+  expect(preview.total).toBe(7);
+  expect(preview.users.map((u) => u.id)).toEqual(directory.slice(0, 6).map((u) => u.id));
   expect(result.map((u) => u.id)).toEqual(directory.slice(0, 7).map((u) => u.id));
   expect(result[0].detailCount).toBe(0);
   expect(result[1].detailCount).toBe(1);
@@ -242,10 +254,71 @@ it("lista rolului cu judet contine doar utilizatorii care l-au setat in profil",
     ])
     .returning();
   await db.insert(roles).values([cluj, fara].map((u) => ({ userId: u.id, roleMain: "FURNIZOR" as const })));
-  expect((await getUsersByRole("FURNIZOR", "Cluj")).map((u) => u.id)).toEqual([cluj.id]);
-  expect(await getUsersByRole("FURNIZOR", "Iași")).toEqual([]);
-  const all = (await getUsersByRole("FURNIZOR")).map((u) => u.id);
+  expect(await roleDirectoryIds("FURNIZOR", "Cluj")).toEqual([cluj.id]);
+  expect(await roleDirectoryIds("FURNIZOR", "Iași")).toEqual([]);
+  expect((await getRoleDirectoryPreview("FURNIZOR", "Cluj")).total).toBe(1);
+  const all = await roleDirectoryIds("FURNIZOR");
   expect(all).toEqual(expect.arrayContaining([cluj.id, fara.id]));
+});
+
+// "Directorul de utilizatori din feed — count + primele 6 la filtrare; lista completa incarcata paginat doar la deschiderea modalului."
+it("directorul rolului se pagineaza in modal fara dubluri, iar totalul numara aceiasi utilizatori activi", async () => {
+  const term = "Paged " + crypto.randomUUID();
+  const paged = await db.insert(users).values(
+    Array.from({ length: 22 }, (_, i) => ({
+      name: `${term} ${String(i).padStart(2, "0")}`,
+      email: `${i}-${term}@directory.test`,
+      county: "Vaslui",
+      status: i === 21 ? ("SUSPENDED" as const) : ("ACTIVE" as const),
+    })),
+  ).returning();
+  await db.insert(roles).values(paged.map((u) => ({ userId: u.id, roleMain: "PROIECTANT" as const })));
+
+  const preview = await getRoleDirectoryPreview("PROIECTANT", "Vaslui");
+  expect(preview.total).toBe(21);
+  expect(preview.users).toHaveLength(6);
+
+  const first = await getRoleDirectoryPage("PROIECTANT", "Vaslui", null);
+  if (!first.ok) throw new Error("pagina invalida");
+  expect(first.users).toHaveLength(20);
+  expect(first.nextCursor).toEqual({ name: paged[19].name, id: paged[19].id });
+
+  // Intre doua pagini: un user nou care se sorteaza inaintea cursorului si plecarea unuia deja afisat
+  // nu muta pagina a doua (fara dubluri, fara useri sariti).
+  const [early] = await db.insert(users).values({ name: `${term} 00a`, email: `early-${term}@directory.test`, county: "Vaslui" }).returning();
+  await db.insert(roles).values({ userId: early.id, roleMain: "PROIECTANT" as const });
+  await db.update(users).set({ status: "SUSPENDED" }).where(eq(users.id, paged[3].id));
+
+  const second = await getRoleDirectoryPage("PROIECTANT", "Vaslui", first.nextCursor);
+  if (!second.ok) throw new Error("pagina invalida");
+  expect(second.users.map((u) => u.id)).toEqual([paged[20].id]);
+  expect(second.nextCursor).toBeNull();
+  const ids = [...first.users, ...second.users].map((u) => u.id);
+  expect(ids).toEqual(paged.slice(0, 21).map((u) => u.id));
+});
+
+// "Directorul de utilizatori din feed — count + primele 6 la filtrare; lista completa incarcata paginat doar la deschiderea modalului."
+it("userii fara nume apar la final si paginarea trece corect peste ei", async () => {
+  const term = "NoName " + crypto.randomUUID();
+  const named = await db.insert(users).values(
+    Array.from({ length: 19 }, (_, i) => ({ name: `${term} ${String(i).padStart(2, "0")}`, email: `${i}-${term}@directory.test`, county: "Vrancea" })),
+  ).returning();
+  const unnamed = await db.insert(users).values(
+    Array.from({ length: 3 }, (_, i) => ({ name: null, email: `nn-${i}-${term}@directory.test`, county: "Vrancea" })),
+  ).returning();
+  await db.insert(roles).values([...named, ...unnamed].map((u) => ({ userId: u.id, roleMain: "EXECUTANT" as const })));
+
+  const first = await getRoleDirectoryPage("EXECUTANT", "Vrancea", null);
+  if (!first.ok || !first.nextCursor) throw new Error("pagina invalida");
+  expect(first.users).toHaveLength(20);
+  expect(first.nextCursor.name).toBeNull();
+  const second = await getRoleDirectoryPage("EXECUTANT", "Vrancea", first.nextCursor);
+  if (!second.ok) throw new Error("pagina invalida");
+  expect(second.nextCursor).toBeNull();
+  const ids = [...first.users, ...second.users].map((u) => u.id);
+  expect(ids.slice(0, 19)).toEqual(named.map((u) => u.id));
+  expect(new Set(ids.slice(19))).toEqual(new Set(unnamed.map((u) => u.id)));
+  expect(ids).toHaveLength(22);
 });
 
 describe("Notificari comentarii cu DB real", () => {
