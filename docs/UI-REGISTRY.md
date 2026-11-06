@@ -51,7 +51,7 @@ Pe detaliu, resursele sunt controale scurte PDF / CAD / Link / Imagine, alaturi 
 
 ## Filtru multiplu de categorii
 
-`components/category-filter-list.tsx`, comun pentru sidebar desktop si panoul mobil: categoriile selectate au fundalul activ existent si un X de 44 px pentru eliminare individuala, separat de linkul numelui.
+`components/category-filter-list.tsx`, comun pentru sidebar desktop si panoul mobil: categoriile selectate au fundalul activ existent si un X pentru eliminare individuala, separat de linkul numelui (44 px pe mobil, 32 px in coloana de desktop). Pe desktop (`sidebar`): randuri compacte, sectiunile sunt acordeon, pornesc inchise si se deschide una singura (cea cu ultima categorie aleasa); o sectiune inchisa cu filtru activ are un punct teracota.
 Selectia se pastreaza in `cat=id1,id2,...`; „Toate detaliile” elimina selectia de categorii si pastreaza celelalte filtre.
 
 ## Lipire imagine in formularul detaliului
@@ -61,8 +61,8 @@ Aceeasi validare, previzualizare si incarcare ca selectia normala; modurile de d
 
 ## Utilizatori dupa rol
 
-`components/feed-role-users.tsx`: deasupra postarilor cand este ales Rol autor, inclusiv persoane fara postari. De la 640 px: maximum 6 profiluri in doua coloane; sub 640 px: doar titlu si numar. „Afiseaza” deschide lista completa: text discret, fara chenar, in dreapta jos, cu zona de apasare de minimum 44 px; pe desktop/tableta apare doar peste 6 rezultate.
-Modal comun prin `DialogOverlay`, lista cu scroll si linkuri spre profil; avatarul reutilizeaza `AvatarInitials`. Contoarele includ doar detalii publice neanonimizate.
+`components/feed-role-users.tsx`: deasupra postarilor cand este ales Rol autor, inclusiv persoane fara postari. De la 640 px: maximum 6 profiluri in doua coloane; sub 640 px: doar titlu si numar. „Afiseaza” deschide lista: text discret, fara chenar, in dreapta jos, cu zona de apasare de minimum 44 px; pe desktop/tableta apare doar peste 6 rezultate.
+Modal comun prin `DialogOverlay`, lista paginata (20 pe pagina, „Vezi mai multe”, incarcata la deschidere) cu scroll si linkuri spre profil; avatarul reutilizeaza `AvatarInitials`. Contoarele includ doar detalii publice neanonimizate.
 
 ## Taburi de schite pe mobil
 

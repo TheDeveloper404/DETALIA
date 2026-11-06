@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-const { listFeedWithTotal, listUsersByRole } = vi.hoisted(() => ({
+const { listFeedWithTotal, listUsersByRole, countUsersByRole } = vi.hoisted(() => ({
   listFeedWithTotal: vi.fn(),
   listUsersByRole: vi.fn(),
+  countUsersByRole: vi.fn(),
 }));
 
 // Repo-ul e mock-uit integral: testăm DOAR compunerea din getFeed (page → offset, total → totalPages,
@@ -30,12 +31,12 @@ vi.mock("@/server/repos/detailsRepo", () => ({
   replaceDetailResources: vi.fn(),
   updateDetailRow: vi.fn(),
 }));
-vi.mock("@/server/repos/usersRepo", () => ({ listTopAuthors: vi.fn(), listUsersByRole }));
+vi.mock("@/server/repos/usersRepo", () => ({ listTopAuthors: vi.fn(), listUsersByRole, countUsersByRole }));
 vi.mock("@/server/services/roleService", () => ({ userHasRole: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteBlobs: vi.fn() }));
 vi.mock("@/server/repos/sketchesRepo", () => ({ listFeedSketchPreviews: vi.fn().mockResolvedValue([]) }));
 
-import { getFeed, getUsersByRole } from "./detailService";
+import { getFeed, getRoleDirectoryPage, getRoleDirectoryPreview } from "./detailService";
 import { listFeedSketchPreviews } from "@/server/repos/sketchesRepo";
 
 // "La hover peste un detaliu in feed sa fie o succesiune a schitelor din interiorul detaliului in loop"
@@ -56,13 +57,48 @@ it("grupeaza miniaturile pe detaliu intr-un singur lot, fara a schimba paginarea
 });
 
 // Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate.
-it("getUsersByRole pastreaza toti utilizatorii, inclusiv peste sase si cu zero postari", async () => {
-  const rows = Array.from({ length: 8 }, (_, i) => ({
-    id: `user-${i}`, name: `User ${i}`, image: null, subRole: "Electrician", detailCount: 0,
-  }));
-  listUsersByRole.mockResolvedValueOnce(rows);
-  expect(await getUsersByRole("EXECUTANT")).toBe(rows);
-  expect(listUsersByRole).toHaveBeenCalledWith("EXECUTANT", null);
+const directoryRows = (n: number) => Array.from({ length: n }, (_, i) => ({
+  id: `user-${i}`, name: `User ${i}`, image: null, subRole: "Electrician", detailCount: 0,
+}));
+
+describe("Directorul de utilizatori pe rol", () => {
+  // "Directorul de utilizatori din feed — count + primele 6 la filtrare; lista completa incarcata paginat doar la deschiderea modalului."
+  it("preview-ul aduce numarul total si doar primii sase", async () => {
+    countUsersByRole.mockResolvedValueOnce(51);
+    listUsersByRole.mockResolvedValueOnce(directoryRows(6));
+    const result = await getRoleDirectoryPreview("PROIECTANT", "Cluj");
+    expect(result).toEqual({ total: 51, users: directoryRows(6) });
+    expect(countUsersByRole).toHaveBeenCalledWith("PROIECTANT", "Cluj");
+    expect(listUsersByRole).toHaveBeenCalledWith("PROIECTANT", "Cluj", { limit: 6 });
+  });
+
+  // "Directorul de utilizatori din feed — count + primele 6 la filtrare; lista completa incarcata paginat doar la deschiderea modalului."
+  it("pagina din modal are 20 de utilizatori si continua dupa ultimul afisat doar cand mai exista", async () => {
+    listUsersByRole.mockResolvedValueOnce(directoryRows(21));
+    const first = await getRoleDirectoryPage("EXECUTANT", null, null);
+    expect(first).toEqual({ ok: true, users: directoryRows(20), nextCursor: { name: "User 19", id: "user-19" } });
+    expect(listUsersByRole).toHaveBeenLastCalledWith("EXECUTANT", null, { limit: 21, after: null });
+
+    const cursor = { name: null, id: "00000000-0000-4000-8000-000000000001" };
+    listUsersByRole.mockResolvedValueOnce(directoryRows(20));
+    expect(await getRoleDirectoryPage("EXECUTANT", "Iași", cursor)).toEqual({ ok: true, users: directoryRows(20), nextCursor: null });
+    expect(listUsersByRole).toHaveBeenLastCalledWith("EXECUTANT", "Iași", { limit: 21, after: cursor });
+  });
+
+  it("rol, judet sau cursor invalide sunt refuzate fara interogare", async () => {
+    listUsersByRole.mockClear();
+    for (const [role, county, cursor] of [
+      ["ADMIN", null, null],
+      ["EXECUTANT", "Atlantida", null],
+      ["EXECUTANT", null, 20],
+      ["EXECUTANT", null, { name: "Ana", id: "nu-e-uuid" }],
+      ["EXECUTANT", null, { name: 5, id: "00000000-0000-4000-8000-000000000001" }],
+      [null, null, null],
+    ] as const) {
+      expect(await getRoleDirectoryPage(role, county, cursor)).toEqual({ ok: false });
+    }
+    expect(listUsersByRole).not.toHaveBeenCalled();
+  });
 });
 
 describe("getFeed — paginare (50/pagină)", () => {

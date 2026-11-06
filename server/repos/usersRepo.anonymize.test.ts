@@ -25,10 +25,10 @@ describe("anonymizeUserRow — date de contact după ștergerea contului", () =>
       userId: user.id,
       roleMain: "BENEFICIAR" as const,
     })));
-    expect(await listUsersByRole("BENEFICIAR")).toHaveLength(2);
+    expect(await listUsersByRole("BENEFICIAR", null, { limit: 50 })).toHaveLength(2);
     await anonymizeUserRow(deleted.id, "deleted-role@deleted.invalid");
     expect(await db.select().from(roles).where(eq(roles.userId, deleted.id))).toHaveLength(1);
-    expect((await listUsersByRole("BENEFICIAR")).map((user) => user.id)).toEqual([active.id]);
+    expect((await listUsersByRole("BENEFICIAR", null, { limit: 50 })).map((user) => user.id)).toEqual([active.id]);
   });
 
   // Filtrul Rol autor afiseaza toti utilizatorii rolului ales, inclusiv fara postari, cu link spre profil. Desktop/tableta: maximum 6 utilizatori, Afiseaza deschide modalul cu lista completa; mobil: doar titlu, numar si Afiseaza pentru acelasi modal. Contorul include doar detaliile publice neanonimizate. Conturile suspendate sau sterse nu apar in lista.
@@ -38,7 +38,7 @@ describe("anonymizeUserRow — date de contact după ștergerea contului", () =>
       .values({ name: "Cont suspendat", email: "role-suspended@test.local", status: "SUSPENDED" })
       .returning();
     await db.insert(roles).values({ userId: suspended.id, roleMain: "FURNIZOR" });
-    expect(await listUsersByRole("FURNIZOR")).toEqual([]);
+    expect(await listUsersByRole("FURNIZOR", null, { limit: 50 })).toEqual([]);
   });
 
   it("golește telefonul și închide vizibilitatea telefonului și a emailului", async () => {
@@ -88,5 +88,5 @@ it("onboarding-ul salveaza judetul odata cu profilul si rolul", async () => {
   expect(ok).toBe(true);
   const [row] = await db.select({ county: users.county, location: users.location }).from(users).where(eq(users.id, id));
   expect(row).toEqual({ county: "Cluj", location: "Apahida" });
-  expect((await listUsersByRole("EXECUTANT", "Cluj")).map((u) => u.id)).toContain(id);
+  expect((await listUsersByRole("EXECUTANT", "Cluj", { limit: 50 })).map((u) => u.id)).toContain(id);
 });

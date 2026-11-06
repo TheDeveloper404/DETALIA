@@ -54,7 +54,7 @@ import {
 } from "@/server/repos/detailsRepo";
 import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { ROLE_MAIN_LABELS, type RoleMain } from "@/server/domain/roles";
-import { listTopAuthors, listUsersByRole } from "@/server/repos/usersRepo";
+import { countUsersByRole, listTopAuthors, listUsersByRole } from "@/server/repos/usersRepo";
 import { COUNTIES } from "@/server/domain/counties";
 import { listFeedSketchPreviews } from "@/server/repos/sketchesRepo";
 import { isUuid } from "@/server/domain/ids";
@@ -781,8 +781,44 @@ export function getActiveAuthors(limit = 5) {
   return listTopAuthors(limit);
 }
 
-export function getUsersByRole(roleMain: RoleMain, county: string | null = null) {
-  return listUsersByRole(roleMain, county);
+const ROLE_DIRECTORY_PREVIEW = 6;
+const ROLE_DIRECTORY_PAGE = 20;
+
+export async function getRoleDirectoryPreview(roleMain: RoleMain, county: string | null = null) {
+  const [total, users] = await Promise.all([
+    countUsersByRole(roleMain, county),
+    listUsersByRole(roleMain, county, { limit: ROLE_DIRECTORY_PREVIEW }),
+  ]);
+  return { total, users };
+}
+
+export type RoleDirectoryCursor = { name: string | null; id: string };
+
+function isRoleDirectoryCursor(value: unknown): value is RoleDirectoryCursor {
+  if (!value || typeof value !== "object") return false;
+  const { name, id } = value as Record<string, unknown>;
+  return (name === null || typeof name === "string") && isUuid(id);
+}
+
+export async function getRoleDirectoryPage(role: unknown, county: unknown, cursor: unknown) {
+  if (
+    typeof role !== "string" ||
+    !Object.hasOwn(ROLE_MAIN_LABELS, role) ||
+    (county !== null && !(COUNTIES as readonly unknown[]).includes(county)) ||
+    (cursor !== null && !isRoleDirectoryCursor(cursor))
+  )
+    return { ok: false as const };
+  const rows = await listUsersByRole(role as RoleMain, county as string | null, {
+    limit: ROLE_DIRECTORY_PAGE + 1,
+    after: cursor === null ? null : { name: cursor.name, id: cursor.id },
+  });
+  const users = rows.slice(0, ROLE_DIRECTORY_PAGE);
+  const last = users[users.length - 1];
+  return {
+    ok: true as const,
+    users,
+    nextCursor: rows.length > ROLE_DIRECTORY_PAGE ? { name: last.name, id: last.id } : null,
+  };
 }
 
 // Detalii înrudite (cel puțin o categorie comună) pentru sidebar-ul paginii de detaliu.

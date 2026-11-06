@@ -89,8 +89,11 @@ asta rămâne singurul flux valid ștergerea de cont descrisă mai sus.
 | Neon | baza de date (PII la rest) | regiune UE recomandată |
 | Resend | trimitere email (adrese) | DPA disponibil |
 | Vercel Blob | imagini/thumbnail-uri | fără PII direct |
-| PostHog | erori server/client/edge + analytics (poate include user id, URL); regiune EU | DPA disponibil |
+| PostHog | erori server/client/edge + analytics (poate include user id, URL); regiune EU; client cu `persistence: "memory"` (fara cookie/stocare in browser, din 2026-11-06) | DPA disponibil |
 | Cloudflare Turnstile | verificare anti-bot (IP, comportament) pe login+signup | DPA disponibil |
+| Slack | mesajele din formularul „Ajutor” (text + link profil + link replay PostHog) | adaugat 2026-11-06 |
+
+Neon ruleaza in `aws-eu-central-1` (verificat 2026-11-06).
 
 > Decizii deschise aici (entitatea operator, regiunea DB) → `.remember/remember.md` §„Decizii / HOLD".
 
