@@ -20,6 +20,7 @@
 | Fișiere ofertă de materiale (PDF/Excel/CSV) | comunicare comercială Furnizor↔autor detaliu, STRICT privată (2026-08-25) | execuția serviciului | cât există oferta (ștearsă la retragere/anonimizare detaliu) |
 | Relație de referral (cine a adus pe cine) | atribuire badge + istoric, vizibil autorului relației + admin (2026-08-25) | execuția serviciului | cât e contul activ; nescrisă la ștergere cont (non-PII, cod random) |
 | Token magic link | login | execuția serviciului | one-time, expiră (TTL din env) |
+| Data ultimei vizite (`users.last_seen_at`) | administrare: useri activi/inactivi, vizibil doar adminului (2026-11-07) | interes legitim | cât e contul activ; golită la ștergerea contului |
 | Metadate tehnice (loguri) | securitate, debugging | interes legitim | scurt; **fără PII în loguri** |
 
 **Principii deja aplicate în arhitectură:**

@@ -176,3 +176,19 @@ it("permite exportul tuturor celor 21 de foi vizibile, fara a modifica limita de
   expect((await getPrintStack(detail.id, ids, active.id))?.layers).toHaveLength(21);
   expect(await getPrintStack(detail.id, [...ids, crypto.randomUUID()], active.id)).toBeNull();
 });
+
+// Regula (Liviu 2026-11-07): „Ciorne” nu afiseaza ciornele fara desen; ciorna goala ramane in DB.
+it("listDraftsByAuthor ascunde ciornele fara desen salvat", async () => {
+  const { listDraftsByAuthor } = await import("./sketchesRepo");
+  const [author] = await db.insert(users).values({ email: "drafts-empty@test.local" }).returning();
+  const [detail] = await db.insert(details).values({ title: "Baza", authorId: author.id, status: "PUBLISHED" }).returning();
+  const stroke = { points: [[0, 0, 0.5], [10, 10, 0.5]], color: "#000", size: 4 };
+  const [empty, drawn] = await db.insert(sketches).values([
+    { authorId: author.id, detailId: detail.id, status: "DRAFT", strokesJson: null },
+    { authorId: author.id, detailId: detail.id, status: "DRAFT", strokesJson: [stroke] as never },
+  ]).returning();
+
+  const ids = (await listDraftsByAuthor(author.id)).map((row) => row.id);
+  expect(ids).toEqual([drawn.id]);
+  expect(ids).not.toContain(empty.id);
+});

@@ -61,6 +61,7 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED | M
 | `referral_code` | text | nullable, **UNIQUE** — cod scurt de referral, generat LENEȘ la prima cerere a linkului (2026-08-25) |
 | `referred_by_user_id` | uuid FK→users.id | nullable, `ON DELETE SET NULL` — cine a adus acest user, setat O SINGURĂ DATĂ (2026-08-25) |
 | `weekly_digest_enabled` | boolean | default `true` — opt-OUT digest săptămânal pe email; linkul semnat din footer îl pune pe `false`, reactivare din `/profile/edit` (2026-09-03) |
+| `last_seen_at` | timestamptz | nullable — ultima cerere logata pe zona protejata, scrisa de `proxy.ts` cel mult o data pe ora; afisata in admin (2026-11-07) |
 | `created_at` | timestamptz | (NU există `updated_at` pe `users`) |
 
 > `accounts` si `verification_tokens` sunt gestionate de adapterul Drizzle. Tabelul existent `sessions`

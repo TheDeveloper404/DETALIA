@@ -54,6 +54,15 @@ Pe detaliu, resursele sunt controale scurte PDF / CAD / Link / Imagine, alaturi 
 `components/category-filter-list.tsx`, comun pentru sidebar desktop si panoul mobil: categoriile selectate au fundalul activ existent si un X pentru eliminare individuala, separat de linkul numelui (44 px pe mobil, 32 px in coloana de desktop). Pe desktop (`sidebar`): randuri compacte, sectiunile sunt acordeon, pornesc inchise si se deschide una singura (cea cu ultima categorie aleasa); o sectiune inchisa cu filtru activ are un punct teracota.
 Selectia se pastreaza in `cat=id1,id2,...`; „Toate detaliile” elimina selectia de categorii si pastreaza celelalte filtre.
 
+## Coloana dreapta a feed-ului
+
+`components/feed-rail.tsx`, vizibila de la `xl`: doua carduri („Autori activi”, „Cele mai dezbatute”) cu padding si distanta de 12 px, liste compacte. La autori, numarul de detalii e aliniat la dreapta randului; la dezbateri ordinea ramane autor → titlu → categorie → validari/comentarii/schite. Footerul ramane separat; sticky si scroll-ul propriu ca in coloana din stanga.
+
+## Admin: useri
+
+`app/admin-page/users-overview.tsx`: cifre (butoane care seteaza un filtru), inscrieri pe zi pe ultimele 60 de zile (bare HTML, fara biblioteca de grafice; click pe o zi filtreaza), defalcari pe rol si top judete. Filtrele stau in link (`?rol=&judet=&activitate=...`), scrise cu `window.history.replaceState`, fara cerere la server.
+`app/admin-page/user-detail.tsx`: fisa userului, panou lateral pe `DialogOverlay` (dreapta, `max-w-md`); actiunea de suspendare/reactivare sta aici, nu in tabel.
+
 ## Lipire imagine in formularul detaliului
 
 `app/(app)/details/new/detail-form.tsx`: de la 640 px, clickul pe zona de upload ii da focus, iar Ctrl+V preia imaginea din clipboard la focus sau hover. „Alege fisier” deschide selectorul clasic; sub 640 px, clickul pe zona continua sa deschida selectorul.

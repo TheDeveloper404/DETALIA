@@ -66,6 +66,19 @@ describe("anonymizeUserRow — date de contact după ștergerea contului", () =>
     const [row] = await db.select({ county: users.county, location: users.location }).from(users).where(eq(users.id, id));
     expect(row).toEqual({ county: null, location: null });
   });
+
+  // Nota de confidentialitate (2026-11-07): data ultimei vizite se pastreaza „cât e contul activ; se șterge la ștergerea contului”.
+  it("goleste data ultimei vizite", async () => {
+    const [{ id }] = await db
+      .insert(users)
+      .values({ email: "last-seen-delete@test.local", lastSeenAt: new Date() })
+      .returning({ id: users.id });
+
+    await anonymizeUserRow(id, "deleted-last-seen@deleted.invalid");
+
+    const [row] = await db.select({ lastSeenAt: users.lastSeenAt }).from(users).where(eq(users.id, id));
+    expect(row.lastSeenAt).toBeNull();
+  });
 });
 
 // **Cautare avansata** (meniul „Filtre", 2026-10-28): „Oameni urmăriți", „Categorii urmărite", „Așteaptă ajutor", rolul autorului si judetul se combina cu cautarea si categoria; rezultatele si paginarea folosesc aceleasi conditii. Rolul urmeaza ceea ce se afiseaza, inclusiv snapshot-ul autorului retras. Judetul vine din profilul autorului (camp optional „Județ”, la onboarding si in editarea profilului), nu de pe detaliu: cu un judet ales apar doar detaliile autorilor care l-au setat, fara detaliile anonimizate. La stergerea contului judetul se goleste, ca restul profilului.

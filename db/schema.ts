@@ -133,6 +133,8 @@ export const users = pgTable("users", {
   // `NOTIFICATION_EMAILS_ENABLED` (flag global de mediu pt emailurile de notificare in-app).
   weeklyDigestEnabled: boolean().notNull().default(true),
   activityEmailMode: activityEmailMode().notNull().default("IMPORTANT"),
+  // Ultima cerere logata pe zona protejata, scrisa de proxy cel mult o data pe ora (touchLastSeen).
+  lastSeenAt: timestamp({ withTimezone: true }),
 });
 
 export const accounts = pgTable(

@@ -9,10 +9,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // primea 302 în producție; AUD-07: linkul de dezabonare din email cerea login). Aici exersăm proxy-ul
 // real, cu DB și sesiunea mock-uite.
 
-const { getToken, getSettingsRow, getUserGateInfo } = vi.hoisted(() => {
+const { getToken, getSettingsRow, getUserGateInfo, touchLastSeen } = vi.hoisted(() => {
   // Fără cache pe setări — fiecare test își alege starea de lockdown.
   process.env.SETTINGS_CACHE_TTL_MS = "0";
-  return { getToken: vi.fn(), getSettingsRow: vi.fn(), getUserGateInfo: vi.fn() };
+  return { getToken: vi.fn(), getSettingsRow: vi.fn(), getUserGateInfo: vi.fn(), touchLastSeen: vi.fn() };
 });
 
 vi.mock("next-auth/jwt", () => ({ getToken }));
@@ -21,7 +21,7 @@ vi.mock("@/server/repos/adminsRepo", () => ({
   getValidAdminPendingSession: vi.fn(),
   getValidAdminSessionEmail: vi.fn(),
 }));
-vi.mock("@/server/repos/usersRepo", () => ({ getUserGateInfo }));
+vi.mock("@/server/repos/usersRepo", () => ({ getUserGateInfo, touchLastSeen }));
 vi.mock("@/lib/audit", () => ({ audit: vi.fn() }));
 
 import proxy from "@/proxy";
@@ -150,5 +150,49 @@ describe("proxy — registru de sesiuni", () => {
     expect(response.headers.get("location")).toContain("/login");
     expect(response.headers.get("x-middleware-next")).toBeNull();
     expect(response.headers.getSetCookie().some((value) => value.includes("Max-Age=0"))).toBe(true);
+  });
+});
+
+describe("proxy — ultima activitate", () => {
+  beforeEach(() => {
+    getToken.mockResolvedValue({ id: "user", sid: "registered-session", status: "ACTIVE" });
+    getSettingsRow.mockResolvedValue({ lockdownEnabled: false });
+    getUserGateInfo.mockReset();
+    touchLastSeen.mockReset();
+  });
+
+  // Regula (plan aprobat 2026-11-07): "cel mult o scriere pe ora pe user"; scrierea ruleaza doar dupa
+  // poarta de status, pentru userul din propria sesiune validata.
+  it("scrie ultima activitate cand lipseste sau e mai veche de o ora", async () => {
+    getUserGateInfo.mockResolvedValue({ status: "ACTIVE", hasRole: true, lastSeenAt: null });
+    await proxy(new NextRequest(`${BASE}/feed`));
+    expect(touchLastSeen).toHaveBeenCalledExactlyOnceWith("user");
+
+    touchLastSeen.mockReset();
+    getUserGateInfo.mockResolvedValue({ status: "ACTIVE", hasRole: true, lastSeenAt: new Date(Date.now() - 61 * 60_000) });
+    await proxy(new NextRequest(`${BASE}/feed`));
+    expect(touchLastSeen).toHaveBeenCalledExactlyOnceWith("user");
+  });
+
+  it("nu scrie daca ultima activitate e mai noua de o ora", async () => {
+    getUserGateInfo.mockResolvedValue({ status: "ACTIVE", hasRole: true, lastSeenAt: new Date(Date.now() - 10 * 60_000) });
+    await proxy(new NextRequest(`${BASE}/feed`));
+    expect(touchLastSeen).not.toHaveBeenCalled();
+  });
+
+  it("nu scrie pentru un cont suspendat", async () => {
+    getUserGateInfo.mockResolvedValue({ status: "SUSPENDED", hasRole: true, lastSeenAt: null });
+    await proxy(new NextRequest(`${BASE}/feed`));
+    expect(touchLastSeen).not.toHaveBeenCalled();
+  });
+
+  // Regula (plan aprobat 2026-11-07): "Un esec la scriere e prins si ignorat, ca sa nu blocheze pagina userului."
+  it("lasa cererea sa treaca daca scrierea esueaza", async () => {
+    getUserGateInfo.mockResolvedValue({ status: "ACTIVE", hasRole: true, lastSeenAt: null });
+    touchLastSeen.mockRejectedValue(new Error("db down"));
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await proxy(new NextRequest(`${BASE}/feed`));
+    expect(response.headers.get("x-middleware-next")).toBe("1");
+    errorSpy.mockRestore();
   });
 });

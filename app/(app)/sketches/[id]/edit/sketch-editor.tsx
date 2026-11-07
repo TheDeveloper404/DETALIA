@@ -4,6 +4,7 @@ import { NotebookPen, Pencil, Save, Send, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { unstable_rethrow, useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { useRef, useState } from "react";
 
 import { RolePill } from "@/components/role-pill";
@@ -109,6 +110,8 @@ export function SketchEditor({
       if (res && !res.ok) setError(res.error ?? "Nu am putut trimite.");
     } catch (err) {
       unstable_rethrow(err);
+      // Altfel eroarea ar ramane doar in mesajul de pe ecran, fara urma in PostHog.
+      posthog.captureException(err);
       setError("Nu am putut publica. Încearcă din nou.");
     } finally {
       setPending(false);

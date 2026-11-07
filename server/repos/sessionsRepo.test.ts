@@ -9,7 +9,7 @@ vi.mock("@/db", async () => {
 const { db } = await import("@/db");
 const { users, sessions } = await import("@/db/schema");
 const { insertUserSession, hasValidUserSession, revokeUserSession, deleteExpiredSessions } = await import("./sessionsRepo");
-const { getUserGateInfo } = await import("./usersRepo");
+const { getUserGateInfo, touchLastSeen } = await import("./usersRepo");
 const { eq } = await import("drizzle-orm");
 
 describe("registru sesiuni", () => {
@@ -56,12 +56,35 @@ describe("registru sesiuni", () => {
     const userId = randomUUID(), sid = randomUUID();
     await db.insert(users).values({ id: userId, email: `${userId}@test.local` });
     await insertUserSession(sid, userId, new Date(Date.now() + 60_000));
-    expect(await getUserGateInfo(userId, sid)).toEqual({ status: "ACTIVE", hasRole: false });
+    expect(await getUserGateInfo(userId, sid)).toEqual({ status: "ACTIVE", hasRole: false, lastSeenAt: null });
     expect(await getUserGateInfo(userId, randomUUID())).toBeNull();
     expect(await getUserGateInfo(randomUUID(), sid)).toBeNull();
     await revokeUserSession(sid);
     expect(await getUserGateInfo(userId, sid)).toBeNull();
     await insertUserSession(sid, userId, new Date(Date.now() - 1_000));
     expect(await getUserGateInfo(userId, sid)).toBeNull();
+  });
+
+  // Regula (plan aprobat 2026-11-07): "UPDATE ... WHERE last_seen_at IS NULL OR last_seen_at < now() - interval '1 hour'.
+  // Rezulta cel mult o scriere pe ora pe user."
+  it("touchLastSeen scrie la prima vizita, nu rescrie in aceeasi ora, rescrie dupa o ora", async () => {
+    const userId = randomUUID(), other = randomUUID();
+    await db.insert(users).values([{ id: userId, email: `${userId}@test.local` }, { id: other, email: `${other}@test.local` }]);
+    const readSeen = async (id: string) => (await db.select({ v: users.lastSeenAt }).from(users).where(eq(users.id, id)))[0].v;
+
+    await touchLastSeen(userId);
+    const first = await readSeen(userId);
+    expect(first).toBeInstanceOf(Date);
+    expect(await readSeen(other)).toBeNull();
+
+    const recent = new Date(Date.now() - 30 * 60_000);
+    await db.update(users).set({ lastSeenAt: recent }).where(eq(users.id, userId));
+    await touchLastSeen(userId);
+    expect((await readSeen(userId))?.getTime()).toBe(recent.getTime());
+
+    const old = new Date(Date.now() - 2 * 60 * 60_000);
+    await db.update(users).set({ lastSeenAt: old }).where(eq(users.id, userId));
+    await touchLastSeen(userId);
+    expect((await readSeen(userId))!.getTime()).toBeGreaterThan(old.getTime() + 60 * 60_000);
   });
 });

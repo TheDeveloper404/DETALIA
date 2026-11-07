@@ -17,7 +17,7 @@ export default function ConfidentialitatePage() {
       </p>
 
       <h1 className="mb-2 font-heading text-3xl font-extrabold tracking-tight">Notă de confidențialitate</h1>
-      <p className="mb-8 text-sm text-muted-foreground">Ultima actualizare: 2026-11-06</p>
+      <p className="mb-8 text-sm text-muted-foreground">Ultima actualizare: 2026-11-07</p>
 
       <div className="flex flex-col gap-8 text-[15px] leading-relaxed text-foreground/90">
         <section>
@@ -108,6 +108,12 @@ export default function ConfidentialitatePage() {
                   <td className="py-2 pr-4">îmbunătățirea platformei, depanare</td>
                   <td className="py-2 pr-4">interes legitim</td>
                   <td className="py-2">limitată; emailul și tokenurile de conectare sunt mascate</td>
+                </tr>
+                <tr className="border-b border-border/60">
+                  <td className="py-2 pr-4">Data ultimei vizite în cont</td>
+                  <td className="py-2 pr-4">administrarea platformei (utilizatori activi/inactivi)</td>
+                  <td className="py-2 pr-4">interes legitim</td>
+                  <td className="py-2">cât e contul activ; se șterge la ștergerea contului</td>
                 </tr>
                 <tr>
                   <td className="py-2 pr-4">Date tehnice (adresă IP, loguri, erori)</td>
