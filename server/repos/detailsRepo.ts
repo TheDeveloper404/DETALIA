@@ -829,7 +829,7 @@ function feedFilterConditions(input: {
 // Feed paginat (50/pagină, decizie 2026-08-16): doar PUBLISHED, opțional filtrat pe categorie/căutare.
 // Sortare strict cronologică (cele mai noi primele) — interacțiunile sunt afișate per card
 // (validationCount/commentCount/sketchCount) dar NU dictează ordinea. Rail-ul „cele mai dezbătute"
-// (listTopDebated) e cel care sortează pe scor de interacțiune, global, independent de acest feed.
+// (listTopDebated) sortează după numărul de comentarii, global, independent de acest feed.
 export async function listFeed(input: {
   categoryIds?: string[];
   q?: string | null;
@@ -925,8 +925,8 @@ export async function listFeedWithTotal(input: {
   return { rows, total: totalRows[0]?.count ?? 0 };
 }
 
-// „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune (validări+comentarii+
-// schițe), independent de filtrele/paginarea feed-ului principal (altfel rail-ul ar reflecta doar un
+// „Cele mai dezbătute" (rail-ul din feed) — top N global după numărul de comentarii,
+// independent de filtrele/paginarea feed-ului principal (altfel rail-ul ar reflecta doar un
 // subset, nu adevăratul top). Feed-ul principal e strict cronologic — vezi `listFeed`.
 export async function listTopDebated(limit: number) {
   return (
@@ -970,7 +970,7 @@ export async function listTopDebated(limit: number) {
       .leftJoin(roles, eq(roles.userId, details.authorId))
       // Proiecte (2026-08-09): rail public, exclude detaliile de proiect — vezi nota de la listFeed.
       .where(and(eq(details.status, DETAIL_STATUS.PUBLISHED), isNull(details.projectId)))
-      .orderBy(sql`${interactionScore} desc`, desc(details.createdAt))
+      .orderBy(sql`${commentCount} desc`, desc(details.createdAt))
       .limit(limit)
   );
 }

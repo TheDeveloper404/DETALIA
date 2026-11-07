@@ -96,7 +96,10 @@ test.describe.serial("Audit securitate 2026-08-10 — SEC-001 & SEC-002", () => 
     // Ciorna membrului — pentru SEC-001 (leak pe „Ciornele mele" după eliminare din proiect).
     const [draft] = await db
       .insert(sketches)
-      .values({ detailId, authorId: memberUserId, status: "DRAFT" })
+      .values({
+        detailId, authorId: memberUserId, status: "DRAFT",
+        strokesJson: [{ kind: "line", color: "#000000", size: 3, points: [[0.1, 0.1], [0.3, 0.3]] }],
+      })
       .returning({ id: sketches.id });
     draftSketchId = draft!.id;
 
