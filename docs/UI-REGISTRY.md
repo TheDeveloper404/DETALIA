@@ -56,7 +56,7 @@ Selectia se pastreaza in `cat=id1,id2,...`; „Toate detaliile” elimina select
 
 ## Coloana dreapta a feed-ului
 
-`components/feed-rail.tsx`, vizibila de la `xl`: doua carduri („Autori activi”, „Cele mai dezbatute”) cu padding si distanta de 12 px, liste compacte. La autori, numarul de detalii e aliniat la dreapta randului; la dezbateri ordinea ramane autor → titlu → categorie → validari/comentarii/schite. Footerul ramane separat; sticky si scroll-ul propriu ca in coloana din stanga.
+`components/feed-rail.tsx`, vizibila de la `xl`: varianta editoriala fara carduri, cu antete si linii scurte teracota; sectiunile sunt separate printr-o linie fina. La autori, numarul de detalii e aliniat la dreapta randului; la dezbateri ordinea este titlu → autor/rol → validari/comentarii/schite, fara categorii. Top 5 global dupa comentarii descrescator, la egalitate cele mai noi primele; independent de filtrele si paginarea feed-ului. Footerul ramane separat, sticky la pozitia de start; fara plafon de inaltime sau scroll intern.
 
 ## Admin: useri
 

@@ -11,7 +11,7 @@ vi.mock("@/db", async () => {
 });
 
 const { db } = await import("@/db");
-const { details, users, categories, detailCategories } = await import("@/db/schema");
+const { details, users, categories, detailCategories, comments, validations } = await import("@/db/schema");
 const { listTopDebated, listRelatedDetails } = await import("./detailsRepo");
 
 async function makeUser(email: string) {
@@ -64,5 +64,38 @@ describe("authorId mascat pe autor retras — listTopDebated / listRelatedDetail
     });
     const relatedWithdrawn = related.find((r) => r.id === withdrawnDetail.id);
     expect(relatedWithdrawn?.authorId).toBeNull();
+  });
+
+  // Regula aprobata: "Afisez top 5 global dupa numarul de comentarii, descrescator; la egalitate, cele mai noi primele."
+  it("topul de 5 foloseste comentariile vizibile, nu validarile, si departajeaza dupa data", async () => {
+    const authorId = await makeUser("debated-order@test.local");
+    const rows = await db.insert(details).values(
+      Array.from({ length: 7 }, (_, i) => ({
+        title: `Top dezbatere ${i}`,
+        authorId,
+        status: i === 6 ? "DRAFT" : "PUBLISHED",
+        createdAt: new Date(`2026-01-0${i + 1}T12:00:00Z`),
+      })),
+    ).returning({ id: details.id });
+    const counts = [1, 6, 5, 4, 3, 3, 20];
+    await db.insert(comments).values(rows.flatMap((row, i) =>
+      Array.from({ length: counts[i] }, () => ({
+        targetType: "DETAIL" as const, targetId: row.id, authorId, body: "Comentariu vizibil",
+      })),
+    ));
+    await db.insert(comments).values(Array.from({ length: 20 }, () => ({
+      targetType: "DETAIL" as const, targetId: rows[0].id, authorId,
+      body: "Comentariu ascuns", hiddenAfterRelease: true,
+    })));
+    const voters = await db.insert(users).values(Array.from({ length: 10 }, (_, i) => ({
+      email: `debated-voter-${i}@test.local`,
+    }))).returning({ id: users.id });
+    await db.insert(validations).values(voters.map((voter) => ({
+      userId: voter.id, targetType: "DETAIL" as const, targetId: rows[0].id, position: "APPROVE" as const,
+    })));
+
+    const top = await listTopDebated(5);
+    expect(top.map((d) => d.id)).toEqual([rows[1].id, rows[2].id, rows[3].id, rows[5].id, rows[4].id]);
+    expect(top.map((d) => d.commentCount)).toEqual([6, 5, 4, 3, 3]);
   });
 });

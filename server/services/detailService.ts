@@ -713,7 +713,7 @@ export async function getPublishedDetailsCount(): Promise<number> {
   return countPublishedDetails();
 }
 
-// „Cele mai dezbătute" (rail-ul din feed) — top N global pe scor de interacțiune, independent de
+// „Cele mai dezbătute" (rail-ul din feed) — top N global după numărul de comentarii, independent de
 // filtrele feed-ului principal.
 export async function getTopDebated(limit: number) {
   return listTopDebated(limit);

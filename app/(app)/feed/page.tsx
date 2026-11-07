@@ -94,7 +94,7 @@ export default async function FeedPage({
       getActiveAuthors(5),
       getUserMedia(session.user.id),
       getPlatformState(),
-      getTopDebated(7),
+      getTopDebated(5),
       getSavedDetailsCount(session.user.id),
       authorRole ? getRoleDirectoryPreview(authorRole as RoleMain, county) : Promise.resolve(null),
     ]);
