@@ -18,13 +18,16 @@ import { REFERRAL_COOKIE_MAX_AGE_SECONDS, REFERRAL_COOKIE_NAME } from "@/lib/ref
 import { isValidReferralCodeFormat } from "@/server/domain/referral";
 import { getValidAdminPendingSession, getValidAdminSessionEmail } from "@/server/repos/adminsRepo";
 import { getSettingsRow } from "@/server/repos/settingsRepo";
-import { getUserGateInfo } from "@/server/repos/usersRepo";
+import { getUserGateInfo, touchLastSeen } from "@/server/repos/usersRepo";
 import { isPublicPath } from "@/lib/public-paths";
 
 // Rutele de cron invocate de Vercel (fără sesiune de user) — autorizare reală prin CRON_SECRET, în
 // handler. EXACTE (nu un prefix larg gen "/api/cron"), ca o rută cron nouă să NU devină public/scutită de
 // lockdown implicit doar pentru că împarte prefixul — adaugi aici explicit, o dată cu handler-ul nou.
 const CRON_PATHS = ["/api/cron/cleanup-notifications", "/api/cron/weekly-digest", "/api/cron/notification-emails"];
+
+// Aceeasi limita ca in touchLastSeen (interval '1 hour').
+const LAST_SEEN_THROTTLE_MS = 60 * 60 * 1000;
 
 // Prefixe publice (accesibile fără sesiune). Restul = protejat.
 const PUBLIC_PATHS = [
@@ -210,6 +213,15 @@ export default async function proxy(req: NextRequest) {
         });
       }
       return res;
+    }
+
+    // Ultima activitate pentru admin. O eroare aici nu trebuie sa blocheze pagina userului.
+    if (!gate.lastSeenAt || Date.now() - gate.lastSeenAt.getTime() > LAST_SEEN_THROTTLE_MS) {
+      try {
+        await touchLastSeen(userId);
+      } catch (err) {
+        console.error("touchLastSeen a esuat:", err instanceof Error ? err.message : String(err));
+      }
     }
 
     const onOnboarding = pathname === "/onboarding";

@@ -436,6 +436,8 @@ export async function getPublicSketchTeaser(id: string) {
 }
 
 // Ciornele (DRAFT) ale unui autor — cu titlul + imaginea detaliului-mamă, pentru a le relua din „Ciornele mele".
+// Doar cele cu desen salvat: „Schițează” creeaza ciorna inainte de primul desen, iar cea goala ramane
+// reluabila prin getResumableDraft.
 export function listDraftsByAuthor(authorId: string) {
   return db
     .select({
@@ -451,6 +453,7 @@ export function listDraftsByAuthor(authorId: string) {
       and(
         eq(sketches.authorId, authorId),
         eq(sketches.status, "DRAFT"),
+        isNotNull(sketches.strokesJson),
         // Proiecte: un membru eliminat nu-și mai vede ciornele peste detalii private ale foștilor colegi.
         hasProjectAccessForUser(authorId),
       ),

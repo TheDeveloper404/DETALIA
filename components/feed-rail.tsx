@@ -40,14 +40,14 @@ export function FeedRail({
 }) {
   return (
     // Aliniere, sticky si max-h identice cu coloana din stanga (comentariul din feed-sidebar.tsx).
-    <aside className="mt-1 hidden flex-col gap-[18px] xl:sticky xl:top-[112px] xl:-mx-1 xl:flex xl:max-h-[calc(100dvh-128px)] xl:overflow-y-auto xl:p-1">
+    <aside className="mt-1 hidden flex-col gap-3 xl:sticky xl:top-[112px] xl:-mx-1 xl:flex xl:max-h-[calc(100dvh-128px)] xl:overflow-y-auto xl:p-1">
       {/* Autori activi. */}
       {authors.length > 0 && (
-        <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
-          <div className="mb-3 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Autori activi
           </div>
-          <ul className="flex list-none flex-col gap-3 p-0">
+          <ul className="flex list-none flex-col gap-2 p-0">
             {authors.map((a) => (
               <li key={a.id}>
                 <Link
@@ -63,9 +63,11 @@ export function FeedRail({
                       )}
                     </span>
                     <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                      {a.subRole ?? (a.roleMain ? ROLE_MAIN_LABELS[a.roleMain as RoleMain] ?? a.roleMain : "—")} ·{" "}
-                      {a.detailCount} detalii
+                      {a.subRole ?? (a.roleMain ? ROLE_MAIN_LABELS[a.roleMain as RoleMain] ?? a.roleMain : "—")}
                     </span>
+                  </span>
+                  <span className="shrink-0 text-right font-mono text-[11px] text-muted-foreground">
+                    {a.detailCount} detalii
                   </span>
                 </Link>
               </li>
@@ -76,17 +78,17 @@ export function FeedRail({
 
       {/* Cele mai dezbătute. */}
       {debated.length > 0 && (
-        <div className="rounded-lg bg-card p-[18px] ring-1 ring-foreground/10">
-          <div className="mb-3.5 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+        <div className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+          <div className="mb-2 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
             Cele mai dezbătute
           </div>
-          <ul className="flex list-none flex-col gap-3.5 p-0">
+          <ul className="flex list-none flex-col gap-2 p-0">
             {debated.map((d, i) => (
-              <li key={d.id} className={i > 0 ? "border-t border-[#eee6da] pt-3.5" : undefined}>
+              <li key={d.id} className={i > 0 ? "border-t border-[#eee6da] pt-2" : undefined}>
                 {/* Link separat de cel spre detaliu de mai jos (nu imbricat — un <a> în alt <a> e HTML
                     invalid). Autor retras (authorId mascat null în SQL) → fără link, doar text. */}
                 {d.authorId ? (
-                  <Link href={`/profile/${d.authorId}`} className="mb-1.5 flex items-center gap-2 no-underline">
+                  <Link href={`/profile/${d.authorId}`} className="mb-1 flex items-center gap-2 no-underline">
                     <AvatarInitials name={d.authorName} imageUrl={d.authorImage} size={22} />
                     <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground hover:text-foreground">
                       {d.authorName ?? "Anonim"}
@@ -99,7 +101,7 @@ export function FeedRail({
                     </span>
                   </Link>
                 ) : (
-                  <div className="mb-1.5 flex items-center gap-2">
+                  <div className="mb-1 flex items-center gap-2">
                     <AvatarInitials name={d.authorName} imageUrl={d.authorImage} size={22} />
                     <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-muted-foreground">
                       {d.authorName ?? "Anonim"}
@@ -110,14 +112,14 @@ export function FeedRail({
                   </div>
                 )}
                 <Link href={`/details/${d.id}`} className="block no-underline">
-                  <div className="font-semibold leading-snug text-foreground hover:text-primary">{d.title}</div>
+                  <div className="text-[13.5px] font-semibold leading-snug text-foreground hover:text-primary">{d.title}</div>
                   {d.categories.length > 0 && (
-                    <span className="mt-1 inline-block rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
+                    <span className="mt-0.5 inline-block rounded-md border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-primary">
                       {d.categories[0].name}
                       {d.categories.length > 1 && ` +${d.categories.length - 1}`}
                     </span>
                   )}
-                  <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">
+                  <div className="mt-1 font-mono text-[11px] text-muted-foreground">
                     <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1">
                       <span>{d.validationCount} validări</span>
                       <span className="text-border">·</span>

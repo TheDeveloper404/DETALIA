@@ -4,7 +4,7 @@ import { blobReadUrl } from "@/lib/blob-read-url";
 import { LayoutDashboard, Pencil, PencilLine, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useOptimistic } from "react";
+import { useOptimistic, useState } from "react";
 
 import { deleteDetailDraftAction, deleteDraftAction } from "./actions";
 
@@ -27,10 +27,13 @@ export function DraftsList({ drafts }: { drafts: UnifiedDraft[] }) {
     state.filter((d) => d.id !== id),
   );
 
+  const [error, setError] = useState<string | null>(null);
+
+  // Daca actiunea refuza (ex. limita), cardul revine singur cand se termina tranzitia optimista.
   async function onDelete(d: UnifiedDraft, formData: FormData) {
     removeDraft(d.id);
-    if (d.kind === "sketch") await deleteDraftAction(formData);
-    else await deleteDetailDraftAction(formData);
+    const res = d.kind === "sketch" ? await deleteDraftAction(formData) : await deleteDetailDraftAction(formData);
+    setError(res.ok ? null : (res.error ?? "Nu am putut șterge ciorna."));
   }
 
   if (optimisticDrafts.length === 0) {
@@ -56,6 +59,11 @@ export function DraftsList({ drafts }: { drafts: UnifiedDraft[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {error && (
+        <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-2.5 text-sm text-destructive">
+          {error}
+        </p>
+      )}
       {optimisticDrafts.map((d) => {
         const title = d.kind === "sketch" ? `Schiță peste „${d.title}”` : d.title || "Detaliu fără titlu";
         return (

@@ -61,18 +61,27 @@ export async function saveStrokesAction(
   return { ok: true };
 }
 
+// Esecurile de publicare ajung in PostHog cu un cod (`reason`), ca sa le putem deosebi de lipsa de
+// activitate. Fara continut din desen sau date personale.
+async function capturePublishFailed(userId: string, sketchId: string, detailId: string, reason: string) {
+  captureServerEvent(userId, "sketch_publish_failed", { sketch_id: sketchId, detail_id: detailId, reason });
+  await flushPostHogEvents();
+}
+
 // Publica schita + thumbnail incarcat direct, fara bytes de imagine in Server Action.
 export async function sendSketchAction(formData: FormData): Promise<SketchActionResult> {
   // SEC-04: re-check status proaspăt din DB (sesiune JWT stale) — cont suspendat nu poate publica schițe.
   const userId = await requireActiveUserId();
 
+  const sketchId = String(formData.get("sketchId") ?? "");
+  const detailId = String(formData.get("detailId") ?? "");
+
   // SEC-01: publicarea declanșează scrieri DB + email către autorul-mamă → limită per user.
   if (!(await checkLimit(limiters.mutation, userId)).ok) {
+    await capturePublishFailed(userId, sketchId, detailId, "RATE_LIMITED");
     return { ok: false, error: ERROR_MESSAGES.RATE_LIMITED };
   }
 
-  const sketchId = String(formData.get("sketchId") ?? "");
-  const detailId = String(formData.get("detailId") ?? "");
   const strokes = parseStrokes(String(formData.get("strokes") ?? ""));
   const note = formData.get("note");
 
@@ -82,6 +91,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     // Doar upload-uri temporare ale userului; transformarea sterge sursa, niciodata un thumbnail final.
     if (!isUsersBlobUrl(rawThumbnailUrl, userId) ||
         !new URL(rawThumbnailUrl).pathname.startsWith(`/u/${userId}/sketches/uploads/`)) {
+      await capturePublishFailed(userId, sketchId, detailId, "INVALID_THUMBNAIL");
       return { ok: false, error: "Thumbnail-ul nu a putut fi salvat." };
     }
     // Thumbnail-ul e auxiliar: daca reprocesarea esueaza, schita se publica fara el.
@@ -100,6 +110,7 @@ export async function sendSketchAction(formData: FormData): Promise<SketchAction
     // Thumbnail-ul s-a urcat ÎNAINTE de verificările din publish (autor/stare/strokes) — dacă publicarea
     // a picat, îl ștergem, altfel rămâne blob orfan (risipă de storage la fiecare eșec).
     if (thumbnailUrl) await deleteBlobs([thumbnailUrl]);
+    await capturePublishFailed(userId, sketchId, detailId, res.error);
     if (res.error === "NO_ROLE") redirect("/onboarding");
     return { ok: false, error: ERROR_MESSAGES[res.error] ?? "Nu am putut publica." };
   }

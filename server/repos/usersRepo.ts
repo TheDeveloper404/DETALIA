@@ -32,15 +32,23 @@ export async function userExistsByEmail(email: string): Promise<boolean> {
 export async function getUserGateInfo(
   userId: string,
   sessionId: string,
-): Promise<{ status: (typeof userStatus.enumValues)[number]; hasRole: boolean } | null> {
+): Promise<{ status: (typeof userStatus.enumValues)[number]; hasRole: boolean; lastSeenAt: Date | null } | null> {
   const [row] = await db
-    .select({ status: users.status, hasRole: sql<boolean>`${roles.userId} is not null` })
+    .select({ status: users.status, hasRole: sql<boolean>`${roles.userId} is not null`, lastSeenAt: users.lastSeenAt })
     .from(users)
     .innerJoin(sessions, and(eq(sessions.userId, users.id), eq(sessions.sessionToken, sessionId), gt(sessions.expires, new Date())))
     .leftJoin(roles, eq(roles.userId, users.id))
     .where(eq(users.id, userId))
     .limit(1);
   return row ?? null;
+}
+
+// Conditia din WHERE pastreaza limita de o scriere pe ora si la cereri concurente.
+export async function touchLastSeen(userId: string) {
+  await db
+    .update(users)
+    .set({ lastSeenAt: sql`now()` })
+    .where(and(eq(users.id, userId), or(isNull(users.lastSeenAt), sql`${users.lastSeenAt} < now() - interval '1 hour'`)));
 }
 
 // Profilul si rolul devin vizibile impreuna. O cerere care pierde conflictul pe rol nu modifica profilul.
@@ -311,6 +319,9 @@ export async function listUsersForAdmin() {
       subRole: roles.subRole,
       verification: roles.verificationStatus,
       createdAt: users.createdAt,
+      county: users.county,
+      referredByUserId: users.referredByUserId,
+      lastSeenAt: users.lastSeenAt,
     })
     .from(users)
     .leftJoin(roles, eq(roles.userId, users.id))
@@ -373,6 +384,7 @@ export async function anonymizeUserRow(userId: string, placeholderEmail: string)
       phone: null,
       phoneVisible: false,
       emailVisible: false,
+      lastSeenAt: null,
       status: "DELETED",
     })
     .where(eq(users.id, userId));

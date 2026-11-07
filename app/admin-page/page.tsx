@@ -86,7 +86,7 @@ export default async function AdminPage() {
           <h2 className="text-base font-semibold">Useri înregistrați</h2>
         </div>
 
-        <UsersTable users={users} />
+        <UsersTable users={users} now={new Date().toISOString()} />
       </section>
 
       {/* ─── Referrals ─── */}

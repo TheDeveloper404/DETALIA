@@ -82,23 +82,41 @@ test("admin suspendă și reactivează un cont din /admin-page", async ({ browse
 
     await page.goto("/admin-page");
     await expect(page.getByRole("heading", { name: "Administrare" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Total useri/ })).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: TARGET_EMAIL });
+
+    // Filtrele raman in link si ascund/arata randul dupa rol (targetul e PROIECTANT, sub-rol Arhitect).
+    await page.getByRole("searchbox", { name: "Caută" }).fill(TARGET_EMAIL);
+    await expect(row).toBeVisible();
+    await page.getByRole("combobox", { name: "Rol", exact: true }).selectOption("NONE");
+    await expect(row).toBeHidden();
+    await expect(page).toHaveURL(/rol=NONE/);
+    // Cautarea (aici un email) nu intra in link: URL-ul ajunge in PostHog.
+    expect(page.url()).not.toContain("e2e-suspend-target");
+    await page.getByRole("combobox", { name: "Rol", exact: true }).selectOption("PROIECTANT");
     await expect(row).toBeVisible();
 
-    // Suspendă — rândul trebuie să arate badge-ul SUSPENDED, iar butonul devine "Reactivează".
-    await row.getByRole("button", { name: "Suspendă" }).click();
-    await expect(row.getByText("SUSPENDED")).toBeVisible();
+    // Regula (decizia 2026-11-07): actiunile pe cont stau in fisa userului, panou lateral deschis din rand;
+    // butonul e acelasi UserStatusButton, fara actiune server noua.
+    await row.click();
+    const panel = page.getByRole("dialog", { name: "Fișa userului E2E Target" });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("Proiectare · Arhitect")).toBeVisible();
+
+    // Suspendă — rândul arată „Suspendat”, iar butonul din fișă devine "Reactivează".
+    await panel.getByRole("button", { name: "Suspendă" }).click();
+    await expect(row.getByText("Suspendat", { exact: true })).toBeVisible();
 
     let dbStatus = (
       await db.select({ status: users.status }).from(users).where(eq(users.id, targetUserId)).limit(1)
     )[0]?.status;
     expect(dbStatus).toBe("SUSPENDED");
 
-    // Reactivează — badge-ul dispare, butonul revine la "Suspendă".
-    await row.getByRole("button", { name: "Reactivează" }).click();
-    await expect(row.getByText("SUSPENDED")).not.toBeVisible();
-    await expect(row.getByRole("button", { name: "Suspendă" })).toBeVisible();
+    // Reactivează — rândul revine la „Activ”, butonul din fișă revine la "Suspendă".
+    await panel.getByRole("button", { name: "Reactivează" }).click();
+    await expect(row.getByText("Activ", { exact: true })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Suspendă" })).toBeVisible();
 
     dbStatus = (
       await db.select({ status: users.status }).from(users).where(eq(users.id, targetUserId)).limit(1)
