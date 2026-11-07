@@ -18,10 +18,14 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     const card = page.locator(`article:has(a[href="/details/${detailId}"])`).first();
     await expect(card).toBeVisible();
     const saveButton = card.getByTitle(/Salvează detaliul|Salvat/);
+    const feedUrl = page.url();
     // Pornim de la nesalvat — dacă rularea anterioară a lăsat starea "salvat", resetăm.
     if ((await saveButton.getAttribute("aria-pressed")) === "true") {
-      await saveButton.click();
-      await page.waitForTimeout(300);
+      const [resetResponse] = await Promise.all([
+        page.waitForResponse((r) => r.url() === feedUrl && r.request().method() === "POST" && r.ok()),
+        saveButton.click(),
+      ]);
+      await resetResponse.finished();
     }
     // Butonul e optimist (fire-and-forget) — aria-pressed se schimbă INSTANT (optimist), înainte ca
     // request-ul către server să se termine, deci a-l aștepta NU garantează round-trip-ul (confirmat de
@@ -29,11 +33,12 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     // waitForResponse pe POST-ul real (server action → POST la URL-ul curent) e singura garanție — dar
     // matcher-ul TREBUIE să fie pe URL exact, nu generic (altfel prinde orice alt POST concurent —
     // sentry-tunnel, vercel.live — care răspunde 200 mai devreme; bug confirmat din trace, 2026-07-08).
-    const feedUrl = page.url();
-    await Promise.all([
+    // response vine la headere; finished asteapta si corpul RSC, altfel goto il intrerupe (ERR_ABORTED).
+    const [saveResponse] = await Promise.all([
       page.waitForResponse((r) => r.url() === feedUrl && r.request().method() === "POST" && r.ok()),
       saveButton.click(),
     ]);
+    await saveResponse.finished();
 
     await page.goto("/saved");
     await expect(page.getByRole("heading", { name: "Detalii salvate" })).toBeVisible();
@@ -50,10 +55,11 @@ test.describe.serial("Salvare detaliu (bookmark)", () => {
     // Vezi nota din testul de mai sus — aria-pressed e optimist, nu garantează round-trip-ul, iar
     // matcher-ul trebuie legat de URL-ul exact (nu generic „orice POST ok").
     const savedUrl = page.url();
-    await Promise.all([
+    const [unsaveResponse] = await Promise.all([
       page.waitForResponse((r) => r.url() === savedUrl && r.request().method() === "POST" && r.ok()),
       saveButton.click(),
     ]);
+    await unsaveResponse.finished();
 
     await page.goto("/saved");
     // Verific specific detaliul nostru, NU starea globală goală — userul de test poate avea alte

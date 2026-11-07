@@ -50,7 +50,7 @@ for (const width of [1280, 834]) {
           await page.locator("#title").focus();
           await zone.hover();
         }
-        await page.keyboard.press("Control+V");
+        await page.keyboard.press("ControlOrMeta+V");
         await expect(page.getByRole("button", { name: "Înlocuiește", exact: true })).toBeVisible();
         await expect(page.locator("#title")).toHaveValue(title);
         await page.getByRole("button", { name: "Publică detaliul", exact: true }).click();
