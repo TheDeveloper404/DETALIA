@@ -38,17 +38,13 @@ describe("captureServerEvent", () => {
     });
   });
 
-  it("marchează corect mediul non-producție (preview/dev), nu doar producția", async () => {
+  it("pe preview/dev nu trimite nimic în proiectul PostHog de producție", async () => {
     process.env.VERCEL_ENV = "preview";
     const { captureServerEvent } = await import("./posthog-server");
 
     captureServerEvent("user-1", "onboarding_completed");
 
-    expect(captureMock).toHaveBeenCalledWith({
-      distinctId: "user-1",
-      event: "onboarding_completed",
-      properties: { environment: "preview" },
-    });
+    expect(captureMock).not.toHaveBeenCalled();
   });
 });
 
