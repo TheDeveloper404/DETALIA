@@ -191,10 +191,10 @@ for (const device of [
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
 
       // Comutarea intre adnotare si schita pastreaza acelasi zoom si aceeasi imagine DOM.
-      // Pe telefon taburile stau in spatele butonului cu numarul schitelor; lista = baza, apoi schitele.
+      // Pe telefon taburile schitelor stau in spatele butonului cu numarul lor; lista contine doar schitele.
       if (device.width < 640) {
         await page.getByRole("button", { name: "Toate schițele (1)", exact: true }).click();
-        await page.getByRole("dialog", { name: "Toate schițele (1)", exact: true }).getByRole("listitem").nth(1).getByRole("button").click();
+        await page.getByRole("dialog", { name: "Toate schițele (1)", exact: true }).getByRole("listitem").nth(0).getByRole("button").click();
       } else {
         await page.getByTestId(`sketch-tab-${sketch.id}`).click();
       }
