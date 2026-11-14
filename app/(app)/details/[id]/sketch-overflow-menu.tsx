@@ -21,21 +21,14 @@ export type SketchOverflowEntry = {
   ordinal: number | null;
 };
 
-// „1 schiță", „2–19 schițe", „20 de schițe" (româna cere „de" când ultimele două cifre sunt 00 sau ≥ 20).
-export function sketchNoun(n: number): string {
-  if (n === 1) return "schiță";
-  const lastTwo = n % 100;
-  return lastTwo === 0 || lastTwo >= 20 ? "de schițe" : "schițe";
-}
-
-// Doar mobil: taburile care nu încap stau în spatele unui „+N", care deschide lista tuturor foilor.
+// Doar mobil: taburile stau în spatele unui buton cu numărul schițelor, care deschide lista tuturor foilor.
 export function SketchOverflowMenu({
-  hiddenCount,
+  count,
   entries,
   activeId,
   onSelect,
 }: {
-  hiddenCount: number;
+  count: number;
   entries: SketchOverflowEntry[];
   activeId: string | null;
   onSelect: (id: string | null) => void;
@@ -50,10 +43,10 @@ export function SketchOverflowMenu({
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-label={`Încă ${hiddenCount} ${sketchNoun(hiddenCount)}`}
+        aria-label={`Toate schițele (${count})`}
         className="flex h-7 min-w-9 flex-none items-center justify-center rounded-full border border-border bg-card px-2 font-mono text-xs text-muted-foreground sm:hidden"
       >
-        +{hiddenCount}
+        {count}
       </button>
 
       {open && (

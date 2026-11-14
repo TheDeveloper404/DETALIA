@@ -2,14 +2,14 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 
-import { SketchOverflowMenu, sketchNoun } from "./sketch-overflow-menu";
+import { SketchOverflowMenu } from "./sketch-overflow-menu";
 
 const entry = { avatarName: null, image: null, roleMain: null, subRole: null, verified: false };
 
-it("butonul arata cate schite sunt ascunse si e doar pentru mobil", () => {
+it("butonul arata numarul schitelor si e doar pentru mobil", () => {
   const html = renderToStaticMarkup(
     createElement(SketchOverflowMenu, {
-      hiddenCount: 6,
+      count: 7,
       activeId: "s1",
       onSelect: () => {},
       entries: [
@@ -18,28 +18,9 @@ it("butonul arata cate schite sunt ascunse si e doar pentru mobil", () => {
       ],
     }),
   );
-  expect(html).toContain("+6");
-  expect(html).toContain('aria-label="Încă 6 schițe"');
+  expect(html).toContain(">7</button>");
+  expect(html).toContain('aria-label="Toate schițele (7)"');
   expect(html).toContain("sm:hidden");
   // Lista se deschide doar la apasare.
-  expect(html).not.toContain("Toate schițele");
-});
-
-it("o singura schita ascunsa se scrie la singular", () => {
-  const html = renderToStaticMarkup(
-    createElement(SketchOverflowMenu, { hiddenCount: 1, activeId: null, onSelect: () => {}, entries: [] }),
-  );
-  expect(html).toContain('aria-label="Încă 1 schiță"');
-});
-
-it("pluralul romanesc: schiță / schițe / de schițe", () => {
-  expect(sketchNoun(1)).toBe("schiță");
-  expect(sketchNoun(2)).toBe("schițe");
-  expect(sketchNoun(19)).toBe("schițe");
-  expect(sketchNoun(20)).toBe("de schițe");
-  expect(sketchNoun(25)).toBe("de schițe");
-  expect(sketchNoun(100)).toBe("de schițe");
-  expect(sketchNoun(101)).toBe("schițe");
-  expect(sketchNoun(119)).toBe("schițe");
-  expect(sketchNoun(120)).toBe("de schițe");
+  expect(html).not.toContain('role="dialog"');
 });

@@ -191,7 +191,13 @@ for (const device of [
       await expect.poll(() => image.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
 
       // Comutarea intre adnotare si schita pastreaza acelasi zoom si aceeasi imagine DOM.
-      await page.getByTestId(`sketch-tab-${sketch.id}`).click();
+      // Pe telefon taburile stau in spatele butonului cu numarul schitelor; lista = baza, apoi schitele.
+      if (device.width < 640) {
+        await page.getByRole("button", { name: "Toate schițele (1)", exact: true }).click();
+        await page.getByRole("dialog", { name: "Toate schițele (1)", exact: true }).getByRole("listitem").nth(1).getByRole("button").click();
+      } else {
+        await page.getByTestId(`sketch-tab-${sketch.id}`).click();
+      }
       await expect(explanation).toContainText("Explicatia schitei pentru layout.");
       await expect(explanation).not.toContainText("Explicatia adnotarii pentru layout.");
       await expect(validationCount).toHaveText("0");
