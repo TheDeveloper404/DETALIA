@@ -22,8 +22,7 @@ jobs:
       # GITHUB_TOKEN nu are voie la endpoint-ul Dependabot Alerts indiferent de
       # `permissions: security-events: read` din workflow (403 Resource not accessible by
       # integration, confirmat empiric 2026-08-19) — API-ul cere strict un PAT cu scope
-      # "Dependabot alerts". DEPENDABOT_PAT e un fine-grained PAT (owner al repo-ului, read-only
-      # pe acest repo, expiră în 90 zile).
+      # "Dependabot alerts". DEPENDABOT_PAT = tokenul `gh` al owner-ului (din 14.11.2026, nu expira).
       - name: Fetch open Dependabot alerts
         env:
           GH_TOKEN: ${{ secrets.DEPENDABOT_PAT }}
@@ -35,9 +34,11 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           REPO: ${{ github.repository }}
         run: |
+          # State lives on its own branch: `main` is protected (PR + required checks), so the bot
+          # cannot commit there (push rejected GH013, confirmed 2026-11-14).
           STATE_FILE=".github/dependabot-alert-state.json"
-          [ -f "$STATE_FILE" ] || echo "[]" > "$STATE_FILE"
-          SEEN=$(cat "$STATE_FILE")
+          STATE_BRANCH="dependabot-alert-state"
+          SEEN=$( (git fetch -q origin "$STATE_BRANCH" && git show "FETCH_HEAD:$STATE_FILE") 2>/dev/null || echo "[]")
 
           jq -c '.[]' /tmp/alerts.json | while IFS= read -r alert; do
             NUMBER=$(echo "$alert" | jq -r '.number')
@@ -84,17 +85,14 @@ jobs:
           done
 
           # State = all currently open alert numbers, so fixed/dismissed alerts drop off on their own.
-          jq -c '[.[].number]' /tmp/alerts.json > "$STATE_FILE"
-
-          # `git diff --quiet` on a file never before tracked always reports "no changes"
-          # (untracked files aren't diffed), so this guard never fired on the very first run —
-          # the state file was written locally but never committed, meaning every scheduled run
-          # would silently re-notify the same alerts forever (confirmed empirically 2026-08-19).
-          # Stage first, then diff the index against HEAD — that correctly sees a brand-new file.
-          git add "$STATE_FILE"
-          if ! git diff --cached --quiet -- "$STATE_FILE"; then
+          NEW=$(jq -c '[.[].number]' /tmp/alerts.json)
+          if [ "$NEW" != "$SEEN" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "chore: update dependabot alert notification state [skip ci]"
-            git push
+            git checkout -q --orphan state-tmp
+            git rm -rq --cached .
+            echo "$NEW" > "$STATE_FILE"
+            git add "$STATE_FILE"
+            git commit -qm "chore: update dependabot alert notification state [skip ci]"
+            git push -qf origin "HEAD:refs/heads/$STATE_BRANCH"
           fi
