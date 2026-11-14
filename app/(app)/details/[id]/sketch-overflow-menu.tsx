@@ -9,19 +9,18 @@ import { RolePill } from "@/components/role-pill";
 import { cn } from "@/lib/utils";
 
 export type SketchOverflowEntry = {
-  // null = detaliul de bază.
-  id: string | null;
+  id: string;
   label: string;
   avatarName: string | null;
   image: string | null;
   roleMain: string | null;
   subRole: string | null;
   verified: boolean;
-  // „#N" pe schiță; null pe detaliul de bază și pe autorul retras.
+  // „#N" pe schiță; null pe autorul retras.
   ordinal: number | null;
 };
 
-// Doar mobil: taburile stau în spatele unui buton cu numărul schițelor, care deschide lista tuturor foilor.
+// Doar mobil: taburile schițelor stau în spatele unui buton cu numărul lor, care deschide lista schițelor.
 export function SketchOverflowMenu({
   count,
   entries,
@@ -31,10 +30,10 @@ export function SketchOverflowMenu({
   count: number;
   entries: SketchOverflowEntry[];
   activeId: string | null;
-  onSelect: (id: string | null) => void;
+  onSelect: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const title = `Toate schițele (${entries.length - 1})`;
+  const title = `Toate schițele (${entries.length})`;
 
   return (
     <>
@@ -70,7 +69,7 @@ export function SketchOverflowMenu({
             {entries.map((e) => {
               const active = e.id === activeId;
               return (
-                <li key={e.id ?? "base"}>
+                <li key={e.id}>
                   <button
                     type="button"
                     onClick={() => {
@@ -86,9 +85,6 @@ export function SketchOverflowMenu({
                     <AvatarInitials name={e.avatarName} imageUrl={e.image} size={28} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-foreground">{e.label}</span>
-                      {e.id === null && (
-                        <span className="block font-mono text-[11px] text-muted-foreground">Autor detaliu</span>
-                      )}
                     </span>
                     <span className="flex-none">
                       <RolePill roleMain={e.roleMain} subRole={e.subRole} verified={e.verified} />

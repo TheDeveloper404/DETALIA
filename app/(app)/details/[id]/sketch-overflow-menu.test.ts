@@ -12,10 +12,7 @@ it("butonul arata numarul schitelor si e doar pentru mobil", () => {
       count: 7,
       activeId: "s1",
       onSelect: () => {},
-      entries: [
-        { ...entry, id: null, label: "Autor", ordinal: null },
-        ...Array.from({ length: 7 }, (_, i) => ({ ...entry, id: `s${i + 1}`, label: `Autor ${i}`, ordinal: 1 })),
-      ],
+      entries: Array.from({ length: 7 }, (_, i) => ({ ...entry, id: `s${i + 1}`, label: `Autor ${i}`, ordinal: 1 })),
     }),
   );
   expect(html).toContain(">7</button>");

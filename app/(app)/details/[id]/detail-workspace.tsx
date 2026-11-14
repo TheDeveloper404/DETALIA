@@ -231,8 +231,8 @@ export function DetailWorkspace({
     return of > 1 ? `${baseName} — schița ${n}` : baseName;
   }
 
-  // Mobil: dacă există schițe, toate taburile (inclusiv baza) stau în spatele unui buton cu numărul
-  // schițelor (SketchOverflowMenu) — pastila activă cu nume + rol nu încape lângă vot. Desktop/tabletă: toate taburile.
+  // Mobil: tabul autorului detaliului rămâne vizibil; taburile schițelor stau în spatele unui buton cu
+  // numărul lor (SketchOverflowMenu) — pastila activă cu nume + rol nu încape lângă vot. Desktop/tabletă: toate taburile.
   const hideTabsOnMobile = sketches.length > 0;
 
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
@@ -536,7 +536,6 @@ export function DetailWorkspace({
                 isBase
                   ? "max-w-[190px] bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30 sm:max-w-none"
                   : "p-0.5 opacity-70 hover:opacity-100",
-                hideTabsOnMobile && "max-sm:hidden",
               )}
             >
               <button
@@ -635,28 +634,16 @@ export function DetailWorkspace({
                 count={sketches.length}
                 activeId={activeSketch?.id ?? null}
                 onSelect={setTabAndUrl}
-                entries={[
-                  {
-                    id: null,
-                    label: detailAuthor.id ? (detailAuthor.name ?? "Anonim") : REMOVED_AUTHOR_LABEL,
-                    avatarName: detailAuthor.name,
-                    image: detailAuthor.image,
-                    roleMain: detailAuthor.roleMain,
-                    subRole: detailAuthor.subRole,
-                    verified: detailAuthor.verification === "VERIFIED",
-                    ordinal: null,
-                  },
-                  ...sketches.map((s) => ({
-                    id: s.id,
-                    label: s.authorRemoved ? REMOVED_AUTHOR_LABEL : (s.author.name ?? "Anonim"),
-                    avatarName: s.author.name,
-                    image: s.author.image,
-                    roleMain: s.author.roleMain,
-                    subRole: s.author.subRole,
-                    verified: s.author.verification === "VERIFIED",
-                    ordinal: s.authorRemoved ? null : sketchOrdinal(s).n,
-                  })),
-                ]}
+                entries={sketches.map((s) => ({
+                  id: s.id,
+                  label: s.authorRemoved ? REMOVED_AUTHOR_LABEL : (s.author.name ?? "Anonim"),
+                  avatarName: s.author.name,
+                  image: s.author.image,
+                  roleMain: s.author.roleMain,
+                  subRole: s.author.subRole,
+                  verified: s.author.verification === "VERIFIED",
+                  ordinal: s.authorRemoved ? null : sketchOrdinal(s).n,
+                }))}
               />
             )}
           </div>
