@@ -21,6 +21,8 @@ export function captureServerEvent(
   event: string,
   properties: Record<string, unknown> = {},
 ): void {
+  // Acelasi gate ca reportServerEvent: doar productia (detalia.ro) trimite in PostHog.
+  if (process.env.VERCEL_ENV !== "production") return;
   getPostHogClient().capture({
     distinctId,
     event,
