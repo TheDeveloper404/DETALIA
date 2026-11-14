@@ -231,10 +231,9 @@ export function DetailWorkspace({
     return of > 1 ? `${baseName} — schița ${n}` : baseName;
   }
 
-  // Mobil: lângă pastila activă încape cel mult un avatar; de la două schițe inactive în sus, toate
-  // trec în spatele „+N" (SketchOverflowMenu). Desktop/tabletă: toate taburile, ca înainte.
-  const inactiveSketchIds = sketches.filter((s) => s.id !== activeSketch?.id).map((s) => s.id);
-  const mobileOverflowIds = new Set(inactiveSketchIds.length > 1 ? inactiveSketchIds : []);
+  // Mobil: dacă există schițe, toate taburile (inclusiv baza) stau în spatele unui buton cu numărul
+  // schițelor (SketchOverflowMenu) — pastila activă cu nume + rol nu încape lângă vot. Desktop/tabletă: toate taburile.
+  const hideTabsOnMobile = sketches.length > 0;
 
   const mentionSketches: MentionSketch[] = sketches.map((s) => ({
     id: s.id,
@@ -537,6 +536,7 @@ export function DetailWorkspace({
                 isBase
                   ? "max-w-[190px] bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30 sm:max-w-none"
                   : "p-0.5 opacity-70 hover:opacity-100",
+                hideTabsOnMobile && "max-sm:hidden",
               )}
             >
               <button
@@ -575,21 +575,13 @@ export function DetailWorkspace({
               )}
             </span>
             {sketches.map((s) => {
-              const hiddenOnMobile = mobileOverflowIds.has(s.id);
               // Eticheta e IDENTICĂ cu cea a mențiunilor din dezbatere (comments-section) — cititorul
               // le poate corela. Vezi `sketchLabel` pentru regula ordinalului stabil.
               const label = sketchLabel(s);
               const isActive = activeSketch?.id === s.id;
-              // Mobil: nume trunchiat + rol + „#N"; desktop: eticheta completă + rol. Numele duce la profil
-              // (nu și pentru autorul retras — id-ul e mascat în repo).
+              // Numele duce la profil (nu și pentru autorul retras — id-ul e mascat în repo).
               const nameClass =
                 "min-w-0 truncate font-heading text-[13px] font-semibold text-foreground no-underline";
-              const name = (
-                <>
-                  <span className="sm:hidden">{s.authorRemoved ? label : (s.author.name ?? "Anonim")}</span>
-                  <span className="hidden sm:inline">{label}</span>
-                </>
-              );
               return (
                 <span
                   key={s.id}
@@ -598,7 +590,7 @@ export function DetailWorkspace({
                     isActive
                       ? "max-w-[190px] bg-secondary py-1 pl-1 pr-3 ring-1 ring-primary/30 sm:max-w-none"
                       : "p-0.5 opacity-70 hover:opacity-100",
-                    hiddenOnMobile && "max-sm:hidden",
+                    "max-sm:hidden",
                   )}
                 >
                   <button
@@ -621,10 +613,10 @@ export function DetailWorkspace({
                     <>
                       {s.author.id ? (
                         <Link href={`/profile/${s.author.id}`} className={cn(nameClass, "hover:underline")}>
-                          {name}
+                          {label}
                         </Link>
                       ) : (
-                        <span className={nameClass}>{name}</span>
+                        <span className={nameClass}>{label}</span>
                       )}
                       <span className="flex-none">
                         <RolePill
@@ -633,19 +625,14 @@ export function DetailWorkspace({
                           verified={s.author.verification === "VERIFIED"}
                         />
                       </span>
-                      {!s.authorRemoved && (
-                        <span className="flex-none font-mono text-[11px] text-muted-foreground sm:hidden">
-                          #{sketchOrdinal(s).n}
-                        </span>
-                      )}
                     </>
                   )}
                 </span>
               );
             })}
-            {mobileOverflowIds.size > 0 && (
+            {hideTabsOnMobile && (
               <SketchOverflowMenu
-                hiddenCount={mobileOverflowIds.size}
+                count={sketches.length}
                 activeId={activeSketch?.id ?? null}
                 onSelect={setTabAndUrl}
                 entries={[
