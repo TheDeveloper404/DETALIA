@@ -92,7 +92,9 @@ jobs:
             git checkout -q --orphan state-tmp
             git rm -rq --cached .
             echo "$NEW" > "$STATE_FILE"
-            git add "$STATE_FILE"
+            # Vercel reads vercel.json from the pushed commit; without it the orphan commit triggers a failing build.
+            echo '{"git":{"deploymentEnabled":false}}' > vercel.json
+            git add "$STATE_FILE" vercel.json
             git commit -qm "chore: update dependabot alert notification state [skip ci]"
             git push -qf origin "HEAD:refs/heads/$STATE_BRANCH"
           fi
