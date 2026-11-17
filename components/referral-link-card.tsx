@@ -47,17 +47,15 @@ export function ReferralLinkCard({ code, count }: { code: string; count: number 
     <>
       <Button
         type="button"
-        variant="technical"
+        variant="link"
         size="cta"
         onClick={() => setOpen(true)}
         title="Invită un prieten prin linkul tău de referral"
         aria-label={count > 0 ? `Invită un prieten · ${count}` : "Invită un prieten"}
-        className="shadow-sm"
+        className="gap-1.5 px-0 text-[13px] font-semibold"
       >
         <UserPlus className="size-4" strokeWidth={2} />
-        <span>
-          Invită<span className="hidden sm:inline"> un prieten</span>
-        </span>
+        <span>Invită un prieten</span>
         {count > 0 && <span className="font-mono text-[12px] opacity-90">· {count}</span>}
       </Button>
 
