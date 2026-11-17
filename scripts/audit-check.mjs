@@ -20,6 +20,7 @@ import { classifyFindings, isValidAuditReport } from "./audit-report.mjs";
 // raportează, iar pattern-urile vin din config-ul nostru, nu din input de user. Scoate-l când apare un patch.
 const ALLOWLIST = new Map([
   ["GHSA-vfj7-8cjw-p6xm", "braces — fără patch upstream, doar tooling de dev, fără input de user"],
+  ["GHSA-fc5q-39xc-vjpf", "picomatch — fără patch upstream (<=4.0.7 = ultima), doar tooling de dev (vite/vitest/shadcn), fără input de user"],
 ]);
 
 let report;

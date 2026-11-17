@@ -1,6 +1,6 @@
 "use client";
 
-import { Bookmark, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
+import { Bookmark, ChevronRight, FolderKanban, LayoutDashboard, PencilLine } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -117,9 +117,9 @@ export function ProfileView({
       type="button"
       aria-label="Date de contact"
       onClick={() => setContactOpen(true)}
-      className="inline-flex size-11 items-center justify-center rounded-full border border-border bg-card text-xs font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary sm:w-auto sm:gap-1.5 sm:px-2.5"
+      className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full border border-border bg-card px-2.5 text-xs font-semibold text-foreground/80 transition-colors hover:border-primary hover:text-primary"
     >
-      <Contact /> <span className="hidden sm:inline">Date de contact</span>
+      <Contact /> <span>Date de contact</span>
     </button>
   );
 
@@ -138,9 +138,9 @@ export function ProfileView({
       {/* Card unic pt banner + antet (avatar/nume/badge/bio) — coerent cu bara de statistici de mai
           jos, care are deja propriul chenar (2026-07-16: „le-aș pune și pe astea într-un
           container"). */}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="overflow-hidden rounded-lg border border-border bg-card max-sm:-mx-6 max-sm:-mt-2 max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0">
       {/* Banner — imaginea de cover dacă există, altfel grilă blueprint mascată radial. */}
-      <div data-testid="profile-cover" className="relative h-[180px] overflow-hidden bg-[#ece1d3]">
+      <div data-testid="profile-cover" className="relative h-[120px] overflow-hidden bg-[#ece1d3] sm:h-[180px]">
         {data.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -175,7 +175,7 @@ export function ProfileView({
               ? undefined
               : "Verificarea rolului nu este încă disponibilă — momentan indisponibilă."
           }
-          className={`-mt-[58px] flex size-[132px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 bg-[#d9cab6] font-mono text-[38px] text-muted-foreground ${
+          className={`-mt-[58px] flex size-[132px] shrink-0 items-center justify-center overflow-hidden rounded-full border-4 bg-[#d9cab6] font-mono text-[38px] text-muted-foreground max-sm:-mt-[48px] max-sm:size-24 ${
             data.verified
               ? "border-background"
               : "cursor-default border-dashed border-border/80"
@@ -202,12 +202,15 @@ export function ProfileView({
                 <span className="inline-flex rounded-full bg-primary px-2.5 py-1 font-mono text-xs text-primary-foreground">
                   {data.roleLabel}
                 </span>
-                {contactButton}
-                {data.viewerIsOwner && <FollowingUsersButton />}
+                {/* Pe mobil butoanele stau în rândul de sub texte. */}
+                <span className="flex flex-wrap items-center gap-2 max-sm:hidden">
+                  {contactButton}
+                  {data.viewerIsOwner && <FollowingUsersButton />}
+                </span>
               </div>
             </div>
             {follow && (
-              <div className="mt-3.5">
+              <div className="mt-3.5 max-sm:hidden">
                 <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />
               </div>
             )}
@@ -218,7 +221,7 @@ export function ProfileView({
               href={data.editHref}
               aria-label="Editează profil"
               title="Editează profil"
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground/70 no-underline transition-colors hover:text-primary max-sm:absolute max-sm:right-5 max-sm:top-[58px]"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground/70 no-underline transition-colors hover:text-primary max-sm:absolute max-sm:right-5 max-sm:top-0"
             >
               <Pencil className="size-5" />
             </a>
@@ -294,15 +297,23 @@ export function ProfileView({
         )}
 
         {data.bio && (
-          <p className="mt-[18px] max-w-[64ch] text-[15px] leading-relaxed text-muted-foreground sm:text-[17px]">{data.bio}</p>
+          <p className="mt-[18px] max-w-[64ch] text-[15px] leading-relaxed text-muted-foreground max-sm:mt-1 max-sm:text-foreground sm:text-[17px]">{data.bio}</p>
         )}
 
         {data.about && (
-          <div className="mt-[18px]">
-            <SectionLabel>Despre</SectionLabel>
-            <p className="mt-2 max-w-[64ch] text-[15px] leading-relaxed text-muted-foreground">{data.about}</p>
+          <div className="mt-[18px] max-sm:mt-1">
+            <div className="max-sm:hidden">
+              <SectionLabel>Despre</SectionLabel>
+            </div>
+            <p className="mt-2 max-w-[64ch] text-[15px] leading-relaxed text-muted-foreground max-sm:mt-0 max-sm:text-[13px]">{data.about}</p>
           </div>
         )}
+
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
+          {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
+          {contactButton}
+          {data.viewerIsOwner && <FollowingUsersButton />}
+        </div>
       </div>
       </div>
 
@@ -310,34 +321,38 @@ export function ProfileView({
           mutate aici din meniul de avatar, 2026-08-25. Strict propriul profil. Imediat sub antet,
           2026-08-26 (navigarea proprie e prioritară față de taburile de conținut de mai jos). */}
       {data.viewerIsOwner && (
-        <div className="mt-6 flex flex-wrap gap-2 rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+        <div className="mt-6 flex flex-wrap gap-2 rounded-lg bg-card p-3 ring-1 ring-foreground/10 max-sm:-mx-6 max-sm:mt-2 max-sm:flex-col max-sm:gap-0 max-sm:rounded-none max-sm:border-y max-sm:border-border max-sm:p-0 max-sm:ring-0">
           <Link
             href="/projects"
-            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60 max-sm:gap-2.5 max-sm:rounded-none max-sm:border-b max-sm:border-border max-sm:px-6 max-sm:py-3"
           >
             <FolderKanban className="size-4 text-muted-foreground" strokeWidth={2} />
             Proiecte
+            <ChevronRight className="ml-auto size-4 text-muted-foreground sm:hidden" aria-hidden />
           </Link>
           <Link
             href="/canvases"
-            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60 max-sm:gap-2.5 max-sm:rounded-none max-sm:border-b max-sm:border-border max-sm:px-6 max-sm:py-3"
           >
             <LayoutDashboard className="size-4 text-muted-foreground" strokeWidth={2} />
             Planșele mele
+            <ChevronRight className="ml-auto size-4 text-muted-foreground sm:hidden" aria-hidden />
           </Link>
           <Link
             href="/saved"
-            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60 max-sm:gap-2.5 max-sm:rounded-none max-sm:border-b max-sm:border-border max-sm:px-6 max-sm:py-3"
           >
             <Bookmark className="size-4 text-muted-foreground" strokeWidth={2} />
             Detalii salvate
+            <ChevronRight className="ml-auto size-4 text-muted-foreground sm:hidden" aria-hidden />
           </Link>
           <Link
             href="/sketches/drafts"
-            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60"
+            className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-semibold text-foreground no-underline transition-colors hover:bg-secondary/60 max-sm:gap-2.5 max-sm:rounded-none max-sm:px-6 max-sm:py-3"
           >
             <PencilLine className="size-4 text-muted-foreground" strokeWidth={2} />
             Ciorne
+            <ChevronRight className="ml-auto size-4 text-muted-foreground sm:hidden" aria-hidden />
           </Link>
         </div>
       )}
