@@ -360,7 +360,7 @@ export function ProfileView({
       {/* Taburi — pe toată lățimea (containerul „Rol & verificare" a fost mutat sus, ca pill lângă
           nume, stil LinkedIn — 2026-08-17). */}
       <div className="mt-6 min-w-0">
-        <div className="mb-5 flex gap-1 border-b border-border">
+        <div className="mb-5 flex gap-1 border-b border-border max-sm:grid max-sm:auto-cols-fr max-sm:grid-flow-col max-sm:gap-0">
           <TabButton active={tab === "detalii"} onClick={() => setTab("detalii")}>
             Detalii
           </TabButton>
@@ -514,7 +514,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`-mb-px border-b-2 px-4 py-2.5 text-[14.5px] font-semibold transition-colors ${
+      className={`-mb-px border-b-2 px-4 py-2.5 text-[14.5px] font-semibold transition-colors max-sm:px-1 max-sm:text-[13px] max-sm:leading-tight ${
         active
           ? "border-primary text-foreground"
           : "border-transparent text-muted-foreground hover:text-foreground"
