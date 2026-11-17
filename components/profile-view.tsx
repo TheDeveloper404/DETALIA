@@ -221,7 +221,7 @@ export function ProfileView({
               href={data.editHref}
               aria-label="Editează profil"
               title="Editează profil"
-              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground/70 no-underline transition-colors hover:text-primary max-sm:absolute max-sm:right-5 max-sm:top-0"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-foreground/70 no-underline transition-colors hover:text-primary max-sm:absolute max-sm:right-5 max-sm:top-[48px]"
             >
               <Pencil className="size-5" />
             </a>
