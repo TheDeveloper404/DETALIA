@@ -140,15 +140,13 @@ export function ProfileView({
           container"). */}
       <div className="overflow-hidden rounded-lg border border-border bg-card max-sm:-mx-6 max-sm:-mt-2 max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0">
       {/* Banner — imaginea de cover dacă există, altfel grilă blueprint mascată radial. */}
-      <div data-testid="profile-cover" className="relative h-[120px] overflow-hidden bg-[#ece1d3] sm:h-[180px]">
+      <div
+        data-testid="profile-cover"
+        className={`relative overflow-hidden bg-[#ece1d3] ${data.coverImage ? "" : "h-[120px] sm:h-[180px]"}`}
+      >
         {data.coverImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={data.coverImage}
-            alt=""
-            className="absolute inset-0 size-full object-cover"
-            style={{ objectPosition: `50% ${data.coverPosition}%` }}
-          />
+          <img src={data.coverImage} alt="" className="block h-auto w-full" />
         ) : (
           <div
             aria-hidden
@@ -204,16 +202,12 @@ export function ProfileView({
                 </span>
                 {/* Pe mobil butoanele stau în rândul de sub texte. */}
                 <span className="flex flex-wrap items-center gap-2 max-sm:hidden">
+                  {follow && <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />}
                   {contactButton}
                   {data.viewerIsOwner && <FollowingUsersButton />}
                 </span>
               </div>
             </div>
-            {follow && (
-              <div className="mt-3.5 max-sm:hidden">
-                <FollowButton kind="USER" targetId={follow.targetId} followed={follow.followed} />
-              </div>
-            )}
           </div>
 
           {data.viewerIsOwner && (
