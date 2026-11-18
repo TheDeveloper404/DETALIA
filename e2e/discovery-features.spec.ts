@@ -330,11 +330,11 @@ test("follow/unfollow user si categorie controleaza feed-ul Urmariti", async ({ 
     const box = (await button.boundingBox())!;
     expect(Math.abs(box.y + box.height / 2 - nameBox.y - nameBox.height / 2)).toBeLessThan(4);
   }
-  // "pe mobile cele doua butoane persoane urmarite si date de contact, langa pill de rol, dar dar icon fara denumire - denumirea doar cand apasa pe ele"
+  // Pe mobil cele doua butoane stau pe acelasi rand, sub texte, cu iconita si denumire.
   await page.setViewportSize({ width: 390, height: 844 });
   const contactButton = page.getByRole("button", { name: "Date de contact", exact: true });
-  expect(await contactButton.innerText()).toBe("");
-  expect(await followingButton.innerText()).toBe("");
+  await expect(contactButton).toHaveText("Date de contact");
+  await expect(followingButton).toHaveText("Persoane urmărite");
   const contactBox = (await contactButton.boundingBox())!;
   const followingBox = (await followingButton.boundingBox())!;
   expect(Math.abs(contactBox.y - followingBox.y)).toBeLessThan(2);
