@@ -8,7 +8,6 @@ import {
   deleteAvatar,
   deleteCover,
   saveAvatarUrl,
-  saveCoverPosition,
   saveCoverUrl,
 } from "@/app/(app)/profile/actions";
 import { AvatarInitials } from "@/components/avatar-initials";
@@ -105,8 +104,8 @@ function useImageTarget(
 }
 
 // Antetul paginii de editare profil: cover + avatar + identitate, toate editabile „in place".
-// Cover-ul se repoziționează trăgând direct de el (object-position Y, 0..100). Avatar și cover se
-// schimbă/șterg din butoanele suprapuse pe imagine — fără carduri separate de upload.
+// Cover-ul apare întreg, ca pe profil. Avatar și cover se schimbă/șterg din butoanele suprapuse pe
+// imagine — fără carduri separate de upload.
 export function EditProfileHeader({
   name,
   email,
@@ -114,7 +113,6 @@ export function EditProfileHeader({
   verified,
   image,
   cover,
-  coverPosition,
 }: {
   name: string | null;
   email: string | null;
@@ -122,72 +120,26 @@ export function EditProfileHeader({
   verified: boolean;
   image: string | null;
   cover: string | null;
-  coverPosition: number;
 }) {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const avatar = useImageTarget("avatars", image, saveAvatarUrl, deleteAvatar, avatarInputRef);
   const coverT = useImageTarget("covers", cover, saveCoverUrl, deleteCover, coverInputRef);
 
-  // Repoziționare cover (LinkedIn-style): tragi sus/jos în banner, la eliberare se salvează poziția.
-  const [pos, setPos] = useState(coverPosition);
-  const bandRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ startY: number; startPos: number } | null>(null);
-
-  function onPointerDown(e: React.PointerEvent) {
-    if (!coverT.url || coverT.busy) return;
-    drag.current = { startY: e.clientY, startPos: pos };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current) return;
-    const h = bandRef.current?.offsetHeight ?? 120;
-    const delta = ((e.clientY - drag.current.startY) / h) * 100;
-    setPos(Math.round(Math.min(100, Math.max(0, drag.current.startPos - delta))));
-  }
-  function onPointerUp() {
-    if (!drag.current) return;
-    drag.current = null;
-    void saveCoverPosition(pos);
-  }
-
-  const draggable = coverT.url && !coverT.busy;
   const headerError = avatar.error ?? coverT.error;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       {/* Cover */}
       <div
-        ref={bandRef}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        className={`relative h-[120px] bg-gradient-to-br from-secondary to-[#ece1d3] ${
-          draggable ? "cursor-grab touch-none active:cursor-grabbing" : ""
-        }`}
+        className={`relative bg-gradient-to-br from-secondary to-[#ece1d3] ${coverT.url ? "" : "h-[120px]"}`}
       >
         {coverT.url && (
-          // eslint-disable-next-line @next/next/no-img-element -- repoziționare live; nu e asset optimizabil
-          <img
-            src={coverT.url}
-            alt=""
-            draggable={false}
-            className="absolute inset-0 size-full select-none object-cover"
-            style={{ objectPosition: `50% ${pos}%` }}
-          />
+          // eslint-disable-next-line @next/next/no-img-element -- imagine uploadată de user, afișată ca atare
+          <img src={coverT.url} alt="" className="block h-auto w-full" />
         )}
 
-        {coverT.url && !coverT.busy && (
-          <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-2.5 py-1 font-mono text-[10.5px] text-white">
-            trage sus/jos pentru a repoziționa
-          </span>
-        )}
-
-        {/* Controale cover (stopPropagation ca să nu pornească drag-ul din banner) */}
-        <div
-          className="absolute right-2 top-2 flex gap-1.5"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
+        <div className="absolute right-2 top-2 flex gap-1.5">
           <button
             type="button"
             onClick={coverT.pick}

@@ -85,12 +85,6 @@ export async function onboardingAction(
   const avatarUrl = clean(formData.get("avatarUrl"));
   const coverUrl = clean(formData.get("coverUrl"));
 
-  // Poziția verticală a cover-ului (0..100); clamp server-side (frontend nu e sursa de adevăr).
-  const coverPosition = Math.min(
-    100,
-    Math.max(0, Math.round(Number(clean(formData.get("coverPosition"))) || 50)),
-  );
-
   const result = await completeOnboarding({
     userId,
     firstName,
@@ -105,7 +99,6 @@ export async function onboardingAction(
     website,
     avatarUrl: avatarUrl || null,
     coverUrl: coverUrl || null,
-    coverPosition,
   });
   if (!result.ok) {
     return { error: ERROR_MESSAGES[result.error] ?? "Ceva n-a mers. Încearcă din nou." };

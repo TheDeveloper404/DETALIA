@@ -20,7 +20,7 @@ export function FollowButton({
         type="button"
         aria-pressed={followed}
         disabled={pending}
-        className={`group inline-flex items-center gap-1.5 self-start border px-4 font-semibold transition-colors disabled:opacity-50 ${kind === "USER" ? "h-11 rounded-lg text-sm" : "h-10 rounded-full text-[13.5px]"} ${
+        className={`group inline-flex items-center gap-1.5 rounded-full border font-semibold transition-colors disabled:opacity-50 ${kind === "USER" ? "h-11 justify-center self-stretch px-2.5 text-xs" : "h-10 self-start px-4 text-[13.5px]"} ${
           followed
             ? "border-border bg-card text-foreground/80 hover:border-destructive/40 hover:bg-[#fbeeec] hover:text-destructive"
             : kind === "USER"

@@ -34,7 +34,6 @@ export default async function ProfileEditPage() {
   const email = profile?.email ?? session.user.email ?? null;
   const image = profile?.image ?? session.user.image ?? null;
   const cover = profile?.coverImage ?? null;
-  const coverPosition = profile?.coverPosition ?? 50;
   // Doar meseria apare în platformă — rolul principal e doar grupare la alegere (lista_meserii.md).
   const roleLabel = role.subRole ?? role.roleMain;
 
@@ -57,7 +56,6 @@ export default async function ProfileEditPage() {
         verified={role.verificationStatus === "VERIFIED"}
         image={image}
         cover={cover}
-        coverPosition={coverPosition}
       />
 
       {/* Carduri de editare. */}

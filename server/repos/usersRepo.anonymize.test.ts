@@ -96,7 +96,6 @@ it("onboarding-ul salveaza judetul odata cu profilul si rolul", async () => {
     roleMain: "EXECUTANT",
     subRole: null,
     secondaryRole: null,
-    coverPosition: 50,
   });
   expect(ok).toBe(true);
   const [row] = await db.select({ county: users.county, location: users.location }).from(users).where(eq(users.id, id));

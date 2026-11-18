@@ -31,7 +31,6 @@ export async function completeOnboarding(input: {
   website: string | null;
   avatarUrl: string | null;
   coverUrl: string | null;
-  coverPosition: number;
 }): Promise<CompleteOnboardingResult> {
   const { userId, avatarUrl, coverUrl } = input;
 
@@ -77,7 +76,6 @@ export async function completeOnboarding(input: {
     ...role.value,
     image: avatarResult?.ok ? avatarResult.url : undefined,
     coverImage: coverResult?.ok ? coverResult.url : undefined,
-    coverPosition: input.coverPosition,
   });
   if (!completed) {
     await deleteBlobs([avatarResult?.ok ? avatarResult.url : null, coverResult?.ok ? coverResult.url : null]);

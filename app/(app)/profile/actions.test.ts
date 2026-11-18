@@ -51,7 +51,6 @@ vi.mock("@/server/services/profileService", () => ({
   removeCover: vi.fn(),
   setAvatar: vi.fn(),
   setCover: vi.fn(),
-  setCoverPosition: vi.fn(),
   updateProfileDetails: vi.fn(),
 }));
 

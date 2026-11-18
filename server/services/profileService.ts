@@ -43,7 +43,6 @@ import {
   getUserProfile,
   updateSeenBadges,
   updateUserCoverImage,
-  updateUserCoverPosition,
   updateUserDetails,
   updateUserImage,
 } from "@/server/repos/usersRepo";
@@ -263,7 +262,6 @@ export const getProfileView = cache(async (
     name: profile.name ?? "Anonim",
     image: profile.image,
     coverImage: profile.coverImage,
-    coverPosition: profile.coverPosition,
     roleLabel,
     memberSince: memberSinceOf(profile.createdAt),
     location: profile.location,
@@ -363,12 +361,6 @@ export async function removeCover(userId: string): Promise<void> {
   const profile = await getUserProfile(userId);
   if (profile?.coverImage) await deleteBlobs([profile.coverImage]);
   await updateUserCoverImage(userId, null);
-}
-
-// Poziția verticală a cover-ului (0..100). Clamp pe server — frontend-ul nu e sursă de adevăr.
-export async function setCoverPosition(userId: string, position: number): Promise<void> {
-  const clamped = Math.round(Math.min(100, Math.max(0, Number.isFinite(position) ? position : 50)));
-  await updateUserCoverPosition(userId, clamped);
 }
 
 export type UpdateDetailsResult =
