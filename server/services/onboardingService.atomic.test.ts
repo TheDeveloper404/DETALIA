@@ -14,8 +14,8 @@ const { completeOnboarding } = await import("./onboardingService");
 afterAll(() => client.close());
 
 async function fixture() {
-  const [user] = await db.insert(users).values({ email: `onboarding-${crypto.randomUUID()}@test.local`, firstName: "Old", lastName: "Name", name: "Old Name", image: "https://store.test/old-avatar.webp", coverImage: "https://store.test/old-cover.webp", coverPosition: 10 }).returning();
-  const input = { userId: user.id, firstName: "New", lastName: "Name", roleMain: "EXECUTANT", subRole: "Electrician", secondaryRole: null as string | null, headline: "Profil nou", location: "Romania", county: null, company: null, website: null, avatarUrl: null, coverUrl: null, coverPosition: 50 };
+  const [user] = await db.insert(users).values({ email: `onboarding-${crypto.randomUUID()}@test.local`, firstName: "Old", lastName: "Name", name: "Old Name", image: "https://store.test/old-avatar.webp", coverImage: "https://store.test/old-cover.webp" }).returning();
+  const input = { userId: user.id, firstName: "New", lastName: "Name", roleMain: "EXECUTANT", subRole: "Electrician", secondaryRole: null as string | null, headline: "Profil nou", location: "Romania", county: null, company: null, website: null, avatarUrl: null, coverUrl: null };
   return { user, input };
 }
 async function profile(userId: string) {
@@ -79,5 +79,4 @@ it("doua finalizari aleg un singur profil si pastreaza imaginile omise", async (
   expect(saved.firstName).toBe(results[0].ok ? "First" : "Second");
   expect(saved.image).toBe(user.image);
   expect(saved.coverImage).toBe(user.coverImage);
-  expect(saved.coverPosition).toBe(user.coverPosition);
 });

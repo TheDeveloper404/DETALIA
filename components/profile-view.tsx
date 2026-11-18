@@ -71,7 +71,6 @@ export type ProfileViewData = {
   name: string;
   image: string | null;
   coverImage: string | null;
-  coverPosition: number; // object-position Y (0..100) pentru banner
   roleLabel: string; // ex: „Proiectant · Arhitect"
   memberSince: string; // ex: „august 2026" — formatat deja în service
   location: string | null;

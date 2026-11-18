@@ -65,7 +65,7 @@ test.describe("Editare profil", () => {
 });
 
 // Avatar + cover (`EditProfileHeader`) — upload real în Blob (SEC-02 reprocessBlobImage validează
-// conținutul, nu doar extensia) + persistare (saveAvatarUrl/saveCoverUrl/saveCoverPosition) + ștergere
+// conținutul, nu doar extensia) + persistare (saveAvatarUrl/saveCoverUrl) + ștergere
 // (deleteAvatar/deleteCover). Serial: toate ating ACELAȘI rând `users` (e2e-tester, refolosit de multe
 // spec-uri în paralel) — fără serial, upload și delete concurente pe același user ar da o cursă reală,
 // nu doar teoretică. `afterAll` restaurează starea inițială (null/null/50), ca alte spec-uri paralele
@@ -78,7 +78,7 @@ test.describe.serial("Avatar și cover — /profile/edit", () => {
     if (row) {
       await db
         .update(users)
-        .set({ image: null, coverImage: null, coverPosition: 50 })
+        .set({ image: null, coverImage: null })
         .where(eq(users.id, row.id));
     }
     if (uploadedBlobUrls.length > 0) await deleteBlobs(uploadedBlobUrls);
@@ -127,40 +127,6 @@ test.describe.serial("Avatar și cover — /profile/edit", () => {
       .where(eq(users.email, TEST_EMAIL));
     expect(row?.coverImage).toMatch(/^https:\/\//);
     if (row?.coverImage) uploadedBlobUrls.push(row.coverImage);
-  });
-
-  test("cover: repoziționare (drag) → poziția se salvează în DB", async ({ page }) => {
-    await page.goto("/profile/edit");
-    await expect(page.getByText("trage sus/jos pentru a repoziționa")).toBeVisible();
-
-    const [before] = await db
-      .select({ coverPosition: users.coverPosition })
-      .from(users)
-      .where(eq(users.email, TEST_EMAIL));
-
-    // Bandă de cover (bandRef) — span-ul e copil direct al ei. Drag vertical simplu, sus (poziția
-    // trebuie să se schimbe față de default-ul 50).
-    const band = page.getByText("trage sus/jos pentru a repoziționa").locator("..");
-    const box = await band.boundingBox();
-    if (!box) throw new Error("banda de cover fără bounding box");
-    const x = box.x + box.width / 2;
-    await page.mouse.move(x, box.y + box.height - 10);
-    await page.mouse.down();
-    await page.mouse.move(x, box.y + 10, { steps: 5 });
-    await page.mouse.up();
-
-    await expect
-      .poll(
-        async () => {
-          const [row] = await db
-            .select({ coverPosition: users.coverPosition })
-            .from(users)
-            .where(eq(users.email, TEST_EMAIL));
-          return row?.coverPosition ?? null;
-        },
-        { timeout: 5_000 },
-      )
-      .not.toBe(before?.coverPosition ?? 50);
   });
 
   test("cover: șterge → dispare din UI + DB", async ({ page }) => {

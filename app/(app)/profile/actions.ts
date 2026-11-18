@@ -15,7 +15,6 @@ import {
   removeCover,
   setAvatar,
   setCover,
-  setCoverPosition,
   updateProfileDetails,
 } from "@/server/services/profileService";
 
@@ -69,18 +68,6 @@ export async function deleteAvatar(): Promise<ProfileFormState> {
     return { error: "Prea multe salvări într-un timp scurt.", ok: false };
   }
   await removeAvatar(userId);
-  revalidatePath("/profile");
-  revalidatePath("/profile/edit");
-  return { error: null, ok: true };
-}
-
-// Salvează poziția verticală a cover-ului (0..100).
-export async function saveCoverPosition(position: number): Promise<ProfileFormState> {
-  const userId = await requireActiveUserId();
-  if (!(await checkLimit(limiters.mutation, userId)).ok) {
-    return { error: "Prea multe salvări într-un timp scurt.", ok: false };
-  }
-  await setCoverPosition(userId, position);
   revalidatePath("/profile");
   revalidatePath("/profile/edit");
   return { error: null, ok: true };

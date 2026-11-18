@@ -12,7 +12,7 @@ import { getRoleByUserId } from "@/server/repos/rolesRepo";
 import { completeOnboardingProfileAndRole } from "@/server/repos/usersRepo";
 import { completeOnboarding } from "./onboardingService";
 
-const input = { userId: "user", firstName: "First", lastName: "Last", roleMain: "EXECUTANT", subRole: " Electrician ", secondaryRole: null, headline: null, location: null, county: null, company: null, website: null, avatarUrl: "https://store.test/staged-avatar.png", coverUrl: null, coverPosition: 50 };
+const input = { userId: "user", firstName: "First", lastName: "Last", roleMain: "EXECUTANT", subRole: " Electrician ", secondaryRole: null, headline: null, location: null, county: null, company: null, website: null, avatarUrl: "https://store.test/staged-avatar.png", coverUrl: null };
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getRoleByUserId).mockResolvedValue(null as never);

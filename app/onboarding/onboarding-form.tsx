@@ -54,7 +54,6 @@ export function OnboardingForm() {
   const [rolAditional, setRolAditional] = useState<string>("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
-  const [coverPos, setCoverPos] = useState(50); // poziția verticală cover (0..100), ca în profile edit
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -63,8 +62,6 @@ export function OnboardingForm() {
   const avatarUrlRef = useRef<HTMLInputElement>(null);
   const coverUrlRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
-  const coverBandRef = useRef<HTMLDivElement>(null);
-  const coverDrag = useRef<{ startY: number; startPos: number } | null>(null);
 
   const subroluri = rol ? SUBROLES[rol] : [];
 
@@ -87,21 +84,6 @@ export function OnboardingForm() {
     const next = value as RoleMain | "";
     setRol(next);
     setSubrol(""); // schimbi rolul → re-alegi subrolul (fără predefinit)
-  }
-
-  // Repoziționare cover (LinkedIn-style, ca în profile edit): tragi sus/jos în bandă.
-  function onCoverPointerDown(e: React.PointerEvent) {
-    coverDrag.current = { startY: e.clientY, startPos: coverPos };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }
-  function onCoverPointerMove(e: React.PointerEvent) {
-    if (!coverDrag.current) return;
-    const h = coverBandRef.current?.offsetHeight ?? 72;
-    const delta = ((e.clientY - coverDrag.current.startY) / h) * 100;
-    setCoverPos(Math.round(Math.min(100, Math.max(0, coverDrag.current.startPos - delta))));
-  }
-  function onCoverPointerUp() {
-    coverDrag.current = null;
   }
 
   // Alege o imagine (avatar/cover): validare client (doar UX) + preview. Upload-ul efectiv în Blob
@@ -140,7 +122,6 @@ export function OnboardingForm() {
     } else {
       setCoverUrl(url);
       setCoverFile(file);
-      setCoverPos(50); // cover nou → poziție centrată implicit
       if (coverUrlRef.current) coverUrlRef.current.value = "";
     }
   }
@@ -183,7 +164,6 @@ export function OnboardingForm() {
       {/* URL-urile imaginilor (completate după upload-ul client în Blob). */}
       <input type="hidden" name="avatarUrl" ref={avatarUrlRef} />
       <input type="hidden" name="coverUrl" ref={coverUrlRef} />
-      <input type="hidden" name="coverPosition" value={coverPos} readOnly />
       {/* CARD */}
       <div
         style={{
@@ -570,57 +550,18 @@ export function OnboardingForm() {
               </label>
               {coverUrl ? (
                 <div
-                  ref={coverBandRef}
-                  onPointerDown={onCoverPointerDown}
-                  onPointerMove={onCoverPointerMove}
-                  onPointerUp={onCoverPointerUp}
                   style={{
                     position: "relative",
-                    height: 72,
                     borderRadius: "var(--radius)",
                     overflow: "hidden",
                     border: "1.5px solid var(--border)",
-                    cursor: "grab",
-                    touchAction: "none",
                   }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={coverUrl}
-                    alt=""
-                    draggable={false}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                      objectPosition: `50% ${coverPos}%`,
-                      userSelect: "none",
-                    }}
-                  />
-                  <span
-                    style={{
-                      position: "absolute",
-                      bottom: 6,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      pointerEvents: "none",
-                      fontFamily: "var(--font-plex-mono), monospace",
-                      fontSize: 10.5,
-                      color: "#fff",
-                      background: "rgba(33,29,24,0.6)",
-                      padding: "3px 9px",
-                      borderRadius: 999,
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    trage sus/jos pentru a repoziționa
-                  </span>
+                  <img src={coverUrl} alt="" style={{ display: "block", width: "100%", height: "auto" }} />
                   <button
                     type="button"
                     onClick={() => coverInputRef.current?.click()}
-                    onPointerDown={(e) => e.stopPropagation()}
                     style={{
                       position: "absolute",
                       top: 6,

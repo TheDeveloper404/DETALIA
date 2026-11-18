@@ -68,7 +68,6 @@ export async function completeOnboardingProfileAndRole(
     secondaryRole: string | null;
     image?: string;
     coverImage?: string;
-    coverPosition: number;
   },
 ): Promise<boolean> {
   const result = await db.execute<{ id: string }>(sql`
@@ -82,8 +81,7 @@ export async function completeOnboardingProfileAndRole(
     set first_name = ${fields.firstName}, last_name = ${fields.lastName}, name = ${fields.name},
         headline = ${fields.headline}, location = ${fields.location}, county = ${fields.county}, website = ${fields.website}, company = ${fields.company},
         image = coalesce(${fields.image ?? null}, ${users.image}),
-        cover_image = coalesce(${fields.coverImage ?? null}, ${users.coverImage}),
-        cover_position = case when ${fields.coverImage ?? null}::text is null then ${users.coverPosition} else ${fields.coverPosition} end
+        cover_image = coalesce(${fields.coverImage ?? null}, ${users.coverImage})
     from claimed_role
     where ${users.id} = claimed_role.user_id
     returning ${users.id}
@@ -94,11 +92,6 @@ export async function completeOnboardingProfileAndRole(
 // Setează URL-ul cover-ului după upload (best-effort, ca și avatarul).
 export async function updateUserCoverImage(userId: string, coverUrl: string | null) {
   await db.update(users).set({ coverImage: coverUrl }).where(eq(users.id, userId));
-}
-
-// Poziția verticală a cover-ului (0..100). Clamp-ul îl face service-ul/action-ul.
-export async function updateUserCoverPosition(userId: string, position: number) {
-  await db.update(users).set({ coverPosition: position }).where(eq(users.id, userId));
 }
 
 // Snapshot-ul de badge-uri VĂZUTE — scris DOAR de owner (verificat în service), la confirmarea pop-up-ului.
@@ -128,7 +121,6 @@ export async function getUserProfile(userId: string) {
       email: users.email,
       image: users.image,
       coverImage: users.coverImage,
-      coverPosition: users.coverPosition,
       headline: users.headline,
       about: users.about,
       location: users.location,
@@ -190,7 +182,6 @@ export async function getPublicProfile(userId: string) {
       name: users.name,
       image: users.image,
       coverImage: users.coverImage,
-      coverPosition: users.coverPosition,
       headline: users.headline,
       about: users.about,
       location: users.location,
@@ -335,7 +326,6 @@ export async function getUserMedia(userId: string) {
     .select({
       image: users.image,
       coverImage: users.coverImage,
-      coverPosition: users.coverPosition,
       name: users.name,
       location: users.location,
       about: users.about,

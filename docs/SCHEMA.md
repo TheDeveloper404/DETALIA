@@ -52,7 +52,6 @@ notification_type      : SKETCH_PROPOSED | SKETCH_DELETED | SUPPLIER_OFFERED | M
 | `location` / `website` | text | profil public |
 | `company` | text | firma reprezentată (opțional, auto-declarat) |
 | `cover_image` | text | copertă profil (Blob) |
-| `cover_position` | integer | default `50`; poziția verticală a coperții (object-position Y, 0..100) |
 | `phone` | text | nullable; contact opțional |
 | `phone_visible` / `email_visible` | boolean | default `false` — opt-in explicit, altfel privat inclusiv pt proprietar (2026-08-17) |
 | `seen_badges` | jsonb | default `{}` — ultimul snapshot de badge-uri VĂZUT (id→tier), pt pop-up „badge nou" |

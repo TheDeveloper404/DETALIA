@@ -44,7 +44,6 @@ const PROFILE_ROW = {
   seenBadges: {} as Record<string, string>,
   image: null,
   coverImage: null,
-  coverPosition: 50,
   headline: null,
   about: null,
   location: null,
